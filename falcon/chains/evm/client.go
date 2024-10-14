@@ -3,21 +3,28 @@ package evm
 import (
 	"math/big"
 
+	"go.uber.org/zap"
+
 	"github.com/bandprotocol/falcon/falcon/chains"
-	"github.com/bandprotocol/falcon/falcon/keys"
 )
 
 var _ chains.Client = &Client{}
 
+// Client is the struct that handles interactions with the EVM chain.
 type Client struct {
-	config *Config
-	keys   []keys.Key
+	Log      *zap.Logger
+	Config   *Config
+	KeyStore *KeyStore
+	Keys     []Key
 }
 
-func NewClient(cfg *Config, relayers []keys.Key) *Client {
+// NewClient creates a new EVM client from config file and load keys.
+func NewClient(log *zap.Logger, cfgPath string) *Client {
+	// TODO: implement this
+	_ = cfgPath
+
 	return &Client{
-		config: cfg,
-		keys:   relayers,
+		Log: log,
 	}
 }
 

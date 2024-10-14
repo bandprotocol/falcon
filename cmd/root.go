@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -55,7 +56,8 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
 		// Force syncing the logs before exit, if anything is buffered.
-		if err := app.Log.Sync(); err != nil {
+		// check error of log.Sync() https://github.com/uber-go/zap/issues/991#issuecomment-962098428
+		if err := app.Log.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
 			fmt.Fprintf(os.Stderr, "failed to sync logs: %v\n", err)
 		}
 	}
@@ -101,7 +103,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute() error {
 	cobra.EnableCommandSorting = false
 
 	rootCmd := NewRootCmd(nil)
@@ -143,9 +145,7 @@ func Execute() {
 		}
 	}()
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		panic(err)
-	}
+	return rootCmd.ExecuteContext(ctx)
 }
 
 // lineBreakCommand returns a new instance of the lineBreakCommand every time to avoid

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -20,8 +21,18 @@ func startCmd(app *falcon.App) *cobra.Command {
 $ %s start           # start relaying data from every tunnel being registered on source chain.
 $ %s start 1 12      # start relaying data from specific tunnelIDs.`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
-			return nil
+			tunnelIDs := []uint64{}
+			for _, arg := range args {
+				tunnelID, err := strconv.ParseUint(arg, 10, 64)
+				if err != nil {
+					return err
+				}
+
+				tunnelIDs = append(tunnelIDs, tunnelID)
+			}
+
+			// TODO: add context to the function so that it
+			return app.Start(cmd.Context(), tunnelIDs)
 		},
 	}
 

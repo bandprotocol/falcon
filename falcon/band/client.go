@@ -1,6 +1,10 @@
 package band
 
-import "github.com/bandprotocol/falcon/falcon/band/types"
+import (
+	"go.uber.org/zap"
+
+	"github.com/bandprotocol/falcon/falcon/band/types"
+)
 
 var _ Client = &client{}
 
@@ -16,13 +20,18 @@ type Client interface {
 	GetSigning(signingID uint64) (*types.Signing, error)
 }
 
+// client is the BandChain client struct.
 type client struct {
+	Log          *zap.Logger
 	RpcEndpoints []string
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(rpcEndpoints []string) Client {
-	return &client{RpcEndpoints: rpcEndpoints}
+func NewClient(log *zap.Logger, rpcEndpoints []string) Client {
+	return &client{
+		Log:          log,
+		RpcEndpoints: rpcEndpoints,
+	}
 }
 
 func (c *client) GetTunnelPacket(tunnelID uint64, sequence uint64) (*types.Packet, error) {
