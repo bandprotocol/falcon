@@ -20,3 +20,15 @@ type Config struct {
 	TargetChains           []TargetChainConfig `toml:"target_chains"`
 	CheckingPacketInterval time.Duration       `toml:"checking_packet_interval"`
 }
+
+// DefaultConfig returns the default configuration.
+func DefaultConfig() Config {
+	return Config{
+		BandChainConfig: band.Config{
+			RpcEndpoints: []string{"http://localhost:26657"},
+			Timeout:      5,
+		},
+		TargetChains:           []TargetChainConfig{},
+		CheckingPacketInterval: time.Minute,
+	}
+}

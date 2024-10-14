@@ -2,13 +2,22 @@ package falcon
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/falcon/band"
 	bandtypes "github.com/bandprotocol/falcon/falcon/band/types"
 	"github.com/bandprotocol/falcon/falcon/chains"
+)
+
+const (
+	configFolderName = "config"
+	configFileName   = "config.toml"
 )
 
 // App is the main application struct.
@@ -62,6 +71,48 @@ func (a *App) LoadConfigFile(ctx context.Context) error {
 
 // InitConfigFile initializes the configuration to the given path.
 func (a *App) InitConfigFile(homePath string) error {
+	cfgDir := path.Join(homePath, configFolderName)
+	cfgPath := path.Join(cfgDir, configFileName)
+
+	// check if the config file already exists
+	// https://stackoverflow.com/questions/12518876/how-to-check-if-a-file-exists-in-go
+	if _, err := os.Stat(cfgPath); err == nil {
+		return fmt.Errorf("config already exists: %s", cfgPath)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	// Create the home folder if doesn't exist
+	if _, err := os.Stat(homePath); os.IsNotExist(err) {
+		if err = os.Mkdir(homePath, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
+	// Create the config folder if doesn't exist
+	if _, err := os.Stat(cfgDir); os.IsNotExist(err) {
+		if err = os.Mkdir(cfgDir, os.ModePerm); err != nil {
+			return err
+		}
+	}
+
+	// Create the file and write the default config to the given location.
+	f, err := os.Create(cfgPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	cfg := DefaultConfig()
+	b, err := toml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
+	if _, err = f.Write(b); err != nil {
+		return err
+	}
+
 	return nil
 }
 

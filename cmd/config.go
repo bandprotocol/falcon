@@ -54,8 +54,12 @@ func configInitCmd(app *falcon.App) *cobra.Command {
 $ %s config init --home %s
 $ %s cfg i`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
-			return nil
+			home, err := cmd.Flags().GetString(flagHome)
+			if err != nil {
+				return err
+			}
+
+			return app.InitConfigFile(home)
 		},
 	}
 
