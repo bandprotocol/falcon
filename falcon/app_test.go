@@ -14,7 +14,6 @@ import (
 func TestInitConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Test InitConfig
 	app := falcon.NewApp(nil, nil, tmpDir, false, nil)
 
 	err := app.InitConfigFile(tmpDir)
@@ -39,12 +38,12 @@ func TestInitConfig(t *testing.T) {
 func TestInitExistingConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Test InitConfig
 	app := falcon.NewApp(nil, nil, tmpDir, false, nil)
 
 	err := app.InitConfigFile(tmpDir)
 	require.NoError(t, err)
 
+	// second time should fail
 	err = app.InitConfigFile(tmpDir)
 	require.ErrorContains(t, err, "config already exists:")
 }
