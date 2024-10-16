@@ -81,10 +81,10 @@ func TestShowConfig(t *testing.T) {
 	cfg := falcon.DefaultConfig()
 	app.Config = &(cfg)
 
-	// read config 
+	// read config
 	cfgContent, err := app.GetConfigFile(tmpDir)
 	require.NoError(t, err)
-	
+
 	require.Contains(t, cfgContent, "target_chains = []")
 	require.Contains(t, cfgContent, "checking_packet_interval = 60000000000")
 	require.Contains(t, cfgContent, "[bandchain]")
@@ -107,9 +107,9 @@ func TestLoadConfig(t *testing.T) {
 		rpc_endpoints = ['http://localhost:26657']
 		timeout = 7
 	`
-	
+
 	// Write the file
-	err := os.WriteFile(customCfgPath, []byte(cfg), 0644)
+	err := os.WriteFile(customCfgPath, []byte(cfg), 0o600)
 	require.NoError(t, err)
 
 	app := falcon.NewApp(nil, nil, tmpDir, false, nil)
@@ -157,7 +157,7 @@ func TestLoadWrongConfig(t *testing.T) {
 		timeout = 7
 	`
 	// Write the file
-	err := os.WriteFile(customCfgPath, []byte(cfg), 0644)
+	err := os.WriteFile(customCfgPath, []byte(cfg), 0o600)
 	require.NoError(t, err)
 
 	app := falcon.NewApp(nil, nil, tmpDir, false, nil)

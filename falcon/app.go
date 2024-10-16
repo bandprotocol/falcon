@@ -162,7 +162,7 @@ func (a *App) GetConfigFile(homePath string) (string, error) {
 		}
 		return "", fmt.Errorf("config does not exist: %s", cfgPath)
 	}
-	
+
 	out, err := toml.Marshal(a.Config)
 	if err != nil {
 		return "", err

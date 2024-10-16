@@ -24,32 +24,6 @@ func configCmd(app *falcon.App) *cobra.Command {
 	return cmd
 }
 
-// configInitCmd returns the commands that for initializing an empty config at the --home location
-func configInitCmd(app *falcon.App) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "init",
-		Aliases: []string{"i"},
-		Short:   "Create a default configuration at home directory path defined by --home",
-		Args:    withUsage(cobra.NoArgs),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config init --home %s
-$ %s cfg i`, appName, defaultHome, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flagHome)
-			if err != nil {
-				return err
-			}
-			file, err := cmd.Flags().GetString(flagFile) 
-			if err != nil {
-				return err
-			}
-			return app.InitConfigFile(home, file)
-		},
-	}
-
-	return configInitFlags(app.Viper, cmd)
-}
-
 // Command for printing current configuration
 func configShowCmd(app *falcon.App) *cobra.Command {
 	cmd := &cobra.Command{
@@ -74,4 +48,30 @@ $ %s cfg list`, appName, defaultHome, appName)),
 		},
 	}
 	return cmd
+}
+
+// configInitCmd returns the commands that for initializing an empty config at the --home location
+func configInitCmd(app *falcon.App) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "init",
+		Aliases: []string{"i"},
+		Short:   "Create a default configuration at home directory path defined by --home",
+		Args:    withUsage(cobra.NoArgs),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s config init --home %s
+$ %s cfg i`, appName, defaultHome, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, err := cmd.Flags().GetString(flagHome)
+			if err != nil {
+				return err
+			}
+			file, err := cmd.Flags().GetString(flagFile)
+			if err != nil {
+				return err
+			}
+			return app.InitConfigFile(home, file)
+		},
+	}
+
+	return configInitFlags(app.Viper, cmd)
 }

@@ -1,11 +1,13 @@
 package falcon
 
 import (
-	"time"
 	"os"
+	"time"
+
+	"github.com/pelletier/go-toml/v2"
+
 	"github.com/bandprotocol/falcon/falcon/band"
 	"github.com/bandprotocol/falcon/falcon/chains"
-	"github.com/pelletier/go-toml/v2"
 )
 
 // TargetChainConfig is the metadata of the configured target chain.
