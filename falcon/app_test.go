@@ -141,21 +141,24 @@ func TestLoadConfig(t *testing.T) {
 	require.Equal(t, expect, actual)
 }
 
-func TestLoadWrongConfig(t *testing.T) {
+func TestInvalidTypeLoadConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// custom config
 	customCfgPath := path.Join(tmpDir, "custom.toml")
+	// invalid type of value
+	invalidType := "'600000'"
 
 	// create new toml config file
-	cfg := `
+	cfg := fmt.Sprintf(`
 		target_chains = []
-		checking_packet_interval = '60000000000'
+		checking_packet_interval = %v
 	
 		[bandchain]
 		rpc_endpoints = ['http://localhost:26657']
 		timeout = 7
-	`
+	`, invalidType)
+
 	// Write the file
 	err := os.WriteFile(customCfgPath, []byte(cfg), 0o600)
 	require.NoError(t, err)
@@ -165,8 +168,43 @@ func TestLoadWrongConfig(t *testing.T) {
 	err = app.InitConfigFile(tmpDir, customCfgPath)
 
 	// should fail when try to unmarshal
-	require.ErrorContains(t, err, fmt.Sprintf("LoadConfig file %v error toml", customCfgPath))
+	require.ErrorContains(t, err, fmt.Sprintf("LoadConfig file %v error", customCfgPath))
 
 	// file should not be created
 	require.NoFileExists(t, path.Join(tmpDir, "config", "config.toml"))
 }
+
+func TestInvalidFieldLoadConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// custom config
+	customCfgPath := path.Join(tmpDir, "custom.toml")
+	// invalid field name
+	invalidField := "checking_packet_intervalsss"
+
+	// create new toml config file
+	cfg := fmt.Sprintf(`
+		target_chains = []
+		%v = 60000000000
+	
+		[bandchain]
+		rpc_endpoints = ['http://localhost:26657']
+		timeout = 7
+	`, invalidField)
+	// Write the file
+	err := os.WriteFile(customCfgPath, []byte(cfg), 0o600)
+	require.NoError(t, err)
+
+	app := falcon.NewApp(nil, nil, tmpDir, false, nil)
+
+	err = app.InitConfigFile(tmpDir, customCfgPath)
+
+
+	// should fail when try to unmarshal
+	require.ErrorContains(t, err, fmt.Sprintf("LoadConfig file %v error", customCfgPath))
+	require.ErrorContains(t, err, fmt.Sprintf("invalid field in TOML: %v", invalidField))
+
+	// file should not be created
+	require.NoFileExists(t, path.Join(tmpDir, "config", "config.toml"))
+}
+
