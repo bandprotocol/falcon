@@ -199,7 +199,6 @@ func TestInvalidFieldLoadConfig(t *testing.T) {
 
 	err = app.InitConfigFile(tmpDir, customCfgPath)
 
-
 	// should fail when try to unmarshal
 	require.ErrorContains(t, err, fmt.Sprintf("LoadConfig file %v error", customCfgPath))
 	require.ErrorContains(t, err, fmt.Sprintf("invalid field in TOML: %v", invalidField))
@@ -207,4 +206,3 @@ func TestInvalidFieldLoadConfig(t *testing.T) {
 	// file should not be created
 	require.NoFileExists(t, path.Join(tmpDir, "config", "config.toml"))
 }
-
