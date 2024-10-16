@@ -2,9 +2,10 @@ package falcon
 
 import (
 	"time"
-
+	"os"
 	"github.com/bandprotocol/falcon/falcon/band"
 	"github.com/bandprotocol/falcon/falcon/chains"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // TargetChainConfig is the metadata of the configured target chain.
@@ -31,4 +32,20 @@ func DefaultConfig() Config {
 		TargetChains:           []TargetChainConfig{},
 		CheckingPacketInterval: time.Minute,
 	}
+}
+
+func LoadConfig(file string) (Config, error) {
+	byt, err := os.ReadFile(file)
+	if err != nil {
+		return Config{}, err
+	}
+
+	// unmarshall them into struct
+	cfgWrapper := &Config{}
+	err = toml.Unmarshal(byt, cfgWrapper)
+	if err != nil {
+		return Config{}, err
+	}
+
+	return *cfgWrapper, nil
 }

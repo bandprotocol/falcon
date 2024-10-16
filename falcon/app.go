@@ -64,13 +64,39 @@ func (a *App) InitLogger(configLogLevel string) error {
 	return nil
 }
 
+func (a *App) configPath() string {
+	return path.Join(a.HomePath, "config", "config.toml")
+}
+
 // loadConfigFile reads config file into a.Config if file is present.
 func (a *App) LoadConfigFile(ctx context.Context) error {
+	cfgPath := a.configPath()
+	if _, err := os.Stat(cfgPath); err != nil {
+		// don't return error if file doesn't exist
+		return nil
+	}
+
+	// read the config file bytes
+	file, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
+
+	// unmarshall them into the struct
+	cfg := &Config{}
+	err = toml.Unmarshal(file, cfg)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling config: %w", err)
+	}
+
+	// save configuration
+	a.Config = cfg
+
 	return nil
 }
 
 // InitConfigFile initializes the configuration to the given path.
-func (a *App) InitConfigFile(homePath string) error {
+func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	cfgDir := path.Join(homePath, configFolderName)
 	cfgPath := path.Join(cfgDir, configFileName)
 
@@ -96,6 +122,18 @@ func (a *App) InitConfigFile(homePath string) error {
 		}
 	}
 
+	var cfg Config
+	var err error
+	switch {
+	case customFilePath != "":
+		cfg, err = LoadConfig(customFilePath) // Initialize with CustomConfig if file is provided
+		if err != nil {
+			return fmt.Errorf("LoadConfig file %v error %v", customFilePath, err)
+		}
+	default:
+		cfg = DefaultConfig() // Initialize with DefaultConfig if no file is provided
+	}
+
 	// Create the file and write the default config to the given location.
 	f, err := os.Create(cfgPath)
 	if err != nil {
@@ -103,7 +141,6 @@ func (a *App) InitConfigFile(homePath string) error {
 	}
 	defer f.Close()
 
-	cfg := DefaultConfig()
 	b, err := toml.Marshal(cfg)
 	if err != nil {
 		return err
@@ -114,6 +151,23 @@ func (a *App) InitConfigFile(homePath string) error {
 	}
 
 	return nil
+}
+
+// Get config file from given home path.
+func (a *App) GetConfigFile(homePath string) (string, error) {
+	cfgPath := path.Join(homePath, "config", "config.toml")
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		if _, err := os.Stat(homePath); os.IsNotExist(err) {
+			return "", fmt.Errorf("home path does not exist: %s", homePath)
+		}
+		return "", fmt.Errorf("config does not exist: %s", cfgPath)
+	}
+	
+	out, err := toml.Marshal(a.Config)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
 // Start starts the tunnel relayer program.
