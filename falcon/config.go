@@ -36,6 +36,7 @@ func DefaultConfig() *Config {
 	}
 }
 
+// Read config file from given path and return config object
 func LoadConfig(cfgPath string) (*Config, error) {
 	byt, err := os.ReadFile(cfgPath)
 	if err != nil {
@@ -43,10 +44,10 @@ func LoadConfig(cfgPath string) (*Config, error) {
 	}
 
 	// unmarshall them with Config into struct
-	cfgWrapper := &Config{}
-	err = toml.Unmarshal(byt, cfgWrapper)
+	cfg := &Config{}
+	err = toml.Unmarshal(byt, cfg)
 	if err != nil {
 		return &Config{}, err
 	}
-	return cfgWrapper, nil
+	return cfg, nil
 }

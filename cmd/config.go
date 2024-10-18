@@ -36,12 +36,11 @@ func configShowCmd(app *falcon.App) *cobra.Command {
 $ %s config show --home %s
 $ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := app.Config
-			if cfg == nil {
+			if app.Config == nil {
 				return fmt.Errorf("config does not exist: %s", app.HomePath)
 			}
 
-			b, err := toml.Marshal(cfg)
+			b, err := toml.Marshal(app.Config)
 			if err != nil {
 				return err
 			}

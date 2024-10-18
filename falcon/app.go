@@ -144,23 +144,6 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
-// Get config file from given home path.
-func (a *App) GetConfigFile(homePath string) (string, error) {
-	cfgPath := path.Join(homePath, "config", "config.toml")
-	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-		if _, err := os.Stat(homePath); os.IsNotExist(err) {
-			return "", fmt.Errorf("home path does not exist: %s", homePath)
-		}
-		return "", fmt.Errorf("config does not exist: %s", cfgPath)
-	}
-
-	out, err := toml.Marshal(a.Config)
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
-}
-
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize band client
