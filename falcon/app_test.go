@@ -22,20 +22,19 @@ func TestInitConfig(t *testing.T) {
 	err := app.InitConfigFile(tmpDir, customCfgPath)
 	require.NoError(t, err)
 
-	require.FileExists(t, path.Join(tmpDir, "config", "config.toml"))
+	cfgPath := path.Join(tmpDir, "config", "config.toml")
+	require.FileExists(t, cfgPath)
 
 	// read the file
-	b, err := os.ReadFile(path.Join(tmpDir, "config", "config.toml"))
+	actualByte, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
 
-	// unmarshal data
-	actual := &falcon.Config{}
-	err = toml.Unmarshal(b, actual)
-	require.NoError(t, err)
-
+	// marshal default config
 	expect := falcon.DefaultConfig()
+	expectBytes, err := toml.Marshal(expect)
+	require.NoError(t, err)
 
-	require.Equal(t, *expect, *actual)
+	require.Equal(t, string(expectBytes), string(actualByte))
 }
 
 func TestInitExistingConfig(t *testing.T) {
@@ -58,7 +57,9 @@ func TestInitCustomConfig(t *testing.T) {
 
 	// Create custom config file
 	cfg := `
-		target_chains = []
+		[target_chains]
+
+		[global]
 		checking_packet_interval = 60000000000
 	
 		[bandchain]
@@ -86,12 +87,14 @@ func TestInitCustomConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	expect := falcon.Config{
-		BandChainConfig: band.Config{
+		BandChain: band.Config{
 			RpcEndpoints: []string{"http://localhost:26659"},
 			Timeout:      50,
 		},
-		TargetChains:           []falcon.TargetChainConfig{},
-		CheckingPacketInterval: time.Minute,
+		TargetChains: nil,
+		Global: falcon.GlobalConfig{
+			CheckingPacketInterval: time.Minute,
+		},
 	}
 
 	require.Equal(t, expect, actual)

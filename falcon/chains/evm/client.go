@@ -13,7 +13,6 @@ var _ chains.Client = &Client{}
 // Client is the struct that handles interactions with the EVM chain.
 type Client struct {
 	Log      *zap.Logger
-	Config   *Config
 	KeyStore *KeyStore
 	Keys     []Key
 }

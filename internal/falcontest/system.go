@@ -1,4 +1,4 @@
-package falcon_test
+package falcontest
 
 import (
 	"bytes"

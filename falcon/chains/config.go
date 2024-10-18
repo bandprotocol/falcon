@@ -1,13 +1,14 @@
 package chains
 
-// ChainType defines the type of the target chain.
-type ChainType int
-
-const (
-	ChainTypeUndefined ChainType = iota
-	ChainTypeEVM
-	Cosmwasm
+import (
+	"go.uber.org/zap"
 )
 
-// Config defines the common configuration for the target chain client.
-type Config struct{}
+// ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)
+type ChainProviderConfigs map[string]ChainProviderConfig
+
+// ChainProviderConfig defines the interface for creating a chain provider object.
+type ChainProviderConfig interface {
+	NewProvider(log *zap.Logger, homePath string, debug bool) (ChainProvider, error)
+	Validate() error
+}

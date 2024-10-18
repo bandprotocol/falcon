@@ -147,7 +147,7 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize band client
-	bandClient := band.NewClient(a.Log, a.Config.BandChainConfig.RpcEndpoints)
+	bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
 
 	// TODO: initialize target chain clients
 	chainClients := make(map[string]chains.Client)
@@ -165,7 +165,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 			a.Log,
 			tunnel.ID,
 			"",
-			a.Config.CheckingPacketInterval,
+			a.Config.Global.CheckingPacketInterval,
 			bandClient,
 			chainClient,
 		)
