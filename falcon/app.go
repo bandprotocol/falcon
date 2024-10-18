@@ -64,29 +64,18 @@ func (a *App) InitLogger(configLogLevel string) error {
 	return nil
 }
 
-func (a *App) configPath() string {
-	return path.Join(a.HomePath, "config", "config.toml")
-}
-
 // loadConfigFile reads config file into a.Config if file is present.
 func (a *App) LoadConfigFile(ctx context.Context) error {
-	cfgPath := a.configPath()
+	cfgPath := path.Join(a.HomePath, configFolderName, configFileName)
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
 		return nil
 	}
 
-	// read the config file bytes
-	file, err := os.ReadFile(cfgPath)
+	// read the config from config path
+	cfg, err := LoadConfig(cfgPath)
 	if err != nil {
-		return fmt.Errorf("error reading file: %w", err)
-	}
-
-	// unmarshall them into the struct
-	cfg := &Config{}
-	err = toml.Unmarshal(file, cfg)
-	if err != nil {
-		return fmt.Errorf("error unmarshalling config: %w", err)
+		return err
 	}
 
 	// save configuration
@@ -108,6 +97,25 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 		return err
 	}
 
+	// Load config from given custom file path if exists
+	var cfg *Config
+	var err error
+	switch {
+	case customFilePath != "":
+		cfg, err = LoadConfig(customFilePath) // Initialize with CustomConfig if file is provided
+		if err != nil {
+			return fmt.Errorf("LoadConfig file %v error %v", customFilePath, err)
+		}
+	default:
+		cfg = DefaultConfig() // Initialize with DefaultConfig if no file is provided
+	}
+
+	// Marshal config object into bytes
+	b, err := toml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
 	// Create the home folder if doesn't exist
 	if _, err := os.Stat(homePath); os.IsNotExist(err) {
 		if err = os.Mkdir(homePath, os.ModePerm); err != nil {
@@ -122,29 +130,12 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 		}
 	}
 
-	var cfg Config
-	var err error
-	switch {
-	case customFilePath != "":
-		cfg, err = LoadConfig(customFilePath) // Initialize with CustomConfig if file is provided
-		if err != nil {
-			return fmt.Errorf("LoadConfig file %v error %v", customFilePath, err)
-		}
-	default:
-		cfg = DefaultConfig() // Initialize with DefaultConfig if no file is provided
-	}
-
 	// Create the file and write the default config to the given location.
 	f, err := os.Create(cfgPath)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	b, err := toml.Marshal(cfg)
-	if err != nil {
-		return err
-	}
 
 	if _, err = f.Write(b); err != nil {
 		return err

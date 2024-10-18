@@ -1,9 +1,7 @@
 package falcon
 
 import (
-	"fmt"
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
@@ -27,8 +25,8 @@ type Config struct {
 }
 
 // DefaultConfig returns the default configuration.
-func DefaultConfig() Config {
-	return Config{
+func DefaultConfig() *Config {
+	return &Config{
 		BandChainConfig: band.Config{
 			RpcEndpoints: []string{"http://localhost:26657"},
 			Timeout:      5,
@@ -38,55 +36,17 @@ func DefaultConfig() Config {
 	}
 }
 
-func LoadConfig(file string) (Config, error) {
-	byt, err := os.ReadFile(file)
+func LoadConfig(cfgPath string) (*Config, error) {
+	byt, err := os.ReadFile(cfgPath)
 	if err != nil {
-		return Config{}, err
+		return &Config{}, err
 	}
 
 	// unmarshall them with Config into struct
 	cfgWrapper := &Config{}
 	err = toml.Unmarshal(byt, cfgWrapper)
 	if err != nil {
-		return Config{}, err
+		return &Config{}, err
 	}
-
-	// unmarshall them with raw map[string] into struct
-	var rawData map[string]interface{}
-	err = toml.Unmarshal(byt, &rawData)
-	if err != nil {
-		return Config{}, err
-	}
-
-	// validate if there is invalid field in toml file
-	err = validateConfigFields(rawData, *cfgWrapper)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return *cfgWrapper, nil
-}
-
-// Function to validate invalid fields in the TOML
-func validateConfigFields(rawData map[string]interface{}, cfg Config) error {
-	// Use reflection to get the struct field names
-	expectedFields := make(map[string]bool)
-	val := reflect.ValueOf(cfg)
-	typ := val.Type()
-
-	// Build a set of expected field names from the struct tags
-	for i := 0; i < val.NumField(); i++ {
-		tag := typ.Field(i).Tag.Get("toml")
-		if tag != "" {
-			expectedFields[tag] = true
-		}
-	}
-
-	// Compare the map keys (raw TOML fields) with the expected field names
-	for field := range rawData {
-		if !expectedFields[field] {
-			return fmt.Errorf("invalid field in TOML: %s", field)
-		}
-	}
-	return nil
+	return cfgWrapper, nil
 }
