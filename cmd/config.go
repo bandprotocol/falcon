@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/falcon"
@@ -29,17 +30,25 @@ func configShowCmd(app *falcon.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show",
 		Aliases: []string{"s", "list", "l"},
-		Short:   "Display global configuration",
+		Short:   "Prints current configuration",
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config show --home %s
-$ %s cfg s`, appName, defaultHome, appName)),
+$ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			if app.Config == nil {
+				return fmt.Errorf("config does not exist: %s", app.HomePath)
+			}
+
+			b, err := toml.Marshal(app.Config)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), string(b))
 			return nil
 		},
 	}
-
 	return cmd
 }
 
@@ -54,10 +63,19 @@ func configInitCmd(app *falcon.App) *cobra.Command {
 $ %s config init --home %s
 $ %s cfg i`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
-			return nil
+			home, err := cmd.Flags().GetString(flagHome)
+			if err != nil {
+				return err
+			}
+
+			file, err := cmd.Flags().GetString(flagFile)
+			if err != nil {
+				return err
+			}
+
+			return app.InitConfigFile(home, file)
 		},
 	}
-
+	cmd.Flags().StringP(flagFile, "f", "", "fetch toml data from specified file")
 	return cmd
 }
