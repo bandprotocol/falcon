@@ -36,7 +36,7 @@ func DefaultConfig() *Config {
 	}
 }
 
-// Read config file from given path and return config object
+// LoadConfig reads config file from given path and return config object
 func LoadConfig(cfgPath string) (*Config, error) {
 	byt, err := os.ReadFile(cfgPath)
 	if err != nil {
