@@ -13,6 +13,8 @@ import (
 	"github.com/bandprotocol/falcon/falcon/band"
 	bandtypes "github.com/bandprotocol/falcon/falcon/band/types"
 	"github.com/bandprotocol/falcon/falcon/chains"
+	chainstypes "github.com/bandprotocol/falcon/falcon/chains/types"
+	"github.com/bandprotocol/falcon/falcon/types"
 )
 
 const (
@@ -142,6 +144,41 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	}
 
 	return nil
+}
+
+// QueryTunnelInfo queries the tunnel information from the bandchain and target chain if
+// that chain is specified in the configuration.
+func (a *App) QueryTunnelInfo(tunnelID uint64) (*types.Tunnel, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	// TODO: add band client part and change targetChain and targetAddr
+	// bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
+
+	targetChain := "testnet_evm"
+	targetAddr := "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+
+	var tunnelChainInfo *chainstypes.Tunnel
+	cpc, ok := a.Config.TargetChains[targetChain]
+	if ok {
+		cp, err := cpc.NewChainProvider(targetChain, a.Log, a.HomePath, a.Debug)
+		if err != nil {
+			return nil, err
+		}
+
+		tunnelChainInfo, err = cp.QueryTunnelInfo(tunnelID, targetAddr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return types.NewTunnel(
+		tunnelID,
+		targetChain,
+		targetAddr,
+		tunnelChainInfo,
+	), nil
 }
 
 // Start starts the tunnel relayer program.

@@ -38,7 +38,7 @@ type ConfigInputWrapper struct {
 func ParseChainProviderConfig(w TOMLWrapper) (chains.ChainProviderConfig, error) {
 	typeName, ok := w["chain_type"].(string)
 	if !ok {
-		return nil, fmt.Errorf("type field is required")
+		return nil, fmt.Errorf("chain_type is required")
 	}
 	chainType := chains.ToChainType(typeName)
 
@@ -50,13 +50,13 @@ func ParseChainProviderConfig(w TOMLWrapper) (chains.ChainProviderConfig, error)
 	var cfg chains.ChainProviderConfig
 	switch chainType {
 	case chains.ChainTypeEVM:
-		var newCfg evm.EVMProviderConfig
+		var newCfg evm.EVMChainProviderConfig
 		if err := toml.Unmarshal(b, &newCfg); err != nil {
 			return nil, err
 		}
 		cfg = &newCfg
 	default:
-		return cfg, fmt.Errorf("unsupported chain type: %s", chainType)
+		return cfg, fmt.Errorf("unsupported chain type: %s", typeName)
 	}
 
 	return cfg, nil

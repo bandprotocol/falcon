@@ -1,9 +1,9 @@
 package falcon_test
 
 import (
+	"os"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/falcon/band"
 	"github.com/bandprotocol/falcon/falcon/chains"
 	"github.com/bandprotocol/falcon/falcon/chains/evm"
+	"github.com/bandprotocol/falcon/internal/falcontest"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -31,87 +32,102 @@ func TestLoadConfig(t *testing.T) {
 	require.Equal(t, expect, actual)
 }
 
-func TestUnmarshalConfig(t *testing.T) {
-	// create new toml config file
-	cfgText := `
-		[global]
-		checking_packet_interval = 60000000000
-		target_chains = []
+func TestLoadConfigNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := path.Join(tmpDir, "config", "config.toml")
 
-		[bandchain]
-		rpc_endpoints = ['http://localhost:26657']
-		timeout = 7
-
-		[target_chains]
-		[target_chains.ethereum]
-		chain_type = "evm"
-		rpc_endpoints = ['http://localhost:26657']
-	`
-
-	// unmarshall them with Config into struct
-	cfgWrapper := &falcon.ConfigInputWrapper{}
-	err := toml.Unmarshal([]byte(cfgText), cfgWrapper)
-	require.NoError(t, err)
-	require.Equal(t, falcon.ConfigInputWrapper{
-		Global: falcon.GlobalConfig{CheckingPacketInterval: time.Minute},
-		BandChain: band.Config{
-			RpcEndpoints: []string{"http://localhost:26657"},
-			Timeout:      7,
-		},
-		TargetChains: map[string]falcon.TOMLWrapper{
-			"ethereum": {
-				"chain_type":    "evm",
-				"rpc_endpoints": []interface{}{"http://localhost:26657"},
-			},
-		},
-	}, *cfgWrapper)
-
-	cfg, err := falcon.ParseConfig(cfgWrapper)
-	require.NoError(t, err)
-
-	require.Equal(t, &falcon.Config{
-		Global: falcon.GlobalConfig{CheckingPacketInterval: time.Minute},
-		BandChain: band.Config{
-			RpcEndpoints: []string{"http://localhost:26657"},
-			Timeout:      7,
-		},
-		TargetChains: map[string]chains.ChainProviderConfig{
-			"ethereum": &evm.EVMProviderConfig{
-				RpcEndpoints: []string{"http://localhost:26657"},
-				ChainType:    chains.ChainTypeEVM,
-			},
-		},
-	}, cfg)
+	_, err := falcon.LoadConfig(cfgPath)
+	require.ErrorContains(t, err, "no such file or directory")
 }
 
-func TestMarshalConfig(t *testing.T) {
-	cfg := &falcon.Config{
-		Global: falcon.GlobalConfig{CheckingPacketInterval: time.Minute},
-		BandChain: band.Config{
-			RpcEndpoints: []string{"http://localhost:26657"},
-			Timeout:      7,
+func TestLoadConfigInvalidChainProviderConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := path.Join(tmpDir, "config.toml")
+
+	// create new toml config file
+	cfgText := `[target_chains.testnet]
+chain_type = 'evms'
+`
+
+	err := os.WriteFile(cfgPath, []byte(cfgText), 0o600)
+	require.NoError(t, err)
+
+	_, err = falcon.LoadConfig(cfgPath)
+	require.ErrorContains(t, err, "unsupported chain type: evms")
+}
+
+func TestParseChainProviderConfigTypeEVM(t *testing.T) {
+	w := falcon.TOMLWrapper{
+		"chain_type":    "evm",
+		"rpc_endpoints": []string{"http://localhost:8545"},
+	}
+
+	cfg, err := falcon.ParseChainProviderConfig(w)
+
+	expect := &evm.EVMChainProviderConfig{
+		BaseChainProviderConfig: chains.BaseChainProviderConfig{
+			RpcEndpoints: []string{"http://localhost:8545"},
+			ChainType:    chains.ChainTypeEVM,
 		},
-		TargetChains: map[string]chains.ChainProviderConfig{
-			"ethereum": &evm.EVMProviderConfig{
-				RpcEndpoints: []string{"http://localhost:26657"},
-				ChainType:    chains.ChainTypeEVM,
+	}
+	require.NoError(t, err)
+	require.Equal(t, expect, cfg)
+}
+
+func TestParseChainProviderConfigTypeNotFound(t *testing.T) {
+	w := falcon.TOMLWrapper{
+		"chain_type":    "evms",
+		"rpc_endpoints": []string{"http://localhost:8545"},
+	}
+
+	_, err := falcon.ParseChainProviderConfig(w)
+	require.ErrorContains(t, err, "unsupported chain type: evms")
+}
+
+func TestParseChainProviderConfigNoChainType(t *testing.T) {
+	w := falcon.TOMLWrapper{
+		"rpc_endpoints": []string{"http://localhost:8545"},
+	}
+
+	_, err := falcon.ParseChainProviderConfig(w)
+	require.ErrorContains(t, err, "chain_type is required")
+}
+
+func TestParseConfigInvalidChainProviderConfig(t *testing.T) {
+	w := &falcon.ConfigInputWrapper{
+		Global: falcon.GlobalConfig{CheckingPacketInterval: 1},
+		BandChain: band.Config{
+			RpcEndpoints: []string{"http://localhost:26657", "http://localhost:26658"},
+			Timeout:      0,
+		},
+		TargetChains: map[string]falcon.TOMLWrapper{
+			"testnet": {
+				"chain_type": "evms",
 			},
 		},
 	}
 
-	b, err := toml.Marshal(cfg)
-	expect := `[global]
-checking_packet_interval = 60000000000
+	_, err := falcon.ParseConfig(w)
+	require.ErrorContains(t, err, "unsupported chain type: evms")
+}
 
-[bandchain]
-rpc_endpoints = ['http://localhost:26657']
-timeout = 7
+func TestUnmarshalConfig(t *testing.T) {
+	// create new toml config file
+	cfgText := falcontest.CustomCfgText
 
-[target_chains]
-[target_chains.ethereum]
-rpc_endpoints = ['http://localhost:26657']
-chain_type = 'evm'
-`
+	// unmarshal them with Config into struct
+	cfgWrapper := &falcon.ConfigInputWrapper{}
+	err := toml.Unmarshal([]byte(cfgText), cfgWrapper)
 	require.NoError(t, err)
-	require.Equal(t, expect, string(b))
+
+	cfg, err := falcon.ParseConfig(cfgWrapper)
+	require.NoError(t, err)
+
+	require.Equal(t, &falcontest.CustomCfg, cfg)
+}
+
+func TestMarshalConfig(t *testing.T) {
+	b, err := toml.Marshal(falcontest.CustomCfg)
+	require.NoError(t, err)
+	require.Equal(t, falcontest.CustomCfgText, string(b))
 }

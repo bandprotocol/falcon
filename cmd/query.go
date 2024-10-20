@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,7 +37,22 @@ func queryTunnelCmd(app *falcon.App) *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query tunnel 1`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			tunnel, err := app.QueryTunnelInfo(tunnelID)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.Marshal(tunnel)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}

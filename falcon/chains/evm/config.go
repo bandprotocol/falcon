@@ -6,24 +6,26 @@ import (
 	"github.com/bandprotocol/falcon/falcon/chains"
 )
 
-var _ chains.ChainProviderConfig = &EVMProviderConfig{}
+var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
 
-// EVMProviderConfig is the configuration for the EVM chain provider.
-type EVMProviderConfig struct {
-	RpcEndpoints []string         `toml:"rpc_endpoints"`
-	ChainType    chains.ChainType `toml:"chain_type"`
+// EVMChainProviderConfig is the configuration for the EVM chain provider.
+type EVMChainProviderConfig struct {
+	chains.BaseChainProviderConfig
 }
 
 // NewProvider creates a new EVM chain provider.
-func (pc *EVMProviderConfig) NewProvider(
+func (cpc *EVMChainProviderConfig) NewChainProvider(
+	chainName string,
 	log *zap.Logger,
 	homePath string,
 	debug bool,
 ) (chains.ChainProvider, error) {
-	return EVMChainProvider{}, nil
+	client := NewClient(chainName, cpc.RpcEndpoints, log)
+
+	return NewEVMChainProvider(chainName, client, cpc, log)
 }
 
 // Validate validates the EVM chain provider configuration.
-func (pc *EVMProviderConfig) Validate() error {
+func (cpc *EVMChainProviderConfig) Validate() error {
 	return nil
 }
