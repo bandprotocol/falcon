@@ -7,6 +7,7 @@ import (
 
 var _ encoding.TextUnmarshaler = (*ChainType)(nil)
 
+// ChainType represents the type of chain.
 type ChainType int
 
 const (
