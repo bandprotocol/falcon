@@ -85,6 +85,17 @@ func TestInitCmdWithFileLongFlag(t *testing.T) {
 	require.Equal(t, falcontest.CustomCfgText, string(actualBytes))
 }
 
+func TestInitCmdInvalidFile(t *testing.T) {
+	sys := falcontest.NewSystem(t)
+
+	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
+	err := os.WriteFile(customCfgPath, []byte(`[band]][]]`), 0o600)
+	require.NoError(t, err)
+
+	res := sys.RunWithInput(t, "config", "init", "--file", customCfgPath)
+	require.ErrorContains(t, res.Err, "error toml: expected newline")
+}
+
 func TestInitCmdNoCustomFile(t *testing.T) {
 	sys := falcontest.NewSystem(t)
 
