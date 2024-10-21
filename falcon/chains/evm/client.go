@@ -42,27 +42,31 @@ func NewClient(chainName string, rpcEndpoints []string, log *zap.Logger) *client
 
 // Connect connects to the EVM chain.
 func (c *client) Connect() error {
-	executeFn := func(c *ethclient.Client) (any, error) { return nil, nil }
-	if _, err := tryExecute(c, executeFn); err != nil {
-		c.Log.Error("Failed to connect to EVM chain", zap.Error(err))
-		return fmt.Errorf("failed to connect to EVM chain")
+	res, err := getClientWithMaxHeight(c.RpcEndpoints)
+	if err != nil {
+		return err
 	}
 
+	c.SelectedEndpoint = res.Endpoint
+	c.Client = res.Client
+	c.Log.Info("Connected to EVM chain", zap.String("endpoint", c.SelectedEndpoint))
 	return nil
 }
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
 func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error) {
+	if c.Client == nil {
+		if err := c.Connect(); err != nil {
+			return nil, err
+		}
+	}
+
 	callMsg := ethereum.CallMsg{
 		To:   &gethAddr,
 		Data: data,
 	}
 
-	executeFn := func(c *ethclient.Client) ([]byte, error) {
-		return c.CallContract(ctx, callMsg, nil)
-	}
-
-	res, err := tryExecute(c, executeFn)
+	res, err := c.Client.CallContract(ctx, callMsg, nil)
 	if err != nil {
 		c.Log.Error("Failed to query EVM chain", zap.Error(err))
 		return nil, err
@@ -71,47 +75,51 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	return res, nil
 }
 
-// tryExecute tries to execute the given function with the client identified in Client object.
-// If fail to execute due to the rpc connection, it will try to connect to another rpc endpoint
-// until it succeeds or every endpoint is selected.
-//
-// Note: cannot use generic type with a method of non-generic object.
-func tryExecute[T any](c *client, executeFn func(client *ethclient.Client) (T, error)) (T, error) {
-	var res T
+// ClientConnectionResult is the struct that contains the result of connecting to the specific endpoint.
+type ClientConnectionResult struct {
+	Endpoint    string
+	Client      *ethclient.Client
+	BlockHeight uint64
+}
 
-	// try to execute with the current client
-	if c.Client != nil {
-		if res, err := executeFn(c.Client); err == nil {
-			return res, nil
+// getClientWithMaxHeight connects to the endpoint that has the highest block height.
+func getClientWithMaxHeight(rpcEndpoints []string) (ClientConnectionResult, error) {
+	ch := make(chan ClientConnectionResult, len(rpcEndpoints))
+
+	for _, endpoint := range rpcEndpoints {
+		go func(endpoint string) {
+			client, err := ethclient.Dial(endpoint)
+			if err != nil {
+				ch <- ClientConnectionResult{endpoint, nil, 0}
+				return
+			}
+
+			block, err := client.BlockByNumber(context.Background(), nil)
+			if err != nil {
+				ch <- ClientConnectionResult{endpoint, client, 0}
+				return
+			}
+
+			ch <- ClientConnectionResult{endpoint, client, block.NumberU64()}
+		}(endpoint)
+	}
+
+	var result ClientConnectionResult
+	for i := 0; i < len(rpcEndpoints); i++ {
+		r := <-ch
+		if r.Client != nil && r.BlockHeight > result.BlockHeight {
+			result = r
+			if result.Client != nil {
+				result.Client.Close()
+			}
+		} else if r.Client != nil {
+			r.Client.Close()
 		}
 	}
 
-	// if not success, try to execute with another client
-	selectedEndpoint := c.SelectedEndpoint
-	c.SelectedEndpoint = ""
-	for _, endpoint := range c.RpcEndpoints {
-		if endpoint == selectedEndpoint {
-			continue
-		}
-
-		client, err := ethclient.Dial(endpoint)
-		if err != nil {
-			c.Log.Error("Failed to connect to EVM chain", zap.Error(err))
-		}
-
-		res, err = executeFn(client)
-		// TODO: check if the error is due to the contract or not, if so, return with the error
-		// else continue to the next endpoint.
-		if err != nil {
-			c.Log.Error("Failed to execute function", zap.Error(err))
-			continue
-		}
-
-		c.Client = client
-		c.SelectedEndpoint = endpoint
-		c.Log.Info("Connected to EVM chain", zap.String("endpoint", endpoint))
-		return res, nil
+	if result.Client == nil {
+		return ClientConnectionResult{}, fmt.Errorf("failed to connect to EVM chain")
 	}
 
-	return res, fmt.Errorf("failed to execute function")
+	return result, nil
 }
