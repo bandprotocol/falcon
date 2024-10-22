@@ -1,4 +1,4 @@
-package falcontest
+package relayertest
 
 import (
 	"bytes"

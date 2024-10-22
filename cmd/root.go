@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon"
+	falcon "github.com/bandprotocol/falcon/relayer"
 )
 
 const appName = "falcon"

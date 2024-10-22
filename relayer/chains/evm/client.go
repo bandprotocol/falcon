@@ -116,13 +116,15 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	var result ClientConnectionResult
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
-		if r.Client != nil && r.BlockHeight > result.BlockHeight {
-			if result.Client != nil {
-				result.Client.Close()
+		if r.Client != nil {
+			if r.BlockHeight > result.BlockHeight {
+				if result.Client != nil {
+					result.Client.Close()
+				}
+				result = r
+			} else {
+				r.Client.Close()
 			}
-			result = r
-		} else if r.Client != nil {
-			r.Client.Close()
 		}
 	}
 

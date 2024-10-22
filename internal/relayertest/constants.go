@@ -1,13 +1,13 @@
-package falcontest
+package relayertest
 
 import (
 	_ "embed"
 	"time"
 
-	"github.com/bandprotocol/falcon/falcon"
-	"github.com/bandprotocol/falcon/falcon/band"
-	"github.com/bandprotocol/falcon/falcon/chains"
-	"github.com/bandprotocol/falcon/falcon/chains/evm"
+	falcon "github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/chains/evm"
 )
 
 //go:embed testdata/default_config.toml

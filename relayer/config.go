@@ -1,4 +1,4 @@
-package falcon
+package relayer
 
 import (
 	"fmt"
@@ -7,9 +7,9 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/bandprotocol/falcon/falcon/band"
-	"github.com/bandprotocol/falcon/falcon/chains"
-	"github.com/bandprotocol/falcon/falcon/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/chains/evm"
 )
 
 // GlobalConfig is the global configuration for the falcon tunnel relayer

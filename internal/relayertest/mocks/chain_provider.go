@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	types "github.com/bandprotocol/falcon/falcon/chains/types"
+	types "github.com/bandprotocol/falcon/relayer/chains/types"
 	gomock "go.uber.org/mock/gomock"
 )
 

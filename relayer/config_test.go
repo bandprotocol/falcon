@@ -1,4 +1,4 @@
-package falcon_test
+package relayer_test
 
 import (
 	"os"
@@ -8,11 +8,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bandprotocol/falcon/falcon"
-	"github.com/bandprotocol/falcon/falcon/band"
-	"github.com/bandprotocol/falcon/falcon/chains"
-	"github.com/bandprotocol/falcon/falcon/chains/evm"
-	"github.com/bandprotocol/falcon/internal/falcontest"
+	"github.com/bandprotocol/falcon/internal/relayertest"
+	falcon "github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/chains/evm"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -113,7 +113,7 @@ func TestParseConfigInvalidChainProviderConfig(t *testing.T) {
 
 func TestUnmarshalConfig(t *testing.T) {
 	// create new toml config file
-	cfgText := falcontest.CustomCfgText
+	cfgText := relayertest.CustomCfgText
 
 	// unmarshal them with Config into struct
 	cfgWrapper := &falcon.ConfigInputWrapper{}
@@ -123,11 +123,11 @@ func TestUnmarshalConfig(t *testing.T) {
 	cfg, err := falcon.ParseConfig(cfgWrapper)
 	require.NoError(t, err)
 
-	require.Equal(t, &falcontest.CustomCfg, cfg)
+	require.Equal(t, &relayertest.CustomCfg, cfg)
 }
 
 func TestMarshalConfig(t *testing.T) {
-	b, err := toml.Marshal(falcontest.CustomCfg)
+	b, err := toml.Marshal(relayertest.CustomCfg)
 	require.NoError(t, err)
-	require.Equal(t, falcontest.CustomCfgText, string(b))
+	require.Equal(t, relayertest.CustomCfgText, string(b))
 }

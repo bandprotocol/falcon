@@ -8,7 +8,7 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon/chains/types"
+	"github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 // EVMChainProvider is the struct that handles interactions with the EVM chain.

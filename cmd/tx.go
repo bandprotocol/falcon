@@ -6,12 +6,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bandprotocol/falcon/falcon"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 // transactionCmd returns a parent transaction command handler, where all child
 // commands can submit transactions on destination chains.
-func transactionCmd(app *falcon.App) *cobra.Command {
+func transactionCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "transact",
 		Aliases: []string{"tx"},
@@ -29,7 +29,7 @@ Make sure that chains are properly configured to relay over by using the 'falcon
 }
 
 // txRelayCmd returns a command that relays a specific message to the destination chain.
-func txRelayCmd(app *falcon.App) *cobra.Command {
+func txRelayCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay [tunnel_id] [sequence]",
 		Aliases: []string{"rly"},

@@ -1,4 +1,4 @@
-package falcon_test
+package relayer_test
 
 import (
 	"os"
@@ -11,18 +11,19 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon"
-	"github.com/bandprotocol/falcon/falcon/band"
-	"github.com/bandprotocol/falcon/falcon/chains"
-	chainstypes "github.com/bandprotocol/falcon/falcon/chains/types"
-	"github.com/bandprotocol/falcon/falcon/types"
-	"github.com/bandprotocol/falcon/internal/falcontest/mocks"
+	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
+	"github.com/bandprotocol/falcon/relayer"
+	falcon "github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 type AppTestSuite struct {
 	suite.Suite
 
-	app                 *falcon.App
+	app                 *relayer.App
 	chainProviderConfig *mocks.MockChainProviderConfig
 	chainProvider       *mocks.MockChainProvider
 }

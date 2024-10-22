@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/bandprotocol/falcon/falcon/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/chains/evm"
 )
 
 func TestHexToAddress(t *testing.T) {

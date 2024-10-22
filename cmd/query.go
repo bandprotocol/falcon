@@ -8,11 +8,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bandprotocol/falcon/falcon"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 // queryCmd represents the command for querying data from source and destination chains.
-func queryCmd(app *falcon.App) *cobra.Command {
+func queryCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "query",
 		Aliases: []string{"q"},
@@ -28,7 +28,7 @@ func queryCmd(app *falcon.App) *cobra.Command {
 }
 
 // queryTunnelCmd returns a command that query tunnel information.
-func queryTunnelCmd(app *falcon.App) *cobra.Command {
+func queryTunnelCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "tunnel [tunnel_id]",
 		Aliases: []string{"t"},
@@ -61,7 +61,7 @@ $ %s query tunnel 1`, appName)),
 }
 
 // queryBalanceCmd returns a command that query balance of the given account.
-func queryBalanceCmd(app *falcon.App) *cobra.Command {
+func queryBalanceCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "balance [chain_name] [key_name]",
 		Aliases: []string{"b"},

@@ -7,11 +7,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/bandprotocol/falcon/internal/falcontest"
+	"github.com/bandprotocol/falcon/internal/relayertest"
 )
 
 func TestShowConfigCmd(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
 	require.NoError(t, res.Err)
@@ -20,18 +20,18 @@ func TestShowConfigCmd(t *testing.T) {
 	require.NoError(t, res.Err)
 
 	actual := res.Stdout.String()
-	require.Equal(t, falcontest.DefaultCfgText+"\n", actual)
+	require.Equal(t, relayertest.DefaultCfgText+"\n", actual)
 }
 
 func TestShowConfigCmdNotInit(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "show")
 	require.ErrorContains(t, res.Err, "config does not exist:")
 }
 
 func TestInitCmdDefault(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
 	require.NoError(t, res.Err)
@@ -43,14 +43,14 @@ func TestInitCmdDefault(t *testing.T) {
 	actualBytes, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
 
-	require.Equal(t, falcontest.DefaultCfgText, string(actualBytes))
+	require.Equal(t, relayertest.DefaultCfgText, string(actualBytes))
 }
 
 func TestInitCmdWithFileShortFlag(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
-	err := os.WriteFile(customCfgPath, []byte(falcontest.CustomCfgText), 0o600)
+	err := os.WriteFile(customCfgPath, []byte(relayertest.CustomCfgText), 0o600)
 	require.NoError(t, err)
 
 	res := sys.RunWithInput(t, "config", "init", "-f", customCfgPath)
@@ -63,14 +63,14 @@ func TestInitCmdWithFileShortFlag(t *testing.T) {
 	actualBytes, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
 
-	require.Equal(t, falcontest.CustomCfgText, string(actualBytes))
+	require.Equal(t, relayertest.CustomCfgText, string(actualBytes))
 }
 
 func TestInitCmdWithFileLongFlag(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
-	err := os.WriteFile(customCfgPath, []byte(falcontest.CustomCfgText), 0o600)
+	err := os.WriteFile(customCfgPath, []byte(relayertest.CustomCfgText), 0o600)
 	require.NoError(t, err)
 
 	res := sys.RunWithInput(t, "config", "init", "--file", customCfgPath)
@@ -82,11 +82,11 @@ func TestInitCmdWithFileLongFlag(t *testing.T) {
 	actualBytes, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
 
-	require.Equal(t, falcontest.CustomCfgText, string(actualBytes))
+	require.Equal(t, relayertest.CustomCfgText, string(actualBytes))
 }
 
 func TestInitCmdInvalidFile(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
 	err := os.WriteFile(customCfgPath, []byte(`[band]][]]`), 0o600)
@@ -97,7 +97,7 @@ func TestInitCmdInvalidFile(t *testing.T) {
 }
 
 func TestInitCmdNoCustomFile(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
 	res := sys.RunWithInput(t, "config", "init", "--file", customCfgPath)
@@ -105,7 +105,7 @@ func TestInitCmdNoCustomFile(t *testing.T) {
 }
 
 func TestInitCmdAlreadyExist(t *testing.T) {
-	sys := falcontest.NewSystem(t)
+	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
 	require.NoError(t, res.Err)

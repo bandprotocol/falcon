@@ -7,11 +7,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/bandprotocol/falcon/falcon"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 // configCmd returns a command that manages global configuration file
-func configCmd(app *falcon.App) *cobra.Command {
+func configCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
 		Aliases: []string{"cfg"},
@@ -26,7 +26,7 @@ func configCmd(app *falcon.App) *cobra.Command {
 }
 
 // configShowCmd returns the commands that prints current configuration
-func configShowCmd(app *falcon.App) *cobra.Command {
+func configShowCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show",
 		Aliases: []string{"s", "list", "l"},
@@ -53,7 +53,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 }
 
 // configInitCmd returns the commands that for initializing an empty config at the --home location
-func configInitCmd(app *falcon.App) *cobra.Command {
+func configInitCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"i"},

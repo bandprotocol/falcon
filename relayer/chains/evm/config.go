@@ -3,7 +3,7 @@ package evm
 import (
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon/chains"
+	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
 var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}

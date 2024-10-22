@@ -1,4 +1,4 @@
-package falcon
+package relayer
 
 import (
 	"context"
@@ -10,11 +10,11 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon/band"
-	bandtypes "github.com/bandprotocol/falcon/falcon/band/types"
-	"github.com/bandprotocol/falcon/falcon/chains"
-	chainstypes "github.com/bandprotocol/falcon/falcon/chains/types"
-	"github.com/bandprotocol/falcon/falcon/types"
+	"github.com/bandprotocol/falcon/relayer/band"
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 const (
@@ -146,8 +146,6 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
-// QueryTunnelInfo queries the tunnel information from the bandchain and target chain if
-// that chain is specified in the configuration.
 func (a *App) QueryTunnelInfo(tunnelID uint64) (*types.Tunnel, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")

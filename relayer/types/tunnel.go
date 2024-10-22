@@ -1,6 +1,6 @@
 package types
 
-import chainstypes "github.com/bandprotocol/falcon/falcon/chains/types"
+import chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 
 // Tunnel defines the tunnel information.
 type Tunnel struct {

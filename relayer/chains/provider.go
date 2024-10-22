@@ -3,7 +3,7 @@ package chains
 import (
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon/chains/types"
+	"github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 // ChainProvider defines the interface for the chain interaction with the destination chain.
