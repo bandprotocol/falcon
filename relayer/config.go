@@ -86,7 +86,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		BandChain: band.Config{
 			RpcEndpoints: []string{"http://localhost:26657"},
-			Timeout:      5,
+			Timeout:      3 * time.Second,
 		},
 		TargetChains: make(map[string]chains.ChainProviderConfig),
 		Global: GlobalConfig{

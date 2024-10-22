@@ -4,7 +4,7 @@ checking_packet_interval = 1
 
 [bandchain]
 rpc_endpoints = ['http://localhost:26657', 'http://localhost:26658']
-timeout = 0
+timeout = 3000000000
 
 [target_chains]
 [target_chains.testnet]
