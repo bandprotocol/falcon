@@ -1,0 +1,8 @@
+[global]
+checking_packet_interval = 60000000000
+
+[bandchain]
+rpc_endpoints = ['http://localhost:26657']
+timeout = 5
+
+[target_chains]

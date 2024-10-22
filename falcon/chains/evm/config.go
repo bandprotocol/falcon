@@ -20,7 +20,7 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 	homePath string,
 	debug bool,
 ) (chains.ChainProvider, error) {
-	client := NewClient(chainName, cpc.RpcEndpoints, log)
+	client := NewClient(chainName, cpc, log)
 
 	return NewEVMChainProvider(chainName, client, cpc, log)
 }

@@ -47,7 +47,7 @@ $ %s query tunnel 1`, appName)),
 				return err
 			}
 
-			out, err := json.Marshal(tunnel)
+			out, err := json.MarshalIndent(tunnel, "", "  ")
 			if err != nil {
 				return err
 			}

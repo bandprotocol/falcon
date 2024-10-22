@@ -16,7 +16,7 @@ type TunnelRelayer struct {
 	ContractAddress        string
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
-	TargetChainClient      chains.Client
+	TargetChainProvider    chains.ChainProvider
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -26,7 +26,7 @@ func NewTunnelRelayer(
 	contractAddress string,
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,
-	targetChainClient chains.Client,
+	targetChainClient chains.ChainProvider,
 ) TunnelRelayer {
 	return TunnelRelayer{
 		Log:                    log,
@@ -34,6 +34,6 @@ func NewTunnelRelayer(
 		ContractAddress:        contractAddress,
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
-		TargetChainClient:      targetChainClient,
+		TargetChainProvider:    targetChainClient,
 	}
 }

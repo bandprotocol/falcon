@@ -58,16 +58,16 @@ chain_type = 'evms'
 
 func TestParseChainProviderConfigTypeEVM(t *testing.T) {
 	w := falcon.TOMLWrapper{
-		"chain_type":    "evm",
-		"rpc_endpoints": []string{"http://localhost:8545"},
+		"chain_type": "evm",
+		"endpoints":  []string{"http://localhost:8545"},
 	}
 
 	cfg, err := falcon.ParseChainProviderConfig(w)
 
 	expect := &evm.EVMChainProviderConfig{
 		BaseChainProviderConfig: chains.BaseChainProviderConfig{
-			RpcEndpoints: []string{"http://localhost:8545"},
-			ChainType:    chains.ChainTypeEVM,
+			Endpoints: []string{"http://localhost:8545"},
+			ChainType: chains.ChainTypeEVM,
 		},
 	}
 	require.NoError(t, err)
@@ -76,8 +76,8 @@ func TestParseChainProviderConfigTypeEVM(t *testing.T) {
 
 func TestParseChainProviderConfigTypeNotFound(t *testing.T) {
 	w := falcon.TOMLWrapper{
-		"chain_type":    "evms",
-		"rpc_endpoints": []string{"http://localhost:8545"},
+		"chain_type": "evms",
+		"endpoints":  []string{"http://localhost:8545"},
 	}
 
 	_, err := falcon.ParseChainProviderConfig(w)
@@ -86,7 +86,7 @@ func TestParseChainProviderConfigTypeNotFound(t *testing.T) {
 
 func TestParseChainProviderConfigNoChainType(t *testing.T) {
 	w := falcon.TOMLWrapper{
-		"rpc_endpoints": []string{"http://localhost:8545"},
+		"endpoints": []string{"http://localhost:8545"},
 	}
 
 	_, err := falcon.ParseChainProviderConfig(w)

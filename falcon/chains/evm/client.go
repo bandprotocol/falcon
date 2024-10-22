@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -21,7 +22,8 @@ type Client interface {
 // Client is the struct that handles interactions with the EVM chain.
 type client struct {
 	ChainName    string
-	RpcEndpoints []string
+	Endpoints    []string
+	QueryTimeout time.Duration
 	Log          *zap.Logger
 
 	SelectedEndpoint string
@@ -32,17 +34,23 @@ type client struct {
 }
 
 // NewClient creates a new EVM client from config file and load keys.
-func NewClient(chainName string, rpcEndpoints []string, log *zap.Logger) *client {
+func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *client {
 	return &client{
 		ChainName:    chainName,
-		RpcEndpoints: rpcEndpoints,
-		Log:          log,
+		Endpoints:    cfg.Endpoints,
+		QueryTimeout: cfg.QueryTimeout,
+
+		Log: log,
 	}
 }
 
 // Connect connects to the EVM chain.
 func (c *client) Connect() error {
-	res, err := getClientWithMaxHeight(c.RpcEndpoints)
+	if c.Client != nil {
+		return fmt.Errorf("already connected to EVM chain")
+	}
+
+	res, err := c.getClientWithMaxHeight()
 	if err != nil {
 		return err
 	}
@@ -55,10 +63,8 @@ func (c *client) Connect() error {
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
 func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error) {
-	if c.Client == nil {
-		if err := c.Connect(); err != nil {
-			return nil, err
-		}
+	if err := c.checkAndConnect(); err != nil {
+		return nil, err
 	}
 
 	callMsg := ethereum.CallMsg{
@@ -83,10 +89,10 @@ type ClientConnectionResult struct {
 }
 
 // getClientWithMaxHeight connects to the endpoint that has the highest block height.
-func getClientWithMaxHeight(rpcEndpoints []string) (ClientConnectionResult, error) {
-	ch := make(chan ClientConnectionResult, len(rpcEndpoints))
+func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
+	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
-	for _, endpoint := range rpcEndpoints {
+	for _, endpoint := range c.Endpoints {
 		go func(endpoint string) {
 			client, err := ethclient.Dial(endpoint)
 			if err != nil {
@@ -94,7 +100,10 @@ func getClientWithMaxHeight(rpcEndpoints []string) (ClientConnectionResult, erro
 				return
 			}
 
-			block, err := client.BlockByNumber(context.Background(), nil)
+			ctx, cancel := context.WithTimeout(context.Background(), c.QueryTimeout)
+			defer cancel()
+
+			block, err := client.BlockByNumber(ctx, nil)
 			if err != nil {
 				ch <- ClientConnectionResult{endpoint, client, 0}
 				return
@@ -105,13 +114,13 @@ func getClientWithMaxHeight(rpcEndpoints []string) (ClientConnectionResult, erro
 	}
 
 	var result ClientConnectionResult
-	for i := 0; i < len(rpcEndpoints); i++ {
+	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil && r.BlockHeight > result.BlockHeight {
-			result = r
 			if result.Client != nil {
 				result.Client.Close()
 			}
+			result = r
 		} else if r.Client != nil {
 			r.Client.Close()
 		}
@@ -122,4 +131,13 @@ func getClientWithMaxHeight(rpcEndpoints []string) (ClientConnectionResult, erro
 	}
 
 	return result, nil
+}
+
+// checkConnection checks if the client is connected to the EVM chain, if not connect it.
+func (c *client) checkAndConnect() error {
+	if c.Client != nil {
+		return nil
+	}
+
+	return c.Connect()
 }

@@ -1,15 +1,18 @@
 package chains
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 )
 
 // BaseChainProviderConfig contains common field for particular chain provider.
 type BaseChainProviderConfig struct {
-	RpcEndpoints []string  `toml:"rpc_endpoints"`
-	ChainType    ChainType `toml:"chain_type"`
-	MaxRetry     int       `toml:"max_retry"`
-	ChainID      uint64    `toml:"chain_id"`
+	Endpoints    []string      `toml:"endpoints"`
+	ChainType    ChainType     `toml:"chain_type"`
+	MaxRetry     int           `toml:"max_retry"`
+	QueryTimeout time.Duration `toml:"query_timeout"`
+	ChainID      uint64        `toml:"chain_id"`
 
 	TunnelRouterAddress string `toml:"tunnel_router_address"`
 }
