@@ -39,15 +39,14 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 		ChainName:    chainName,
 		Endpoints:    cfg.Endpoints,
 		QueryTimeout: cfg.QueryTimeout,
-
-		Log: log,
+		Log:          log,
 	}
 }
 
 // Connect connects to the EVM chain.
 func (c *client) Connect(ctx context.Context) error {
 	if c.Client != nil {
-		return fmt.Errorf("already connected to EVM chain")
+		return nil
 	}
 
 	res, err := c.getClientWithMaxHeight(ctx)
@@ -140,9 +139,5 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 
 // checkConnection checks if the client is connected to the EVM chain, if not connect it.
 func (c *client) checkAndConnect(ctx context.Context) error {
-	if c.Client != nil {
-		return nil
-	}
-
 	return c.Connect(ctx)
 }

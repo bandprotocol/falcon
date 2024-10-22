@@ -13,12 +13,10 @@ type ChainType int
 const (
 	ChainTypeUndefined ChainType = iota
 	ChainTypeEVM
-	ChainTypeCosmwasm
 )
 
 var chainTypeNameMap = map[ChainType]string{
-	ChainTypeEVM:      "evm",
-	ChainTypeCosmwasm: "cosmwasm",
+	ChainTypeEVM: "evm",
 }
 
 var nameToChainTypeMap map[string]ChainType
