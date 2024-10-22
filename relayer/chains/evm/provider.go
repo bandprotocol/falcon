@@ -16,7 +16,7 @@ var _ chains.ChainProvider = (*EVMChainProvider)(nil)
 
 // EVMChainProvider is the struct that handles interactions with the EVM chain.
 type EVMChainProvider struct {
-	Cfg *EVMChainProviderConfig
+	Config *EVMChainProviderConfig
 
 	ChainName string
 	Client    Client
@@ -46,7 +46,7 @@ func NewEVMChainProvider(
 	}
 
 	return &EVMChainProvider{
-		Cfg:                 cfg,
+		Config:              cfg,
 		ChainName:           chainName,
 		Client:              client,
 		TunnelRouterAddress: addr,
