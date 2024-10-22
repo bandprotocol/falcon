@@ -3,9 +3,10 @@ package relayer
 import (
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	"go.uber.org/zap"
 )
 
 // TunnelRelayer is a relayer that listens to the tunnel and relays the packet

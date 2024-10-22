@@ -1,6 +1,7 @@
 package chains
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,8 +21,17 @@ type BaseChainProviderConfig struct {
 // ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)
 type ChainProviderConfigs map[string]ChainProviderConfig
 
+// ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
+type ChainProviders map[string]ChainProvider
+
 // ChainProviderConfig defines the interface for creating a chain provider object.
 type ChainProviderConfig interface {
-	NewChainProvider(chainName string, log *zap.Logger, homePath string, debug bool) (ChainProvider, error)
+	NewChainProvider(
+		ctx context.Context,
+		chainName string,
+		log *zap.Logger,
+		homePath string,
+		debug bool,
+	) (ChainProvider, error)
 	Validate() error
 }

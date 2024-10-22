@@ -15,7 +15,7 @@ var _ Client = &client{}
 
 // Client is the interface that handles interactions with the EVM chain.
 type Client interface {
-	Connect() error
+	Connect(ctx context.Context) error
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 }
 
@@ -45,12 +45,12 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 }
 
 // Connect connects to the EVM chain.
-func (c *client) Connect() error {
+func (c *client) Connect(ctx context.Context) error {
 	if c.Client != nil {
 		return fmt.Errorf("already connected to EVM chain")
 	}
 
-	res, err := c.getClientWithMaxHeight()
+	res, err := c.getClientWithMaxHeight(ctx)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (c *client) Connect() error {
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
 func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error) {
-	if err := c.checkAndConnect(); err != nil {
+	if err := c.checkAndConnect(ctx); err != nil {
 		return nil, err
 	}
 
@@ -72,7 +72,10 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 		Data: data,
 	}
 
-	res, err := c.Client.CallContract(ctx, callMsg, nil)
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	res, err := c.Client.CallContract(newCtx, callMsg, nil)
 	if err != nil {
 		c.Log.Error("Failed to query EVM chain", zap.Error(err))
 		return nil, err
@@ -89,7 +92,7 @@ type ClientConnectionResult struct {
 }
 
 // getClientWithMaxHeight connects to the endpoint that has the highest block height.
-func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
+func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
 	for _, endpoint := range c.Endpoints {
@@ -100,10 +103,10 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 				return
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), c.QueryTimeout)
+			newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 			defer cancel()
 
-			block, err := client.BlockByNumber(ctx, nil)
+			block, err := client.BlockByNumber(newCtx, nil)
 			if err != nil {
 				ch <- ClientConnectionResult{endpoint, client, 0}
 				return
@@ -136,10 +139,10 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 }
 
 // checkConnection checks if the client is connected to the EVM chain, if not connect it.
-func (c *client) checkAndConnect() error {
+func (c *client) checkAndConnect(ctx context.Context) error {
 	if c.Client != nil {
 		return nil
 	}
 
-	return c.Connect()
+	return c.Connect(ctx)
 }

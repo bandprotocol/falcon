@@ -42,7 +42,7 @@ $ %s query tunnel 1`, appName)),
 				return err
 			}
 
-			tunnel, err := app.QueryTunnelInfo(tunnelID)
+			tunnel, err := app.QueryTunnelInfo(cmd.Context(), tunnelID)
 			if err != nil {
 				return err
 			}

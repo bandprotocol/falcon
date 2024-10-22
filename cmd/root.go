@@ -42,16 +42,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		if err := app.LoadConfigFile(rootCmd.Context()); err != nil {
-			return err
-		}
-
-		if app.Log == nil {
-			if err := app.InitLogger(""); err != nil {
-				return err
-			}
-		}
-		return nil
+		return app.Init(rootCmd.Context())
 	}
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {

@@ -8,8 +8,11 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
 )
+
+var _ chains.ChainProvider = (*EVMChainProvider)(nil)
 
 // EVMChainProvider is the struct that handles interactions with the EVM chain.
 type EVMChainProvider struct {
@@ -26,6 +29,7 @@ type EVMChainProvider struct {
 
 // NewEVMChainProvider creates a new EVM chain provider.
 func NewEVMChainProvider(
+	ctx context.Context,
 	chainName string,
 	client Client,
 	cfg *EVMChainProviderConfig,
@@ -43,7 +47,7 @@ func NewEVMChainProvider(
 	}
 
 	// check client connection
-	if err := client.Connect(); err != nil {
+	if err := client.Connect(ctx); err != nil {
 		return nil, err
 	}
 
@@ -58,12 +62,13 @@ func NewEVMChainProvider(
 }
 
 // Connect connects to the EVM chain.
-func (cp *EVMChainProvider) Connect() error {
-	return cp.Client.Connect()
+func (cp *EVMChainProvider) Connect(ctx context.Context) error {
+	return cp.Client.Connect(ctx)
 }
 
 // QueryTunnelInfo queries the tunnel info from the tunnel router contract.
 func (cp *EVMChainProvider) QueryTunnelInfo(
+	ctx context.Context,
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
@@ -72,7 +77,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 		return nil, err
 	}
 
-	isActive, err := cp.queryTargetContractIsActive(tunnelID, addr)
+	isActive, err := cp.queryTargetContractIsActive(ctx, tunnelID, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +90,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 }
 
 func (cp *EVMChainProvider) queryTargetContractIsActive(
+	ctx context.Context,
 	tunnelID uint64,
 	addr gethcommon.Address,
 ) (bool, error) {
@@ -93,7 +99,7 @@ func (cp *EVMChainProvider) queryTargetContractIsActive(
 		return false, err
 	}
 
-	b, err := cp.Client.Query(context.Background(), cp.TunnelRouterAddress, calldata)
+	b, err := cp.Client.Query(ctx, cp.TunnelRouterAddress, calldata)
 	if err != nil {
 		return false, err
 	}

@@ -17,7 +17,7 @@ var DefaultCfgText string
 var CustomCfgText string
 
 var CustomCfg = falcon.Config{
-	Global: falcon.GlobalConfig{CheckingPacketInterval: 1},
+	Global: falcon.GlobalConfig{CheckingPacketInterval: 1, LogLevel: "info"},
 	BandChain: band.Config{
 		RpcEndpoints: []string{"http://localhost:26657", "http://localhost:26658"},
 		Timeout:      0,

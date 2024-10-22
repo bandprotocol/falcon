@@ -1,4 +1,5 @@
 [global]
+log_level = 'info'
 checking_packet_interval = 1
 
 [bandchain]

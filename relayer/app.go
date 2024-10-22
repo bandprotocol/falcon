@@ -29,6 +29,8 @@ type App struct {
 	HomePath string
 	Debug    bool
 	Config   *Config
+
+	targetChains chains.ChainProviders
 }
 
 // NewApp creates a new App instance.
@@ -39,17 +41,43 @@ func NewApp(
 	debug bool,
 	config *Config,
 ) *App {
-	return &App{
+	app := App{
 		Log:      log,
 		Viper:    viper,
 		HomePath: homePath,
 		Debug:    debug,
 		Config:   config,
 	}
+	return &app
+}
+
+// Initialize the application.
+func (a *App) Init(ctx context.Context) error {
+	if a.Config == nil {
+		if err := a.loadConfigFile(); err != nil {
+			return err
+		}
+	}
+
+	// initialize logger, if not already initialized
+	if a.Log == nil {
+		if err := a.initLogger(""); err != nil {
+			return err
+		}
+	}
+
+	// initialize target chains
+	if err := a.initTargetChains(ctx); err != nil {
+		return err
+	}
+
+	// TODO: initialize band client
+
+	return nil
 }
 
 // InitLogger initializes the logger with the given log level.
-func (a *App) InitLogger(configLogLevel string) error {
+func (a *App) initLogger(configLogLevel string) error {
 	logLevel := a.Viper.GetString("log-level")
 	if a.Viper.GetBool("debug") {
 		logLevel = "debug"
@@ -66,8 +94,25 @@ func (a *App) InitLogger(configLogLevel string) error {
 	return nil
 }
 
+// InitTargetChains initializes the target chains.
+func (a *App) initTargetChains(ctx context.Context) error {
+	a.targetChains = make(chains.ChainProviders)
+	if a.Config == nil || a.Config.TargetChains == nil {
+		return nil
+	}
+
+	for chainName, chainConfig := range a.Config.TargetChains {
+		cp, err := chainConfig.NewChainProvider(ctx, chainName, a.Log, a.HomePath, a.Debug)
+		if err != nil {
+			return err
+		}
+		a.targetChains[chainName] = cp
+	}
+	return nil
+}
+
 // loadConfigFile reads config file into a.Config if file is present.
-func (a *App) LoadConfigFile(ctx context.Context) error {
+func (a *App) loadConfigFile() error {
 	cfgPath := path.Join(a.HomePath, configFolderName, configFileName)
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
@@ -78,6 +123,12 @@ func (a *App) LoadConfigFile(ctx context.Context) error {
 	cfg, err := LoadConfig(cfgPath)
 	if err != nil {
 		return err
+	}
+
+	if a.Log == nil {
+		if err := a.initLogger(cfg.Global.LogLevel); err != nil {
+			return err
+		}
 	}
 
 	// save configuration
@@ -146,7 +197,7 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
-func (a *App) QueryTunnelInfo(tunnelID uint64) (*types.Tunnel, error) {
+func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")
 	}
@@ -158,14 +209,10 @@ func (a *App) QueryTunnelInfo(tunnelID uint64) (*types.Tunnel, error) {
 	targetAddr := "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 
 	var tunnelChainInfo *chainstypes.Tunnel
-	cpc, ok := a.Config.TargetChains[targetChain]
+	cp, ok := a.targetChains[targetChain]
 	if ok {
-		cp, err := cpc.NewChainProvider(targetChain, a.Log, a.HomePath, a.Debug)
-		if err != nil {
-			return nil, err
-		}
-
-		tunnelChainInfo, err = cp.QueryTunnelInfo(tunnelID, targetAddr)
+		var err error
+		tunnelChainInfo, err = cp.QueryTunnelInfo(ctx, tunnelID, targetAddr)
 		if err != nil {
 			return nil, err
 		}

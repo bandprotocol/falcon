@@ -14,6 +14,7 @@ import (
 
 // GlobalConfig is the global configuration for the falcon tunnel relayer
 type GlobalConfig struct {
+	LogLevel               string        `toml:"log_level"`
 	CheckingPacketInterval time.Duration `toml:"checking_packet_interval"`
 }
 
@@ -88,7 +89,10 @@ func DefaultConfig() *Config {
 			Timeout:      5,
 		},
 		TargetChains: make(map[string]chains.ChainProviderConfig),
-		Global:       GlobalConfig{CheckingPacketInterval: time.Minute},
+		Global: GlobalConfig{
+			LogLevel:               "info",
+			CheckingPacketInterval: time.Minute,
+		},
 	}
 }
 

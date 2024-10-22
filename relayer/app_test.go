@@ -1,6 +1,7 @@
 package relayer_test
 
 import (
+	"context"
 	"os"
 	"path"
 	"testing"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
-	falcon "github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -24,6 +24,7 @@ type AppTestSuite struct {
 	suite.Suite
 
 	app                 *relayer.App
+	ctx                 context.Context
 	chainProviderConfig *mocks.MockChainProviderConfig
 	chainProvider       *mocks.MockChainProvider
 }
@@ -41,19 +42,23 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 
 	s.chainProviderConfig.EXPECT().
-		NewChainProvider("testnet_evm", log, tmpDir, false).
+		NewChainProvider(gomock.Any(), "testnet_evm", log, tmpDir, false).
 		Return(s.chainProvider, nil).
 		AnyTimes()
 
-	cfg := falcon.Config{
+	cfg := relayer.Config{
 		BandChain: band.Config{},
 		TargetChains: map[string]chains.ChainProviderConfig{
 			"testnet_evm": s.chainProviderConfig,
 		},
-		Global: falcon.GlobalConfig{},
+		Global: relayer.GlobalConfig{},
 	}
+	s.ctx = context.Background()
 
-	s.app = falcon.NewApp(log, nil, tmpDir, false, &cfg)
+	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
+
+	err = s.app.Init(s.ctx)
+	s.Require().NoError(err)
 }
 
 func TestAppTestSuite(t *testing.T) {
@@ -75,7 +80,7 @@ func (s *AppTestSuite) TestInitConfig() {
 	s.Require().NoError(err)
 
 	// marshal default config
-	expect := falcon.DefaultConfig()
+	expect := relayer.DefaultConfig()
 	expectBytes, err := toml.Marshal(expect)
 	s.Require().NoError(err)
 
@@ -123,17 +128,17 @@ func (s *AppTestSuite) TestInitCustomConfig() {
 	s.Require().NoError(err)
 
 	// unmarshal data
-	actual := falcon.Config{}
+	actual := relayer.Config{}
 	err = toml.Unmarshal(b, &actual)
 	s.Require().NoError(err)
 
-	expect := falcon.Config{
+	expect := relayer.Config{
 		BandChain: band.Config{
 			RpcEndpoints: []string{"http://localhost:26659"},
 			Timeout:      50,
 		},
 		TargetChains: nil,
-		Global: falcon.GlobalConfig{
+		Global: relayer.GlobalConfig{
 			CheckingPacketInterval: time.Minute,
 		},
 	}
@@ -145,10 +150,10 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 	tunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false)
 
 	s.chainProvider.EXPECT().
-		QueryTunnelInfo(uint64(1), "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").
+		QueryTunnelInfo(s.ctx, uint64(1), "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").
 		Return(tunnelChainInfo, nil)
 
-	tunnel, err := s.app.QueryTunnelInfo(1)
+	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
 
 	expected := types.NewTunnel(
 		1,
@@ -162,8 +167,10 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 
 func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
+	err := s.app.Init(s.ctx)
+	s.Require().NoError(err)
 
-	tunnel, err := s.app.QueryTunnelInfo(1)
+	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
 
 	expected := types.NewTunnel(
 		1,
