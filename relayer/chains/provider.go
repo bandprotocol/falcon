@@ -10,8 +10,8 @@ import (
 
 // ChainProvider defines the interface for the chain interaction with the destination chain.
 type ChainProvider interface {
-	// Connect connects to the chain.
-	Connect(ctx context.Context) error
+	// Init initialize to the chain.
+	Init(ctx context.Context) error
 
 	// QueryTunnelInfo queries the tunnel information from the destination chain.
 	QueryTunnelInfo(ctx context.Context, tunnelID uint64, tunnelDestinationAddr string) (*types.Tunnel, error)

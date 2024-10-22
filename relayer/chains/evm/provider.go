@@ -29,7 +29,6 @@ type EVMChainProvider struct {
 
 // NewEVMChainProvider creates a new EVM chain provider.
 func NewEVMChainProvider(
-	ctx context.Context,
 	chainName string,
 	client Client,
 	cfg *EVMChainProviderConfig,
@@ -46,11 +45,6 @@ func NewEVMChainProvider(
 		return nil, err
 	}
 
-	// check client connection
-	if err := client.Connect(ctx); err != nil {
-		return nil, err
-	}
-
 	return &EVMChainProvider{
 		Cfg:                 cfg,
 		ChainName:           chainName,
@@ -62,7 +56,7 @@ func NewEVMChainProvider(
 }
 
 // Connect connects to the EVM chain.
-func (cp *EVMChainProvider) Connect(ctx context.Context) error {
+func (cp *EVMChainProvider) Init(ctx context.Context) error {
 	return cp.Client.Connect(ctx)
 }
 

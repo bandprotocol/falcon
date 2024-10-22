@@ -41,18 +41,18 @@ func (m *MockChainProvider) EXPECT() *MockChainProviderMockRecorder {
 	return m.recorder
 }
 
-// Connect mocks base method.
-func (m *MockChainProvider) Connect(ctx context.Context) error {
+// Init mocks base method.
+func (m *MockChainProvider) Init(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connect", ctx)
+	ret := m.ctrl.Call(m, "Init", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Connect indicates an expected call of Connect.
-func (mr *MockChainProviderMockRecorder) Connect(ctx any) *gomock.Call {
+// Init indicates an expected call of Init.
+func (mr *MockChainProviderMockRecorder) Init(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockChainProvider)(nil).Connect), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockChainProvider)(nil).Init), ctx)
 }
 
 // QueryTunnelInfo mocks base method.

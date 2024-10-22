@@ -1,8 +1,6 @@
 package evm
 
 import (
-	"context"
-
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -17,7 +15,6 @@ type EVMChainProviderConfig struct {
 
 // NewProvider creates a new EVM chain provider.
 func (cpc *EVMChainProviderConfig) NewChainProvider(
-	ctx context.Context,
 	chainName string,
 	log *zap.Logger,
 	homePath string,
@@ -25,7 +22,7 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)
 
-	return NewEVMChainProvider(ctx, chainName, client, cpc, log)
+	return NewEVMChainProvider(chainName, client, cpc, log)
 }
 
 // Validate validates the EVM chain provider configuration.

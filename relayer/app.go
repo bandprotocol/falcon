@@ -102,8 +102,12 @@ func (a *App) initTargetChains(ctx context.Context) error {
 	}
 
 	for chainName, chainConfig := range a.Config.TargetChains {
-		cp, err := chainConfig.NewChainProvider(ctx, chainName, a.Log, a.HomePath, a.Debug)
+		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug)
 		if err != nil {
+			return err
+		}
+
+		if err := cp.Init(ctx); err != nil {
 			return err
 		}
 		a.targetChains[chainName] = cp

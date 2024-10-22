@@ -42,9 +42,11 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 
 	s.chainProviderConfig.EXPECT().
-		NewChainProvider(gomock.Any(), "testnet_evm", log, tmpDir, false).
+		NewChainProvider("testnet_evm", log, tmpDir, false).
 		Return(s.chainProvider, nil).
 		AnyTimes()
+
+	s.chainProvider.EXPECT().Init(gomock.Any()).Return(nil).AnyTimes()
 
 	cfg := relayer.Config{
 		BandChain: band.Config{},
