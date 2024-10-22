@@ -137,7 +137,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 	return result, nil
 }
 
-// checkConnection checks if the client is connected to the EVM chain, if not connect it.
+// checkAndConnect checks if the client is connected to the EVM chain, if not connect it.
 func (c *client) checkAndConnect(ctx context.Context) error {
 	return c.Connect(ctx)
 }
