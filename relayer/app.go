@@ -235,8 +235,8 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize band client
 	bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
 
-	// TODO: initialize target chain clients
-	chainProvider := make(map[string]chains.ChainProvider)
+	// TODO: initialize target chain providers
+	chainProviders := make(map[string]chains.ChainProvider)
 
 	// TODO: load the tunnel information from the bandchain.
 	// If len(tunnelIDs == 0), load all tunnels info.
@@ -245,7 +245,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize the tunnel relayer
 	tunnelRelayers := []TunnelRelayer{}
 	for _, tunnel := range tunnels {
-		chainProvider := chainProvider[tunnel.TargetChainID]
+		chainProvider := chainProviders[tunnel.TargetChainID]
 
 		tr := NewTunnelRelayer(
 			a.Log,
