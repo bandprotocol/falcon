@@ -7,11 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bandprotocol/falcon/falcon"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 // startCmd represents the start command
-func startCmd(app *falcon.App) *cobra.Command {
+func startCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start [tunnel_id...]",
 		Aliases: []string{"st"},

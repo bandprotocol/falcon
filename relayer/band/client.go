@@ -3,7 +3,7 @@ package band
 import (
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon/band/types"
+	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
 var _ Client = &client{}

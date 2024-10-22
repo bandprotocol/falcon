@@ -1,4 +1,4 @@
-package falcon
+package relayer
 
 import (
 	"context"
@@ -10,9 +10,11 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/falcon/band"
-	bandtypes "github.com/bandprotocol/falcon/falcon/band/types"
-	"github.com/bandprotocol/falcon/falcon/chains"
+	"github.com/bandprotocol/falcon/relayer/band"
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 const (
@@ -27,6 +29,8 @@ type App struct {
 	HomePath string
 	Debug    bool
 	Config   *Config
+
+	targetChains chains.ChainProviders
 }
 
 // NewApp creates a new App instance.
@@ -37,17 +41,43 @@ func NewApp(
 	debug bool,
 	config *Config,
 ) *App {
-	return &App{
+	app := App{
 		Log:      log,
 		Viper:    viper,
 		HomePath: homePath,
 		Debug:    debug,
 		Config:   config,
 	}
+	return &app
+}
+
+// Initialize the application.
+func (a *App) Init(ctx context.Context) error {
+	if a.Config == nil {
+		if err := a.loadConfigFile(); err != nil {
+			return err
+		}
+	}
+
+	// initialize logger, if not already initialized
+	if a.Log == nil {
+		if err := a.initLogger(""); err != nil {
+			return err
+		}
+	}
+
+	// initialize target chains
+	if err := a.initTargetChains(ctx); err != nil {
+		return err
+	}
+
+	// TODO: initialize band client
+
+	return nil
 }
 
 // InitLogger initializes the logger with the given log level.
-func (a *App) InitLogger(configLogLevel string) error {
+func (a *App) initLogger(configLogLevel string) error {
 	logLevel := a.Viper.GetString("log-level")
 	if a.Viper.GetBool("debug") {
 		logLevel = "debug"
@@ -64,8 +94,29 @@ func (a *App) InitLogger(configLogLevel string) error {
 	return nil
 }
 
+// InitTargetChains initializes the target chains.
+func (a *App) initTargetChains(ctx context.Context) error {
+	a.targetChains = make(chains.ChainProviders)
+	if a.Config == nil || a.Config.TargetChains == nil {
+		return nil
+	}
+
+	for chainName, chainConfig := range a.Config.TargetChains {
+		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug)
+		if err != nil {
+			return err
+		}
+
+		if err := cp.Init(ctx); err != nil {
+			return err
+		}
+		a.targetChains[chainName] = cp
+	}
+	return nil
+}
+
 // loadConfigFile reads config file into a.Config if file is present.
-func (a *App) LoadConfigFile(ctx context.Context) error {
+func (a *App) loadConfigFile() error {
 	cfgPath := path.Join(a.HomePath, configFolderName, configFileName)
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
@@ -76,6 +127,12 @@ func (a *App) LoadConfigFile(ctx context.Context) error {
 	cfg, err := LoadConfig(cfgPath)
 	if err != nil {
 		return err
+	}
+
+	if a.Log == nil {
+		if err := a.initLogger(cfg.Global.LogLevel); err != nil {
+			return err
+		}
 	}
 
 	// save configuration
@@ -144,13 +201,39 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
+func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	// TODO: add band client part and change targetChain and targetAddr
+	// bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
+
+	targetChain := "testnet_evm"
+	targetAddr := "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+
+	var tunnelChainInfo *chainstypes.Tunnel
+	cp, ok := a.targetChains[targetChain]
+	if ok {
+		var err error
+		tunnelChainInfo, err = cp.QueryTunnelInfo(ctx, tunnelID, targetAddr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return types.NewTunnel(
+		tunnelID,
+		targetChain,
+		targetAddr,
+		tunnelChainInfo,
+	), nil
+}
+
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize band client
-	bandClient := band.NewClient(a.Log, a.Config.BandChainConfig.RpcEndpoints)
-
-	// TODO: initialize target chain clients
-	chainClients := make(map[string]chains.Client)
+	bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
 
 	// TODO: load the tunnel information from the bandchain.
 	// If len(tunnelIDs == 0), load all tunnels info.
@@ -159,15 +242,18 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize the tunnel relayer
 	tunnelRelayers := []TunnelRelayer{}
 	for _, tunnel := range tunnels {
-		chainClient := chainClients[tunnel.TargetChainID]
+		chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+		if !ok {
+			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
+		}
 
 		tr := NewTunnelRelayer(
 			a.Log,
 			tunnel.ID,
 			"",
-			a.Config.CheckingPacketInterval,
+			a.Config.Global.CheckingPacketInterval,
 			bandClient,
-			chainClient,
+			chainProvider,
 		)
 		tunnelRelayers = append(tunnelRelayers, tr)
 	}

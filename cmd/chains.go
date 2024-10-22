@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bandprotocol/falcon/falcon"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 // chainsCmd returns a command that manages chain configurations.
-func chainsCmd(app *falcon.App) *cobra.Command {
+func chainsCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "chains",
 		Aliases: []string{"ch"},
@@ -30,7 +30,7 @@ func chainsCmd(app *falcon.App) *cobra.Command {
 // chainsListCmd returns a command that lists all chains that are currently configured.
 // NOTE: this command only show the list of registered chainIDs, to see the configuration
 // please see `chains show`.
-func chainsListCmd(app *falcon.App) *cobra.Command {
+func chainsListCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"l"},
@@ -49,7 +49,7 @@ $ %s ch l`, appName, appName)),
 }
 
 // chainsShowCmd returns a command that shows a chain's configuration data.
-func chainsShowCmd(app *falcon.App) *cobra.Command {
+func chainsShowCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [chain_name]",
 		Aliases: []string{"s"},
@@ -68,7 +68,7 @@ $ %s chains show eth --yaml`, appName, appName)),
 }
 
 // chainsAddCmd returns a command that adds a new chain configuration.
-func chainsAddCmd(app *falcon.App) *cobra.Command {
+func chainsAddCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add [chain_type] [chain_name]",
 		Aliases: []string{"a"},
@@ -87,7 +87,7 @@ $ %s chains add evm eth --file chains/eth.toml`, appName, appName)),
 }
 
 // chainsDeleteCmd returns a command that deletes a chain configuration.
-func chainsDeleteCmd(app *falcon.App) *cobra.Command {
+func chainsDeleteCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete [chain_name]",
 		Aliases: []string{"d"},

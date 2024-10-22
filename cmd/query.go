@@ -1,16 +1,18 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/bandprotocol/falcon/falcon"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 // queryCmd represents the command for querying data from source and destination chains.
-func queryCmd(app *falcon.App) *cobra.Command {
+func queryCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "query",
 		Aliases: []string{"q"},
@@ -26,7 +28,7 @@ func queryCmd(app *falcon.App) *cobra.Command {
 }
 
 // queryTunnelCmd returns a command that query tunnel information.
-func queryTunnelCmd(app *falcon.App) *cobra.Command {
+func queryTunnelCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "tunnel [tunnel_id]",
 		Aliases: []string{"t"},
@@ -35,7 +37,22 @@ func queryTunnelCmd(app *falcon.App) *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query tunnel 1`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			tunnel, err := app.QueryTunnelInfo(cmd.Context(), tunnelID)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.MarshalIndent(tunnel, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
@@ -44,7 +61,7 @@ $ %s query tunnel 1`, appName)),
 }
 
 // queryBalanceCmd returns a command that query balance of the given account.
-func queryBalanceCmd(app *falcon.App) *cobra.Command {
+func queryBalanceCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "balance [chain_name] [key_name]",
 		Aliases: []string{"b"},

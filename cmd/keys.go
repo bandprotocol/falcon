@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bandprotocol/falcon/falcon"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 // keysCmd represents the keys command
-func keysCmd(app *falcon.App) *cobra.Command {
+func keysCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "keys",
 		Aliases: []string{"k"},
@@ -29,7 +29,7 @@ func keysCmd(app *falcon.App) *cobra.Command {
 }
 
 // keysAddCmd returns a command that adds a key to the keychain.
-func keysAddCmd(app *falcon.App) *cobra.Command {
+func keysAddCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add [chain_name] [key_name]",
 		Aliases: []string{"a"},
@@ -48,7 +48,7 @@ $ %s k a eth test-key`, appName, appName)),
 }
 
 // keysDeleteCmd returns a command that delete the key from the keychain.
-func keysDeleteCmd(app *falcon.App) *cobra.Command {
+func keysDeleteCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete [chain_name] [key_name]",
 		Aliases: []string{"d"},
@@ -67,7 +67,7 @@ $ %s keys delete eth test-key`, appName, appName)),
 }
 
 // keysListCmd returns a command that list keys associated with a particular chain from the keychain.
-func keysListCmd(app *falcon.App) *cobra.Command {
+func keysListCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [chain_name]",
 		Aliases: []string{"l"},
@@ -86,7 +86,7 @@ $ %s k l eth`, appName, appName)),
 }
 
 // keysExportCmd returns a command that export the private key from the keychain.
-func keysExportCmd(app *falcon.App) *cobra.Command {
+func keysExportCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "export [chain_name] [key_name]",
 		Aliases: []string{"e"},
@@ -105,7 +105,7 @@ $ %s k e eth test-key`, appName, appName)),
 }
 
 // keysShowCmd a command that show the key information.
-func keysShowCmd(app *falcon.App) *cobra.Command {
+func keysShowCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [chain_name] [key_name]",
 		Aliases: []string{"s"},
