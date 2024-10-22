@@ -26,11 +26,11 @@ type client struct {
 	QueryTimeout time.Duration
 	Log          *zap.Logger
 
-	SelectedEndpoint string
-	Client           *ethclient.Client
+	selectedEndpoint string
+	client           *ethclient.Client
 
-	KeyStore *KeyStore
-	Keys     []Key
+	keyStore *KeyStore
+	keys     []Key
 }
 
 // NewClient creates a new EVM client from config file and load keys.
@@ -45,7 +45,7 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 
 // Connect connects to the EVM chain.
 func (c *client) Connect(ctx context.Context) error {
-	if c.Client != nil {
+	if c.client != nil {
 		return nil
 	}
 
@@ -54,9 +54,9 @@ func (c *client) Connect(ctx context.Context) error {
 		return err
 	}
 
-	c.SelectedEndpoint = res.Endpoint
-	c.Client = res.Client
-	c.Log.Info("Connected to EVM chain", zap.String("endpoint", c.SelectedEndpoint))
+	c.selectedEndpoint = res.Endpoint
+	c.client = res.Client
+	c.Log.Info("Connected to EVM chain", zap.String("endpoint", c.selectedEndpoint))
 	return nil
 }
 
@@ -74,7 +74,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	res, err := c.Client.CallContract(newCtx, callMsg, nil)
+	res, err := c.client.CallContract(newCtx, callMsg, nil)
 	if err != nil {
 		c.Log.Error("Failed to query EVM chain", zap.Error(err))
 		return nil, err
