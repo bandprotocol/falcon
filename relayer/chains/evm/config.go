@@ -10,7 +10,7 @@ var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
 
 // EVMChainProviderConfig is the configuration for the EVM chain provider.
 type EVMChainProviderConfig struct {
-	chains.BaseChainProviderConfig
+	chains.BaseChainProviderConfig `mapstructure:",squash"`
 }
 
 // NewProvider creates a new EVM chain provider.

@@ -31,7 +31,6 @@ $ %s start 1 12      # start relaying data from specific tunnelIDs.`, appName, a
 				tunnelIDs = append(tunnelIDs, tunnelID)
 			}
 
-			// TODO: add context to the function so that it
 			return app.Start(cmd.Context(), tunnelIDs)
 		},
 	}

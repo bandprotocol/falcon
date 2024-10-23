@@ -85,6 +85,25 @@ func TestInitCmdWithFileLongFlag(t *testing.T) {
 	require.Equal(t, relayertest.CustomCfgText, string(actualBytes))
 }
 
+func TestInitCmdWithFileTimeString(t *testing.T) {
+	sys := relayertest.NewSystem(t)
+
+	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
+	err := os.WriteFile(customCfgPath, []byte(relayertest.CustomCfgTextWithTimeStr), 0o600)
+	require.NoError(t, err)
+
+	res := sys.RunWithInput(t, "config", "init", "--file", customCfgPath)
+	require.NoError(t, res.Err)
+
+	cfgPath := path.Join(sys.HomeDir, "config", "config.toml")
+	require.FileExists(t, cfgPath)
+
+	actualBytes, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+
+	require.Equal(t, relayertest.CustomCfgText, string(actualBytes))
+}
+
 func TestInitCmdInvalidFile(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 

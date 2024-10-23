@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bandprotocol/falcon/internal/relayertest"
-	falcon "github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
@@ -20,15 +20,15 @@ func TestLoadConfig(t *testing.T) {
 	customConfigPath := ""
 	cfgPath := path.Join(tmpDir, "config", "config.toml")
 
-	app := falcon.NewApp(nil, nil, tmpDir, false, nil)
+	app := relayer.NewApp(nil, nil, tmpDir, false, nil)
 
 	// Prepare config before test
 	err := app.InitConfigFile(tmpDir, customConfigPath)
 	require.NoError(t, err)
 
-	actual, err := falcon.LoadConfig(cfgPath)
+	actual, err := relayer.LoadConfig(cfgPath)
 	require.NoError(t, err)
-	expect := falcon.DefaultConfig()
+	expect := relayer.DefaultConfig()
 	require.Equal(t, expect, actual)
 }
 
@@ -36,7 +36,7 @@ func TestLoadConfigNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfgPath := path.Join(tmpDir, "config", "config.toml")
 
-	_, err := falcon.LoadConfig(cfgPath)
+	_, err := relayer.LoadConfig(cfgPath)
 	require.ErrorContains(t, err, "no such file or directory")
 }
 
@@ -52,17 +52,17 @@ chain_type = 'evms'
 	err := os.WriteFile(cfgPath, []byte(cfgText), 0o600)
 	require.NoError(t, err)
 
-	_, err = falcon.LoadConfig(cfgPath)
+	_, err = relayer.LoadConfig(cfgPath)
 	require.ErrorContains(t, err, "unsupported chain type: evms")
 }
 
 func TestParseChainProviderConfigTypeEVM(t *testing.T) {
-	w := falcon.TOMLWrapper{
+	w := relayer.ChainProviderConfigWrapper{
 		"chain_type": "evm",
 		"endpoints":  []string{"http://localhost:8545"},
 	}
 
-	cfg, err := falcon.ParseChainProviderConfig(w)
+	cfg, err := relayer.ParseChainProviderConfig(w)
 
 	expect := &evm.EVMChainProviderConfig{
 		BaseChainProviderConfig: chains.BaseChainProviderConfig{
@@ -75,39 +75,39 @@ func TestParseChainProviderConfigTypeEVM(t *testing.T) {
 }
 
 func TestParseChainProviderConfigTypeNotFound(t *testing.T) {
-	w := falcon.TOMLWrapper{
+	w := relayer.ChainProviderConfigWrapper{
 		"chain_type": "evms",
 		"endpoints":  []string{"http://localhost:8545"},
 	}
 
-	_, err := falcon.ParseChainProviderConfig(w)
+	_, err := relayer.ParseChainProviderConfig(w)
 	require.ErrorContains(t, err, "unsupported chain type: evms")
 }
 
 func TestParseChainProviderConfigNoChainType(t *testing.T) {
-	w := falcon.TOMLWrapper{
+	w := relayer.ChainProviderConfigWrapper{
 		"endpoints": []string{"http://localhost:8545"},
 	}
 
-	_, err := falcon.ParseChainProviderConfig(w)
+	_, err := relayer.ParseChainProviderConfig(w)
 	require.ErrorContains(t, err, "chain_type is required")
 }
 
 func TestParseConfigInvalidChainProviderConfig(t *testing.T) {
-	w := &falcon.ConfigInputWrapper{
-		Global: falcon.GlobalConfig{CheckingPacketInterval: 1},
+	w := &relayer.ConfigInputWrapper{
+		Global: relayer.GlobalConfig{CheckingPacketInterval: 1},
 		BandChain: band.Config{
 			RpcEndpoints: []string{"http://localhost:26657", "http://localhost:26658"},
 			Timeout:      0,
 		},
-		TargetChains: map[string]falcon.TOMLWrapper{
+		TargetChains: map[string]relayer.ChainProviderConfigWrapper{
 			"testnet": {
 				"chain_type": "evms",
 			},
 		},
 	}
 
-	_, err := falcon.ParseConfig(w)
+	_, err := relayer.ParseConfig(w)
 	require.ErrorContains(t, err, "unsupported chain type: evms")
 }
 
@@ -116,11 +116,11 @@ func TestUnmarshalConfig(t *testing.T) {
 	cfgText := relayertest.CustomCfgText
 
 	// unmarshal them with Config into struct
-	cfgWrapper := &falcon.ConfigInputWrapper{}
-	err := toml.Unmarshal([]byte(cfgText), cfgWrapper)
+	var cfgWrapper relayer.ConfigInputWrapper
+	err := relayer.DecodeConfigInputWrapperTOML([]byte(cfgText), &cfgWrapper)
 	require.NoError(t, err)
 
-	cfg, err := falcon.ParseConfig(cfgWrapper)
+	cfg, err := relayer.ParseConfig(&cfgWrapper)
 	require.NoError(t, err)
 
 	require.Equal(t, &relayertest.CustomCfg, cfg)

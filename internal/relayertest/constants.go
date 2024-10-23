@@ -16,6 +16,9 @@ var DefaultCfgText string
 //go:embed testdata/custom_config.toml
 var CustomCfgText string
 
+//go:embed testdata/custom_config_with_time_str.toml
+var CustomCfgTextWithTimeStr string
+
 var CustomCfg = falcon.Config{
 	Global: falcon.GlobalConfig{CheckingPacketInterval: 1, LogLevel: "info"},
 	BandChain: band.Config{
