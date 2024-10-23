@@ -56,7 +56,6 @@ func DecodeChainTypeHook(from reflect.Type, to reflect.Type, data interface{}) (
 		return data, fmt.Errorf("expected string, got %T", data)
 	}
 
-	fmt.Println("chainTypeStr", chainTypeStr, ToChainType(chainTypeStr))
 	return ToChainType(chainTypeStr), nil
 }
 
