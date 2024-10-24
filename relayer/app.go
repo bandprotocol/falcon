@@ -31,6 +31,7 @@ type App struct {
 	Config   *Config
 
 	targetChains chains.ChainProviders
+	Client       band.Client
 }
 
 // NewApp creates a new App instance.
@@ -71,8 +72,23 @@ func (a *App) Init(ctx context.Context) error {
 		return err
 	}
 
-	// TODO: initialize band client
+	// initialize band client
+	if a.Config != nil {
+		if err := a.initClient(); err != nil {
+			return err
+		}
+	}
 
+	return nil
+}
+
+// InitClient establishs connection to rpc endpoints.
+func (a *App) initClient() error {
+	c := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
+	if err := c.Connect(); err != nil {
+		return err
+	}
+	a.Client = c
 	return nil
 }
 
@@ -206,11 +222,14 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	// TODO: add band client part and change targetChain and targetAddr
-	// bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
+	c := a.Client
+	tunnel, err := c.GetTunnel(ctx, tunnelID)
+	if err != nil {
+		return nil, err
+	}
 
-	targetChain := "testnet_evm"
-	targetAddr := "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+	targetChain := tunnel.TargetChainID
+	targetAddr := tunnel.TargetAddress
 
 	var tunnelChainInfo *chainstypes.Tunnel
 	cp, ok := a.targetChains[targetChain]

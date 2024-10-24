@@ -15,6 +15,7 @@ import (
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/types"
@@ -27,6 +28,7 @@ type AppTestSuite struct {
 	ctx                 context.Context
 	chainProviderConfig *mocks.MockChainProviderConfig
 	chainProvider       *mocks.MockChainProvider
+	client              *mocks.MockClient
 }
 
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
@@ -40,6 +42,7 @@ func (s *AppTestSuite) SetupTest() {
 	// mock objects.
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
+	s.client = mocks.NewMockClient(ctrl)
 
 	s.chainProviderConfig.EXPECT().
 		NewChainProvider("testnet_evm", log, tmpDir, false).
@@ -60,6 +63,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
 
 	err = s.app.Init(s.ctx)
+	s.app.Client = s.client
 	s.Require().NoError(err)
 }
 
@@ -149,7 +153,12 @@ func (s *AppTestSuite) TestInitCustomConfig() {
 }
 
 func (s *AppTestSuite) TestQueryTunnelInfo() {
+	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm")
 	tunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false)
+
+	s.client.EXPECT().
+		GetTunnel(s.ctx, uint64(1)).
+		Return(tunnelBandInfo, nil)
 
 	s.chainProvider.EXPECT().
 		QueryTunnelInfo(s.ctx, uint64(1), "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").
@@ -170,10 +179,16 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
 	err := s.app.Init(s.ctx)
+
+	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm")
+	s.client.EXPECT().
+		GetTunnel(s.ctx, uint64(1)).
+		Return(tunnelBandInfo, nil)
+	s.app.Client = s.client
+
 	s.Require().NoError(err)
 
 	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
-
 	expected := types.NewTunnel(
 		1,
 		"testnet_evm",

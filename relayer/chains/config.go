@@ -17,7 +17,7 @@ type BaseChainProviderConfig struct {
 	TunnelRouterAddress string `toml:"tunnel_router_address"`
 }
 
-// ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)
+// ChainProviderConfigs is  collection of ChainProviderConfig interfaces (mapped by chainName)
 type ChainProviderConfigs map[string]ChainProviderConfig
 
 // ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
