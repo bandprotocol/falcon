@@ -16,15 +16,17 @@ var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
 type EVMChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	PrivateKey        string        `mapstructure:"private_key"         toml:"private_key"`
-	BlockConfirmation uint64        `mapstructure:"block_confirmation"  toml:"block_confirmation"`
-	WaitingTxDuration time.Duration `mapstructure:"waiting_tx_duration" toml:"waiting_tx_duration"`
-	GasLimit          uint64        `mapstructure:"gas_limit"           toml:"gas_limit,omitempty"`
+	PrivateKey         string        `mapstructure:"private_key"          toml:"private_key"`
+	BlockConfirmation  uint64        `mapstructure:"block_confirmation"   toml:"block_confirmation"`
+	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration"  toml:"waiting_tx_duration"`
+	CheckingTxInterval time.Duration `mapstructure:"checking_tx_interval" toml:"checking_tx_interval"`
+	GasLimit           uint64        `mapstructure:"gas_limit"            toml:"gas_limit,omitempty"`
 
 	GasType           gas.GasType         `mapstructure:"gas_type"            toml:"gas_type"`
 	GasPrice          uint64              `mapstructure:"gas_price"           toml:"gas_price,omitempty"`
 	MaxBaseFee        uint64              `mapstructure:"max_base_fee"        toml:"max_base_fee,omitempty"`
 	MaxPriorityFee    uint64              `mapstructure:"max_priority_fee"    toml:"max_priority_fee,omitempty"`
+	GasMultiplier     float64             `mapstructure:"gas_multiplier"      toml:"gas_multiplier"`
 	DataSourceConfigs []datasource.Config `mapstructure:"data_source_configs" toml:"data_source_configs,omitempty"`
 	QueryGasTimeout   time.Duration       `mapstructure:"query_gas_timeout"   toml:"query_gas_timeout,omitempty"`
 }

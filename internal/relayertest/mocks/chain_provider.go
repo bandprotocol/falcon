@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	types "github.com/bandprotocol/falcon/relayer/chains/types"
+	types0 "github.com/bandprotocol/falcon/relayer/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -68,4 +69,18 @@ func (m *MockChainProvider) QueryTunnelInfo(ctx context.Context, tunnelID uint64
 func (mr *MockChainProviderMockRecorder) QueryTunnelInfo(ctx, tunnelID, tunnelDestinationAddr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryTunnelInfo", reflect.TypeOf((*MockChainProvider)(nil).QueryTunnelInfo), ctx, tunnelID, tunnelDestinationAddr)
+}
+
+// RelayPacket mocks base method.
+func (m *MockChainProvider) RelayPacket(ctx context.Context, input *types0.RelayerTask) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RelayPacket", ctx, input)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RelayPacket indicates an expected call of RelayPacket.
+func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, input)
 }

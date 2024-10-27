@@ -5,7 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/relayer/chains/types"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 // ChainProvider defines the interface for the chain interaction with the destination chain.
@@ -14,7 +15,14 @@ type ChainProvider interface {
 	Init(ctx context.Context) error
 
 	// QueryTunnelInfo queries the tunnel information from the destination chain.
-	QueryTunnelInfo(ctx context.Context, tunnelID uint64, tunnelDestinationAddr string) (*types.Tunnel, error)
+	QueryTunnelInfo(
+		ctx context.Context,
+		tunnelID uint64,
+		tunnelDestinationAddr string,
+	) (*chainstypes.Tunnel, error)
+
+	// RelayPacket relays the packet from the source chain to the destination chain.
+	RelayPacket(ctx context.Context, task *types.RelayerTask) error
 }
 
 // BaseChainProvider is a base object for connecting with the chain network.

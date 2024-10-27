@@ -1,0 +1,25 @@
+[
+  {
+    "type": "function",
+    "name": "isActive",
+    "inputs": [
+      { "name": "tunnelID", "type": "uint64", "internalType": "uint64" },
+      { "name": "targetAddr", "type": "address", "internalType": "address" }
+    ],
+    "outputs": [
+      { "name": "is_active", "type": "bool", "internalType": "bool" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "relay",
+    "inputs": [
+      { "name": "message", "type": "bytes", "internalType": "bytes" },
+      { "name": "rAddr", "type": "address", "internalType": "address" },
+      { "name": "signature", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+]

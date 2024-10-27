@@ -98,16 +98,25 @@ func (a *App) initLogger(configLogLevel string) error {
 func (a *App) initTargetChains(ctx context.Context) error {
 	a.targetChains = make(chains.ChainProviders)
 	if a.Config == nil || a.Config.TargetChains == nil {
+		a.Log.Error("target chains not found in config")
 		return nil
 	}
 
 	for chainName, chainConfig := range a.Config.TargetChains {
 		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug)
 		if err != nil {
+			a.Log.Error("cannot create chain provider",
+				zap.Error(err),
+				zap.String("chain_name", chainName),
+			)
 			return err
 		}
 
 		if err := cp.Init(ctx); err != nil {
+			a.Log.Error("cannot initialize chain provider",
+				zap.Error(err),
+				zap.String("chain_name", chainName),
+			)
 			return err
 		}
 		a.targetChains[chainName] = cp
@@ -232,12 +241,21 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
+	a.Log.Info("starting tunnel relayer")
+
 	// initialize band client
 	bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
 
 	// TODO: load the tunnel information from the bandchain.
 	// If len(tunnelIDs == 0), load all tunnels info.
-	tunnels := []*bandtypes.Tunnel{}
+	tunnels := []*bandtypes.Tunnel{
+		{
+			ID:             1,
+			LatestSequence: 0,
+			TargetChainID:  "testnet_evm",
+			TargetAddress:  "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+		},
+	}
 
 	// initialize the tunnel relayer
 	tunnelRelayers := []TunnelRelayer{}
@@ -250,7 +268,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		tr := NewTunnelRelayer(
 			a.Log,
 			tunnel.ID,
-			"",
+			tunnel.TargetAddress,
 			a.Config.Global.CheckingPacketInterval,
 			bandClient,
 			chainProvider,

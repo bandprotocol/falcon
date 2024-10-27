@@ -16,6 +16,7 @@ func newRootLogger(format string, logLevel string) (*zap.Logger, error) {
 		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
 	}
 	config.LevelKey = "lvl"
+	config.EncodeLevel = zapcore.CapitalColorLevelEncoder
 
 	var enc zapcore.Encoder
 	switch format {
@@ -42,5 +43,11 @@ func newRootLogger(format string, logLevel string) (*zap.Logger, error) {
 	case "fatal":
 		level = zapcore.FatalLevel
 	}
-	return zap.New(zapcore.NewCore(enc, os.Stderr, level)), nil
+
+	logger := zap.New(zapcore.NewCore(enc, os.Stderr, level))
+	if logLevel == "debug" {
+		logger = logger.WithOptions(zap.AddCaller())
+	}
+
+	return logger, nil
 }
