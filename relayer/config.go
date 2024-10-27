@@ -9,9 +9,11 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/bandprotocol/falcon/internal/datasource"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	evmgas "github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 )
 
 // GlobalConfig is the global configuration for the falcon tunnel relayer
@@ -47,8 +49,10 @@ func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProvide
 
 	decoderConfig := mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			decodeHook,
+			decodeTimeHook,
 			chains.DecodeChainTypeHook,
+			evmgas.DecodeGasTypeHook,
+			datasource.DecodeDataSourceConfigHook,
 		),
 	}
 
@@ -85,7 +89,7 @@ func DecodeConfigInputWrapperTOML(data []byte, cw *ConfigInputWrapper) error {
 
 	decoderConfig := mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			decodeHook,
+			decodeTimeHook,
 		),
 		Result: cw,
 	}
@@ -156,8 +160,8 @@ func LoadConfig(cfgPath string) (*Config, error) {
 	return cfg, nil
 }
 
-// decodeHook is a custom function to decode time.Duration using mapstructure
-func decodeHook(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+// decodeTimeHook is a custom function to decode time.Duration using mapstructure
+func decodeTimeHook(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 	if to == reflect.TypeOf(time.Duration(0)) && from.Kind() == reflect.String {
 		return time.ParseDuration(data.(string))
 	}

@@ -4,10 +4,12 @@ import (
 	_ "embed"
 	"time"
 
+	"github.com/bandprotocol/falcon/internal/datasource"
 	falcon "github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	evmgas "github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 )
 
 //go:embed testdata/default_config.toml
@@ -34,6 +36,12 @@ var CustomCfg = falcon.Config{
 				ChainID:             31337,
 				TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 				QueryTimeout:        time.Second * 3,
+			},
+			BlockConfirmation: 5,
+			WaitingTxDuration: time.Second * 3,
+			GasType:           evmgas.GasTypeEIP1559,
+			DataSourceConfigs: []datasource.Config{
+				datasource.FixSourceConfig{Data: 4, SourceType: datasource.SourceTypeFix},
 			},
 		},
 	},
