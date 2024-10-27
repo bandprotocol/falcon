@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	cosmosclient "github.com/cosmos/cosmos-sdk/client"
+
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -84,8 +86,8 @@ func (a *App) Init(ctx context.Context) error {
 
 // InitClient establishs connection to rpc endpoints.
 func (a *App) initClient() error {
-	c := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
-	if err := c.Connect(); err != nil {
+	c := band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
+	if err := c.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
 		return err
 	}
 	a.Client = c
@@ -217,6 +219,7 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
+// QueryTunnelInfo queries tunnel information by given tunnel ID
 func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")
@@ -249,10 +252,49 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 	), nil
 }
 
+// QueryTunnelPacketInfo queries tunnel packet information by given tunnel ID
+func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	c := a.Client
+	packet, err := c.GetTunnelPacket(ctx, tunnelID, sequence)
+	if err != nil {
+		return nil, err
+	}
+
+	return types.NewPacket(
+		packet.TunnelID,
+		packet.Sequence,
+		packet.SigningID,
+	), nil
+}
+
+// QuerySigningMessageInfo queries tss signing message by given signing id
+func (a *App) QueryTssSigningMessageInfo(ctx context.Context, sigingID uint64) (*types.Signing, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	c := a.Client
+	signing, err := c.GetSigning(ctx, sigingID)
+	if err != nil {
+		return nil, err
+	}
+
+	return types.NewSigning(
+		signing.ID,
+		signing.Message,
+		types.NewEVMSignature(signing.EVMSignature.RAddress, signing.EVMSignature.Signature),
+		signing.CreatedAt,
+	), nil
+}
+
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize band client
-	bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
+	bandClient := band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
 
 	// TODO: load the tunnel information from the bandchain.
 	// If len(tunnelIDs == 0), load all tunnels info.

@@ -11,7 +11,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer"
 )
 
-
 // queryCmd represents the command for querying data from source and destination chains.
 func queryCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
@@ -69,26 +68,26 @@ func queryPacketCmd(app *relayer.App) *cobra.Command {
 		Use:     "packet [tunnel_id] [sequence]",
 		Aliases: []string{"p"},
 		Short:   "Query commands on packet data",
-		Args:    withUsage(cobra.ExactArgs(1)),
+		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query packet 1`, appName)),
+$ %s query packet 1 1`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			_, err = strconv.ParseUint(args[1], 10, 64)
+			sequence, err := strconv.ParseUint(args[1], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			tunnel, err := app.QueryTunnelInfo(cmd.Context(), tunnelID)
+			packet, err := app.QueryTunnelPacketInfo(cmd.Context(), tunnelID, sequence)
 			if err != nil {
 				return err
 			}
 
-			out, err := json.MarshalIndent(tunnel, "", "  ")
+			out, err := json.MarshalIndent(packet, "", "  ")
 			if err != nil {
 				return err
 			}
@@ -111,7 +110,22 @@ func querySigningCmd(app *relayer.App) *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query siging 1`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			signingID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			signing, err := app.QueryTssSigningMessageInfo(cmd.Context(), signingID)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.MarshalIndent(signing, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}

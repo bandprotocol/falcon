@@ -42,17 +42,17 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // Connect mocks base method.
-func (m *MockClient) Connect() error {
+func (m *MockClient) Connect(timeout uint) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connect")
+	ret := m.ctrl.Call(m, "Connect", timeout)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Connect indicates an expected call of Connect.
-func (mr *MockClientMockRecorder) Connect() *gomock.Call {
+func (mr *MockClientMockRecorder) Connect(timeout any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClient)(nil).Connect))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClient)(nil).Connect), timeout)
 }
 
 // GetSigning mocks base method.

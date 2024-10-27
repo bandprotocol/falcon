@@ -12,6 +12,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
+	tmbytes "github.com/cometbft/cometbft/libs/bytes"
+
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
@@ -197,4 +199,33 @@ func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	)
 	s.Require().NoError(err)
 	s.Require().Equal(expected, tunnel)
+}
+
+func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
+	tunnelPacketBandInfo := bandtypes.NewPacket(1, 1, 1)
+
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, uint64(1), uint64(1)).
+		Return(tunnelPacketBandInfo, nil)
+
+	packet, err := s.app.QueryTunnelPacketInfo(s.ctx, 1, 1)
+
+	expected := types.NewPacket(1, 1, 1)
+	s.Require().NoError(err)
+	s.Require().Equal(expected, packet)
+}
+
+func (s *AppTestSuite) TestQuerySigningInfo() {
+	rAddress := tmbytes.HexBytes{0x1a, 0x2b, 0x3c}
+	signature := tmbytes.HexBytes{0x4d, 0x5e, 0x6f}
+	evmSig := types.NewEVMSignature(rAddress, signature)
+
+	message := tmbytes.HexBytes{0x7a, 0x8b, 0x9c}
+	createdAt := time.Now()
+
+	signing := types.NewSigning(1, message, evmSig, createdAt)
+
+	s.Require().Equal(uint64(1), signing.ID)
+	s.Require().Equal(message, signing.Message)
+	s.Require().Equal(evmSig, signing.EVMSignature)
 }
