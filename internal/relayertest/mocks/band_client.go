@@ -55,21 +55,6 @@ func (mr *MockClientMockRecorder) Connect(timeout any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClient)(nil).Connect), timeout)
 }
 
-// GetSigning mocks base method.
-func (m *MockClient) GetSigning(ctx context.Context, signingID uint64) (*types.Signing, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSigning", ctx, signingID)
-	ret0, _ := ret[0].(*types.Signing)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSigning indicates an expected call of GetSigning.
-func (mr *MockClientMockRecorder) GetSigning(ctx, signingID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSigning", reflect.TypeOf((*MockClient)(nil).GetSigning), ctx, signingID)
-}
-
 // GetTunnel mocks base method.
 func (m *MockClient) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	m.ctrl.T.Helper()

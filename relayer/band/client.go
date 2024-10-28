@@ -28,9 +28,6 @@ type Client interface {
 	// GetTunnel returns the tunnel with the given tunnelID.
 	GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error)
 
-	// GetSigning returns the signing with the given signingID.
-	GetSigning(ctx context.Context, signingID uint64) (*types.Signing, error)
-
 	// Connect will establish connection to rpc endpoints
 	Connect(timeout uint) error
 }
@@ -116,19 +113,21 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 		res.Tunnel.Sequence,
 		targetAddress,
 		targetChainID,
+		res.Tunnel.IsActive,
 	), nil
 }
 
 // GetTunnelPacket gets tunnel packet info from band client
 func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error) {
-	res, err := c.QueryClient.Packet(ctx, tunnelID, sequence)
+	// Get packet information by given tunnel ID and sequence
+	resPacket, err := c.QueryClient.Packet(ctx, tunnelID, sequence)
 	if err != nil {
 		return nil, err
 	}
 
 	// Extract tunnel packet information
 	var pc tunneltypes.PacketContentI
-	err = c.UnpackAny(res.Packet.PacketContent, &pc)
+	err = c.UnpackAny(resPacket.Packet.PacketContent, &pc)
 	if err != nil {
 		return nil, err
 	}
@@ -141,12 +140,8 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 		return nil, fmt.Errorf("unsupported packet content type: %T", tmp)
 	}
 
-	return types.NewPacket(res.Packet.TunnelID, res.Packet.Sequence, signingID), nil
-}
-
-// GetSigning gets tss signing message info from band client
-func (c *client) GetSigning(ctx context.Context, signingID uint64) (*types.Signing, error) {
-	res, err := c.QueryClient.Signing(ctx, signingID)
+	// Get tss signing information by given signing ID
+	resSigning, err := c.QueryClient.Signing(ctx, signingID)
 	if err != nil {
 		return nil, err
 	}
@@ -155,10 +150,10 @@ func (c *client) GetSigning(ctx context.Context, signingID uint64) (*types.Signi
 
 	// Handle the possible values of CurrentGroupSigningResult
 	switch {
-	case res.CurrentGroupSigningResult != nil:
-		signingResult = res.CurrentGroupSigningResult
-	case res.IncomingGroupSigningResult != nil:
-		signingResult = res.IncomingGroupSigningResult
+	case resSigning.CurrentGroupSigningResult != nil:
+		signingResult = resSigning.CurrentGroupSigningResult
+	case resSigning.IncomingGroupSigningResult != nil:
+		signingResult = resSigning.IncomingGroupSigningResult
 	default:
 		return nil, fmt.Errorf("no signing result available")
 	}
@@ -166,10 +161,27 @@ func (c *client) GetSigning(ctx context.Context, signingID uint64) (*types.Signi
 	signing := signingResult.Signing
 	evmSignature := signingResult.EVMSignature
 
-	return types.NewSigning(
-		uint64(signing.ID),
-		signing.Message,
-		types.NewEVMSignature(evmSignature.RAddress, evmSignature.Signature),
+	// Convert resPacket.Packet.SignalPrices to []types.SignalPrice
+	signalPrices := make([]types.SignalPrice, len(resPacket.Packet.SignalPrices))
+	for i, sp := range resPacket.Packet.SignalPrices {
+		signalPrices[i] = types.SignalPrice{
+			SignalID: sp.SignalID,
+			Price:    sp.Price,
+		}
+	}
+
+	return types.NewPacket(
+		resPacket.Packet.TunnelID,
+		resPacket.Packet.Sequence,
+		signalPrices,
+		types.NewSigningInfo(
+			signingID,
+			signing.Message,
+			types.NewEVMSignature(
+				evmSignature.RAddress,
+				evmSignature.Signature,
+			),
+		),
 	), nil
 }
 

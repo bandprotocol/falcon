@@ -231,6 +231,8 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		return nil, err
 	}
 
+	bandChainInfo := types.NewBandChainInfo(tunnel.LatestSequence, tunnel.IsActive)
+
 	targetChain := tunnel.TargetChainID
 	targetAddr := tunnel.TargetAddress
 
@@ -248,47 +250,19 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		tunnelID,
 		targetChain,
 		targetAddr,
+		bandChainInfo,
 		tunnelChainInfo,
 	), nil
 }
 
 // QueryTunnelPacketInfo queries tunnel packet information by given tunnel ID
-func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error) {
+func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequence uint64) (*bandtypes.Packet, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
 	c := a.Client
-	packet, err := c.GetTunnelPacket(ctx, tunnelID, sequence)
-	if err != nil {
-		return nil, err
-	}
-
-	return types.NewPacket(
-		packet.TunnelID,
-		packet.Sequence,
-		packet.SigningID,
-	), nil
-}
-
-// QuerySigningMessageInfo queries tss signing message by given signing id
-func (a *App) QueryTssSigningMessageInfo(ctx context.Context, sigingID uint64) (*types.Signing, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config is not initialized")
-	}
-
-	c := a.Client
-	signing, err := c.GetSigning(ctx, sigingID)
-	if err != nil {
-		return nil, err
-	}
-
-	return types.NewSigning(
-		signing.ID,
-		signing.Message,
-		types.NewEVMSignature(signing.EVMSignature.RAddress, signing.EVMSignature.Signature),
-		signing.CreatedAt,
-	), nil
+	return c.GetTunnelPacket(ctx, tunnelID, sequence)
 }
 
 // Start starts the tunnel relayer program.

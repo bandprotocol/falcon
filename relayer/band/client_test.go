@@ -87,6 +87,7 @@ func (s *AppTestSuite) TestGetTunnelTssRoute() {
 		Tunnel: tunnel,
 	}
 
+	// expect response from bandQueryClient
 	s.bandQueryClient.EXPECT().Tunnel(s.ctx, uint64(1)).Return(queryResponse, nil)
 	encodingConfig := params.MakeEncodingConfig()
 	s.client = band.NewClient(
@@ -97,7 +98,7 @@ func (s *AppTestSuite) TestGetTunnelTssRoute() {
 		s.log,
 		[]string{})
 
-	expected := bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth")
+	expected := bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false)
 
 	actual, err := s.client.GetTunnel(s.ctx, uint64(1))
 	s.Require().NoError(err)
@@ -135,10 +136,11 @@ func (s *AppTestSuite) TestGetTunnelAxelarRoute() {
 	queryResponse := &tunneltypes.QueryTunnelResponse{
 		Tunnel: tunnel,
 	}
+	// expect response from bandQueryClient
 	s.bandQueryClient.EXPECT().Tunnel(s.ctx, uint64(1)).Return(queryResponse, nil)
 
 	// expected result
-	expected := bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth")
+	expected := bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false)
 
 	// actual result
 	encodingConfig := params.MakeEncodingConfig()
@@ -173,20 +175,57 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 	s.Require().NoError(err)
 
 	packet := tunneltypes.Packet{
-		TunnelID:      1,
-		Sequence:      100,
-		SignalPrices:  []tunneltypes.SignalPrice{},
+		TunnelID: 1,
+		Sequence: 100,
+		SignalPrices: []tunneltypes.SignalPrice{
+			{SignalID: "signal1", Price: 100},
+			{SignalID: "signal2", Price: 200},
+		},
 		PacketContent: any,
 		CreatedAt:     time.Now().Unix(),
 	}
+	signingResult := &tsstypes.SigningResult{
+		Signing: tsstypes.Signing{
+			ID:      2,
+			Message: tmbytes.HexBytes("0xdeadbeef"),
+		},
+		EVMSignature: &tsstypes.EVMSignature{
+			RAddress:  tmbytes.HexBytes("0x1234"),
+			Signature: tmbytes.HexBytes("0xabcd"),
+		},
+	}
 
-	queryResponse := &tunneltypes.QueryPacketResponse{
+	queryPacketResponse := &tunneltypes.QueryPacketResponse{
 		Packet: &packet,
 	}
-	s.bandQueryClient.EXPECT().Packet(s.ctx, uint64(1), uint64(100)).Return(queryResponse, nil)
-
+	querySigningResponse := &bandtsstypes.QuerySigningResponse{
+		CurrentGroupSigningResult: signingResult,
+	}
+	// expect response from bandQueryClient
+	s.bandQueryClient.EXPECT().Packet(s.ctx, uint64(1), uint64(100)).Return(queryPacketResponse, nil)
+	s.bandQueryClient.EXPECT().Signing(s.ctx, uint64(2)).Return(querySigningResponse, nil)
 	// expected result
-	expected := bandclienttypes.NewPacket(1, 100, 2)
+	expectedSignalPrices := []bandclienttypes.SignalPrice{
+		{SignalID: "signal1", Price: 100},
+		{SignalID: "signal2", Price: 200},
+	}
+
+	expectedSigningInfo := bandclienttypes.NewSigningInfo(
+		2,
+		tmbytes.HexBytes("0xdeadbeef"),
+		bandclienttypes.NewEVMSignature(
+			tmbytes.HexBytes("0x1234"),
+			tmbytes.HexBytes("0xabcd"),
+		),
+	)
+
+	// Define the expected Packet result
+	expected := bandclienttypes.NewPacket(
+		1,
+		100,
+		expectedSignalPrices,
+		expectedSigningInfo,
+	)
 
 	// actual result
 	encodingConfig := params.MakeEncodingConfig()
@@ -198,84 +237,6 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 		s.log,
 		[]string{})
 	actual, err := s.client.GetTunnelPacket(s.ctx, uint64(1), uint64(100))
-	s.Require().NoError(err)
-	s.Require().Equal(expected, actual)
-}
-
-func (s *AppTestSuite) TestGetSigningCurrentGroup() {
-	// mock query response
-	message := tmbytes.HexBytes{0x7a, 0x8b, 0x9c}
-	rAddress := tmbytes.HexBytes{0x1a, 0x2b, 0x3c}
-	signature := tmbytes.HexBytes{0x4d, 0x5e, 0x6f}
-	signing := tsstypes.Signing{
-		ID:      1,
-		Message: message,
-	}
-	evmSignature := &tsstypes.EVMSignature{
-		RAddress:  rAddress,
-		Signature: signature,
-	}
-	queryResponse := &bandtsstypes.QuerySigningResponse{
-		CurrentGroupSigningResult: &tsstypes.SigningResult{
-			Signing:      signing,
-			EVMSignature: evmSignature,
-		},
-		IncomingGroupSigningResult: nil,
-	}
-	s.bandQueryClient.EXPECT().Signing(s.ctx, uint64(1)).Return(queryResponse, nil)
-
-	// expected result
-	expected := bandclienttypes.NewSigning(1, message, bandclienttypes.NewEVMSignature(rAddress, signature))
-
-	// actual result
-	encodingConfig := params.MakeEncodingConfig()
-	s.client = band.NewClient(
-		cosmosclient.Context{}.
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
-		s.bandQueryClient,
-		s.log,
-		[]string{})
-	actual, err := s.client.GetSigning(s.ctx, uint64(1))
-	s.Require().NoError(err)
-	s.Require().Equal(expected, actual)
-}
-
-func (s *AppTestSuite) TestGetSigningIncomingGroup() {
-	// mock query response
-	message := tmbytes.HexBytes{0x7a, 0x8b, 0x9c}
-	rAddress := tmbytes.HexBytes{0x1a, 0x2b, 0x3c}
-	signature := tmbytes.HexBytes{0x4d, 0x5e, 0x6f}
-	signing := tsstypes.Signing{
-		ID:      1,
-		Message: message,
-	}
-	evmSignature := &tsstypes.EVMSignature{
-		RAddress:  rAddress,
-		Signature: signature,
-	}
-	queryResponse := &bandtsstypes.QuerySigningResponse{
-		CurrentGroupSigningResult: nil,
-		IncomingGroupSigningResult: &tsstypes.SigningResult{
-			Signing:      signing,
-			EVMSignature: evmSignature,
-		},
-	}
-	s.bandQueryClient.EXPECT().Signing(s.ctx, uint64(1)).Return(queryResponse, nil)
-
-	// expected result
-	expected := bandclienttypes.NewSigning(1, message, bandclienttypes.NewEVMSignature(rAddress, signature))
-
-	// actual result
-	encodingConfig := params.MakeEncodingConfig()
-	s.client = band.NewClient(
-		cosmosclient.Context{}.
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
-		s.bandQueryClient,
-		s.log,
-		[]string{})
-	actual, err := s.client.GetSigning(s.ctx, uint64(1))
 	s.Require().NoError(err)
 	s.Require().Equal(expected, actual)
 }

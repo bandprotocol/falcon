@@ -22,7 +22,6 @@ func queryCmd(app *relayer.App) *cobra.Command {
 	cmd.AddCommand(
 		queryTunnelCmd(app),
 		queryPacketCmd(app),
-		querySigningCmd(app),
 		queryBalanceCmd(app),
 	)
 
@@ -88,39 +87,6 @@ $ %s query packet 1 1`, appName)),
 			}
 
 			out, err := json.MarshalIndent(packet, "", "  ")
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintln(cmd.OutOrStdout(), string(out))
-			return nil
-		},
-	}
-
-	return cmd
-}
-
-// querySigningCmd returns a command that query tss signing message information.
-func querySigningCmd(app *relayer.App) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "signing [singing_id]",
-		Aliases: []string{"s"},
-		Short:   "Query commands on tss signing messsage data",
-		Args:    withUsage(cobra.ExactArgs(1)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query siging 1`, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			signingID, err := strconv.ParseUint(args[0], 10, 64)
-			if err != nil {
-				return err
-			}
-
-			signing, err := app.QueryTssSigningMessageInfo(cmd.Context(), signingID)
-			if err != nil {
-				return err
-			}
-
-			out, err := json.MarshalIndent(signing, "", "  ")
 			if err != nil {
 				return err
 			}

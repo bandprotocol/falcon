@@ -155,7 +155,7 @@ func (s *AppTestSuite) TestInitCustomConfig() {
 }
 
 func (s *AppTestSuite) TestQueryTunnelInfo() {
-	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm")
+	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
 	tunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false)
 
 	s.client.EXPECT().
@@ -167,11 +167,13 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 		Return(tunnelChainInfo, nil)
 
 	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
+	bandChainInfo := types.NewBandChainInfo(1, false)
 
 	expected := types.NewTunnel(
 		1,
 		"testnet_evm",
 		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+		bandChainInfo,
 		tunnelChainInfo,
 	)
 	s.Require().NoError(err)
@@ -182,7 +184,7 @@ func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
 	err := s.app.Init(s.ctx)
 
-	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm")
+	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
 	s.client.EXPECT().
 		GetTunnel(s.ctx, uint64(1)).
 		Return(tunnelBandInfo, nil)
@@ -191,10 +193,12 @@ func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.Require().NoError(err)
 
 	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
+	bandChainInfo := types.NewBandChainInfo(1, false)
 	expected := types.NewTunnel(
 		1,
 		"testnet_evm",
 		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+		bandChainInfo,
 		nil,
 	)
 	s.Require().NoError(err)
@@ -202,30 +206,44 @@ func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 }
 
 func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
-	tunnelPacketBandInfo := bandtypes.NewPacket(1, 1, 1)
+	signalPrices := []bandtypes.SignalPrice{
+		{SignalID: "signal1", Price: 100},
+		{SignalID: "signal2", Price: 200},
+	}
 
+	// Create a mock EVMSignature
+	evmSignature := bandtypes.NewEVMSignature(
+		tmbytes.HexBytes("0x1234"), //  RAddress
+		tmbytes.HexBytes("0xabcd"), //  Signature
+	)
+
+	// Create mock signing information
+	signingInfo := bandtypes.NewSigningInfo(
+		1,                              // Signing ID
+		tmbytes.HexBytes("0xdeadbeef"), // Message
+		evmSignature,
+	)
+
+	// Create the expected Packet object
+	tunnelPacketBandInfo := bandtypes.NewPacket(
+		1, // TunnelID
+		1, // Sequence
+		signalPrices,
+		signingInfo,
+	)
+
+	// Set up the mock expectation
 	s.client.EXPECT().
 		GetTunnelPacket(s.ctx, uint64(1), uint64(1)).
 		Return(tunnelPacketBandInfo, nil)
 
+	// Call the function under test
 	packet, err := s.app.QueryTunnelPacketInfo(s.ctx, 1, 1)
 
-	expected := types.NewPacket(1, 1, 1)
+	// Create the expected packet structure for comparison
+	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo)
+
+	// Assertions
 	s.Require().NoError(err)
 	s.Require().Equal(expected, packet)
-}
-
-func (s *AppTestSuite) TestQuerySigningInfo() {
-	rAddress := tmbytes.HexBytes{0x1a, 0x2b, 0x3c}
-	signature := tmbytes.HexBytes{0x4d, 0x5e, 0x6f}
-	evmSig := types.NewEVMSignature(rAddress, signature)
-
-	message := tmbytes.HexBytes{0x7a, 0x8b, 0x9c}
-	createdAt := time.Now()
-
-	signing := types.NewSigning(1, message, evmSig, createdAt)
-
-	s.Require().Equal(uint64(1), signing.ID)
-	s.Require().Equal(message, signing.Message)
-	s.Require().Equal(evmSig, signing.EVMSignature)
 }
