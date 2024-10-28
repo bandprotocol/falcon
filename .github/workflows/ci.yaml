@@ -4,6 +4,12 @@ on: pull_request
 env:
   GOPRIVATE: github.com/bandprotocol/private-chain
 
+permissions:
+  actions: read
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   falcon-test:
     runs-on: ubuntu-latest
