@@ -18,8 +18,8 @@ jobs:
 
       - name: Configure git for private modules
         env:
-          TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: git config --global url."https://band-bot:${TOKEN}@github.com".insteadOf "https://github.com"
+          TOKEN: ${{ secrets.SHIBA_TOKEN }}
+        run: git config --global url."https://nkitlabs:${TOKEN}@github.com".insteadOf "https://github.com"
 
       - name: Check go mod cache
         uses: actions/cache@v4
