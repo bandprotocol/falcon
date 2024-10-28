@@ -7,12 +7,11 @@ import (
 	"testing"
 	"time"
 
+	tmbytes "github.com/cometbft/cometbft/libs/bytes"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
-
-	tmbytes "github.com/cometbft/cometbft/libs/bytes"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"

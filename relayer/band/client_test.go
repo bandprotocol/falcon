@@ -5,28 +5,24 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/math"
+	tmbytes "github.com/cometbft/cometbft/libs/bytes"
+	cosmosclient "github.com/cosmos/cosmos-sdk/client"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
-	tmbytes "github.com/cometbft/cometbft/libs/bytes"
-
-	"github.com/cosmos/gogoproto/proto"
-
-	"cosmossdk.io/math"
-
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/types"
+	bandtsstypes "github.com/bandprotocol/chain/v3/x/bandtss/types"
+	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
+	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/params"
 	bandclienttypes "github.com/bandprotocol/falcon/relayer/band/types"
-
-	bandtsstypes "github.com/bandprotocol/chain/v3/x/bandtss/types"
-	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
-	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
 )
 
 type AppTestSuite struct {

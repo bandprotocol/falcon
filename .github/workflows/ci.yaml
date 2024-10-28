@@ -1,6 +1,9 @@
 name: Tests
 on: pull_request
 
+env:
+  GOPRIVATE: github.com/bandprotocol/private-chain
+
 jobs:
   falcon-test:
     runs-on: ubuntu-latest
