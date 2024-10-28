@@ -4,18 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
-
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
-
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-
-	"github.com/bandprotocol/falcon/relayer/band/params"
-	"github.com/bandprotocol/falcon/relayer/band/types"
+	"go.uber.org/zap"
 
 	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
 	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
+
+	"github.com/bandprotocol/falcon/relayer/band/params"
+	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
 var _ Client = &client{}

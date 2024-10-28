@@ -1,15 +1,13 @@
 package params
 
 import (
-	"github.com/cosmos/gogoproto/proto"
-
 	"cosmossdk.io/x/tx/signing"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/address"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	"github.com/cosmos/gogoproto/proto"
 
 	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
 )

@@ -43,12 +43,8 @@ linters-settings:
     sections:
       - standard # Standard section: captures all standard packages.
       - default # Default section: contains all imports that could not be matched to another section type.
-      - prefix(github.com/cometbft/cometbft) # comet
-      - prefix(github.com/cosmos) # cosmos org
-      - prefix(cosmossdk.io) # new modules
-      - prefix(github.com/cosmos/cosmos-sdk) # cosmos sdk
       - prefix(github.com/bandprotocol) # band org
-      - prefix(github.com/bandprotocol/chain)
+      - prefix(github.com/bandprotocol/falcon)
   gocritic:
     disabled-checks:
       - regexpMust

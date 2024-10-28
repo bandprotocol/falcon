@@ -6,11 +6,10 @@ import (
 	"os"
 	"path"
 
+	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
