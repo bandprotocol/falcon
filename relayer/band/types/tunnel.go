@@ -2,11 +2,11 @@ package types
 
 // Tunnel stores an information of the tunnel.
 type Tunnel struct {
-	ID             uint64
-	LatestSequence uint64
-	TargetAddress  string
-	TargetChainID  string
-	IsActive       bool
+	ID             uint64 `json:"id"`
+	LatestSequence uint64 `json:"latest_sequence"`
+	TargetAddress  string `json:"target_address"`
+	TargetChainID  string `json:"target_chain_id"`
+	IsActive       bool   `json:"is_active"`
 }
 
 // NewTunnel creates a new tunnel instance.

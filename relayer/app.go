@@ -32,7 +32,7 @@ type App struct {
 	Config   *Config
 
 	targetChains chains.ChainProviders
-	Client       band.Client
+	BandClient   band.Client
 }
 
 // NewApp creates a new App instance.
@@ -89,7 +89,7 @@ func (a *App) initClient() error {
 	if err := c.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
 		return err
 	}
-	a.Client = c
+	a.BandClient = c
 	return nil
 }
 
@@ -224,13 +224,19 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	c := a.Client
+	c := a.BandClient
 	tunnel, err := c.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return nil, err
 	}
 
-	bandChainInfo := types.NewBandChainInfo(tunnel.LatestSequence, tunnel.IsActive)
+	bandChainInfo := bandtypes.NewTunnel(
+		tunnel.ID,
+		tunnel.LatestSequence,
+		tunnel.TargetAddress,
+		tunnel.TargetChainID,
+		tunnel.IsActive,
+	)
 
 	targetChain := tunnel.TargetChainID
 	targetAddr := tunnel.TargetAddress
@@ -246,9 +252,6 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 	}
 
 	return types.NewTunnel(
-		tunnelID,
-		targetChain,
-		targetAddr,
 		bandChainInfo,
 		tunnelChainInfo,
 	), nil
@@ -260,15 +263,12 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	c := a.Client
+	c := a.BandClient
 	return c.GetTunnelPacket(ctx, tunnelID, sequence)
 }
 
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
-	// initialize band client
-	bandClient := band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
-
 	// TODO: load the tunnel information from the bandchain.
 	// If len(tunnelIDs == 0), load all tunnels info.
 	tunnels := []*bandtypes.Tunnel{}
@@ -286,7 +286,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 			tunnel.ID,
 			"",
 			a.Config.Global.CheckingPacketInterval,
-			bandClient,
+			a.BandClient,
 			chainProvider,
 		)
 		tunnelRelayers = append(tunnelRelayers, tr)

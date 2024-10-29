@@ -64,7 +64,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
 
 	err = s.app.Init(s.ctx)
-	s.app.Client = s.client
+	s.app.BandClient = s.client
 	s.Require().NoError(err)
 }
 
@@ -166,12 +166,9 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 		Return(tunnelChainInfo, nil)
 
 	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
-	bandChainInfo := types.NewBandChainInfo(1, false)
+	bandChainInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
 
 	expected := types.NewTunnel(
-		1,
-		"testnet_evm",
-		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
 		bandChainInfo,
 		tunnelChainInfo,
 	)
@@ -183,21 +180,18 @@ func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
 	err := s.app.Init(s.ctx)
 
+	s.Require().NoError(err)
+
 	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
 	s.client.EXPECT().
 		GetTunnel(s.ctx, uint64(1)).
 		Return(tunnelBandInfo, nil)
-	s.app.Client = s.client
-
-	s.Require().NoError(err)
+	s.app.BandClient = s.client
 
 	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
-	bandChainInfo := types.NewBandChainInfo(1, false)
+
 	expected := types.NewTunnel(
-		1,
-		"testnet_evm",
-		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-		bandChainInfo,
+		tunnelBandInfo,
 		nil,
 	)
 	s.Require().NoError(err)
@@ -212,23 +206,24 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 
 	// Create a mock EVMSignature
 	evmSignature := bandtypes.NewEVMSignature(
-		tmbytes.HexBytes("0x1234"), //  RAddress
-		tmbytes.HexBytes("0xabcd"), //  Signature
+		tmbytes.HexBytes("0x1234"),
+		tmbytes.HexBytes("0xabcd"),
 	)
 
 	// Create mock signing information
-	signingInfo := bandtypes.NewSigningInfo(
-		1,                              // Signing ID
-		tmbytes.HexBytes("0xdeadbeef"), // Message
+	signingInfo := bandtypes.NewSigning(
+		1,
+		tmbytes.HexBytes("0xdeadbeef"),
 		evmSignature,
 	)
 
 	// Create the expected Packet object
 	tunnelPacketBandInfo := bandtypes.NewPacket(
-		1, // TunnelID
-		1, // Sequence
+		1,
+		1,
 		signalPrices,
 		signingInfo,
+		nil,
 	)
 
 	// Set up the mock expectation
@@ -240,7 +235,7 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 	packet, err := s.app.QueryTunnelPacketInfo(s.ctx, 1, 1)
 
 	// Create the expected packet structure for comparison
-	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo)
+	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo, nil)
 
 	// Assertions
 	s.Require().NoError(err)

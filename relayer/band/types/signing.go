@@ -2,6 +2,8 @@ package types
 
 import (
 	tmbytes "github.com/cometbft/cometbft/libs/bytes"
+
+	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
 )
 
 // EVMSignature defines a signature in the EVM format.
@@ -22,19 +24,40 @@ func NewEVMSignature(
 }
 
 // Signing contains information of a requested message and group signature.
-type SigningInfo struct {
+type Signing struct {
 	ID           uint64           `json:"id"`
 	Message      tmbytes.HexBytes `json:"messsage"`
 	EVMSignature *EVMSignature    `json:"evm_signature"`
 }
 
-// NewSigning creates a new Signing instance.
-func NewSigningInfo(
+// ConvertSigning converts tsstypes.SigningResult and return .Signing
+func ConvertSigning(res *tsstypes.SigningResult) *Signing {
+	if res == nil {
+		return nil
+	}
+
+	var evmSignature *EVMSignature
+	if res.EVMSignature != nil {
+		evmSignature = NewEVMSignature(
+			res.EVMSignature.RAddress,
+			res.EVMSignature.Signature,
+		)
+	}
+
+	return NewSigning(
+		uint64(res.Signing.ID),
+		res.Signing.Message,
+		evmSignature,
+	)
+}
+
+// NewSigningResult creates a new Signing instance.
+func NewSigning(
 	id uint64,
 	message tmbytes.HexBytes,
 	evmSignature *EVMSignature,
-) *SigningInfo {
-	return &SigningInfo{
+) *Signing {
+	return &Signing{
 		ID:           id,
 		Message:      message,
 		EVMSignature: evmSignature,
