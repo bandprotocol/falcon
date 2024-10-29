@@ -13,4 +13,4 @@ chain_type = 'evm'
 max_retry = 3
 query_timeout = 3000000000
 chain_id = 31337
-tunnel_router_address = '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318'
+tunnel_router_address = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9'
