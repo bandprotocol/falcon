@@ -3,19 +3,19 @@ package types
 import (
 	"time"
 
-	tmbytes "github.com/cometbft/cometbft/libs/bytes"
+	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 )
 
 // EVMSignature defines a signature in the EVM format.
 type EVMSignature struct {
-	RAddress  tmbytes.HexBytes
-	Signature tmbytes.HexBytes
+	RAddress  cmbytes.HexBytes
+	Signature cmbytes.HexBytes
 }
 
 // NewEVMSignature creates a new EVMSignature instance.
 func NewEVMSignature(
-	rAddress tmbytes.HexBytes,
-	signature tmbytes.HexBytes,
+	rAddress cmbytes.HexBytes,
+	signature cmbytes.HexBytes,
 ) *EVMSignature {
 	return &EVMSignature{
 		RAddress:  rAddress,
@@ -26,7 +26,7 @@ func NewEVMSignature(
 // Signing contains information of a requested message and group signature.
 type Signing struct {
 	ID           uint64
-	Message      tmbytes.HexBytes
+	Message      cmbytes.HexBytes
 	Signature    []byte
 	EVMSignature *EVMSignature
 	CreatedAt    time.Time
@@ -35,7 +35,7 @@ type Signing struct {
 // NewSigning creates a new Signing instance.
 func NewSigning(
 	id uint64,
-	message tmbytes.HexBytes,
+	message cmbytes.HexBytes,
 	evmSignature *EVMSignature,
 ) *Signing {
 	return &Signing{
