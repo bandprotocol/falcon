@@ -8,13 +8,13 @@ import (
 
 // BaseChainProviderConfig contains common field for particular chain provider.
 type BaseChainProviderConfig struct {
-	Endpoints    []string      `toml:"endpoints"`
-	ChainType    ChainType     `toml:"chain_type"`
-	MaxRetry     int           `toml:"max_retry"`
-	QueryTimeout time.Duration `toml:"query_timeout"`
-	ChainID      uint64        `toml:"chain_id"`
+	Endpoints    []string      `mapstructure:"endpoints"     toml:"endpoints"`
+	ChainType    ChainType     `mapstructure:"chain_type"    toml:"chain_type"`
+	MaxRetry     int           `mapstructure:"max_retry"     toml:"max_retry"`
+	QueryTimeout time.Duration `mapstructure:"query_timeout" toml:"query_timeout"`
+	ChainID      uint64        `mapstructure:"chain_id"      toml:"chain_id"`
 
-	TunnelRouterAddress string `toml:"tunnel_router_address"`
+	TunnelRouterAddress string `mapstructure:"tunnel_router_address" toml:"tunnel_router_address"`
 }
 
 // ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)

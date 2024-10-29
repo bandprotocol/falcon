@@ -3,8 +3,10 @@ package relayer
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/bandprotocol/falcon/relayer/band"
@@ -14,53 +16,90 @@ import (
 
 // GlobalConfig is the global configuration for the falcon tunnel relayer
 type GlobalConfig struct {
-	LogLevel               string        `toml:"log_level"`
-	CheckingPacketInterval time.Duration `toml:"checking_packet_interval"`
+	LogLevel               string        `mapstructure:"log_level"                toml:"log_level"`
+	CheckingPacketInterval time.Duration `mapstructure:"checking_packet_interval" toml:"checking_packet_interval"`
 }
 
 // Config defines the configuration for the falcon tunnel relayer.
 type Config struct {
-	Global       GlobalConfig                `toml:"global"`
-	BandChain    band.Config                 `toml:"bandchain"`
-	TargetChains chains.ChainProviderConfigs `toml:"target_chains"`
+	Global       GlobalConfig                `mapstructure:"global"        toml:"global"`
+	BandChain    band.Config                 `mapstructure:"bandchain"     toml:"bandchain"`
+	TargetChains chains.ChainProviderConfigs `mapstructure:"target_chains" toml:"target_chains"`
 }
 
-// TOMLWrapper is an intermediary type for parsing any object from config.toml file
-type TOMLWrapper map[string]interface{}
+// ChainProviderConfigWrapper is an intermediary type for parsing any object from config.toml file
+type ChainProviderConfigWrapper map[string]interface{}
 
 // ConfigInputWrapper is an intermediary type for parsing the config.toml file
 type ConfigInputWrapper struct {
-	Global       GlobalConfig           `toml:"global"`
-	BandChain    band.Config            `toml:"bandchain"`
-	TargetChains map[string]TOMLWrapper `toml:"target_chains"`
+	Global       GlobalConfig                          `mapstructure:"global"`
+	BandChain    band.Config                           `mapstructure:"bandchain"`
+	TargetChains map[string]ChainProviderConfigWrapper `mapstructure:"target_chains"`
 }
 
 // ParseChainProviderConfig converts a TOMLWrapper object to a ChainProviderConfig object.
-func ParseChainProviderConfig(w TOMLWrapper) (chains.ChainProviderConfig, error) {
+func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProviderConfig, error) {
 	typeName, ok := w["chain_type"].(string)
 	if !ok {
 		return nil, fmt.Errorf("chain_type is required")
 	}
 	chainType := chains.ToChainType(typeName)
 
-	b, err := toml.Marshal(w)
-	if err != nil {
-		return nil, err
+	decoderConfig := mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			decodeHook,
+			chains.DecodeChainTypeHook,
+		),
 	}
 
 	var cfg chains.ChainProviderConfig
 	switch chainType {
 	case chains.ChainTypeEVM:
 		var newCfg evm.EVMChainProviderConfig
-		if err := toml.Unmarshal(b, &newCfg); err != nil {
+
+		decoderConfig.Result = &newCfg
+		decoder, err := mapstructure.NewDecoder(&decoderConfig)
+		if err != nil {
 			return nil, err
 		}
+
+		if err := decoder.Decode(w); err != nil {
+			return nil, err
+		}
+
 		cfg = &newCfg
 	default:
 		return cfg, fmt.Errorf("unsupported chain type: %s", typeName)
 	}
 
 	return cfg, nil
+}
+
+// DecodeConfigInputWrapperTOML decodes a TOML bytes into a ConfigInputWrapper object.
+func DecodeConfigInputWrapperTOML(data []byte, cw *ConfigInputWrapper) error {
+	var input map[string]interface{}
+	err := toml.Unmarshal(data, &input)
+	if err != nil {
+		return err
+	}
+
+	decoderConfig := mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			decodeHook,
+		),
+		Result: cw,
+	}
+
+	decoder, err := mapstructure.NewDecoder(&decoderConfig)
+	if err != nil {
+		return err
+	}
+
+	if err := decoder.Decode(input); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ParseConfig converts a ConfigInputWrapper object to a Config object.
@@ -98,22 +137,30 @@ func DefaultConfig() *Config {
 
 // LoadConfig reads config file from given path and return config object
 func LoadConfig(cfgPath string) (*Config, error) {
-	byt, err := os.ReadFile(cfgPath)
+	b, err := os.ReadFile(cfgPath)
 	if err != nil {
 		return nil, err
 	}
 
-	// unmarshal them with Config into struct
-	cfgWrapper := &ConfigInputWrapper{}
-	err = toml.Unmarshal(byt, cfgWrapper)
-	if err != nil {
+	var cfgWrapper ConfigInputWrapper
+	if err := DecodeConfigInputWrapperTOML(b, &cfgWrapper); err != nil {
 		return nil, err
 	}
 
-	cfg, err := ParseConfig(cfgWrapper)
+	// convert ConfigWrapperInput to Config
+	cfg, err := ParseConfig(&cfgWrapper)
 	if err != nil {
 		return nil, err
 	}
 
 	return cfg, nil
+}
+
+// decodeHook is a custom function to decode time.Duration using mapstructure
+func decodeHook(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if to == reflect.TypeOf(time.Duration(0)) && from.Kind() == reflect.String {
+		return time.ParseDuration(data.(string))
+	}
+
+	return data, nil
 }

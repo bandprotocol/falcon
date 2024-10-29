@@ -1,0 +1,16 @@
+[global]
+log_level = 'info'
+checking_packet_interval = 1
+
+[bandchain]
+rpc_endpoints = ['http://localhost:26657', 'http://localhost:26658']
+timeout = '3s'
+
+[target_chains]
+[target_chains.testnet]
+endpoints = ['http://localhost:8545']
+chain_type = 'evm'
+max_retry = 3
+query_timeout = '3s'
+chain_id = 31337
+tunnel_router_address = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9'

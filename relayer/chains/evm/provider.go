@@ -57,7 +57,9 @@ func NewEVMChainProvider(
 
 // Connect connects to the EVM chain.
 func (cp *EVMChainProvider) Init(ctx context.Context) error {
-	return cp.Client.Connect(ctx)
+	// TODO: implement loading private key from store
+
+	return nil
 }
 
 // QueryTunnelInfo queries the tunnel info from the tunnel router contract.
@@ -66,6 +68,10 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
+	if err := cp.Client.Connect(ctx); err != nil {
+		return nil, err
+	}
+
 	addr, err := HexToAddress(tunnelDestinationAddr)
 	if err != nil {
 		return nil, err

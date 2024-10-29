@@ -31,7 +31,7 @@ Make sure that chains are properly configured to relay over by using the 'falcon
 // txRelayCmd returns a command that relays a specific message to the destination chain.
 func txRelayCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "relay [tunnel_id] [sequence]",
+		Use:     "relay [tunnel_id]",
 		Aliases: []string{"rly"},
 		Short:   "Relay a specific message to the destination chain",
 		Args:    withUsage(cobra.ExactArgs(2)),

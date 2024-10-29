@@ -3,6 +3,7 @@ package chains
 import (
 	"encoding"
 	"fmt"
+	"reflect"
 )
 
 var _ encoding.TextUnmarshaler = (*ChainType)(nil)
@@ -42,6 +43,20 @@ func (c *ChainType) UnmarshalText(text []byte) error {
 
 	*c = v
 	return nil
+}
+
+// DecodeChainTypeHook decode hook to convert strings to ChainType
+func DecodeChainTypeHook(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+	if from.Kind() != reflect.String || to != reflect.TypeOf(ChainType(0)) {
+		return data, nil
+	}
+
+	chainTypeStr, ok := data.(string)
+	if !ok {
+		return data, fmt.Errorf("expected string, got %T", data)
+	}
+
+	return ToChainType(chainTypeStr), nil
 }
 
 // MarshalText is used for toml encoding.
