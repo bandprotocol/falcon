@@ -39,7 +39,7 @@ type client struct {
 
 type queryClient struct {
 	TunnelQueryClient  tunneltypes.QueryClient
-	BandTssQueryClient bandtsstypes.QueryClient
+	BandtssQueryClient bandtsstypes.QueryClient
 }
 
 // NewClient creates a new BandChain client instance.
@@ -53,10 +53,13 @@ func NewClient(ctx cosmosclient.Context, queryClient *queryClient, log *zap.Logg
 }
 
 // NewQueryClient creates a new query client instance.
-func NewQueryClient(tunnelQueryClient tunneltypes.QueryClient, bandTssQueryClient bandtsstypes.QueryClient) *queryClient {
+func NewQueryClient(
+	tunnelQueryClient tunneltypes.QueryClient,
+	bandTssQueryClient bandtsstypes.QueryClient,
+) *queryClient {
 	return &queryClient{
 		TunnelQueryClient:  tunnelQueryClient,
-		BandTssQueryClient: bandTssQueryClient,
+		BandtssQueryClient: bandTssQueryClient,
 	}
 }
 
@@ -96,6 +99,11 @@ func (c *client) Connect(timeout uint) error {
 
 // GetTunnel gets tunnel info from band client
 func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
+	// check connection to bandchain
+	if c.QueryClient == nil {
+		return nil, fmt.Errorf("cannot connect to bandchain")
+	}
+
 	res, err := c.QueryClient.TunnelQueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
 		TunnelId: tunnelID,
 	})
@@ -126,6 +134,11 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 
 // GetTunnelPacket gets tunnel packet info from band client
 func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error) {
+	// check connection to bandchain
+	if c.QueryClient == nil {
+		return nil, fmt.Errorf("cannot connect to bandchain")
+	}
+
 	// Get packet information by given tunnel ID and sequence
 	resPacket, err := c.QueryClient.TunnelQueryClient.Packet(ctx, &tunneltypes.QueryPacketRequest{
 		TunnelId: tunnelID,
@@ -158,7 +171,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	signingID := uint64(tssPacketContent.SigningID)
 
 	// Get tss signing information by given signing ID
-	resSigning, err := c.QueryClient.BandTssQueryClient.Signing(ctx, &bandtsstypes.QuerySigningRequest{
+	resSigning, err := c.QueryClient.BandtssQueryClient.Signing(ctx, &bandtsstypes.QuerySigningRequest{
 		SigningId: signingID,
 	})
 	if err != nil {
