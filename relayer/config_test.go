@@ -131,3 +131,21 @@ func TestMarshalConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, relayertest.CustomCfgText, string(b))
 }
+
+func TestLoadChainConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := path.Join(tmpDir, "chain_config.toml")
+	chainName := "testnet"
+
+	// write config file
+	err := os.WriteFile(cfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	require.NoError(t, err)
+
+	// load chain config
+	actual, err := relayer.LoadChainConfig(cfgPath)
+	require.NoError(t, err)
+
+	expect := relayertest.CustomCfg.TargetChains[chainName]
+
+	require.Equal(t, expect, actual)
+}

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal/relayertest"
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
@@ -182,4 +183,89 @@ func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	)
 	s.Require().NoError(err)
 	s.Require().Equal(expected, tunnel)
+}
+
+func (s *AppTestSuite) TestAddChainConfig() {
+	s.app.Config = nil
+	// create new chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
+	chainName := "testnet"
+
+	// write chain config file
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(chainCfgPath)
+
+	// init chain config file
+	customCfgPath := ""
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	// load config
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	err = s.app.AddChainConfig(chainName, chainCfgPath)
+	s.Require().NoError(err)
+
+	expectedBytes := []byte(relayertest.DefaultCfgTextWithChainCfg)
+	actualBytes, err := os.ReadFile(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	s.Require().NoError(err)
+	s.Require().Equal(expectedBytes, actualBytes)
+}
+
+func (s *AppTestSuite) TestDeleteChainConfig() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	// delete chain config by given chain name
+	chainName := "testnet"
+	err = s.app.DeleteChainConfig(chainName)
+	s.Require().NoError(err)
+
+	expectedBytes := []byte(relayertest.DefaultCfgText)
+
+	actualBytes, err := os.ReadFile(path.Join(s.app.HomePath, "config", "config.toml"))
+	s.Require().NoError(err)
+
+	s.Require().Equal(expectedBytes, actualBytes)
+}
+
+func (s *AppTestSuite) TestGetChainConfig() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	actual, err := s.app.GetChainConfig(chainName)
+	s.Require().NoError(err)
+
+	expect := relayertest.CustomCfg.TargetChains[chainName]
+
+	s.Require().Equal(expect, actual)
 }

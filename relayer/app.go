@@ -54,7 +54,7 @@ func NewApp(
 // Initialize the application.
 func (a *App) Init(ctx context.Context) error {
 	if a.Config == nil {
-		if err := a.loadConfigFile(); err != nil {
+		if err := a.LoadConfigFile(); err != nil {
 			return err
 		}
 	}
@@ -125,7 +125,7 @@ func (a *App) initTargetChains(ctx context.Context) error {
 }
 
 // loadConfigFile reads config file into a.Config if file is present.
-func (a *App) loadConfigFile() error {
+func (a *App) LoadConfigFile() error {
 	cfgPath := path.Join(a.HomePath, configFolderName, configFileName)
 	if _, err := os.Stat(cfgPath); err != nil {
 		// don't return error if file doesn't exist
