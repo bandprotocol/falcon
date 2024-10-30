@@ -16,6 +16,11 @@ type Sender struct {
 
 // NewSender creates a new sender object.
 func NewSender(privateKeyHex string) (Sender, error) {
+	// if private key is empty, return empty object
+	if privateKeyHex == "" {
+		return Sender{}, nil
+	}
+
 	// Convert the private key hex string to a private key object
 	privateKey, err := crypto.HexToECDSA(privateKeyHex)
 	if err != nil {
