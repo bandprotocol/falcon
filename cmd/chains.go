@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
-	"github.com/pelletier/go-toml/v2"
 )
 
 // chainsCmd returns a command that manages chain configurations.

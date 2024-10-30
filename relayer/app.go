@@ -264,7 +264,7 @@ func (a *App) AddChainConfig(chainName string, filePath string) error {
 		return err
 	}
 
-	return os.WriteFile(cfgPath, b, 0644)
+	return os.WriteFile(cfgPath, b, 0o600)
 }
 
 func (a *App) DeleteChainConfig(chainName string) error {
@@ -287,7 +287,7 @@ func (a *App) DeleteChainConfig(chainName string) error {
 		return err
 	}
 
-	return os.WriteFile(cfgPath, b, 0644)
+	return os.WriteFile(cfgPath, b, 0o600)
 }
 
 func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, error) {
