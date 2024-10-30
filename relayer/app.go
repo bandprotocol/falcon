@@ -239,6 +239,71 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 	), nil
 }
 
+func (a *App) AddChainConfig(chainName string, filePath string) error {
+	if a.Config == nil {
+		return fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	if _, exist := a.Config.TargetChains[chainName]; exist {
+		return fmt.Errorf("existing chain name : %s", chainName)
+	}
+
+	chainProviderConfig, err := LoadChainConfig(filePath)
+	if err != nil {
+		return err
+	}
+
+	a.Config.TargetChains[chainName] = chainProviderConfig
+
+	cfgDir := path.Join(a.HomePath, configFolderName)
+	cfgPath := path.Join(cfgDir, configFileName)
+
+	// Marshal config object into bytes
+	b, err := toml.Marshal(a.Config)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(cfgPath, b, 0644)
+}
+
+func (a *App) DeleteChainConfig(chainName string) error {
+	if a.Config == nil {
+		return fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	if _, exist := a.Config.TargetChains[chainName]; !exist {
+		return fmt.Errorf("not existing chain name : %s", chainName)
+	}
+
+	delete(a.Config.TargetChains, chainName)
+
+	cfgDir := path.Join(a.HomePath, configFolderName)
+	cfgPath := path.Join(cfgDir, configFileName)
+
+	// Marshal config object into bytes
+	b, err := toml.Marshal(a.Config)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(cfgPath, b, 0644)
+}
+
+func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	chainProviders := a.Config.TargetChains
+
+	if _, exist := chainProviders[chainName]; !exist {
+		return nil, fmt.Errorf("not existing chain name : %s", chainName)
+	}
+
+	return chainProviders[chainName], nil
+}
+
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("starting tunnel relayer")

@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // chainsCmd returns a command that manages chain configurations.
@@ -27,6 +29,47 @@ func chainsCmd(app *relayer.App) *cobra.Command {
 	return cmd
 }
 
+// chainsAddCmd returns a command that adds a new chain configuration.
+func chainsAddCmd(app *relayer.App) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "add [chain_name] [chain_config_path]",
+		Aliases: []string{"a"},
+		Short:   "Add a new chain to the configuration file by passing a configuration file",
+		Args:    withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s ch a evm eth --file chains/eth.toml 
+$ %s chains add evm eth --file chains/eth.toml`, appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainName := args[0]
+			filePath := args[1]
+
+			return app.AddChainConfig(chainName, filePath)
+		},
+	}
+
+	return cmd
+}
+
+// chainsDeleteCmd returns a command that deletes a chain configuration.
+func chainsDeleteCmd(app *relayer.App) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete [chain_name]",
+		Aliases: []string{"d"},
+		Short:   "Remove chain from config based on chain_name",
+		Args:    withUsage(cobra.ExactArgs(1)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s chains delete eth
+$ %s ch d eth`, appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainName := args[0]
+
+			return app.DeleteChainConfig(chainName)
+		},
+	}
+
+	return cmd
+}
+
 // chainsListCmd returns a command that lists all chains that are currently configured.
 // NOTE: this command only show the list of registered chainIDs, to see the configuration
 // please see `chains show`.
@@ -40,7 +83,22 @@ func chainsListCmd(app *relayer.App) *cobra.Command {
 $ %s chains list
 $ %s ch l`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			if app.Config == nil {
+				return fmt.Errorf("config does not exist: %s", app.HomePath)
+			}
+
+			seq := 1
+			chainProviders := app.Config.TargetChains
+			for chainName, chainProviderConfig := range chainProviders {
+				out := "%d: %s -> type(%s)"
+				switch cp := chainProviderConfig.(type) {
+				case *evm.EVMChainProviderConfig:
+					fmt.Fprintln(cmd.OutOrStdout(), fmt.Sprintf(out, seq, chainName, cp.ChainType.String()))
+				default:
+					return fmt.Errorf("unsupported chain provider type for chain: %s", chainName)
+				}
+				seq++
+			}
 			return nil
 		},
 	}
@@ -59,45 +117,20 @@ func chainsShowCmd(app *relayer.App) *cobra.Command {
 $ %s ch s eth
 $ %s chains show eth --yaml`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
-			return nil
-		},
-	}
+			chainName := args[0]
 
-	return cmd
-}
+			chainConfig, err := app.GetChainConfig(chainName)
+			if err != nil {
+				return err
+			}
 
-// chainsAddCmd returns a command that adds a new chain configuration.
-func chainsAddCmd(app *relayer.App) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "add [chain_type] [chain_name]",
-		Aliases: []string{"a"},
-		Short:   "Add a new chain to the configuration file by passing a configuration file (-f)",
-		Args:    withUsage(cobra.ExactArgs(2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s ch a evm eth --file chains/eth.toml 
-$ %s chains add evm eth --file chains/eth.toml`, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
-			return nil
-		},
-	}
+			b, err := toml.Marshal(chainConfig)
+			if err != nil {
+				return err
+			}
 
-	return cmd
-}
+			fmt.Fprintln(cmd.OutOrStdout(), string(b))
 
-// chainsDeleteCmd returns a command that deletes a chain configuration.
-func chainsDeleteCmd(app *relayer.App) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "delete [chain_name]",
-		Aliases: []string{"d"},
-		Short:   "Remove chain from config based on chain_name",
-		Args:    withUsage(cobra.ExactArgs(1)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s chains delete eth
-$ %s ch d eth`, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
 			return nil
 		},
 	}
