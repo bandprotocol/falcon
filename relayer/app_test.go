@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	tmbytes "github.com/cometbft/cometbft/libs/bytes"
+	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -206,14 +206,14 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 
 	// Create a mock EVMSignature
 	evmSignature := bandtypes.NewEVMSignature(
-		tmbytes.HexBytes("0x1234"),
-		tmbytes.HexBytes("0xabcd"),
+		cmbytes.HexBytes("0x1234"),
+		cmbytes.HexBytes("0xabcd"),
 	)
 
 	// Create mock signing information
 	signingInfo := bandtypes.NewSigning(
 		1,
-		tmbytes.HexBytes("0xdeadbeef"),
+		cmbytes.HexBytes("0xdeadbeef"),
 		evmSignature,
 	)
 

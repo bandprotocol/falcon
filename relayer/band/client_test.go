@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"cosmossdk.io/math"
-	tmbytes "github.com/cometbft/cometbft/libs/bytes"
+	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types"
@@ -134,11 +134,11 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 	signingResult := &tsstypes.SigningResult{
 		Signing: tsstypes.Signing{
 			ID:      2,
-			Message: tmbytes.HexBytes("0xdeadbeef"),
+			Message: cmbytes.HexBytes("0xdeadbeef"),
 		},
 		EVMSignature: &tsstypes.EVMSignature{
-			RAddress:  tmbytes.HexBytes("0x1234"),
-			Signature: tmbytes.HexBytes("0xabcd"),
+			RAddress:  cmbytes.HexBytes("0x1234"),
+			Signature: cmbytes.HexBytes("0xabcd"),
 		},
 	}
 
@@ -166,10 +166,10 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 
 	expectedCurrentGroupSigning := bandclienttypes.NewSigning(
 		2,
-		tmbytes.HexBytes("0xdeadbeef"),
+		cmbytes.HexBytes("0xdeadbeef"),
 		bandclienttypes.NewEVMSignature(
-			tmbytes.HexBytes("0x1234"),
-			tmbytes.HexBytes("0xabcd"),
+			cmbytes.HexBytes("0x1234"),
+			cmbytes.HexBytes("0xabcd"),
 		),
 	)
 
