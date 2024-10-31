@@ -21,6 +21,7 @@ func queryCmd(app *relayer.App) *cobra.Command {
 
 	cmd.AddCommand(
 		queryTunnelCmd(app),
+		queryPacketCmd(app),
 		queryBalanceCmd(app),
 	)
 
@@ -48,6 +49,44 @@ $ %s query tunnel 1`, appName)),
 			}
 
 			out, err := json.MarshalIndent(tunnel, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+// queryPacketCmd returns a command that query packet information.
+func queryPacketCmd(app *relayer.App) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "packet [tunnel_id] [sequence]",
+		Aliases: []string{"p"},
+		Short:   "Query commands on packet data",
+		Args:    withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query packet 1 1`, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			sequence, err := strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			packet, err := app.QueryTunnelPacketInfo(cmd.Context(), tunnelID, sequence)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.MarshalIndent(packet, "", "  ")
 			if err != nil {
 				return err
 			}
