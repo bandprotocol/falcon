@@ -2,7 +2,7 @@ package types
 
 // Tunnel stores an information of the tunnel.
 type Tunnel struct {
-	ID             uint64 `json:"id"`
+	ID             uint64 `json:"-"`
 	LatestSequence uint64 `json:"latest_sequence"`
 	TargetAddress  string `json:"target_address"`
 	TargetChainID  string `json:"target_chain_id"`

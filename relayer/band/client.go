@@ -29,6 +29,23 @@ type Client interface {
 	Connect(timeout uint) error
 }
 
+// QueryClient groups the gRPC clients for querying BandChain-specific data.
+type QueryClient struct {
+	TunnelQueryClient  tunneltypes.QueryClient
+	BandtssQueryClient bandtsstypes.QueryClient
+}
+
+// NewQueryClient creates a new QueryClient instance.
+func NewQueryClient(
+	tunnelQueryClient tunneltypes.QueryClient,
+	bandTssQueryClient bandtsstypes.QueryClient,
+) *QueryClient {
+	return &QueryClient{
+		TunnelQueryClient:  tunnelQueryClient,
+		BandtssQueryClient: bandTssQueryClient,
+	}
+}
+
 // client is the BandChain client struct.
 type client struct {
 	Context      cosmosclient.Context
@@ -44,23 +61,6 @@ func NewClient(ctx cosmosclient.Context, queryClient *QueryClient, log *zap.Logg
 		QueryClient:  queryClient,
 		Log:          log,
 		RpcEndpoints: rpcEndpoints,
-	}
-}
-
-// QueryClient groups the gRPC clients for querying BandChain-specific data.
-type QueryClient struct {
-	TunnelQueryClient  tunneltypes.QueryClient
-	BandtssQueryClient bandtsstypes.QueryClient
-}
-
-// NewQueryClient creates a new QueryClient instance.
-func NewQueryClient(
-	tunnelQueryClient tunneltypes.QueryClient,
-	bandTssQueryClient bandtsstypes.QueryClient,
-) *QueryClient {
-	return &QueryClient{
-		TunnelQueryClient:  tunnelQueryClient,
-		BandtssQueryClient: bandTssQueryClient,
 	}
 }
 
