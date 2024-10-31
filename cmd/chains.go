@@ -87,17 +87,16 @@ $ %s ch l`, appName, appName)),
 				return fmt.Errorf("config does not exist: %s", app.HomePath)
 			}
 
-			seq := 1
-			chainProviders := app.Config.TargetChains
-			for chainName, chainProviderConfig := range chainProviders {
+			i := 1
+			for chainName, chainProviderConfig := range app.Config.TargetChains {
 				out := "%d: %s -> type(%s)"
 				switch cp := chainProviderConfig.(type) {
 				case *evm.EVMChainProviderConfig:
-					fmt.Fprintln(cmd.OutOrStdout(), fmt.Sprintf(out, seq, chainName, cp.ChainType.String()))
+					fmt.Fprintln(cmd.OutOrStdout(), fmt.Sprintf(out, i, chainName, cp.ChainType.String()))
 				default:
 					return fmt.Errorf("unsupported chain provider type for chain: %s", chainName)
 				}
-				seq++
+				i++
 			}
 			return nil
 		},
