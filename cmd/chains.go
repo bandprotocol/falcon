@@ -37,8 +37,8 @@ func chainsAddCmd(app *relayer.App) *cobra.Command {
 		Short:   "Add a new chain to the configuration file by passing a configuration file",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s ch a evm eth --file chains/eth.toml 
-$ %s chains add evm eth --file chains/eth.toml`, appName, appName)),
+$ %s ch a evm chains/eth.toml 
+$ %s chains add evm chains/eth.toml`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			filePath := args[1]
