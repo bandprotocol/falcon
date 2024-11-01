@@ -39,14 +39,12 @@ func MakeEncodingConfig() EncodingConfig {
 		"tunnel.v1beta1.RouteI",
 		(*tunneltypes.RouteI)(nil),
 		&tunneltypes.TSSRoute{},
-		&tunneltypes.AxelarRoute{},
 	)
 
 	interfaceRegistry.RegisterInterface(
 		"tunnel.v1beta1.PacketContentI",
 		(*tunneltypes.PacketContentI)(nil),
 		&tunneltypes.TSSPacketContent{},
-		&tunneltypes.AxelarPacketContent{},
 	)
 
 	cdc := codec.NewProtoCodec(interfaceRegistry)

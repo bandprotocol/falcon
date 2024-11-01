@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	types "github.com/bandprotocol/falcon/relayer/chains/types"
-	types0 "github.com/bandprotocol/falcon/relayer/types"
+	types "github.com/bandprotocol/falcon/relayer/band/types"
+	types0 "github.com/bandprotocol/falcon/relayer/chains/types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -57,10 +57,10 @@ func (mr *MockChainProviderMockRecorder) Init(ctx any) *gomock.Call {
 }
 
 // QueryTunnelInfo mocks base method.
-func (m *MockChainProvider) QueryTunnelInfo(ctx context.Context, tunnelID uint64, tunnelDestinationAddr string) (*types.Tunnel, error) {
+func (m *MockChainProvider) QueryTunnelInfo(ctx context.Context, tunnelID uint64, tunnelDestinationAddr string) (*types0.Tunnel, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "QueryTunnelInfo", ctx, tunnelID, tunnelDestinationAddr)
-	ret0, _ := ret[0].(*types.Tunnel)
+	ret0, _ := ret[0].(*types0.Tunnel)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -72,15 +72,15 @@ func (mr *MockChainProviderMockRecorder) QueryTunnelInfo(ctx, tunnelID, tunnelDe
 }
 
 // RelayPacket mocks base method.
-func (m *MockChainProvider) RelayPacket(ctx context.Context, input *types0.RelayerTask) error {
+func (m *MockChainProvider) RelayPacket(ctx context.Context, packet *types.Packet) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelayPacket", ctx, input)
+	ret := m.ctrl.Call(m, "RelayPacket", ctx, packet)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RelayPacket indicates an expected call of RelayPacket.
-func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, input any) *gomock.Call {
+func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, packet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, input)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, packet)
 }

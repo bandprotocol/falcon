@@ -19,7 +19,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
-	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 var _ chains.ChainProvider = (*EVMChainProvider)(nil)
@@ -126,7 +125,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 		return nil, fmt.Errorf("[EVMProvider] invalid address: %w", err)
 	}
 
-	isActive, err := cp.queryTargetContractIsActive(ctx, tunnelID, addr)
+	info, err := cp.queryTunnelInfo(ctx, tunnelID, addr)
 	if err != nil {
 		cp.Log.Error(
 			"query contract error",
@@ -140,16 +139,18 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 	}
 
 	return &chainstypes.Tunnel{
-		ID:            tunnelID,
-		TargetAddress: tunnelDestinationAddr,
-		IsActive:      isActive,
+		ID:             tunnelID,
+		TargetAddress:  tunnelDestinationAddr,
+		IsActive:       info.IsActive,
+		LatestSequence: info.LatestSequence,
+		Balance:        info.Balance,
 	}, nil
 }
 
 // RelayPacket relays the packet from the source chain to the destination chain.
 func (cp *EVMChainProvider) RelayPacket(
 	ctx context.Context,
-	task *types.RelayerTask,
+	packet *bandtypes.Packet,
 ) error {
 	if err := cp.Client.Connect(ctx); err != nil {
 		cp.Log.Error(
@@ -165,19 +166,19 @@ func (cp *EVMChainProvider) RelayPacket(
 		cp.Log.Info(
 			"relaying a message",
 			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", task.Packet.TunnelID),
-			zap.Uint64("sequence", task.Packet.Sequence),
+			zap.Uint64("tunnel_id", packet.TunnelID),
+			zap.Uint64("sequence", packet.Sequence),
 			zap.Int("retry_count", retryCount),
 		)
 
-		txHash, err := cp.handleRelay(ctx, task, retryCount)
+		txHash, err := cp.handleRelay(ctx, packet, retryCount)
 		if err != nil {
 			cp.Log.Error(
 				"HandleRelay error",
 				zap.Error(err),
 				zap.String("chain_name", cp.ChainName),
-				zap.Uint64("tunnel_id", task.Packet.TunnelID),
-				zap.Uint64("sequence", task.Packet.Sequence),
+				zap.Uint64("tunnel_id", packet.TunnelID),
+				zap.Uint64("sequence", packet.Sequence),
 				zap.Int("retry_count", retryCount),
 			)
 			retryCount += 1
@@ -188,8 +189,8 @@ func (cp *EVMChainProvider) RelayPacket(
 		cp.Log.Info(
 			"submitting a message",
 			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", task.Packet.TunnelID),
-			zap.Uint64("sequence", task.Packet.Sequence),
+			zap.Uint64("tunnel_id", packet.TunnelID),
+			zap.Uint64("sequence", packet.Sequence),
 			zap.String("tx_hash", txHash),
 			zap.Int("retry_count", retryCount),
 		)
@@ -204,8 +205,8 @@ func (cp *EVMChainProvider) RelayPacket(
 					"Failed to check tx status",
 					zap.Error(err),
 					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", task.Packet.TunnelID),
-					zap.Uint64("sequence", task.Packet.Sequence),
+					zap.Uint64("tunnel_id", packet.TunnelID),
+					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -223,8 +224,8 @@ func (cp *EVMChainProvider) RelayPacket(
 				cp.Log.Info(
 					"Packet is successfully relayed",
 					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", task.Packet.TunnelID),
-					zap.Uint64("sequence", task.Packet.Sequence),
+					zap.Uint64("tunnel_id", packet.TunnelID),
+					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -237,8 +238,8 @@ func (cp *EVMChainProvider) RelayPacket(
 					"Waiting for tx to be mined",
 					zap.Error(err),
 					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", task.Packet.TunnelID),
-					zap.Uint64("sequence", task.Packet.Sequence),
+					zap.Uint64("tunnel_id", packet.TunnelID),
+					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -252,8 +253,8 @@ func (cp *EVMChainProvider) RelayPacket(
 			zap.Error(checkTxErr),
 			zap.String("status", txStatus.String()),
 			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", task.Packet.TunnelID),
-			zap.Uint64("sequence", task.Packet.Sequence),
+			zap.Uint64("tunnel_id", packet.TunnelID),
+			zap.Uint64("sequence", packet.Sequence),
 			zap.String("tx_hash", txHash),
 			zap.Int("retry_count", retryCount),
 		)
@@ -267,10 +268,10 @@ func (cp *EVMChainProvider) RelayPacket(
 // handleRelay handles the relay message from the source chain to the destination chain.
 func (cp *EVMChainProvider) handleRelay(
 	ctx context.Context,
-	task *types.RelayerTask,
+	packet *bandtypes.Packet,
 	retryCount int,
 ) (txHash string, err error) {
-	calldata, err := cp.createCalldata(task)
+	calldata, err := cp.createCalldata(packet)
 	if err != nil {
 		return "", fmt.Errorf("failed to create calldata: %w", err)
 	}
@@ -284,8 +285,8 @@ func (cp *EVMChainProvider) handleRelay(
 		fmt.Sprintf("Relaying packet using address: %v", sender.address),
 		zap.String("evm_sender_address", sender.address.String()),
 		zap.String("chain_name", cp.ChainName),
-		zap.Uint64("tunnel_id", task.Packet.TunnelID),
-		zap.Uint64("sequence", task.Packet.Sequence),
+		zap.Uint64("tunnel_id", packet.TunnelID),
+		zap.Uint64("sequence", packet.Sequence),
 	)
 
 	tx, err := cp.newRelayTx(ctx, calldata, sender.address, retryCount)
@@ -351,28 +352,28 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, effGasPrice), nil
 }
 
-// queryTargetContractIsActive queries the target contract is active or not.
-func (cp *EVMChainProvider) queryTargetContractIsActive(
+// queryTunnelInfo queries the target contract information.
+func (cp *EVMChainProvider) queryTunnelInfo(
 	ctx context.Context,
 	tunnelID uint64,
 	addr gethcommon.Address,
-) (bool, error) {
-	calldata, err := cp.TunnelRouterABI.Pack("isActive", tunnelID, addr)
+) (*TunnelInfoOutput, error) {
+	calldata, err := cp.TunnelRouterABI.Pack("tunnelInfo", tunnelID, addr)
 	if err != nil {
-		return false, fmt.Errorf("failed to pack calldata: %w", err)
+		return nil, fmt.Errorf("failed to pack calldata: %w", err)
 	}
 
 	b, err := cp.Client.Query(ctx, cp.TunnelRouterAddress, calldata)
 	if err != nil {
-		return false, fmt.Errorf("failed to query data: %w", err)
+		return nil, fmt.Errorf("failed to query data: %w", err)
 	}
 
-	var output TunnelRouterIsActiveOutput
-	if err := cp.TunnelRouterABI.UnpackIntoInterface(&output, "isActive", b); err != nil {
-		return false, fmt.Errorf("failed to unpack data: %w", err)
+	var output TunnelInfoOutputRaw
+	if err := cp.TunnelRouterABI.UnpackIntoInterface(&output, "tunnelInfo", b); err != nil {
+		return nil, fmt.Errorf("failed to unpack data: %w", err)
 	}
 
-	return output.IsActive, nil
+	return &output.Info, nil
 }
 
 // newRelayTx creates a new relay transaction.
@@ -440,12 +441,12 @@ func (cp *EVMChainProvider) newRelayTx(
 }
 
 // createCalldata creates the calldata for the relay transaction.
-func (cp *EVMChainProvider) createCalldata(task *types.RelayerTask) ([]byte, error) {
+func (cp *EVMChainProvider) createCalldata(packet *bandtypes.Packet) ([]byte, error) {
 	var signing *bandtypes.Signing
-	if task.Packet.IncomingGroupSigning != nil {
-		signing = task.Packet.IncomingGroupSigning
-	} else if task.Packet.CurrentGroupSigning != nil {
-		signing = task.Packet.CurrentGroupSigning
+	if packet.IncomingGroupSigning != nil {
+		signing = packet.IncomingGroupSigning
+	} else if packet.CurrentGroupSigning != nil {
+		signing = packet.CurrentGroupSigning
 	} else {
 		return nil, fmt.Errorf("missing signing")
 	}

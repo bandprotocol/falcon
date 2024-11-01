@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -10,7 +11,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 // TunnelRelayer is a relayer that listens to the tunnel and relays the packet
@@ -43,23 +43,39 @@ func NewTunnelRelayer(
 }
 
 func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) error {
-	// TODO: Check if there is any new packet to be relayed in BandChain
-	task, err := t.MockRelayerTask()
+	info, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, t.ContractAddress)
+	if err != nil {
+		return err
+	}
+	if !info.IsActive {
+		t.Log.Error("tunnel is not active on target chain", zap.Uint64("tunnel_id", t.TunnelID))
+		return fmt.Errorf("tunnel is not active on target chain")
+	}
+
+	nextSeq := info.LatestSequence + 1
+	t.Log.Debug(
+		"querying packet information",
+		zap.Uint64("tunnel_id", t.TunnelID),
+		zap.Uint64("sequence", nextSeq),
+	)
+
+	packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, nextSeq)
 	if err != nil {
 		t.Log.Error(
-			"failed to mock relayer task",
+			"failed to get packet",
 			zap.Error(err),
 			zap.Uint64("tunnel_id", t.TunnelID),
+			zap.Uint64("sequence", info.LatestSequence),
 		)
 		return err
 	}
 
-	if err := t.TargetChainProvider.RelayPacket(ctx, task); err != nil {
+	if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
 		t.Log.Error(
 			"failed to relay packet",
 			zap.Error(err),
 			zap.Uint64("tunnel_id", t.TunnelID),
-			zap.Uint64("sequence", task.Packet.Sequence),
+			zap.Uint64("sequence", packet.Sequence),
 		)
 		return err
 	}
@@ -68,7 +84,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) error {
 }
 
 // TODO: remove this after the implementation is done
-func (t *TunnelRelayer) MockRelayerTask() (*types.RelayerTask, error) {
+func (t *TunnelRelayer) MockRelayerTask() (*bandtypes.Packet, error) {
 	msgHex := "0E1AC2C4A50A82AA49717691FC1AE2E5FA68EFF45BD8576B0F2BE7A0850FA7C6" +
 		"78512D24E95216DC140F557181A03631715A023424CBAD94601F3546CDFC3DE4" +
 		"78512D24E95216DC140F557181A03631715A023424CBAD94601F3546CDFC3DE4" +
@@ -106,16 +122,14 @@ func (t *TunnelRelayer) MockRelayerTask() (*types.RelayerTask, error) {
 		return nil, err
 	}
 
-	return &types.RelayerTask{
-		Packet: &bandtypes.Packet{
-			TunnelID: t.TunnelID,
-			Sequence: uint64(2),
-			IncomingGroupSigning: &bandtypes.Signing{
-				Message: msg,
-				EVMSignature: &bandtypes.EVMSignature{
-					RAddress:  rAddr,
-					Signature: signature,
-				},
+	return &bandtypes.Packet{
+		TunnelID: t.TunnelID,
+		Sequence: uint64(2),
+		IncomingGroupSigning: &bandtypes.Signing{
+			Message: msg,
+			EVMSignature: &bandtypes.EVMSignature{
+				RAddress:  rAddr,
+				Signature: signature,
 			},
 		},
 	}, nil

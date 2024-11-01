@@ -276,19 +276,54 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 	return c.GetTunnelPacket(ctx, tunnelID, sequence)
 }
 
+// Relay relays the packet from the source chain to the destination chain.
+func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
+	a.Log.Debug("query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
+	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
+	if err != nil {
+		return err
+	}
+
+	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+	if !ok {
+		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
+	}
+
+	tr := NewTunnelRelayer(
+		a.Log,
+		tunnel.ID,
+		tunnel.TargetAddress,
+		a.Config.Global.CheckingPacketInterval,
+		a.BandClient,
+		chainProvider,
+	)
+
+	return tr.CheckAndRelay(ctx)
+}
+
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("starting tunnel relayer")
 
-	// TODO: load the tunnel information from the bandchain.
-	// If len(tunnelIDs == 0), load all tunnels info.
-	tunnels := []*bandtypes.Tunnel{
-		{
-			ID:             1,
-			LatestSequence: 0,
-			TargetChainID:  "testnet_evm",
-			TargetAddress:  "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-		},
+	// query tunnels
+	var tunnels []bandtypes.Tunnel
+	if len(tunnelIDs) == 0 {
+		// TODO: query all tunnels
+	} else {
+		tunnels = make([]bandtypes.Tunnel, 0, len(tunnelIDs))
+		for _, tunnelID := range tunnelIDs {
+			tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
+			if err != nil {
+				return err
+			}
+			tunnels = append(tunnels, *tunnel)
+		}
+	}
+
+	// TODO: query tunnels
+	if len(tunnels) == 0 {
+		a.Log.Error("no tunnel ID provided")
+		return fmt.Errorf("no tunnel ID provided")
 	}
 
 	// initialize the tunnel relayer
