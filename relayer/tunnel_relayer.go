@@ -108,15 +108,14 @@ func (t *TunnelRelayer) MockRelayerTask() (*types.RelayerTask, error) {
 
 	return &types.RelayerTask{
 		Packet: &bandtypes.Packet{
-			TunnelID:              t.TunnelID,
-			TargetContractAddress: t.ContractAddress,
-			TargetChainID:         "testnet_evm",
-		},
-		Signing: &bandtypes.Signing{
-			Message: msg,
-			EVMSignature: &bandtypes.EVMSignature{
-				RAddress:  rAddr,
-				Signature: signature,
+			TunnelID: t.TunnelID,
+			Sequence: uint64(2),
+			IncomingGroupSigning: &bandtypes.Signing{
+				Message: msg,
+				EVMSignature: &bandtypes.EVMSignature{
+					RAddress:  rAddr,
+					Signature: signature,
+				},
 			},
 		},
 	}, nil

@@ -1,26 +1,25 @@
 package types
 
-import chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+import (
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+)
 
 // Tunnel defines the tunnel information.
 type Tunnel struct {
 	ID              uint64              `json:"id"`
-	TargetChain     string              `json:"target_chain"`
-	TargetAddress   string              `json:"target_address"`
+	BandChainInfo   *bandtypes.Tunnel   `json:"band_chain_info"`
 	TunnelChainInfo *chainstypes.Tunnel `json:"tunnel_chain_info"`
 }
 
 // NewTunnel creates a new tunnel object.
 func NewTunnel(
-	id uint64,
-	targetChain string,
-	targetAddress string,
+	bandChainInfo *bandtypes.Tunnel,
 	tunnelChainInfo *chainstypes.Tunnel,
 ) *Tunnel {
 	return &Tunnel{
-		ID:              id,
-		TargetChain:     targetChain,
-		TargetAddress:   targetAddress,
+		ID:              bandChainInfo.ID,
+		BandChainInfo:   bandChainInfo,
 		TunnelChainInfo: tunnelChainInfo,
 	}
 }

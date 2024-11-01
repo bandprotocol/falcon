@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -440,16 +441,25 @@ func (cp *EVMChainProvider) newRelayTx(
 
 // createCalldata creates the calldata for the relay transaction.
 func (cp *EVMChainProvider) createCalldata(task *types.RelayerTask) ([]byte, error) {
-	rAddr, err := HexToAddress(task.Signing.EVMSignature.RAddress.String())
+	var signing *bandtypes.Signing
+	if task.Packet.IncomingGroupSigning != nil {
+		signing = task.Packet.IncomingGroupSigning
+	} else if task.Packet.CurrentGroupSigning != nil {
+		signing = task.Packet.CurrentGroupSigning
+	} else {
+		return nil, fmt.Errorf("missing signing")
+	}
+
+	rAddr, err := HexToAddress(signing.EVMSignature.RAddress.String())
 	if err != nil {
 		return nil, err
 	}
 
 	return cp.TunnelRouterABI.Pack(
 		"relay",
-		task.Signing.Message.Bytes(),
+		signing.Message.Bytes(),
 		rAddr,
-		new(big.Int).SetBytes(task.Signing.EVMSignature.Signature),
+		new(big.Int).SetBytes(signing.EVMSignature.Signature),
 	)
 }
 

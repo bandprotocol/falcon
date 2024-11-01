@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 
+	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ type App struct {
 	Config   *Config
 
 	targetChains chains.ChainProviders
+	BandClient   band.Client
 }
 
 // NewApp creates a new App instance.
@@ -71,8 +73,23 @@ func (a *App) Init(ctx context.Context) error {
 		return err
 	}
 
-	// TODO: initialize band client
+	// initialize band client
+	if a.Config != nil {
+		if err := a.initClient(); err != nil {
+			return err
+		}
+	}
 
+	return nil
+}
+
+// InitClient establishs connection to rpc endpoints.
+func (a *App) initClient() error {
+	c := band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
+	if err := c.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
+		return err
+	}
+	a.BandClient = c
 	return nil
 }
 
@@ -210,16 +227,28 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
+// QueryTunnelInfo queries tunnel information by given tunnel ID
 func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	// TODO: add band client part and change targetChain and targetAddr
-	// bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
+	c := a.BandClient
+	tunnel, err := c.GetTunnel(ctx, tunnelID)
+	if err != nil {
+		return nil, err
+	}
 
-	targetChain := "testnet_evm"
-	targetAddr := "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+	bandChainInfo := bandtypes.NewTunnel(
+		tunnel.ID,
+		tunnel.LatestSequence,
+		tunnel.TargetAddress,
+		tunnel.TargetChainID,
+		tunnel.IsActive,
+	)
+
+	targetChain := tunnel.TargetChainID
+	targetAddr := tunnel.TargetAddress
 
 	var tunnelChainInfo *chainstypes.Tunnel
 	cp, ok := a.targetChains[targetChain]
@@ -232,19 +261,24 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 	}
 
 	return types.NewTunnel(
-		tunnelID,
-		targetChain,
-		targetAddr,
+		bandChainInfo,
 		tunnelChainInfo,
 	), nil
+}
+
+// QueryTunnelPacketInfo queries tunnel packet information by given tunnel ID
+func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequence uint64) (*bandtypes.Packet, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	c := a.BandClient
+	return c.GetTunnelPacket(ctx, tunnelID, sequence)
 }
 
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("starting tunnel relayer")
-
-	// initialize band client
-	bandClient := band.NewClient(a.Log, a.Config.BandChain.RpcEndpoints)
 
 	// TODO: load the tunnel information from the bandchain.
 	// If len(tunnelIDs == 0), load all tunnels info.
@@ -270,7 +304,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 			tunnel.ID,
 			tunnel.TargetAddress,
 			a.Config.Global.CheckingPacketInterval,
-			bandClient,
+			a.BandClient,
 			chainProvider,
 		)
 		tunnelRelayers = append(tunnelRelayers, tr)

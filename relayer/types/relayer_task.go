@@ -4,17 +4,17 @@ import bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 
 // RelayerTask defines a task for the relayer.
 type RelayerTask struct {
-	Packet  *bandtypes.Packet
-	Signing *bandtypes.Signing
+	Tunnel *bandtypes.Tunnel
+	Packet *bandtypes.Packet
 }
 
 // NewTssMessage creates a new TSS message object.
 func NewRelayerTask(
+	tunnel *bandtypes.Tunnel,
 	packet *bandtypes.Packet,
-	signing *bandtypes.Signing,
 ) RelayerTask {
 	return RelayerTask{
-		Packet:  packet,
-		Signing: signing,
+		Tunnel: tunnel,
+		Packet: packet,
 	}
 }
