@@ -320,7 +320,6 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		}
 	}
 
-	// TODO: query tunnels
 	if len(tunnels) == 0 {
 		a.Log.Error("no tunnel ID provided")
 		return fmt.Errorf("no tunnel ID provided")
