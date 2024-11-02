@@ -443,10 +443,13 @@ func (cp *EVMChainProvider) newRelayTx(
 // createCalldata creates the calldata for the relay transaction.
 func (cp *EVMChainProvider) createCalldata(packet *bandtypes.Packet) ([]byte, error) {
 	var signing *bandtypes.Signing
-	if packet.IncomingGroupSigning != nil {
-		signing = packet.IncomingGroupSigning
-	} else if packet.CurrentGroupSigning != nil {
+
+	// get signing from packet; prefer to use signing from
+	// current group than incoming group
+	if packet.CurrentGroupSigning != nil {
 		signing = packet.CurrentGroupSigning
+	} else if packet.IncomingGroupSigning != nil {
+		signing = packet.IncomingGroupSigning
 	} else {
 		return nil, fmt.Errorf("missing signing")
 	}
