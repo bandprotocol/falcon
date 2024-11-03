@@ -75,7 +75,7 @@ func (a *App) Init(ctx context.Context) error {
 
 	// initialize band client
 	if a.Config != nil {
-		if err := a.initClient(); err != nil {
+		if err := a.initBandClient(); err != nil {
 			return err
 		}
 	}
@@ -83,8 +83,8 @@ func (a *App) Init(ctx context.Context) error {
 	return nil
 }
 
-// InitClient establishs connection to rpc endpoints.
-func (a *App) initClient() error {
+// initBandClient establishes connection to rpc endpoints.
+func (a *App) initBandClient() error {
 	c := band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
 	if err := c.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
 		return err
@@ -345,6 +345,12 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	// start the tunnel relayers
-	scheduler := NewScheduler(a.Log, tunnelRelayers)
+	scheduler := NewScheduler(
+		a.Log,
+		tunnelRelayers,
+		a.Config.Global.CheckingPacketInterval,
+		a.Config.Global.MaxCheckingPacketPenaltyDuration,
+		a.Config.Global.PenaltyExponentialFactor,
+	)
 	return scheduler.Start(ctx)
 }

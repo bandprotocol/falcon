@@ -1,6 +1,8 @@
 [global]
 log_level = 'info'
-checking_packet_interval = 1
+checking_packet_interval = 60000000000
+max_checking_packet_penalty_duration = 3600000000000
+penalty_exponential_factor = 1.1
 
 [bandchain]
 rpc_endpoints = ['http://localhost:26657', 'http://localhost:26658']
@@ -12,11 +14,13 @@ endpoints = ['http://localhost:8545']
 chain_type = 'evm'
 max_retry = 3
 query_timeout = 3000000000
+execute_timeout = 3000000000
 chain_id = 31337
 tunnel_router_address = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9'
 private_key = ''
 block_confirmation = 5
 waiting_tx_duration = 3000000000
+liveliness_checking_interval = 900000000000
 checking_tx_interval = 1000000000
 gas_type = 'eip1559'
 gas_multiplier = 1.1

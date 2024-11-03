@@ -19,6 +19,8 @@ type TunnelRelayer struct {
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
+
+	isExecuting bool
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -37,11 +39,26 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
+		isExecuting:            false,
 	}
 }
 
 // CheckAndRelay checks the tunnel and relays the packet
-func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) error {
+func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
+	t.isExecuting = true
+	defer func() {
+		t.isExecuting = false
+
+		// Recover from panic
+		if r := recover(); r != nil {
+			newErr, ok := r.(error)
+			if !ok {
+				newErr = fmt.Errorf("%v", r)
+			}
+			err = newErr
+		}
+	}()
+
 	// Query tunnel info from BandChain
 	tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 	if err != nil {
@@ -111,4 +128,8 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (t *TunnelRelayer) IsExecuting() bool {
+	return t.isExecuting
 }
