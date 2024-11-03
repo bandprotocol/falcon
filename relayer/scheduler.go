@@ -43,34 +43,26 @@ func NewScheduler(
 // Start starts all tunnel relayers
 func (s *Scheduler) Start(ctx context.Context) error {
 	ticker := time.NewTicker(s.CheckingPacketInterval)
+
+	// execute once we start the scheduler.
+	s.Execute(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
-			break
+			s.Log.Info("Stopping the scheduler")
+
+			ticker.Stop()
+
+			return nil
 		case <-ticker.C:
-			// Execute the task for each tunnel relayer
-			for i := range s.TunnelRelayers {
-				if s.isErrorOnHolds[i] {
-					tr := s.TunnelRelayers[i]
-					s.Log.Info(
-						"Skipping this tunnel: the operation is on hold due to error on last round.",
-						zap.Uint64("tunnel_id", tr.TunnelID),
-						zap.Int("relayer_id", i),
-					)
-
-					continue
-				}
-
-				// Execute the task, if error occurs, wait for the next round.
-				task := NewTask(i, s.CheckingPacketInterval)
-				s.Execute(ctx, task)
-			}
+			s.Execute(ctx)
 		case task := <-s.penaltyTaskCh:
 			// Execute the task with penalty waiting period
 			go func(task Task) {
 				executeFn := func(ctx context.Context, t Task) {
 					s.isErrorOnHolds[task.RelayerID] = false
-					s.Execute(ctx, task)
+					s.TriggerTunnelRelayer(ctx, task)
 				}
 
 				task.Wait(ctx, executeFn)
@@ -79,8 +71,29 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	}
 }
 
-// Execute executes the task
-func (s *Scheduler) Execute(ctx context.Context, task Task) {
+// Execute executes the task for the tunnel relayer
+func (s *Scheduler) Execute(ctx context.Context) {
+	// Execute the task for each tunnel relayer
+	for i := range s.TunnelRelayers {
+		if s.isErrorOnHolds[i] {
+			tr := s.TunnelRelayers[i]
+			s.Log.Info(
+				"Skipping this tunnel: the operation is on hold due to error on last round.",
+				zap.Uint64("tunnel_id", tr.TunnelID),
+				zap.Int("relayer_id", i),
+			)
+
+			continue
+		}
+
+		// Execute the task, if error occurs, wait for the next round.
+		task := NewTask(i, s.CheckingPacketInterval)
+		go s.TriggerTunnelRelayer(ctx, task)
+	}
+}
+
+// TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
+func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	tr := s.TunnelRelayers[task.RelayerID]
 	s.Log.Info("Executing task", zap.Uint64("tunnel_id", tr.TunnelID))
 
@@ -122,11 +135,13 @@ func (s *Scheduler) Execute(ctx context.Context, task Task) {
 	)
 }
 
+// Task is a struct to manage the task for the tunnel relayer
 type Task struct {
 	RelayerID       int
 	WaitingInterval time.Duration
 }
 
+// NewTask creates a new Task
 func NewTask(relayerID int, waitingInterval time.Duration) Task {
 	return Task{
 		RelayerID:       relayerID,
@@ -134,6 +149,7 @@ func NewTask(relayerID int, waitingInterval time.Duration) Task {
 	}
 }
 
+// Wait waits for the task to be executed
 func (t Task) Wait(ctx context.Context, executeFn func(ctx context.Context, t Task)) {
 	ticker := time.NewTicker(t.WaitingInterval)
 	select {

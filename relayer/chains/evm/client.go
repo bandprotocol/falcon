@@ -91,6 +91,13 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	for {
 		select {
 		case <-ctx.Done():
+			c.Log.Info(
+				"Stopping liveliness check",
+				zap.String("chain_name", c.ChainName),
+			)
+
+			ticker.Stop()
+
 			return
 		case <-ticker.C:
 			err := c.Connect(ctx)
