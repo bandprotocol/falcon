@@ -29,7 +29,7 @@
     "name": "relay",
     "inputs": [
       { "name": "message", "type": "bytes", "internalType": "bytes" },
-      { "name": "rAddr", "type": "address", "internalType": "address" },
+      { "name": "randomAddr", "type": "address", "internalType": "address" },
       { "name": "signature", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],
