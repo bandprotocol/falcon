@@ -35,17 +35,8 @@ func MakeEncodingConfig() EncodingConfig {
 		panic(err)
 	}
 
-	interfaceRegistry.RegisterInterface(
-		"tunnel.v1beta1.RouteI",
-		(*tunneltypes.RouteI)(nil),
-		&tunneltypes.TSSRoute{},
-	)
-
-	interfaceRegistry.RegisterInterface(
-		"tunnel.v1beta1.PacketContentI",
-		(*tunneltypes.PacketContentI)(nil),
-		&tunneltypes.TSSPacketContent{},
-	)
+	// Register the interface types
+	tunneltypes.RegisterInterfaces(interfaceRegistry)
 
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 	return EncodingConfig{

@@ -81,7 +81,7 @@ func (m LegacyGasModel) GetGas(ctx context.Context) Gas {
 
 	gasPrice, err := m.DataSources.GetData(newCtx)
 	if err != nil {
-		m.log.Debug("Failed to get priority fee", zap.Error(err))
+		m.log.Debug("Failed to get gas price", zap.Error(err))
 		gasPrice = m.GasPrice
 	}
 
