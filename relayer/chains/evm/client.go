@@ -405,9 +405,6 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	fmt.Println(newCtx)
-	fmt.Println(gethAddr)
-
 	res, err := c.client.BalanceAt(newCtx, gethAddr, nil)
 	if err != nil {
 		c.Log.Error(
