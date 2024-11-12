@@ -2,7 +2,6 @@ package relayer_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -228,11 +227,6 @@ func (s *AppTestSuite) TestAddChainConfig() {
 
 	expectedBytes := []byte(relayertest.DefaultCfgTextWithChainCfg)
 	actualBytes, err := os.ReadFile(path.Join(s.app.HomePath, "config", "config.toml"))
-
-	fmt.Println("expected ================================================")
-	fmt.Println(relayertest.DefaultCfgTextWithChainCfg)
-	fmt.Println("actual ================================================")
-	fmt.Println(string(actualBytes))
 
 	s.Require().NoError(err)
 	s.Require().Equal(expectedBytes, actualBytes)

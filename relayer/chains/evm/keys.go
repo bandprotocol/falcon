@@ -42,16 +42,14 @@ func (cp *EVMChainProvider) AddKey(
 ) (*chainstypes.Key, error) {
 	var err error
 	var priv *ecdsa.PrivateKey
-	var m string
 	if privateKey == "" {
-		m = mnemonic
-		if m == "" {
-			m, err = hdwallet.NewMnemonic(mnemonicSize)
+		if mnemonic == "" {
+			mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
 			if err != nil {
 				return nil, err
 			}
 		}
-		priv, err = cp.generatePrivateKey(m)
+		priv, err = cp.generatePrivateKey(mnemonic)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +80,7 @@ func (cp *EVMChainProvider) AddKey(
 		return nil, err
 	}
 
-	return chainstypes.NewKey(m, crypto.PubkeyToAddress(*publicKeyECDSA).String(), ""), nil
+	return chainstypes.NewKey(mnemonic, crypto.PubkeyToAddress(*publicKeyECDSA).String(), ""), nil
 }
 
 // IsKeyNameExist checks whether the given key name is already in use.
