@@ -326,7 +326,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	// initialize the tunnel relayer
-	tunnelRelayers := []TunnelRelayer{}
+	tunnelRelayers := []*TunnelRelayer{}
 	for _, tunnel := range tunnels {
 		chainProvider, ok := a.targetChains[tunnel.TargetChainID]
 		if !ok {
@@ -341,7 +341,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 			a.BandClient,
 			chainProvider,
 		)
-		tunnelRelayers = append(tunnelRelayers, tr)
+		tunnelRelayers = append(tunnelRelayers, &tr)
 	}
 
 	// start the tunnel relayers
