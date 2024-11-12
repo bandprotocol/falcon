@@ -72,9 +72,9 @@ func (cp *EVMChainProvider) AddKey(
 		return nil, err
 	}
 
-	isExecuting := make(chan *struct{}, 1)
+	available := make(chan *struct{}, 1)
 
-	cp.FreeSenders[keyName] = NewSender(priv, accs.Address, isExecuting)
+	cp.FreeSenders[keyName] = NewSender(priv, accs.Address, available)
 
 	if err := cp.storeKeyInfo(homePath); err != nil {
 		return nil, err

@@ -21,10 +21,11 @@ type Sender struct {
 }
 
 // NewSender creates a new sender object.
-func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address, isExecuting chan *struct{}) *Sender {
+func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address, available chan *struct{}) *Sender {
 	return &Sender{
 		PrivateKey: privateKey,
 		Address:    address,
+		Available:  available,
 	}
 }
 
@@ -50,17 +51,19 @@ func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeySt
 			return nil, err
 		}
 
-		keyName := (*keyInfo)[key.Address.Hex()]
-		isExecuting := make(chan *struct{}, 1)
+		keyName := keyInfo[key.Address.Hex()]
+		available := make(chan *struct{}, 1)
 
-		freeSenders[keyName] = NewSender(key.PrivateKey, key.Address, isExecuting)
+		available <- &struct{}{}
+
+		freeSenders[keyName] = NewSender(key.PrivateKey, key.Address, available)
 	}
 
 	return freeSenders, nil
 }
 
 // loadKeyInfo loads key information from local disk.
-func loadKeyInfo(homePath, chainName string) (*KeyInfo, error) {
+func loadKeyInfo(homePath, chainName string) (KeyInfo, error) {
 	var keyInfo KeyInfo
 
 	keyInfoDir := path.Join(homePath, keyDir, chainName, infoDir)
@@ -68,7 +71,7 @@ func loadKeyInfo(homePath, chainName string) (*KeyInfo, error) {
 	if _, err := os.Stat(keyInfoPath); err != nil {
 		// don't return error if file doesn't exist
 		keyInfo = make(KeyInfo)
-		return &keyInfo, nil
+		return keyInfo, nil
 	}
 
 	b, err := os.ReadFile(keyInfoPath)
@@ -82,5 +85,5 @@ func loadKeyInfo(homePath, chainName string) (*KeyInfo, error) {
 		return nil, err
 	}
 
-	return &keyInfo, nil
+	return keyInfo, nil
 }

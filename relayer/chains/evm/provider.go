@@ -288,7 +288,6 @@ func (cp *EVMChainProvider) handleRelay(
 	if len(cp.FreeSenders) == 0 {
 		return "", fmt.Errorf("no key available to relay packet")
 	}
-
 	// use available sender
 	for selectedSender == nil {
 		for _, sender := range cp.FreeSenders {
@@ -301,7 +300,7 @@ func (cp *EVMChainProvider) handleRelay(
 		}
 	}
 	defer func() {
-		selectedSender.Available <- &(struct{}{})
+		selectedSender.Available <- &struct{}{}
 	}()
 
 	cp.Log.Debug(
