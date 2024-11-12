@@ -284,7 +284,6 @@ func (cp *EVMChainProvider) handleRelay(
 	}
 
 	var selectedSender *Sender
-	var selectedKeyName string
 
 	if len(cp.FreeSenders) == 0 {
 		return "", fmt.Errorf("no key available to relay packet")
@@ -292,18 +291,17 @@ func (cp *EVMChainProvider) handleRelay(
 
 	// use available sender
 	for selectedSender == nil {
-		for keyName, sender := range cp.FreeSenders {
-			if !sender.IsExecuting {
-				cp.FreeSenders[selectedKeyName].Mutex.Lock()
-				sender.IsExecuting = true
-				selectedKeyName = keyName
+		for _, sender := range cp.FreeSenders {
+			select {
+			case <-sender.Available:
 				selectedSender = sender
 				break
+			default:
 			}
 		}
 	}
 	defer func() {
-		cp.FreeSenders[selectedKeyName].Mutex.Unlock()
+		selectedSender.Available <- &(struct{}{})
 	}()
 
 	cp.Log.Debug(
@@ -328,8 +326,6 @@ func (cp *EVMChainProvider) handleRelay(
 	if err != nil {
 		return "", fmt.Errorf("failed to broadcast an evm transaction: %w", err)
 	}
-
-	cp.FreeSenders[selectedKeyName].IsExecuting = false
 
 	return txHash, nil
 }

@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"os"
 	"path"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -16,18 +15,16 @@ type KeyInfo map[string]string
 
 // Sender is the struct that represents the sender of the transaction.
 type Sender struct {
-	PrivateKey  *ecdsa.PrivateKey
-	Address     gethcommon.Address
-	Mutex       sync.Mutex
-	IsExecuting bool
+	PrivateKey *ecdsa.PrivateKey
+	Address    gethcommon.Address
+	Available  chan *struct{}
 }
 
 // NewSender creates a new sender object.
-func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address, isExecuting bool) *Sender {
+func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address, isExecuting chan *struct{}) *Sender {
 	return &Sender{
-		PrivateKey:  privateKey,
-		Address:     address,
-		IsExecuting: isExecuting,
+		PrivateKey: privateKey,
+		Address:    address,
 	}
 }
 
@@ -54,8 +51,9 @@ func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeySt
 		}
 
 		keyName := (*keyInfo)[key.Address.Hex()]
+		isExecuting := make(chan *struct{}, 1)
 
-		freeSenders[keyName] = NewSender(key.PrivateKey, key.Address, false)
+		freeSenders[keyName] = NewSender(key.PrivateKey, key.Address, isExecuting)
 	}
 
 	return freeSenders, nil

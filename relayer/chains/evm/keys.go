@@ -69,15 +69,14 @@ func (cp *EVMChainProvider) AddKey(
 		return nil, fmt.Errorf("cannot assert type to *ecdsa.PublicKey")
 	}
 
-	accs, err := cp.storePrivateKey(homePath, priv, keyName)
+	accs, err := cp.storePrivateKey(priv)
 	if err != nil {
 		return nil, err
 	}
 
-	isExecuting := make(chan bool, 1)
-	isExecuting <- false
+	isExecuting := make(chan *struct{}, 1)
 
-	cp.FreeSenders[keyName] = NewSender(priv, accs.Address, false)
+	cp.FreeSenders[keyName] = NewSender(priv, accs.Address, isExecuting)
 
 	if err := cp.storeKeyInfo(homePath); err != nil {
 		return nil, err
@@ -133,9 +132,7 @@ func (cp *EVMChainProvider) Showkey(keyName string) string {
 
 // storePrivateKey stores private key to keyStore.
 func (cp *EVMChainProvider) storePrivateKey(
-	homePath string,
 	priv *ecdsa.PrivateKey,
-	keyName string,
 ) (*accounts.Account, error) {
 	accs, err := cp.KeyStore.ImportECDSA(priv, passphrase)
 	if err != nil {
