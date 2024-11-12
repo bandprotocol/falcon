@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"os"
 	"path"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -13,45 +14,34 @@ import (
 // KeyInfo struct is the struct that represents mapping of address -> key name
 type KeyInfo map[string]string
 
-// Senders struct is the struct that represents mapping of key name and sender
-type Senders map[string]chan *Sender
-
 // Sender is the struct that represents the sender of the transaction.
 type Sender struct {
-	PrivateKey *ecdsa.PrivateKey
-	Address    gethcommon.Address
+	PrivateKey  *ecdsa.PrivateKey
+	Address     gethcommon.Address
+	Mutex       sync.Mutex
+	IsExecuting bool
 }
 
 // NewSender creates a new sender object.
-func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender {
+func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address, isExecuting bool) *Sender {
 	return &Sender{
-		PrivateKey: privateKey,
-		Address:    address,
+		PrivateKey:  privateKey,
+		Address:     address,
+		IsExecuting: isExecuting,
 	}
 }
 
-// FreeSenders is a struct that represents the configuration of available senders in the system.
-type FreeSenders struct {
-	KeyInfo KeyInfo
-	Senders Senders
-}
-
-// FreeSenders creates a new FreeSenders object.
-func NewFreeSenders(keyInfo KeyInfo, senders Senders) *FreeSenders {
-	return &FreeSenders{
-		KeyInfo: keyInfo,
-		Senders: senders,
-	}
-}
+// SenderChannels struct is the struct that represents mapping of key name and sender
+type FreeSenders map[string]*Sender
 
 // LoadFreeSenders loads all sender account from the keystore and key information from the local disk.
-func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeyStore) (*FreeSenders, error) {
-	senders := make(Senders)
-
+func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeyStore) (FreeSenders, error) {
+	// load mapping address -> key name
 	keyInfo, err := loadKeyInfo(homePath, chainName)
 	if err != nil {
 		return nil, err
 	}
+	freeSenders := make(FreeSenders)
 
 	for _, account := range keyStore.Accounts() {
 		accs, err := keyStore.Export(account, passphrase, passphrase)
@@ -65,14 +55,10 @@ func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeySt
 
 		keyName := (*keyInfo)[key.Address.Hex()]
 
-		sender := make(chan *Sender, 1)
-
-		sender <- NewSender(key.PrivateKey, key.Address)
-
-		senders[keyName] = sender
+		freeSenders[keyName] = NewSender(key.PrivateKey, key.Address, false)
 	}
 
-	return NewFreeSenders(*keyInfo, senders), nil
+	return freeSenders, nil
 }
 
 // loadKeyInfo loads key information from local disk.

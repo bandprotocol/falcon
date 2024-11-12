@@ -69,7 +69,17 @@ func (cp *EVMChainProvider) AddKey(
 		return nil, fmt.Errorf("cannot assert type to *ecdsa.PublicKey")
 	}
 
-	if err := cp.storePrivateKey(homePath, priv, keyName); err != nil {
+	accs, err := cp.storePrivateKey(homePath, priv, keyName)
+	if err != nil {
+		return nil, err
+	}
+
+	isExecuting := make(chan bool, 1)
+	isExecuting <- false
+
+	cp.FreeSenders[keyName] = NewSender(priv, accs.Address, false)
+
+	if err := cp.storeKeyInfo(homePath); err != nil {
 		return nil, err
 	}
 
@@ -78,69 +88,47 @@ func (cp *EVMChainProvider) AddKey(
 
 // IsKeyNameExist checks whether the given key name is already in use.
 func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
-	_, ok := cp.FreeSenders.Senders[keyName]
+	_, ok := cp.FreeSenders[keyName]
 	return ok
 }
 
 // DeleteKey deletes the given key name from the key store and removes its information.
 func (cp *EVMChainProvider) DeleteKey(homePath, keyName string) error {
-	sender := cp.FreeSenders.Senders[keyName]
+	sender := cp.FreeSenders[keyName]
 
-	select {
-	case availableSender := <-sender:
-
-		err := cp.KeyStore.Delete(accounts.Account{Address: availableSender.Address}, "")
-		if err != nil {
-			return err
-		}
-		keyInfo := cp.FreeSenders.KeyInfo
-		delete(keyInfo, availableSender.Address.Hex())
-
-		return cp.storeKeyInfo(homePath, &keyInfo)
-	default:
-		return fmt.Errorf("sender is not avaiblble at key name %s", keyName)
+	err := cp.KeyStore.Delete(accounts.Account{Address: sender.Address}, "")
+	if err != nil {
+		return err
 	}
+
+	delete(cp.FreeSenders, keyName)
+
+	return cp.storeKeyInfo(homePath)
 }
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
-	sender := cp.FreeSenders.Senders[keyName]
-
-	select {
-	case availableSender := <-sender:
-		privateKeyByte := crypto.FromECDSA(availableSender.PrivateKey)
-		privateKeyHex := hex.EncodeToString(privateKeyByte)
-		return privateKeyHex, nil
-	default:
-		return "", fmt.Errorf("sender is not avaiblble at key name %s", keyName)
-	}
+	sender := cp.FreeSenders[keyName]
+	privateKeyByte := crypto.FromECDSA(sender.PrivateKey)
+	privateKeyHex := hex.EncodeToString(privateKeyByte)
+	return privateKeyHex, nil
 }
 
 // Listkeys lists all keys.
 func (cp *EVMChainProvider) Listkeys() []*chainstypes.Key {
-	res := make([]*chainstypes.Key, 0, len(cp.FreeSenders.Senders))
-	for keyName, sender := range cp.FreeSenders.Senders {
-		select {
-		case availableSender := <-sender:
-			address := availableSender.Address.Hex()
-			key := chainstypes.NewKey("", address, keyName)
-			res = append(res, key)
-		default:
-		}
+	res := make([]*chainstypes.Key, 0, len(cp.FreeSenders))
+	for keyName, sender := range cp.FreeSenders {
+		address := sender.Address.Hex()
+		key := chainstypes.NewKey("", address, keyName)
+		res = append(res, key)
 	}
 
 	return res
 }
 
-// Showkey shows
+// Showkey shows key by the given name.
 func (cp *EVMChainProvider) Showkey(keyName string) string {
-	sender := cp.FreeSenders.Senders[keyName]
-	select {
-	case availableSender := <-sender:
-		return availableSender.Address.Hex()
-	default:
-		return ""
-	}
+	return cp.FreeSenders[keyName].Address.Hex()
 }
 
 // storePrivateKey stores private key to keyStore.
@@ -148,23 +136,22 @@ func (cp *EVMChainProvider) storePrivateKey(
 	homePath string,
 	priv *ecdsa.PrivateKey,
 	keyName string,
-) error {
+) (*accounts.Account, error) {
 	accs, err := cp.KeyStore.ImportECDSA(priv, passphrase)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	if cp.FreeSenders.KeyInfo == nil {
-		cp.FreeSenders.KeyInfo = make(KeyInfo)
-	}
-
-	cp.FreeSenders.KeyInfo[accs.Address.Hex()] = keyName
-
-	return cp.storeKeyInfo(homePath, &cp.FreeSenders.KeyInfo)
+	return &accs, nil
 }
 
 // storeKeyInfo stores key information.
-func (cp *EVMChainProvider) storeKeyInfo(homePath string, keyInfo *KeyInfo) error {
+func (cp *EVMChainProvider) storeKeyInfo(homePath string) error {
+	keyInfo := make(KeyInfo)
+
+	for keyName, sender := range cp.FreeSenders {
+		keyInfo[sender.Address.Hex()] = keyName
+	}
+
 	b, err := toml.Marshal(keyInfo)
 	if err != nil {
 		return err

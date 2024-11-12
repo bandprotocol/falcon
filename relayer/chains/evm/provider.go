@@ -34,7 +34,7 @@ type EVMChainProvider struct {
 	Client   Client
 	GasModel gas.GasModel
 
-	FreeSenders *FreeSenders
+	FreeSenders FreeSenders
 
 	TunnelRouterAddress gethcommon.Address
 	TunnelRouterABI     abi.ABI
@@ -73,8 +73,8 @@ func NewEVMChainProvider(
 
 	keyStoreDir := path.Join(homePath, keyDir, chainName, privateKeyDir)
 	keyStore := keyStore.NewKeyStore(keyStoreDir, keyStore.StandardScryptN, keyStore.StandardScryptP)
+
 	// create free senders
-	// TODO: implement key store
 	freeSenders, err := LoadFreeSenders(homePath, chainName, keyStore)
 	if err != nil {
 		log.Error("ChainProvider: cannot create a sender",
@@ -286,22 +286,24 @@ func (cp *EVMChainProvider) handleRelay(
 	var selectedSender *Sender
 	var selectedKeyName string
 
-	if len(cp.FreeSenders.Senders) == 0 {
+	if len(cp.FreeSenders) == 0 {
 		return "", fmt.Errorf("no key available to relay packet")
 	}
 
+	// use available sender
 	for selectedSender == nil {
-		for keyName, ch := range cp.FreeSenders.Senders {
-			select {
-			case selectedSender = <-ch:
+		for keyName, sender := range cp.FreeSenders {
+			if !sender.IsExecuting {
+				cp.FreeSenders[selectedKeyName].Mutex.Lock()
+				sender.IsExecuting = true
 				selectedKeyName = keyName
+				selectedSender = sender
 				break
-			default:
 			}
 		}
 	}
 	defer func() {
-		cp.FreeSenders.Senders[selectedKeyName] <- selectedSender
+		cp.FreeSenders[selectedKeyName].Mutex.Unlock()
 	}()
 
 	cp.Log.Debug(
@@ -326,6 +328,8 @@ func (cp *EVMChainProvider) handleRelay(
 	if err != nil {
 		return "", fmt.Errorf("failed to broadcast an evm transaction: %w", err)
 	}
+
+	cp.FreeSenders[selectedKeyName].IsExecuting = false
 
 	return txHash, nil
 }
@@ -521,12 +525,7 @@ func (cp *EVMChainProvider) QueryBalance(
 		)
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
-	sender := cp.FreeSenders.Senders[keyName]
-	select {
-	case availableSender := <-sender:
-		gethaddr := availableSender.Address
-		return cp.Client.GetBalance(ctx, gethaddr)
-	default:
-		return nil, fmt.Errorf("key is not available %s", keyName)
-	}
+	gethaddr := cp.FreeSenders[keyName].Address
+
+	return cp.Client.GetBalance(ctx, gethaddr)
 }
