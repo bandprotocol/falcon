@@ -34,7 +34,7 @@ func NewScheduler(
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
 		ExponentialFactor:                exponentialFactor,
 		isErrorOnHolds:                   make([]bool, len(tunnelRelayers)),
-		penaltyTaskCh:                    make(chan Task, 1),
+		penaltyTaskCh:                    make(chan Task, len(tunnelRelayers)),
 	}
 }
 
