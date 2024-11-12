@@ -2,11 +2,13 @@ package relayer_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 	"testing"
 	"time"
 
+	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -16,6 +18,7 @@ import (
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/types"
@@ -28,6 +31,7 @@ type AppTestSuite struct {
 	ctx                 context.Context
 	chainProviderConfig *mocks.MockChainProviderConfig
 	chainProvider       *mocks.MockChainProvider
+	client              *mocks.MockClient
 }
 
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
@@ -41,6 +45,7 @@ func (s *AppTestSuite) SetupTest() {
 	// mock objects.
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
+	s.client = mocks.NewMockClient(ctrl)
 
 	s.chainProviderConfig.EXPECT().
 		NewChainProvider("testnet_evm", log, tmpDir, false).
@@ -61,6 +66,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
 
 	err = s.app.Init(s.ctx)
+	s.app.BandClient = s.client
 	s.Require().NoError(err)
 }
 
@@ -150,18 +156,22 @@ func (s *AppTestSuite) TestInitCustomConfig() {
 }
 
 func (s *AppTestSuite) TestQueryTunnelInfo() {
+	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
 	tunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false)
+
+	s.client.EXPECT().
+		GetTunnel(s.ctx, uint64(1)).
+		Return(tunnelBandInfo, nil)
 
 	s.chainProvider.EXPECT().
 		QueryTunnelInfo(s.ctx, uint64(1), "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").
 		Return(tunnelChainInfo, nil)
 
 	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
+	bandChainInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
 
 	expected := types.NewTunnel(
-		1,
-		"testnet_evm",
-		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+		bandChainInfo,
 		tunnelChainInfo,
 	)
 	s.Require().NoError(err)
@@ -171,14 +181,19 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
 	err := s.app.Init(s.ctx)
+
 	s.Require().NoError(err)
+
+	tunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
+	s.client.EXPECT().
+		GetTunnel(s.ctx, uint64(1)).
+		Return(tunnelBandInfo, nil)
+	s.app.BandClient = s.client
 
 	tunnel, err := s.app.QueryTunnelInfo(s.ctx, 1)
 
 	expected := types.NewTunnel(
-		1,
-		"testnet_evm",
-		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+		tunnelBandInfo,
 		nil,
 	)
 	s.Require().NoError(err)
@@ -213,6 +228,11 @@ func (s *AppTestSuite) TestAddChainConfig() {
 
 	expectedBytes := []byte(relayertest.DefaultCfgTextWithChainCfg)
 	actualBytes, err := os.ReadFile(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	fmt.Println("expected ================================================")
+	fmt.Println(relayertest.DefaultCfgTextWithChainCfg)
+	fmt.Println("actual ================================================")
+	fmt.Println(string(actualBytes))
 
 	s.Require().NoError(err)
 	s.Require().Equal(expectedBytes, actualBytes)
@@ -268,4 +288,48 @@ func (s *AppTestSuite) TestGetChainConfig() {
 	expect := relayertest.CustomCfg.TargetChains[chainName]
 
 	s.Require().Equal(expect, actual)
+}
+
+func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
+	signalPrices := []bandtypes.SignalPrice{
+		{SignalID: "signal1", Price: 100},
+		{SignalID: "signal2", Price: 200},
+	}
+
+	// Create a mock EVMSignature
+	evmSignature := bandtypes.NewEVMSignature(
+		cmbytes.HexBytes("0x1234"),
+		cmbytes.HexBytes("0xabcd"),
+	)
+
+	// Create mock signing information
+	signingInfo := bandtypes.NewSigning(
+		1,
+		cmbytes.HexBytes("0xdeadbeef"),
+		evmSignature,
+	)
+
+	// Create the expected Packet object
+	tunnelPacketBandInfo := bandtypes.NewPacket(
+		1,
+		1,
+		signalPrices,
+		signingInfo,
+		nil,
+	)
+
+	// Set up the mock expectation
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, uint64(1), uint64(1)).
+		Return(tunnelPacketBandInfo, nil)
+
+	// Call the function under test
+	packet, err := s.app.QueryTunnelPacketInfo(s.ctx, 1, 1)
+
+	// Create the expected packet structure for comparison
+	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo, nil)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().Equal(expected, packet)
 }

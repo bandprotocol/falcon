@@ -21,6 +21,7 @@ func queryCmd(app *relayer.App) *cobra.Command {
 
 	cmd.AddCommand(
 		queryTunnelCmd(app),
+		queryPacketCmd(app),
 		queryBalanceCmd(app),
 	)
 
@@ -60,6 +61,44 @@ $ %s query tunnel 1`, appName)),
 	return cmd
 }
 
+// queryPacketCmd returns a command that query packet information.
+func queryPacketCmd(app *relayer.App) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "packet [tunnel_id] [sequence]",
+		Aliases: []string{"p"},
+		Short:   "Query commands on packet data",
+		Args:    withUsage(cobra.ExactArgs(2)),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s query packet 1 1`, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			sequence, err := strconv.ParseUint(args[1], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			packet, err := app.QueryTunnelPacketInfo(cmd.Context(), tunnelID, sequence)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.MarshalIndent(packet, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
+			return nil
+		},
+	}
+
+	return cmd
+}
+
 // queryBalanceCmd returns a command that query balance of the given account.
 func queryBalanceCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
@@ -71,7 +110,13 @@ func queryBalanceCmd(app *relayer.App) *cobra.Command {
 $ %s query balance eth test-key
 $ %s q b eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			chainName := args[0]
+			keyName := args[1]
+			bal, err := app.QueryBalance(cmd.Context(), chainName, keyName)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), string(bal.String()))
 			return nil
 		},
 	}

@@ -10,6 +10,8 @@ waiting_tx_duration = 3000000000
 checking_tx_interval = 1000000000
 gas_type = 'eip1559'
 gas_multiplier = 1.1
+execute_timeout = 3000000000
+liveliness_checking_interval = 900000000000
 
 [[data_source_configs]]
 source_type = 'fix'

@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal/datasource"
+
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 )
@@ -16,11 +17,12 @@ var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
 type EVMChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	PrivateKey         string        `mapstructure:"private_key"          toml:"private_key"`
-	BlockConfirmation  uint64        `mapstructure:"block_confirmation"   toml:"block_confirmation"`
-	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration"  toml:"waiting_tx_duration"`
-	CheckingTxInterval time.Duration `mapstructure:"checking_tx_interval" toml:"checking_tx_interval"`
-	GasLimit           uint64        `mapstructure:"gas_limit"            toml:"gas_limit,omitempty"`
+	PrivateKey                 string        `mapstructure:"private_key"                  toml:"private_key"`
+	BlockConfirmation          uint64        `mapstructure:"block_confirmation"           toml:"block_confirmation"`
+	WaitingTxDuration          time.Duration `mapstructure:"waiting_tx_duration"          toml:"waiting_tx_duration"`
+	LivelinessCheckingInterval time.Duration `mapstructure:"liveliness_checking_interval" toml:"liveliness_checking_interval"`
+	CheckingTxInterval         time.Duration `mapstructure:"checking_tx_interval"         toml:"checking_tx_interval"`
+	GasLimit                   uint64        `mapstructure:"gas_limit"                    toml:"gas_limit,omitempty"`
 
 	GasType           gas.GasType         `mapstructure:"gas_type"            toml:"gas_type"`
 	GasPrice          uint64              `mapstructure:"gas_price"           toml:"gas_price,omitempty"`
@@ -50,7 +52,6 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 
 		sources = append(sources, source)
 	}
-
 	var gasModel gas.GasModel
 	if cpc.GasType == gas.GasTypeEIP1559 {
 		gasModel = gas.NewEIP1559GasModel(
@@ -60,7 +61,7 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 		gasModel = gas.NewLegacyGasModel(cpc.GasPrice, sources, cpc.QueryGasTimeout, log)
 	}
 
-	return NewEVMChainProvider(chainName, client, gasModel, cpc, log)
+	return NewEVMChainProvider(chainName, client, gasModel, cpc, log, homePath)
 }
 
 // Validate validates the EVM chain provider configuration.

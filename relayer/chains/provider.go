@@ -2,15 +2,17 @@ package chains
 
 import (
 	"context"
+	"math/big"
 
 	"go.uber.org/zap"
 
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
-	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 // ChainProvider defines the interface for the chain interaction with the destination chain.
 type ChainProvider interface {
+	KeyProvider
 	// Init initialize to the chain.
 	Init(ctx context.Context) error
 
@@ -22,7 +24,31 @@ type ChainProvider interface {
 	) (*chainstypes.Tunnel, error)
 
 	// RelayPacket relays the packet from the source chain to the destination chain.
-	RelayPacket(ctx context.Context, task *types.RelayerTask) error
+	RelayPacket(ctx context.Context, packet *bandtypes.Packet) error
+
+	// QueryBalance queries balance by given key name from the destination chain.
+	QueryBalance(ctx context.Context, keyName string) (*big.Int, error)
+}
+
+// KeyProvider defines the interface for the key interaction with destination chain
+type KeyProvider interface {
+	// AddKey stores the private key with a given mnemonic and key name on the user's local disk.
+	AddKey(keyName string, mnemonic string, privateKeyHex string, homePath string) (*chainstypes.Key, error)
+
+	// IsKeyNameExist checks whether a key with the specified keyName already exists in storage.
+	IsKeyNameExist(keyName string) bool
+
+	// ExportPrivateKey exports private key of specified key name.
+	ExportPrivateKey(keyName string) (string, error)
+
+	// DeleteKey deletes the key information and private key
+	DeleteKey(homePath, keyName string) error
+
+	// ListKeys lists all keys
+	Listkeys() []*chainstypes.Key
+
+	// ShowKey shows the address of the given key
+	Showkey(keyName string) string
 }
 
 // BaseChainProvider is a base object for connecting with the chain network.
