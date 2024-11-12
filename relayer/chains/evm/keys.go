@@ -95,7 +95,7 @@ func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
 func (cp *EVMChainProvider) DeleteKey(homePath, keyName string) error {
 	sender := cp.FreeSenders[keyName]
 
-	err := cp.KeyStore.Delete(accounts.Account{Address: sender.Address}, "")
+	err := cp.KeyStore.Delete(accounts.Account{Address: sender.Address}, passphrase)
 	if err != nil {
 		return err
 	}
