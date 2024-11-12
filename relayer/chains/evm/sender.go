@@ -2,7 +2,6 @@ package evm
 
 import (
 	"crypto/ecdsa"
-
 	"os"
 	"path"
 

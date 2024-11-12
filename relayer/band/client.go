@@ -108,7 +108,6 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 	res, err := c.QueryClient.TunnelQueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
 		TunnelId: tunnelID,
 	})
-
 	if err != nil {
 		return nil, err
 	}

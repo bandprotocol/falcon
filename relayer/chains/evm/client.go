@@ -402,7 +402,6 @@ func (c *client) CheckAndConnect(ctx context.Context) error {
 
 // GetBalance get the balance of specific account the EVM chain.
 func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error) {
-
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
@@ -410,7 +409,6 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*
 	fmt.Println(gethAddr)
 
 	res, err := c.client.BalanceAt(newCtx, gethAddr, nil)
-
 	if err != nil {
 		c.Log.Error(
 			"Failed to query balance",

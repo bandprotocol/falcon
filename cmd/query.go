@@ -116,7 +116,7 @@ $ %s q b eth test-key`, appName, appName)),
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(bal.String()))
+			fmt.Fprintln(cmd.OutOrStdout(), bal.String())
 			return nil
 		},
 	}

@@ -6,7 +6,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal/datasource"
-
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 )

@@ -2,18 +2,17 @@ package evm
 
 import (
 	"crypto/ecdsa"
-	"fmt"
-
 	"encoding/hex"
-
+	"fmt"
 	"os"
 	"path"
 
-	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/miguelmota/go-ethereum-hdwallet"
+	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/pelletier/go-toml/v2"
+
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 const (
