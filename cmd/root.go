@@ -19,7 +19,11 @@ import (
 	falcon "github.com/bandprotocol/falcon/relayer"
 )
 
-const appName = "falcon"
+const (
+	appName = "falcon"
+
+	defaultCoinType = 60
+)
 
 var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 

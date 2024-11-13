@@ -372,6 +372,9 @@ func (a *App) AddKey(
 	keyName string,
 	mnemonic string,
 	privateKey string,
+	cointType uint32,
+	account uint,
+	index uint,
 ) (*chainstypes.Key, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -387,7 +390,7 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("key name already exists: %s", keyName)
 	}
 
-	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath)
+	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, cointType, account, index)
 	if err != nil {
 		return nil, err
 	}

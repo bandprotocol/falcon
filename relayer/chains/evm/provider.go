@@ -281,23 +281,24 @@ func (cp *EVMChainProvider) handleRelay(
 	}
 
 	var selectedSender *Sender
+	var selectedKeyName string
 
 	if len(cp.FreeSenders) == 0 {
 		return "", fmt.Errorf("no key available to relay packet")
 	}
 	// use available sender
 	for selectedSender == nil {
-		for _, sender := range cp.FreeSenders {
+		for keyName, sender := range cp.FreeSenders {
 			select {
-			case <-sender.Available:
-				selectedSender = sender
+			case selectedSender = <-sender:
+				selectedKeyName = keyName
 				break
 			default:
 			}
 		}
 	}
 	defer func() {
-		selectedSender.Available <- &struct{}{}
+		cp.FreeSenders[selectedKeyName] <- selectedSender
 	}()
 
 	cp.Log.Debug(
@@ -534,7 +535,13 @@ func (cp *EVMChainProvider) QueryBalance(
 		)
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
-	gethaddr := cp.FreeSenders[keyName].Address
 
-	return cp.Client.GetBalance(ctx, gethaddr)
+	senderChannel := cp.FreeSenders[keyName]
+	select {
+	case sender := <-senderChannel:
+		gethaddr := sender.Address
+		return cp.Client.GetBalance(ctx, gethaddr)
+	default:
+		return nil, fmt.Errorf("unavailable key name %s", keyName)
+	}
 }

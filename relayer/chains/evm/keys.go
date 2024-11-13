@@ -16,11 +16,8 @@ import (
 )
 
 const (
-	// amount of addresses to generate
-	addressAmount = 1
-
 	// hd path template for eth coin
-	hdPathTemplate = "m/44'/69'/0'/0/0"
+	hdPathTemplate = "m/44'/%d'/%d'/0/%d"
 
 	// mnemonic size is 256 bits
 	mnemonicSize = 256
@@ -39,6 +36,9 @@ func (cp *EVMChainProvider) AddKey(
 	mnemonic string,
 	privateKey string,
 	homePath string,
+	coinType uint32,
+	account uint,
+	index uint,
 ) (*chainstypes.Key, error) {
 	var err error
 	var priv *ecdsa.PrivateKey
@@ -49,7 +49,7 @@ func (cp *EVMChainProvider) AddKey(
 				return nil, err
 			}
 		}
-		priv, err = cp.generatePrivateKey(mnemonic)
+		priv, err = cp.generatePrivateKey(mnemonic, coinType, account, index)
 		if err != nil {
 			return nil, err
 		}
@@ -72,9 +72,10 @@ func (cp *EVMChainProvider) AddKey(
 		return nil, err
 	}
 
-	available := make(chan *struct{}, 1)
+	sender := make(chan *Sender, 1)
+	sender <- NewSender(priv, accs.Address)
 
-	cp.FreeSenders[keyName] = NewSender(priv, accs.Address, available)
+	cp.FreeSenders[keyName] = sender
 
 	if err := cp.storeKeyInfo(homePath); err != nil {
 		return nil, err
@@ -91,41 +92,60 @@ func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
 
 // DeleteKey deletes the given key name from the key store and removes its information.
 func (cp *EVMChainProvider) DeleteKey(homePath, keyName string) error {
-	sender := cp.FreeSenders[keyName]
+	senderChannel := cp.FreeSenders[keyName]
 
-	err := cp.KeyStore.Delete(accounts.Account{Address: sender.Address}, passphrase)
-	if err != nil {
-		return err
+	select {
+	case sender := <-senderChannel:
+		err := cp.KeyStore.Delete(accounts.Account{Address: sender.Address}, passphrase)
+		if err != nil {
+			return err
+		}
+
+		delete(cp.FreeSenders, keyName)
+
+		return cp.storeKeyInfo(homePath)
+	default:
+		return fmt.Errorf("unavailable key name %s", keyName)
 	}
-
-	delete(cp.FreeSenders, keyName)
-
-	return cp.storeKeyInfo(homePath)
 }
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
-	sender := cp.FreeSenders[keyName]
-	privateKeyByte := crypto.FromECDSA(sender.PrivateKey)
-	privateKeyHex := hex.EncodeToString(privateKeyByte)
-	return privateKeyHex, nil
+	senderChannel := cp.FreeSenders[keyName]
+	select {
+	case sender := <-senderChannel:
+		privateKeyByte := crypto.FromECDSA(sender.PrivateKey)
+		privateKeyHex := hex.EncodeToString(privateKeyByte)
+		return privateKeyHex, nil
+	default:
+		return "", fmt.Errorf("unavailable key name %s", keyName)
+	}
 }
 
 // Listkeys lists all keys.
 func (cp *EVMChainProvider) Listkeys() []*chainstypes.Key {
 	res := make([]*chainstypes.Key, 0, len(cp.FreeSenders))
-	for keyName, sender := range cp.FreeSenders {
-		address := sender.Address.Hex()
-		key := chainstypes.NewKey("", address, keyName)
-		res = append(res, key)
+	for keyName, senderChannel := range cp.FreeSenders {
+		select {
+		case sender := <-senderChannel:
+			address := sender.Address.Hex()
+			key := chainstypes.NewKey("", address, keyName)
+			res = append(res, key)
+		default:
+		}
 	}
-
 	return res
 }
 
 // Showkey shows key by the given name.
 func (cp *EVMChainProvider) Showkey(keyName string) string {
-	return cp.FreeSenders[keyName].Address.Hex()
+	senderChannel := cp.FreeSenders[keyName]
+	select {
+	case sender := <-senderChannel:
+		return sender.Address.Hex()
+	default:
+		return ""
+	}
 }
 
 // storePrivateKey stores private key to keyStore.
@@ -143,8 +163,13 @@ func (cp *EVMChainProvider) storePrivateKey(
 func (cp *EVMChainProvider) storeKeyInfo(homePath string) error {
 	keyInfo := make(KeyInfo)
 
-	for keyName, sender := range cp.FreeSenders {
-		keyInfo[sender.Address.Hex()] = keyName
+	for keyName, senderChannel := range cp.FreeSenders {
+		select {
+		case sender := <-senderChannel:
+			keyInfo[sender.Address.Hex()] = keyName
+		default:
+			return fmt.Errorf("unavailable key name %s", keyName)
+		}
 	}
 
 	b, err := toml.Marshal(keyInfo)
@@ -175,18 +200,24 @@ func (cp *EVMChainProvider) storeKeyInfo(homePath string) error {
 }
 
 // generatePrivateKey generates private key from given mnemonic.
-func (cp *EVMChainProvider) generatePrivateKey(mnemonic string) (*ecdsa.PrivateKey, error) {
+func (cp *EVMChainProvider) generatePrivateKey(
+	mnemonic string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (*ecdsa.PrivateKey, error) {
 	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
 		return nil, err
 	}
-	path := hdwallet.MustParseDerivationPath(hdPathTemplate)
+	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
+	path := hdwallet.MustParseDerivationPath(hdPath)
 
-	account, err := wallet.Derive(path, true)
+	accs, err := wallet.Derive(path, true)
 	if err != nil {
 		return nil, err
 	}
-	privatekey, err := wallet.PrivateKey(account)
+	privatekey, err := wallet.PrivateKey(accs)
 	if err != nil {
 		return nil, err
 	}

@@ -33,7 +33,15 @@ type ChainProvider interface {
 // KeyProvider defines the interface for the key interaction with destination chain
 type KeyProvider interface {
 	// AddKey stores the private key with a given mnemonic and key name on the user's local disk.
-	AddKey(keyName string, mnemonic string, privateKeyHex string, homePath string) (*chainstypes.Key, error)
+	AddKey(
+		keyName string,
+		mnemonic string,
+		privateKeyHex string,
+		homePath string,
+		coinType uint32,
+		account uint,
+		index uint,
+	) (*chainstypes.Key, error)
 
 	// IsKeyNameExist checks whether a key with the specified keyName already exists in storage.
 	IsKeyNameExist(keyName string) bool

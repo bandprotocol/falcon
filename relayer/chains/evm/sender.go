@@ -17,20 +17,18 @@ type KeyInfo map[string]string
 type Sender struct {
 	PrivateKey *ecdsa.PrivateKey
 	Address    gethcommon.Address
-	Available  chan *struct{}
 }
 
 // NewSender creates a new sender object.
-func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address, available chan *struct{}) *Sender {
+func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender {
 	return &Sender{
 		PrivateKey: privateKey,
 		Address:    address,
-		Available:  available,
 	}
 }
 
 // SenderChannels struct is the struct that represents mapping of key name and sender
-type FreeSenders map[string]*Sender
+type FreeSenders map[string]chan *Sender
 
 // LoadFreeSenders loads all sender account from the keystore and key information from the local disk.
 func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeyStore) (FreeSenders, error) {
@@ -52,11 +50,10 @@ func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeySt
 		}
 
 		keyName := keyInfo[key.Address.Hex()]
-		available := make(chan *struct{}, 1)
+		sender := make(chan *Sender, 1)
+		sender <- NewSender(key.PrivateKey, key.Address)
 
-		available <- &struct{}{}
-
-		freeSenders[keyName] = NewSender(key.PrivateKey, key.Address, available)
+		freeSenders[keyName] = sender
 	}
 
 	return freeSenders, nil
