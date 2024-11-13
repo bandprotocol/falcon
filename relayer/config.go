@@ -16,8 +16,10 @@ import (
 
 // GlobalConfig is the global configuration for the falcon tunnel relayer
 type GlobalConfig struct {
-	LogLevel               string        `mapstructure:"log_level"                toml:"log_level"`
-	CheckingPacketInterval time.Duration `mapstructure:"checking_packet_interval" toml:"checking_packet_interval"`
+	LogLevel                         string        `mapstructure:"log_level"                            toml:"log_level"`
+	CheckingPacketInterval           time.Duration `mapstructure:"checking_packet_interval"             toml:"checking_packet_interval"`
+	MaxCheckingPacketPenaltyDuration time.Duration `mapstructure:"max_checking_packet_penalty_duration" toml:"max_checking_packet_penalty_duration"`
+	PenaltyExponentialFactor         float64       `mapstructure:"penalty_exponential_factor"           toml:"penalty_exponential_factor"`
 }
 
 // Config defines the configuration for the falcon tunnel relayer.
@@ -130,8 +132,10 @@ func DefaultConfig() *Config {
 		},
 		TargetChains: make(map[string]chains.ChainProviderConfig),
 		Global: GlobalConfig{
-			LogLevel:               "info",
-			CheckingPacketInterval: time.Minute,
+			LogLevel:                         "info",
+			CheckingPacketInterval:           time.Minute,
+			MaxCheckingPacketPenaltyDuration: time.Hour,
+			PenaltyExponentialFactor:         1.0,
 		},
 	}
 }

@@ -19,6 +19,8 @@ var _ Client = &client{}
 // Client is the interface that handles interactions with the EVM chain.
 type Client interface {
 	Connect(ctx context.Context) error
+	CheckAndConnect(ctx context.Context) error
+	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	GetNonce(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
@@ -37,9 +39,10 @@ type Client interface {
 
 // Client is the struct that handles interactions with the EVM chain.
 type client struct {
-	ChainName    string
-	Endpoints    []string
-	QueryTimeout time.Duration
+	ChainName      string
+	Endpoints      []string
+	QueryTimeout   time.Duration
+	ExecuteTimeout time.Duration
 
 	Log *zap.Logger
 
@@ -50,21 +53,23 @@ type client struct {
 // NewClient creates a new EVM client from config file and load keys.
 func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *client {
 	return &client{
-		ChainName:    chainName,
-		Endpoints:    cfg.Endpoints,
-		QueryTimeout: cfg.QueryTimeout,
-		Log:          log,
+		ChainName:      chainName,
+		Endpoints:      cfg.Endpoints,
+		QueryTimeout:   cfg.QueryTimeout,
+		ExecuteTimeout: cfg.ExecuteTimeout,
+		Log:            log,
 	}
 }
 
 // Connect connects to the EVM chain.
 func (c *client) Connect(ctx context.Context) error {
-	if c.client != nil {
-		return nil
-	}
-
 	res, err := c.getClientWithMaxHeight(ctx)
 	if err != nil {
+		c.Log.Error(
+			"failed to connect to EVM chain",
+			zap.Error(err),
+			zap.String("chain_name", c.ChainName),
+		)
 		return err
 	}
 
@@ -75,7 +80,34 @@ func (c *client) Connect(ctx context.Context) error {
 		zap.String("chain_name", c.ChainName),
 		zap.String("endpoint", c.selectedEndpoint),
 	)
+
 	return nil
+}
+
+// StartLivelinessCheck starts the liveliness check for the EVM chain.
+func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-ctx.Done():
+			c.Log.Info(
+				"Stopping liveliness check",
+				zap.String("chain_name", c.ChainName),
+			)
+
+			ticker.Stop()
+
+			return
+		case <-ticker.C:
+			err := c.Connect(ctx)
+			if err != nil {
+				c.Log.Error(
+					"liveliness check: unable to reconnect to any endpoints",
+					zap.Error(err),
+				)
+			}
+		}
+	}
 }
 
 // GetNonce returns the current nonce of the given address.
@@ -239,10 +271,6 @@ func (c *client) GetEffectiveGasPrice(
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
 func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error) {
-	if err := c.checkAndConnect(ctx); err != nil {
-		return nil, err
-	}
-
 	callMsg := ethereum.CallMsg{
 		To:   &gethAddr,
 		Data: data,
@@ -371,10 +399,6 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 	}
 
 	if result.Client == nil {
-		c.Log.Error(
-			"failed to connect to EVM chain",
-			zap.String("chain_name", c.ChainName),
-		)
 		return ClientConnectionResult{}, fmt.Errorf("[EVMClient] failed to connect to EVM chain")
 	}
 
@@ -382,6 +406,10 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 }
 
 // checkAndConnect checks if the client is connected to the EVM chain, if not connect it.
-func (c *client) checkAndConnect(ctx context.Context) error {
+func (c *client) CheckAndConnect(ctx context.Context) error {
+	if c.client != nil {
+		return nil
+	}
+
 	return c.Connect(ctx)
 }

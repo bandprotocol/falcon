@@ -93,6 +93,8 @@ func NewEVMChainProvider(
 func (cp *EVMChainProvider) Init(ctx context.Context) error {
 	// TODO: implement loading private key from store
 
+	go cp.Client.StartLivelinessCheck(ctx, cp.Config.LivelinessCheckingInterval)
+
 	return nil
 }
 
@@ -102,7 +104,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*chainstypes.Tunnel, error) {
-	if err := cp.Client.Connect(ctx); err != nil {
+	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error(
 			"connect client error",
 			zap.Error(err),
@@ -149,7 +151,7 @@ func (cp *EVMChainProvider) RelayPacket(
 	ctx context.Context,
 	packet *bandtypes.Packet,
 ) error {
-	if err := cp.Client.Connect(ctx); err != nil {
+	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error(
 			"connect client error",
 			zap.Error(err),
