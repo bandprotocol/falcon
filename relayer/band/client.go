@@ -150,8 +150,8 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	}
 
 	// Convert resPacket.Packet.SignalPrices to []types.SignalPrice
-	signalPrices := make([]types.SignalPrice, len(resPacket.Packet.SignalPrices))
-	for i, sp := range resPacket.Packet.SignalPrices {
+	signalPrices := make([]types.SignalPrice, len(resPacket.Packet.Prices))
+	for i, sp := range resPacket.Packet.Prices {
 		signalPrices[i] = types.SignalPrice{
 			SignalID: sp.SignalID,
 			Price:    sp.Price,

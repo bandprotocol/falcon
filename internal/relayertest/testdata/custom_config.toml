@@ -24,7 +24,3 @@ liveliness_checking_interval = 900000000000
 checking_tx_interval = 1000000000
 gas_type = 'eip1559'
 gas_multiplier = 1.1
-
-[[target_chains.testnet.data_source_configs]]
-source_type = 'fix'
-data = 4

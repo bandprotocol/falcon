@@ -16,9 +16,9 @@ import (
 	"go.uber.org/zap"
 
 	bandtsstypes "github.com/bandprotocol/chain/v3/x/bandtss/types"
+	feedstypes "github.com/bandprotocol/chain/v3/x/feeds/types"
 	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
 	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
-
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandclienttypes "github.com/bandprotocol/falcon/relayer/band/types"
@@ -124,7 +124,7 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 	packet := tunneltypes.Packet{
 		TunnelID: 1,
 		Sequence: 100,
-		SignalPrices: []tunneltypes.SignalPrice{
+		Prices: []feedstypes.Price{
 			{SignalID: "signal1", Price: 100},
 			{SignalID: "signal2", Price: 200},
 		},
