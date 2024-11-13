@@ -122,26 +122,6 @@ func (mr *MockBandtssQueryClientMockRecorder) IncomingGroup(ctx, in any, opts ..
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncomingGroup", reflect.TypeOf((*MockBandtssQueryClient)(nil).IncomingGroup), varargs...)
 }
 
-// IsGrantee mocks base method.
-func (m *MockBandtssQueryClient) IsGrantee(ctx context.Context, in *types.QueryIsGranteeRequest, opts ...grpc.CallOption) (*types.QueryIsGranteeResponse, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "IsGrantee", varargs...)
-	ret0, _ := ret[0].(*types.QueryIsGranteeResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsGrantee indicates an expected call of IsGrantee.
-func (mr *MockBandtssQueryClientMockRecorder) IsGrantee(ctx, in any, opts ...any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsGrantee", reflect.TypeOf((*MockBandtssQueryClient)(nil).IsGrantee), varargs...)
-}
-
 // Member mocks base method.
 func (m *MockBandtssQueryClient) Member(ctx context.Context, in *types.QueryMemberRequest, opts ...grpc.CallOption) (*types.QueryMemberResponse, error) {
 	m.ctrl.T.Helper()
