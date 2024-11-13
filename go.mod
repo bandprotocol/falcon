@@ -180,7 +180,7 @@ replace (
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 	// // replace bandprotocol chain with private chain
-	github.com/bandprotocol/chain/v3 => github.com/bandprotocol/private-chain/v3 v3.0.0-20241112035928-f821527d6244
+	github.com/bandprotocol/chain/v3 => github.com/bandprotocol/private-chain/v3 v3.0.0-20241113071626-234e018561f7
 	// replace broken goleveldb
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	// stick with compatible version of rapid in v0.47.x line
