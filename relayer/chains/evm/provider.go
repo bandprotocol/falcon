@@ -15,10 +15,9 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
-	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 var _ chains.ChainProvider = (*EVMChainProvider)(nil)
@@ -28,9 +27,8 @@ type EVMChainProvider struct {
 	Config    *EVMChainProviderConfig
 	ChainName string
 
-	// TODO: add lock object.
-	Client   Client
-	GasModel gas.GasModel
+	Client  Client
+	GasType GasType
 
 	FreeSenders chan *Sender
 
@@ -44,7 +42,6 @@ type EVMChainProvider struct {
 func NewEVMChainProvider(
 	chainName string,
 	client Client,
-	gasModel gas.GasModel,
 	cfg *EVMChainProviderConfig,
 	log *zap.Logger,
 ) (*EVMChainProvider, error) {
@@ -84,7 +81,7 @@ func NewEVMChainProvider(
 		Config:              cfg,
 		ChainName:           chainName,
 		Client:              client,
-		GasModel:            gasModel,
+		GasType:             cfg.GasType,
 		FreeSenders:         freeSenders,
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
@@ -125,7 +122,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 		return nil, fmt.Errorf("[EVMProvider] invalid address: %w", err)
 	}
 
-	isActive, err := cp.queryTargetContractIsActive(ctx, tunnelID, addr)
+	info, err := cp.queryTunnelInfo(ctx, tunnelID, addr)
 	if err != nil {
 		cp.Log.Error(
 			"query contract error",
@@ -139,16 +136,18 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 	}
 
 	return &chainstypes.Tunnel{
-		ID:            tunnelID,
-		TargetAddress: tunnelDestinationAddr,
-		IsActive:      isActive,
+		ID:             tunnelID,
+		TargetAddress:  tunnelDestinationAddr,
+		IsActive:       info.IsActive,
+		LatestSequence: info.LatestSequence,
+		Balance:        info.Balance,
 	}, nil
 }
 
 // RelayPacket relays the packet from the source chain to the destination chain.
 func (cp *EVMChainProvider) RelayPacket(
 	ctx context.Context,
-	task *types.RelayerTask,
+	packet *bandtypes.Packet,
 ) error {
 	if err := cp.Client.Connect(ctx); err != nil {
 		cp.Log.Error(
@@ -164,19 +163,19 @@ func (cp *EVMChainProvider) RelayPacket(
 		cp.Log.Info(
 			"relaying a message",
 			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", task.Packet.TunnelID),
-			zap.Uint64("sequence", task.Packet.Sequence),
+			zap.Uint64("tunnel_id", packet.TunnelID),
+			zap.Uint64("sequence", packet.Sequence),
 			zap.Int("retry_count", retryCount),
 		)
 
-		txHash, err := cp.handleRelay(ctx, task, retryCount)
+		txHash, err := cp.handleRelay(ctx, packet, retryCount)
 		if err != nil {
 			cp.Log.Error(
 				"HandleRelay error",
 				zap.Error(err),
 				zap.String("chain_name", cp.ChainName),
-				zap.Uint64("tunnel_id", task.Packet.TunnelID),
-				zap.Uint64("sequence", task.Packet.Sequence),
+				zap.Uint64("tunnel_id", packet.TunnelID),
+				zap.Uint64("sequence", packet.Sequence),
 				zap.Int("retry_count", retryCount),
 			)
 			retryCount += 1
@@ -187,8 +186,8 @@ func (cp *EVMChainProvider) RelayPacket(
 		cp.Log.Info(
 			"submitting a message",
 			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", task.Packet.TunnelID),
-			zap.Uint64("sequence", task.Packet.Sequence),
+			zap.Uint64("tunnel_id", packet.TunnelID),
+			zap.Uint64("sequence", packet.Sequence),
 			zap.String("tx_hash", txHash),
 			zap.Int("retry_count", retryCount),
 		)
@@ -203,8 +202,8 @@ func (cp *EVMChainProvider) RelayPacket(
 					"Failed to check tx status",
 					zap.Error(err),
 					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", task.Packet.TunnelID),
-					zap.Uint64("sequence", task.Packet.Sequence),
+					zap.Uint64("tunnel_id", packet.TunnelID),
+					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -222,8 +221,8 @@ func (cp *EVMChainProvider) RelayPacket(
 				cp.Log.Info(
 					"Packet is successfully relayed",
 					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", task.Packet.TunnelID),
-					zap.Uint64("sequence", task.Packet.Sequence),
+					zap.Uint64("tunnel_id", packet.TunnelID),
+					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -236,8 +235,8 @@ func (cp *EVMChainProvider) RelayPacket(
 					"Waiting for tx to be mined",
 					zap.Error(err),
 					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", task.Packet.TunnelID),
-					zap.Uint64("sequence", task.Packet.Sequence),
+					zap.Uint64("tunnel_id", packet.TunnelID),
+					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -251,8 +250,8 @@ func (cp *EVMChainProvider) RelayPacket(
 			zap.Error(checkTxErr),
 			zap.String("status", txStatus.String()),
 			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", task.Packet.TunnelID),
-			zap.Uint64("sequence", task.Packet.Sequence),
+			zap.Uint64("tunnel_id", packet.TunnelID),
+			zap.Uint64("sequence", packet.Sequence),
 			zap.String("tx_hash", txHash),
 			zap.Int("retry_count", retryCount),
 		)
@@ -266,10 +265,10 @@ func (cp *EVMChainProvider) RelayPacket(
 // handleRelay handles the relay message from the source chain to the destination chain.
 func (cp *EVMChainProvider) handleRelay(
 	ctx context.Context,
-	task *types.RelayerTask,
+	packet *bandtypes.Packet,
 	retryCount int,
 ) (txHash string, err error) {
-	calldata, err := cp.createCalldata(task)
+	calldata, err := cp.createCalldata(packet)
 	if err != nil {
 		return "", fmt.Errorf("failed to create calldata: %w", err)
 	}
@@ -283,8 +282,8 @@ func (cp *EVMChainProvider) handleRelay(
 		fmt.Sprintf("Relaying packet using address: %v", sender.address),
 		zap.String("evm_sender_address", sender.address.String()),
 		zap.String("chain_name", cp.ChainName),
-		zap.Uint64("tunnel_id", task.Packet.TunnelID),
-		zap.Uint64("sequence", task.Packet.Sequence),
+		zap.Uint64("tunnel_id", packet.TunnelID),
+		zap.Uint64("sequence", packet.Sequence),
 	)
 
 	tx, err := cp.newRelayTx(ctx, calldata, sender.address, retryCount)
@@ -315,6 +314,7 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 		txHash,
 		TX_STATUS_UNMINED,
 		decimal.NullDecimal{},
+		cp.GasType,
 		decimal.NullDecimal{},
 	)
 
@@ -342,36 +342,51 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 
 	// calculate gas used and effective gas price
 	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
-	effGasPrice, err := cp.Client.GetEffectiveGasPrice(ctx, receipt)
+
+	effectiveGas, err := cp.GetEffectiveGas(ctx, receipt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get effective gas price: %w", err)
 	}
 
-	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, effGasPrice), nil
+	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, cp.GasType, effectiveGas), nil
 }
 
-// queryTargetContractIsActive queries the target contract is active or not.
-func (cp *EVMChainProvider) queryTargetContractIsActive(
+func (cp *EVMChainProvider) GetEffectiveGas(
+	ctx context.Context,
+	receipt *gethtypes.Receipt,
+) (decimal.NullDecimal, error) {
+	switch cp.GasType {
+	case GasTypeLegacy:
+		return cp.Client.GetEffectiveGasPrice(ctx, receipt)
+	case GasTypeEIP1559:
+		return cp.Client.GetEffectiveGasTipValue(ctx, receipt)
+	default:
+		return decimal.NullDecimal{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+	}
+}
+
+// queryTunnelInfo queries the target contract information.
+func (cp *EVMChainProvider) queryTunnelInfo(
 	ctx context.Context,
 	tunnelID uint64,
 	addr gethcommon.Address,
-) (bool, error) {
-	calldata, err := cp.TunnelRouterABI.Pack("isActive", tunnelID, addr)
+) (*TunnelInfoOutput, error) {
+	calldata, err := cp.TunnelRouterABI.Pack("tunnelInfo", tunnelID, addr)
 	if err != nil {
-		return false, fmt.Errorf("failed to pack calldata: %w", err)
+		return nil, fmt.Errorf("failed to pack calldata: %w", err)
 	}
 
 	b, err := cp.Client.Query(ctx, cp.TunnelRouterAddress, calldata)
 	if err != nil {
-		return false, fmt.Errorf("failed to query data: %w", err)
+		return nil, fmt.Errorf("failed to query data: %w", err)
 	}
 
-	var output TunnelRouterIsActiveOutput
-	if err := cp.TunnelRouterABI.UnpackIntoInterface(&output, "isActive", b); err != nil {
-		return false, fmt.Errorf("failed to unpack data: %w", err)
+	var output TunnelInfoOutputRaw
+	if err := cp.TunnelRouterABI.UnpackIntoInterface(&output, "tunnelInfo", b); err != nil {
+		return nil, fmt.Errorf("failed to unpack data: %w", err)
 	}
 
-	return output.IsActive, nil
+	return &output.Info, nil
 }
 
 // newRelayTx creates a new relay transaction.
@@ -401,25 +416,26 @@ func (cp *EVMChainProvider) newRelayTx(
 		}
 	}
 
-	// calculate new fee info
-	feeInfo := cp.GasModel.
-		GetGas(ctx).
-		Bump(math.Pow(cp.Config.GasMultiplier, float64(retryCount))).
-		Param()
+	multiplier := math.Pow(cp.Config.GasMultiplier, float64(retryCount))
 
+	// set fee info
 	var tx *gethtypes.Transaction
-	switch cp.GasModel.GasType() {
-	case gas.GasTypeLegacy:
+	switch cp.GasType {
+	case GasTypeLegacy:
+		bumpedGasPrice := int64(math.Round(float64(cp.Config.GasPrice) * multiplier))
+
 		tx = gethtypes.NewTx(&gethtypes.LegacyTx{
 			Nonce:    nonce,
 			To:       &cp.TunnelRouterAddress,
 			Value:    decimal.NewFromInt(0).BigInt(),
 			Data:     data,
 			Gas:      gasLimit,
-			GasPrice: big.NewInt(int64(feeInfo.GasPrice)),
+			GasPrice: big.NewInt(bumpedGasPrice),
 		})
 
-	case gas.GasTypeEIP1559:
+	case GasTypeEIP1559:
+		bumpedPriorityFee := int64(math.Round(float64(cp.Config.MaxPriorityFee) * multiplier))
+
 		tx = gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 			ChainID:   big.NewInt(int64(cp.Config.ChainID)),
 			Nonce:     nonce,
@@ -427,29 +443,41 @@ func (cp *EVMChainProvider) newRelayTx(
 			Value:     decimal.NewFromInt(0).BigInt(),
 			Data:      data,
 			Gas:       gasLimit,
-			GasFeeCap: big.NewInt(int64(feeInfo.MaxPriorityFee + feeInfo.MaxBaseFee)),
-			GasTipCap: big.NewInt(int64(feeInfo.MaxPriorityFee)),
+			GasFeeCap: big.NewInt(bumpedPriorityFee + int64(cp.Config.MaxBaseFee)),
+			GasTipCap: big.NewInt(bumpedPriorityFee),
 		})
 
 	default:
-		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasModel.GasType())
+		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
 	return tx, nil
 }
 
 // createCalldata creates the calldata for the relay transaction.
-func (cp *EVMChainProvider) createCalldata(task *types.RelayerTask) ([]byte, error) {
-	rAddr, err := HexToAddress(task.Signing.EVMSignature.RAddress.String())
+func (cp *EVMChainProvider) createCalldata(packet *bandtypes.Packet) ([]byte, error) {
+	var signing *bandtypes.Signing
+
+	// get signing from packet; prefer to use signing from
+	// current group than incoming group
+	if packet.CurrentGroupSigning != nil {
+		signing = packet.CurrentGroupSigning
+	} else if packet.IncomingGroupSigning != nil {
+		signing = packet.IncomingGroupSigning
+	} else {
+		return nil, fmt.Errorf("missing signing")
+	}
+
+	rAddr, err := HexToAddress(signing.EVMSignature.RAddress.String())
 	if err != nil {
 		return nil, err
 	}
 
 	return cp.TunnelRouterABI.Pack(
 		"relay",
-		task.Signing.Message.Bytes(),
+		signing.Message.Bytes(),
 		rAddr,
-		new(big.Int).SetBytes(task.Signing.EVMSignature.Signature),
+		new(big.Int).SetBytes(signing.EVMSignature.Signature),
 	)
 }
 
@@ -459,13 +487,13 @@ func (cp *EVMChainProvider) signTx(
 	sender *Sender,
 ) (*gethtypes.Transaction, error) {
 	var signer gethtypes.Signer
-	switch cp.GasModel.GasType() {
-	case gas.GasTypeLegacy:
+	switch cp.GasType {
+	case GasTypeLegacy:
 		signer = gethtypes.NewEIP155Signer(big.NewInt(int64(cp.Config.ChainID)))
-	case gas.GasTypeEIP1559:
+	case GasTypeEIP1559:
 		signer = gethtypes.NewLondonSigner(big.NewInt(int64(cp.Config.ChainID)))
 	default:
-		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasModel.GasType())
+		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
 	return gethtypes.SignTx(tx, signer, sender.privateKey)

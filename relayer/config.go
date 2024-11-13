@@ -9,11 +9,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/bandprotocol/falcon/internal/datasource"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
-	evmgas "github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 )
 
 // GlobalConfig is the global configuration for the falcon tunnel relayer
@@ -51,8 +49,7 @@ func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProvide
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			decodeTimeHook,
 			chains.DecodeChainTypeHook,
-			evmgas.DecodeGasTypeHook,
-			datasource.DecodeDataSourceConfigHook,
+			evm.DecodeGasTypeHook,
 		),
 	}
 

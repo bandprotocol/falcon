@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -33,13 +34,17 @@ func txRelayCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay [tunnel_id]",
 		Aliases: []string{"rly"},
-		Short:   "Relay a specific message to the destination chain",
-		Args:    withUsage(cobra.ExactArgs(2)),
+		Short:   "Relay the next sequence message to the destination tunnel contract address",
+		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx relay 1 1, # relay the message with tunnelID 1 and sequence 1`, appName)),
+$ %s tx relay 1, # relay the next sequence message of the tunnelID 1`, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
-			return nil
+			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			return app.Relay(cmd.Context(), tunnelID)
 		},
 	}
 

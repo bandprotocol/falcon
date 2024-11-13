@@ -1,22 +1,35 @@
 [
   {
-    "type": "function",
-    "name": "isActive",
     "inputs": [
-      { "name": "tunnelID", "type": "uint64", "internalType": "uint64" },
-      { "name": "targetAddr", "type": "address", "internalType": "address" }
+      { "internalType": "uint64", "name": "tunnelId", "type": "uint64" },
+      { "internalType": "address", "name": "addr", "type": "address" }
     ],
+    "stateMutability": "view",
+    "type": "function",
+    "name": "tunnelInfo",
     "outputs": [
-      { "name": "is_active", "type": "bool", "internalType": "bool" }
-    ],
-    "stateMutability": "view"
+      {
+        "internalType": "struct ITunnelRouter.TunnelInfo",
+        "name": "tunnelInfo",
+        "type": "tuple",
+        "components": [
+          { "internalType": "bool", "name": "isActive", "type": "bool" },
+          {
+            "internalType": "uint64",
+            "name": "latestSequence",
+            "type": "uint64"
+          },
+          { "internalType": "uint256", "name": "balance", "type": "uint256" }
+        ]
+      }
+    ]
   },
   {
     "type": "function",
     "name": "relay",
     "inputs": [
       { "name": "message", "type": "bytes", "internalType": "bytes" },
-      { "name": "rAddr", "type": "address", "internalType": "address" },
+      { "name": "randomAddr", "type": "address", "internalType": "address" },
       { "name": "signature", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],

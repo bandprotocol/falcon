@@ -5,9 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/internal/datasource"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 )
 
 var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
@@ -22,13 +20,12 @@ type EVMChainProviderConfig struct {
 	CheckingTxInterval time.Duration `mapstructure:"checking_tx_interval" toml:"checking_tx_interval"`
 	GasLimit           uint64        `mapstructure:"gas_limit"            toml:"gas_limit,omitempty"`
 
-	GasType           gas.GasType         `mapstructure:"gas_type"            toml:"gas_type"`
-	GasPrice          uint64              `mapstructure:"gas_price"           toml:"gas_price,omitempty"`
-	MaxBaseFee        uint64              `mapstructure:"max_base_fee"        toml:"max_base_fee,omitempty"`
-	MaxPriorityFee    uint64              `mapstructure:"max_priority_fee"    toml:"max_priority_fee,omitempty"`
-	GasMultiplier     float64             `mapstructure:"gas_multiplier"      toml:"gas_multiplier"`
-	DataSourceConfigs []datasource.Config `mapstructure:"data_source_configs" toml:"data_source_configs,omitempty"`
-	QueryGasTimeout   time.Duration       `mapstructure:"query_gas_timeout"   toml:"query_gas_timeout,omitempty"`
+	GasType         GasType       `mapstructure:"gas_type"          toml:"gas_type"`
+	GasPrice        uint64        `mapstructure:"gas_price"         toml:"gas_price,omitempty"`
+	MaxBaseFee      uint64        `mapstructure:"max_base_fee"      toml:"max_base_fee,omitempty"`
+	MaxPriorityFee  uint64        `mapstructure:"max_priority_fee"  toml:"max_priority_fee,omitempty"`
+	GasMultiplier   float64       `mapstructure:"gas_multiplier"    toml:"gas_multiplier"`
+	QueryGasTimeout time.Duration `mapstructure:"query_gas_timeout" toml:"query_gas_timeout,omitempty"`
 }
 
 // NewProvider creates a new EVM chain provider.
@@ -40,27 +37,7 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)
 
-	// create data sources
-	sources := make([]datasource.Source, 0, len(cpc.DataSourceConfigs))
-	for _, cfg := range cpc.DataSourceConfigs {
-		source, err := cfg.NewSource()
-		if err != nil {
-			return nil, err
-		}
-
-		sources = append(sources, source)
-	}
-
-	var gasModel gas.GasModel
-	if cpc.GasType == gas.GasTypeEIP1559 {
-		gasModel = gas.NewEIP1559GasModel(
-			cpc.MaxBaseFee, cpc.MaxPriorityFee, sources, cpc.QueryGasTimeout, log,
-		)
-	} else {
-		gasModel = gas.NewLegacyGasModel(cpc.GasPrice, sources, cpc.QueryGasTimeout, log)
-	}
-
-	return NewEVMChainProvider(chainName, client, gasModel, cpc, log)
+	return NewEVMChainProvider(chainName, client, cpc, log)
 }
 
 // Validate validates the EVM chain provider configuration.

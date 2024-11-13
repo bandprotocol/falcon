@@ -11,6 +11,3 @@ checking_tx_interval = 1000000000
 gas_type = 'eip1559'
 gas_multiplier = 1.1
 
-[[data_source_configs]]
-source_type = 'fix'
-data = 4
