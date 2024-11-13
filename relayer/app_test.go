@@ -199,6 +199,50 @@ func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.Require().Equal(expected, tunnel)
 }
 
+func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
+	signalPrices := []bandtypes.SignalPrice{
+		{SignalID: "signal1", Price: 100},
+		{SignalID: "signal2", Price: 200},
+	}
+
+	// Create a mock EVMSignature
+	evmSignature := bandtypes.NewEVMSignature(
+		cmbytes.HexBytes("0x1234"),
+		cmbytes.HexBytes("0xabcd"),
+	)
+
+	// Create mock signing information
+	signingInfo := bandtypes.NewSigning(
+		1,
+		cmbytes.HexBytes("0xdeadbeef"),
+		evmSignature,
+	)
+
+	// Create the expected Packet object
+	tunnelPacketBandInfo := bandtypes.NewPacket(
+		1,
+		1,
+		signalPrices,
+		signingInfo,
+		nil,
+	)
+
+	// Set up the mock expectation
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, uint64(1), uint64(1)).
+		Return(tunnelPacketBandInfo, nil)
+
+	// Call the function under test
+	packet, err := s.app.QueryTunnelPacketInfo(s.ctx, 1, 1)
+
+	// Create the expected packet structure for comparison
+	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo, nil)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().Equal(expected, packet)
+}
+
 func (s *AppTestSuite) TestAddChainConfig() {
 	s.app.Config = nil
 	// create new chain config file
@@ -229,6 +273,8 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	actualBytes, err := os.ReadFile(path.Join(s.app.HomePath, "config", "config.toml"))
 
 	s.Require().NoError(err)
+	s.Require().Equal(relayertest.DefaultCfgTextWithChainCfg, string(actualBytes))
+
 	s.Require().Equal(expectedBytes, actualBytes)
 }
 
@@ -282,48 +328,4 @@ func (s *AppTestSuite) TestGetChainConfig() {
 	expect := relayertest.CustomCfg.TargetChains[chainName]
 
 	s.Require().Equal(expect, actual)
-}
-
-func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
-	signalPrices := []bandtypes.SignalPrice{
-		{SignalID: "signal1", Price: 100},
-		{SignalID: "signal2", Price: 200},
-	}
-
-	// Create a mock EVMSignature
-	evmSignature := bandtypes.NewEVMSignature(
-		cmbytes.HexBytes("0x1234"),
-		cmbytes.HexBytes("0xabcd"),
-	)
-
-	// Create mock signing information
-	signingInfo := bandtypes.NewSigning(
-		1,
-		cmbytes.HexBytes("0xdeadbeef"),
-		evmSignature,
-	)
-
-	// Create the expected Packet object
-	tunnelPacketBandInfo := bandtypes.NewPacket(
-		1,
-		1,
-		signalPrices,
-		signingInfo,
-		nil,
-	)
-
-	// Set up the mock expectation
-	s.client.EXPECT().
-		GetTunnelPacket(s.ctx, uint64(1), uint64(1)).
-		Return(tunnelPacketBandInfo, nil)
-
-	// Call the function under test
-	packet, err := s.app.QueryTunnelPacketInfo(s.ctx, 1, 1)
-
-	// Create the expected packet structure for comparison
-	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo, nil)
-
-	// Assertions
-	s.Require().NoError(err)
-	s.Require().Equal(expected, packet)
 }
