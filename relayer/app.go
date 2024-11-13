@@ -103,12 +103,17 @@ func (a *App) initLogger(configLogLevel string) error {
 		logLevel = configLogLevel
 	}
 
-	log, err := newRootLogger(a.Viper.GetString("log-format"), logLevel)
-	if err != nil {
-		return err
+	// initialize logger only if user run command "start" or log level is "debug"
+	if os.Args[1] == "start" || logLevel == "debug" {
+		log, err := newRootLogger(a.Viper.GetString("log-format"), logLevel)
+		if err != nil {
+			return err
+		}
+		a.Log = log
+	} else {
+		a.Log = zap.NewNop()
 	}
 
-	a.Log = log
 	return nil
 }
 
