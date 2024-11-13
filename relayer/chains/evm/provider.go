@@ -17,7 +17,6 @@ import (
 
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
@@ -28,9 +27,8 @@ type EVMChainProvider struct {
 	Config    *EVMChainProviderConfig
 	ChainName string
 
-	// TODO: add lock object.
-	Client   Client
-	GasModel gas.GasModel
+	Client  Client
+	GasType GasType
 
 	FreeSenders chan *Sender
 
@@ -44,7 +42,6 @@ type EVMChainProvider struct {
 func NewEVMChainProvider(
 	chainName string,
 	client Client,
-	gasModel gas.GasModel,
 	cfg *EVMChainProviderConfig,
 	log *zap.Logger,
 ) (*EVMChainProvider, error) {
@@ -84,7 +81,7 @@ func NewEVMChainProvider(
 		Config:              cfg,
 		ChainName:           chainName,
 		Client:              client,
-		GasModel:            gasModel,
+		GasType:             cfg.GasType,
 		FreeSenders:         freeSenders,
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
@@ -317,6 +314,7 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 		txHash,
 		TX_STATUS_UNMINED,
 		decimal.NullDecimal{},
+		cp.GasType,
 		decimal.NullDecimal{},
 	)
 
@@ -344,12 +342,27 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 
 	// calculate gas used and effective gas price
 	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
-	effGasPrice, err := cp.Client.GetEffectiveGasPrice(ctx, receipt)
+
+	effectiveGas, err := cp.GetEffectiveGas(ctx, receipt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get effective gas price: %w", err)
 	}
 
-	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, effGasPrice), nil
+	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, cp.GasType, effectiveGas), nil
+}
+
+func (cp *EVMChainProvider) GetEffectiveGas(
+	ctx context.Context,
+	receipt *gethtypes.Receipt,
+) (decimal.NullDecimal, error) {
+	switch cp.GasType {
+	case GasTypeLegacy:
+		return cp.Client.GetEffectiveGasPrice(ctx, receipt)
+	case GasTypeEIP1559:
+		return cp.Client.GetEffectiveGasTipValue(ctx, receipt)
+	default:
+		return decimal.NullDecimal{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+	}
 }
 
 // queryTunnelInfo queries the target contract information.
@@ -403,25 +416,26 @@ func (cp *EVMChainProvider) newRelayTx(
 		}
 	}
 
-	// calculate new fee info
-	feeInfo := cp.GasModel.
-		GetGas(ctx).
-		Bump(math.Pow(cp.Config.GasMultiplier, float64(retryCount))).
-		Param()
+	multiplier := math.Pow(cp.Config.GasMultiplier, float64(retryCount))
 
+	// set fee info
 	var tx *gethtypes.Transaction
-	switch cp.GasModel.GasType() {
-	case gas.GasTypeLegacy:
+	switch cp.GasType {
+	case GasTypeLegacy:
+		bumpedGasPrice := int64(math.Round(float64(cp.Config.GasPrice) * multiplier))
+
 		tx = gethtypes.NewTx(&gethtypes.LegacyTx{
 			Nonce:    nonce,
 			To:       &cp.TunnelRouterAddress,
 			Value:    decimal.NewFromInt(0).BigInt(),
 			Data:     data,
 			Gas:      gasLimit,
-			GasPrice: big.NewInt(int64(feeInfo.GasPrice)),
+			GasPrice: big.NewInt(bumpedGasPrice),
 		})
 
-	case gas.GasTypeEIP1559:
+	case GasTypeEIP1559:
+		bumpedPriorityFee := int64(math.Round(float64(cp.Config.MaxPriorityFee) * multiplier))
+
 		tx = gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 			ChainID:   big.NewInt(int64(cp.Config.ChainID)),
 			Nonce:     nonce,
@@ -429,12 +443,12 @@ func (cp *EVMChainProvider) newRelayTx(
 			Value:     decimal.NewFromInt(0).BigInt(),
 			Data:      data,
 			Gas:       gasLimit,
-			GasFeeCap: big.NewInt(int64(feeInfo.MaxPriorityFee + feeInfo.MaxBaseFee)),
-			GasTipCap: big.NewInt(int64(feeInfo.MaxPriorityFee)),
+			GasFeeCap: big.NewInt(bumpedPriorityFee + int64(cp.Config.MaxBaseFee)),
+			GasTipCap: big.NewInt(bumpedPriorityFee),
 		})
 
 	default:
-		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasModel.GasType())
+		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
 	return tx, nil
@@ -473,13 +487,13 @@ func (cp *EVMChainProvider) signTx(
 	sender *Sender,
 ) (*gethtypes.Transaction, error) {
 	var signer gethtypes.Signer
-	switch cp.GasModel.GasType() {
-	case gas.GasTypeLegacy:
+	switch cp.GasType {
+	case GasTypeLegacy:
 		signer = gethtypes.NewEIP155Signer(big.NewInt(int64(cp.Config.ChainID)))
-	case gas.GasTypeEIP1559:
+	case GasTypeEIP1559:
 		signer = gethtypes.NewLondonSigner(big.NewInt(int64(cp.Config.ChainID)))
 	default:
-		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasModel.GasType())
+		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
 	return gethtypes.SignTx(tx, signer, sender.privateKey)
