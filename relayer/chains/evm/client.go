@@ -12,8 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
-
-	"github.com/bandprotocol/falcon/relayer/chains/evm/gas"
 )
 
 var _ Client = &client{}
@@ -30,6 +28,10 @@ type Client interface {
 		ctx context.Context,
 		receipt *gethtypes.Receipt,
 	) (decimal.NullDecimal, error)
+	GetEffectiveGasTipValue(
+		ctx context.Context,
+		receipt *gethtypes.Receipt,
+	) (decimal.NullDecimal, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error)
@@ -41,8 +43,6 @@ type client struct {
 	Endpoints      []string
 	QueryTimeout   time.Duration
 	ExecuteTimeout time.Duration
-
-	GasType gas.GasType
 
 	Log *zap.Logger
 
@@ -57,7 +57,6 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 		Endpoints:      cfg.Endpoints,
 		QueryTimeout:   cfg.QueryTimeout,
 		ExecuteTimeout: cfg.ExecuteTimeout,
-		GasType:        cfg.GasType,
 		Log:            log,
 	}
 }
@@ -210,8 +209,8 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 	return tx, isPending, nil
 }
 
-// GetEffectiveGasPrice returns the effective gas price of the given transaction receipt.
-func (c *client) GetEffectiveGasPrice(
+// GetEffectiveGasTipValue returns the effective gas tip of the given transaction receipt.
+func (c *client) GetEffectiveGasTipValue(
 	ctx context.Context,
 	receipt *gethtypes.Receipt,
 ) (decimal.NullDecimal, error) {
@@ -233,25 +232,41 @@ func (c *client) GetEffectiveGasPrice(
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	switch c.GasType {
-	case gas.GasTypeEIP1559:
-		header, err := c.GetBlock(newCtx, receipt.BlockNumber.Uint64())
-		if err != nil {
-			return decimal.NullDecimal{}, err
-		}
-
-		baseFee := header.BaseFee()
-		priorityFee := tx.EffectiveGasTipValue(baseFee)
-		return decimal.NewNullDecimal(
-			decimal.New(new(big.Int).Add(baseFee, priorityFee).Int64(), 0),
-		), nil
-	case gas.GasTypeLegacy:
-		return decimal.NewNullDecimal(
-			decimal.New(int64(tx.GasPrice().Uint64()), 0),
-		), nil
-	default:
-		return decimal.NullDecimal{}, fmt.Errorf("[EVMClient] unsupported gas type")
+	header, err := c.GetBlock(newCtx, receipt.BlockNumber.Uint64())
+	if err != nil {
+		return decimal.NullDecimal{}, err
 	}
+
+	baseFee := header.BaseFee()
+	priorityFee := tx.EffectiveGasTipValue(baseFee)
+	return decimal.NewNullDecimal(
+		decimal.New(new(big.Int).Add(baseFee, priorityFee).Int64(), 0),
+	), nil
+}
+
+// GetEffectiveGasPrice returns the effective gas price of the given transaction receipt.
+func (c *client) GetEffectiveGasPrice(
+	ctx context.Context,
+	receipt *gethtypes.Receipt,
+) (decimal.NullDecimal, error) {
+	tx, isPending, err := c.GetTxByHash(ctx, receipt.TxHash.String())
+	if err != nil {
+		return decimal.NullDecimal{}, err
+	}
+
+	if isPending {
+		c.Log.Debug(
+			"tx is pending",
+			zap.String("chain_name", c.ChainName),
+			zap.String("endpoint", c.selectedEndpoint),
+			zap.String("tx_hash", receipt.TxHash.String()),
+		)
+		return decimal.NullDecimal{}, fmt.Errorf("[EVMClient] tx is pending")
+	}
+
+	return decimal.NewNullDecimal(
+		decimal.New(int64(tx.GasPrice().Uint64()), 0),
+	), nil
 }
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.

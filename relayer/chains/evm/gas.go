@@ -1,7 +1,6 @@
-package gas
+package evm
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 )
@@ -59,20 +58,4 @@ func ToGasType(s string) GasType {
 	}
 
 	return GasTypeUndefined
-}
-
-type Param struct {
-	GasPrice       uint64
-	MaxBaseFee     uint64
-	MaxPriorityFee uint64
-}
-
-type Gas interface {
-	Param() Param
-	Bump(float64) Gas
-}
-
-type GasModel interface {
-	GetGas(ctx context.Context) Gas
-	GasType() GasType
 }
