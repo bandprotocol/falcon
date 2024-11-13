@@ -53,3 +53,7 @@ go.sum: go.mod
 
 test:
 	@go test -mod=readonly ./...
+
+test-coverage:
+	@go test -mod=readonly -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out
