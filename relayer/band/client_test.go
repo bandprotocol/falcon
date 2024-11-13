@@ -19,6 +19,7 @@ import (
 	feedstypes "github.com/bandprotocol/chain/v3/x/feeds/types"
 	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
 	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
+
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandclienttypes "github.com/bandprotocol/falcon/relayer/band/types"
