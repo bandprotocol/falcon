@@ -95,7 +95,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 
 	// if the tunnel relayer is executing, skip the round
 	if tr.IsExecuting() {
-		s.Log.Debug(
+		s.Log.Info(
 			"Skipping this tunnel: tunnel relayer is executing on another process",
 			zap.Uint64("tunnel_id", tr.TunnelID),
 		)

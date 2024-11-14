@@ -20,7 +20,6 @@ const (
 	TX_STATUS_UNMINED
 	TX_STATUS_SUCCESS
 	TX_STATUS_FAILED
-	TX_STATUS_TIMEOUT
 )
 
 var txStatusNameMap = map[TxStatus]string{
@@ -28,7 +27,6 @@ var txStatusNameMap = map[TxStatus]string{
 	TX_STATUS_UNMINED:   "unmined",
 	TX_STATUS_SUCCESS:   "success",
 	TX_STATUS_FAILED:    "failed",
-	TX_STATUS_TIMEOUT:   "timeout",
 }
 
 func (t TxStatus) String() string {
