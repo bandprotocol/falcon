@@ -27,6 +27,9 @@ type Client interface {
 
 	// Connect will establish connection to rpc endpoints
 	Connect(timeout uint) error
+
+	// GetTunnels returns all tunnel in band chain.
+	GetTunnels(ctx context.Context) ([]types.Tunnel, error)
 }
 
 // QueryClient groups the gRPC clients for querying BandChain-specific data.
@@ -189,6 +192,43 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 		currentGroupSigning,
 		incomingGroupSigning,
 	), nil
+}
+
+// GetTunnels returns all tunnel in band chain.
+func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
+	// check connection to bandchain
+	if c.QueryClient == nil {
+		return nil, fmt.Errorf("cannot connect to bandchain")
+	}
+
+	res, err := c.QueryClient.TunnelQueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	tunnels := make([]types.Tunnel, 0, len(res.Tunnels))
+
+	for _, tunnel := range res.Tunnels {
+		// Extract route information
+		var route tunneltypes.RouteI
+		err = c.UnpackAny(tunnel.Route, &route)
+		if err != nil {
+			return nil, err
+		}
+		tssRoute, ok := route.(*tunneltypes.TSSRoute)
+		if !ok {
+			return nil, fmt.Errorf("unsupported route type: %T", route)
+		}
+		tunnels = append(tunnels, *types.NewTunnel(
+			tunnel.ID,
+			tunnel.Sequence,
+			tssRoute.DestinationContractAddress,
+			tssRoute.DestinationChainID,
+			tunnel.IsActive,
+		))
+	}
+
+	return tunnels, nil
 }
 
 // unpackAny unpacks the provided *codectypes.Any into the specified interface.
