@@ -59,6 +59,7 @@ func NewEVMChainProvider(
 		)
 		return nil, fmt.Errorf("[EVMProvider] failed to load abi: %w", err)
 	}
+
 	addr, err := HexToAddress(cfg.TunnelRouterAddress)
 	if err != nil {
 		log.Error("ChainProvider: cannot convert tunnel router address",
@@ -191,7 +192,7 @@ func (cp *EVMChainProvider) RelayPacket(
 		createdAt := time.Now()
 
 		cp.Log.Info(
-			"submitting a message",
+			"submitted a message; checking transaction status",
 			zap.String("chain_name", cp.ChainName),
 			zap.Uint64("tunnel_id", packet.TunnelID),
 			zap.Uint64("sequence", packet.Sequence),
@@ -203,7 +204,7 @@ func (cp *EVMChainProvider) RelayPacket(
 		var txStatus TxStatus
 	checkTxLogic:
 		for time.Since(createdAt) < cp.Config.WaitingTxDuration {
-			result, err := cp.checkConfirmedTx(ctx, txHash, createdAt)
+			result, err := cp.checkConfirmedTx(ctx, txHash)
 			if err != nil {
 				cp.Log.Debug(
 					"Failed to check tx status",
@@ -234,7 +235,7 @@ func (cp *EVMChainProvider) RelayPacket(
 					zap.Int("retry_count", retryCount),
 				)
 				return nil
-			case TX_STATUS_FAILED, TX_STATUS_TIMEOUT:
+			case TX_STATUS_FAILED:
 				retryCount += 1
 				break checkTxLogic
 			case TX_STATUS_UNMINED:
@@ -330,7 +331,6 @@ func (cp *EVMChainProvider) handleRelay(
 func (cp *EVMChainProvider) checkConfirmedTx(
 	ctx context.Context,
 	txHash string,
-	createdAt time.Time,
 ) (*ConfirmTxResult, error) {
 	failResult := NewConfirmTxResult(
 		txHash,
@@ -356,9 +356,6 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 
 	// if tx block is not confirmed and waiting too long return status with timeout
 	if receipt.BlockNumber.Uint64() > latestBlock-cp.Config.BlockConfirmation {
-		if time.Now().Unix() > createdAt.Add(cp.Config.WaitingTxDuration).Unix() {
-			return failResult.WithStatus(TX_STATUS_TIMEOUT), nil
-		}
 		return failResult.WithStatus(TX_STATUS_UNMINED), nil
 	}
 
