@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -83,4 +84,11 @@ func loadKeyInfo(homePath, chainName string) (KeyInfo, error) {
 	}
 
 	return keyInfo, nil
+}
+
+func LoadPassPhrase() string {
+	if err := godotenv.Load(); err != nil {
+		return ""
+	}
+	return os.Getenv("EVM_PASSPHRASE")
 }

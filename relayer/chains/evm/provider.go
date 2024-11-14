@@ -22,7 +22,10 @@ import (
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
-var _ chains.ChainProvider = (*EVMChainProvider)(nil)
+var (
+	_          chains.ChainProvider = (*EVMChainProvider)(nil)
+	passphrase                      = ""
+)
 
 // EVMChainProvider is the struct that handles interactions with the EVM chain.
 type EVMChainProvider struct {
@@ -69,6 +72,8 @@ func NewEVMChainProvider(
 		return nil, fmt.Errorf("[EVMProvider] incorrect address: %w", err)
 	}
 
+	// load passphrase from env
+	passphrase = LoadPassPhrase()
 	keyStoreDir := path.Join(homePath, keyDir, chainName, privateKeyDir)
 	keyStore := keyStore.NewKeyStore(keyStoreDir, keyStore.StandardScryptN, keyStore.StandardScryptP)
 

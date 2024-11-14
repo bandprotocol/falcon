@@ -28,7 +28,6 @@ const (
 	infoDir       = "info"
 	privateKeyDir = "priv"
 	infoFile      = "info.toml"
-	passphrase    = ""
 )
 
 func (cp *EVMChainProvider) AddKey(
