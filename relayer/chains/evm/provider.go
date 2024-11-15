@@ -277,19 +277,11 @@ func (cp *EVMChainProvider) handleRelay(
 		return "", fmt.Errorf("failed to create calldata: %w", err)
 	}
 
-	var sender *Sender
-
 	if len(cp.FreeSenders) == 0 {
 		return "", fmt.Errorf("no key available to relay packet")
 	}
-	// use available sender
-	for sender == nil {
-		select {
-		case sender = <-cp.FreeSenders:
-			break
-		default:
-		}
-	}
+	sender := <-cp.FreeSenders
+
 	defer func() {
 		cp.FreeSenders <- sender
 	}()
