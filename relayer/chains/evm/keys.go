@@ -25,14 +25,12 @@ const (
 )
 
 const (
-	keyDir             = "keys"
-	infoDir            = "info"
-	privateKeyDir      = "priv"
-	infoFileName       = "info.toml"
-	passphraseFileName = ""
+	keyDir        = "keys"
+	infoDir       = "info"
+	privateKeyDir = "priv"
+	infoFileName  = "info.toml"
+	passphrase    = ""
 )
-
-var passphrase = LoadPassPhrase()
 
 func (cp *EVMChainProvider) AddKey(
 	keyName string,

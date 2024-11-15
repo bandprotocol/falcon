@@ -2,11 +2,9 @@ package evm
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/joho/godotenv"
 )
 
 const privateKeyPrefix = "0x"
