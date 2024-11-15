@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	keyStore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/pelletier/go-toml/v2"
@@ -24,12 +25,14 @@ const (
 )
 
 const (
-	keyDir        = "keys"
-	infoDir       = "info"
-	privateKeyDir = "priv"
-	infoFile      = "info.toml"
-	passphrase    = ""
+	keyDir             = "keys"
+	infoDir            = "info"
+	privateKeyDir      = "priv"
+	infoFileName       = "info.toml"
+	passphraseFileName = ""
 )
+
+var passphrase = LoadPassPhrase()
 
 func (cp *EVMChainProvider) AddKey(
 	keyName string,
@@ -40,112 +43,129 @@ func (cp *EVMChainProvider) AddKey(
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
+	if privateKey != "" {
+		return cp.AddKeyWithPrivateKey(keyName, privateKey, homePath)
+	}
+	return cp.AddKeyWithMnemonic(keyName, mnemonic, homePath, coinType, account, index)
+}
+
+// AddKeyWithMnemonic adds a key using a mnemonic phrase.
+func (cp *EVMChainProvider) AddKeyWithMnemonic(
+	keyName string,
+	mnemonic string,
+	homePath string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (*chainstypes.Key, error) {
 	var err error
-	var priv *ecdsa.PrivateKey
-	if privateKey == "" {
-		if mnemonic == "" {
-			mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
-			if err != nil {
-				return nil, err
-			}
-		}
-		priv, err = cp.generatePrivateKey(mnemonic, coinType, account, index)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		priv, err = crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey))
+
+	// Generate mnemonic if not provided
+	if mnemonic == "" {
+		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Get the public key from the private key
-	publicKey := priv.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("cannot assert type to *ecdsa.PublicKey")
-	}
-
-	accs, err := cp.storePrivateKey(priv)
+	// Generate private key using mnemonic
+	priv, err := cp.generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}
 
-	sender := make(chan *Sender, 1)
-	sender <- NewSender(priv, accs.Address)
+	return cp.finalizeKeyAddition(keyName, priv, mnemonic, homePath)
+}
 
-	cp.FreeSenders[keyName] = sender
+// AddKeyWithPrivateKey adds a key using a raw private key.
+func (cp *EVMChainProvider) AddKeyWithPrivateKey(
+	keyName string,
+	privateKey string,
+	homePath string,
+) (*chainstypes.Key, error) {
+	// Convert private key from hex
+	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey))
+	if err != nil {
+		return nil, err
+	}
 
+	// No mnemonic is used, so pass an empty string
+	return cp.finalizeKeyAddition(keyName, priv, "", homePath)
+}
+
+// finalizeKeyAddition stores the private key and initializes the sender.
+func (cp *EVMChainProvider) finalizeKeyAddition(
+	keyName string,
+	priv *ecdsa.PrivateKey,
+	mnemonic string,
+	homePath string,
+) (*chainstypes.Key, error) {
+	// Get public key from private key
+	publicKeyECDSA, ok := priv.Public().(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("cannot assert type to *ecdsa.PublicKey")
+	}
+
+	// Store private key and get account info
+	_, err := cp.storePrivateKey(priv)
+	if err != nil {
+		return nil, err
+	}
+
+	addressHex := crypto.PubkeyToAddress(*publicKeyECDSA).String()
+
+	// Store key info and finalize
+	cp.KeyInfo[keyName] = addressHex
 	if err := cp.storeKeyInfo(homePath); err != nil {
 		return nil, err
 	}
 
-	return chainstypes.NewKey(mnemonic, crypto.PubkeyToAddress(*publicKeyECDSA).String(), ""), nil
+	return chainstypes.NewKey(mnemonic, addressHex, ""), nil
 }
 
 // IsKeyNameExist checks whether the given key name is already in use.
 func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
-	_, ok := cp.FreeSenders[keyName]
+	_, ok := cp.KeyInfo[keyName]
 	return ok
 }
 
 // DeleteKey deletes the given key name from the key store and removes its information.
 func (cp *EVMChainProvider) DeleteKey(homePath, keyName string) error {
-	senderChannel := cp.FreeSenders[keyName]
-
-	select {
-	case sender := <-senderChannel:
-		err := cp.KeyStore.Delete(accounts.Account{Address: sender.Address}, passphrase)
-		if err != nil {
-			return err
-		}
-
-		delete(cp.FreeSenders, keyName)
-
-		return cp.storeKeyInfo(homePath)
-	default:
-		return fmt.Errorf("unavailable key name %s", keyName)
+	address, err := HexToAddress(cp.KeyInfo[keyName])
+	if err != nil {
+		return err
 	}
+	if err := cp.KeyStore.Delete(accounts.Account{Address: address}, passphrase); err != nil {
+		return err
+	}
+
+	delete(cp.KeyInfo, keyName)
+
+	return cp.storeKeyInfo(homePath)
 }
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
-	senderChannel := cp.FreeSenders[keyName]
-	select {
-	case sender := <-senderChannel:
-		privateKeyByte := crypto.FromECDSA(sender.PrivateKey)
-		privateKeyHex := hex.EncodeToString(privateKeyByte)
-		return privateKeyHex, nil
-	default:
-		return "", fmt.Errorf("unavailable key name %s", keyName)
+	key, err := cp.getKeyFromKeyName(keyName)
+	if err != nil {
+		return "", err
 	}
+	return hex.EncodeToString(crypto.FromECDSA(key.PrivateKey)), nil
 }
 
 // Listkeys lists all keys.
 func (cp *EVMChainProvider) Listkeys() []*chainstypes.Key {
-	res := make([]*chainstypes.Key, 0, len(cp.FreeSenders))
-	for keyName, senderChannel := range cp.FreeSenders {
-		select {
-		case sender := <-senderChannel:
-			address := sender.Address.Hex()
-			key := chainstypes.NewKey("", address, keyName)
-			res = append(res, key)
-		default:
-		}
+	res := make([]*chainstypes.Key, 0, len(cp.KeyInfo))
+	for keyName, address := range cp.KeyInfo {
+		key := chainstypes.NewKey("", address, keyName)
+		res = append(res, key)
 	}
 	return res
 }
 
-// Showkey shows key by the given name.
-func (cp *EVMChainProvider) Showkey(keyName string) string {
-	senderChannel := cp.FreeSenders[keyName]
-	select {
-	case sender := <-senderChannel:
-		return sender.Address.Hex()
-	default:
-		return ""
-	}
+// ShowKey shows key by the given name.
+func (cp *EVMChainProvider) ShowKey(keyName string) string {
+	return cp.KeyInfo[keyName]
 }
 
 // storePrivateKey stores private key to keyStore.
@@ -161,24 +181,13 @@ func (cp *EVMChainProvider) storePrivateKey(
 
 // storeKeyInfo stores key information.
 func (cp *EVMChainProvider) storeKeyInfo(homePath string) error {
-	keyInfo := make(KeyInfo)
-
-	for keyName, senderChannel := range cp.FreeSenders {
-		select {
-		case sender := <-senderChannel:
-			keyInfo[sender.Address.Hex()] = keyName
-		default:
-			return fmt.Errorf("unavailable key name %s", keyName)
-		}
-	}
-
-	b, err := toml.Marshal(keyInfo)
+	b, err := toml.Marshal(cp.KeyInfo)
 	if err != nil {
 		return err
 	}
 
 	keyInfoDir := path.Join(homePath, keyDir, cp.ChainName, infoDir)
-	keyInfoPath := path.Join(keyInfoDir, infoFile)
+	keyInfoPath := path.Join(keyInfoDir, infoFileName)
 	// Create the info folder if doesn't exist
 	if _, err := os.Stat(keyInfoDir); os.IsNotExist(err) {
 		if err = os.Mkdir(keyInfoDir, os.ModePerm); err != nil {
@@ -222,4 +231,27 @@ func (cp *EVMChainProvider) generatePrivateKey(
 		return nil, err
 	}
 	return privatekey, nil
+}
+
+func (cp *EVMChainProvider) getKeyFromKeyName(
+	keyName string,
+) (*keyStore.Key, error) {
+	address, err := HexToAddress(cp.KeyInfo[keyName])
+	if err != nil {
+		return nil, err
+	}
+
+	accs, err := cp.KeyStore.Find(accounts.Account{Address: address})
+	if err != nil {
+		return nil, err
+	}
+	b, err := cp.KeyStore.Export(accs, passphrase, passphrase)
+	if err != nil {
+		return nil, err
+	}
+	key, err := keyStore.DecryptKey(b, passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return key, nil
 }

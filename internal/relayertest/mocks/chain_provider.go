@@ -129,6 +129,20 @@ func (mr *MockChainProviderMockRecorder) Listkeys() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Listkeys", reflect.TypeOf((*MockChainProvider)(nil).Listkeys))
 }
 
+// LoadFreeSenders mocks base method.
+func (m *MockChainProvider) LoadFreeSenders(homePath string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadFreeSenders", homePath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LoadFreeSenders indicates an expected call of LoadFreeSenders.
+func (mr *MockChainProviderMockRecorder) LoadFreeSenders(homePath any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockChainProvider)(nil).LoadFreeSenders), homePath)
+}
+
 // QueryBalance mocks base method.
 func (m *MockChainProvider) QueryBalance(ctx context.Context, keyName string) (*big.Int, error) {
 	m.ctrl.T.Helper()
@@ -173,18 +187,18 @@ func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, packet any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, packet)
 }
 
-// Showkey mocks base method.
-func (m *MockChainProvider) Showkey(keyName string) string {
+// ShowKey mocks base method.
+func (m *MockChainProvider) ShowKey(keyName string) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Showkey", keyName)
+	ret := m.ctrl.Call(m, "ShowKey", keyName)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// Showkey indicates an expected call of Showkey.
-func (mr *MockChainProviderMockRecorder) Showkey(keyName any) *gomock.Call {
+// ShowKey indicates an expected call of ShowKey.
+func (mr *MockChainProviderMockRecorder) ShowKey(keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Showkey", reflect.TypeOf((*MockChainProvider)(nil).Showkey), keyName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowKey", reflect.TypeOf((*MockChainProvider)(nil).ShowKey), keyName)
 }
 
 // MockKeyProvider is a mock of KeyProvider interface.
@@ -283,16 +297,30 @@ func (mr *MockKeyProviderMockRecorder) Listkeys() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Listkeys", reflect.TypeOf((*MockKeyProvider)(nil).Listkeys))
 }
 
-// Showkey mocks base method.
-func (m *MockKeyProvider) Showkey(keyName string) string {
+// LoadFreeSenders mocks base method.
+func (m *MockKeyProvider) LoadFreeSenders(homePath string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Showkey", keyName)
+	ret := m.ctrl.Call(m, "LoadFreeSenders", homePath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LoadFreeSenders indicates an expected call of LoadFreeSenders.
+func (mr *MockKeyProviderMockRecorder) LoadFreeSenders(homePath any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockKeyProvider)(nil).LoadFreeSenders), homePath)
+}
+
+// ShowKey mocks base method.
+func (m *MockKeyProvider) ShowKey(keyName string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ShowKey", keyName)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// Showkey indicates an expected call of Showkey.
-func (mr *MockKeyProviderMockRecorder) Showkey(keyName any) *gomock.Call {
+// ShowKey indicates an expected call of ShowKey.
+func (mr *MockKeyProviderMockRecorder) ShowKey(keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Showkey", reflect.TypeOf((*MockKeyProvider)(nil).Showkey), keyName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowKey", reflect.TypeOf((*MockKeyProvider)(nil).ShowKey), keyName)
 }

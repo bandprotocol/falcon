@@ -32,6 +32,7 @@ type EVMChainProvider struct {
 	Client  Client
 	GasType GasType
 
+	KeyInfo     KeyInfo
 	FreeSenders FreeSenders
 
 	TunnelRouterAddress gethcommon.Address
@@ -72,14 +73,9 @@ func NewEVMChainProvider(
 	keyStoreDir := path.Join(homePath, keyDir, chainName, privateKeyDir)
 	keyStore := keyStore.NewKeyStore(keyStoreDir, keyStore.StandardScryptN, keyStore.StandardScryptP)
 
-	// create free senders
-	freeSenders, err := LoadFreeSenders(homePath, chainName, keyStore)
+	keyInfo, err := LoadKeyInfo(homePath, chainName)
 	if err != nil {
-		log.Error("ChainProvider: cannot create a sender",
-			zap.Error(err),
-			zap.String("chain_name", chainName),
-		)
-		return nil, fmt.Errorf("[EVMProvider] failed to create a sender: %w", err)
+		return nil, err
 	}
 
 	return &EVMChainProvider{
@@ -87,7 +83,7 @@ func NewEVMChainProvider(
 		ChainName:           chainName,
 		Client:              client,
 		GasType:             cfg.GasType,
-		FreeSenders:         freeSenders,
+		KeyInfo:             keyInfo,
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
 		Log:                 log,
@@ -281,41 +277,37 @@ func (cp *EVMChainProvider) handleRelay(
 		return "", fmt.Errorf("failed to create calldata: %w", err)
 	}
 
-	var selectedSender *Sender
-	var selectedKeyName string
+	var sender *Sender
 
 	if len(cp.FreeSenders) == 0 {
 		return "", fmt.Errorf("no key available to relay packet")
 	}
 	// use available sender
-	for selectedSender == nil {
-		for keyName, sender := range cp.FreeSenders {
-			select {
-			case selectedSender = <-sender:
-				selectedKeyName = keyName
-				break
-			default:
-			}
+	for sender == nil {
+		select {
+		case sender = <-cp.FreeSenders:
+			break
+		default:
 		}
 	}
 	defer func() {
-		cp.FreeSenders[selectedKeyName] <- selectedSender
+		cp.FreeSenders <- sender
 	}()
 
 	cp.Log.Debug(
-		fmt.Sprintf("Relaying packet using address: %v", selectedSender.Address),
-		zap.String("evm_sender_address", selectedSender.Address.String()),
+		fmt.Sprintf("Relaying packet using address: %v", sender.Address),
+		zap.String("evm_sender_address", sender.Address.String()),
 		zap.String("chain_name", cp.ChainName),
 		zap.Uint64("tunnel_id", packet.TunnelID),
 		zap.Uint64("sequence", packet.Sequence),
 	)
 
-	tx, err := cp.newRelayTx(ctx, calldata, selectedSender.Address, retryCount)
+	tx, err := cp.newRelayTx(ctx, calldata, sender.Address, retryCount)
 	if err != nil {
 		return "", fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
 
-	signedTx, err := cp.signTx(tx, selectedSender)
+	signedTx, err := cp.signTx(tx, sender)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign an evm transaction: %w", err)
 	}
@@ -537,12 +529,10 @@ func (cp *EVMChainProvider) QueryBalance(
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
-	senderChannel := cp.FreeSenders[keyName]
-	select {
-	case sender := <-senderChannel:
-		gethaddr := sender.Address
-		return cp.Client.GetBalance(ctx, gethaddr)
-	default:
-		return nil, fmt.Errorf("unavailable key name %s", keyName)
+	address, err := HexToAddress(cp.KeyInfo[keyName])
+	if err != nil {
+		return nil, err
 	}
+
+	return cp.Client.GetBalance(ctx, address)
 }

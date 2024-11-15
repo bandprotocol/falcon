@@ -5,12 +5,11 @@ import (
 	"os"
 	"path"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 )
 
-// KeyInfo struct is the struct that represents mapping of address -> key name
+// KeyInfo struct is the struct that represents mapping of key name -> address
 type KeyInfo map[string]string
 
 // Sender is the struct that represents the sender of the transaction.
@@ -27,47 +26,36 @@ func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender
 	}
 }
 
-// SenderChannels struct is the struct that represents mapping of key name and sender
-type FreeSenders map[string]chan *Sender
+// FreeSenders struct is the struct that represents mapping of key name and sender
+type FreeSenders chan *Sender
 
 // LoadFreeSenders loads all sender account from the keystore and key information from the local disk.
-func LoadFreeSenders(homePath string, chainName string, keyStore *keystore.KeyStore) (FreeSenders, error) {
-	// load mapping address -> key name
-	keyInfo, err := loadKeyInfo(homePath, chainName)
-	if err != nil {
-		return nil, err
-	}
-	freeSenders := make(FreeSenders)
+func (cp *EVMChainProvider) LoadFreeSenders(
+	homePath string,
+) error {
+	freeSenders := make(chan *Sender, len(cp.KeyInfo))
 
-	for _, account := range keyStore.Accounts() {
-		accs, err := keyStore.Export(account, passphrase, passphrase)
+	for keyName := range cp.KeyInfo {
+		key, err := cp.getKeyFromKeyName(keyName)
 		if err != nil {
-			return nil, err
-		}
-		key, err := keystore.DecryptKey(accs, passphrase)
-		if err != nil {
-			return nil, err
+			return err
 		}
 
-		keyName := keyInfo[key.Address.Hex()]
-		sender := make(chan *Sender, 1)
-		sender <- NewSender(key.PrivateKey, key.Address)
-
-		freeSenders[keyName] = sender
+		freeSenders <- NewSender(key.PrivateKey, key.Address)
 	}
 
-	return freeSenders, nil
+	cp.FreeSenders = freeSenders
+	return nil
 }
 
 // loadKeyInfo loads key information from local disk.
-func loadKeyInfo(homePath, chainName string) (KeyInfo, error) {
-	var keyInfo KeyInfo
+func LoadKeyInfo(homePath, chainName string) (KeyInfo, error) {
+	keyInfo := make(KeyInfo)
 
 	keyInfoDir := path.Join(homePath, keyDir, chainName, infoDir)
-	keyInfoPath := path.Join(keyInfoDir, infoFile)
+	keyInfoPath := path.Join(keyInfoDir, infoFileName)
 	if _, err := os.Stat(keyInfoPath); err != nil {
 		// don't return error if file doesn't exist
-		keyInfo = make(KeyInfo)
 		return keyInfo, nil
 	}
 
