@@ -347,31 +347,6 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 	return chainProviders[chainName], nil
 }
 
-// Relay relays the packet from the source chain to the destination chain.
-func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
-	a.Log.Debug("query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
-	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
-	if err != nil {
-		return err
-	}
-
-	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
-	if !ok {
-		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
-	}
-
-	tr := NewTunnelRelayer(
-		a.Log,
-		tunnel.ID,
-		tunnel.TargetAddress,
-		a.Config.Global.CheckingPacketInterval,
-		a.BandClient,
-		chainProvider,
-	)
-
-	return tr.CheckAndRelay(ctx)
-}
-
 func (a *App) AddKey(
 	chainName string,
 	keyName string,
@@ -415,7 +390,7 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 	}
 
 	if !cp.IsKeyNameExist(keyName) {
-		return fmt.Errorf("key name does not exist: %s", chainName)
+		return fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
 	return cp.DeleteKey(a.HomePath, keyName)
@@ -473,7 +448,7 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 		return "", fmt.Errorf("key name does not exist: %s", chainName)
 	}
 
-	return cp.Showkey(keyName), nil
+	return cp.ShowKey(keyName), nil
 }
 
 func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
@@ -526,6 +501,10 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
 
+		if err := chainProvider.LoadFreeSenders(a.HomePath); err != nil {
+			return err
+		}
+
 		tr := NewTunnelRelayer(
 			a.Log,
 			tunnel.ID,
@@ -546,4 +525,33 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.Config.Global.PenaltyExponentialFactor,
 	)
 	return scheduler.Start(ctx)
+}
+
+// Relay relays the packet from the source chain to the destination chain.
+func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
+	a.Log.Debug("query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
+	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
+	if err != nil {
+		return err
+	}
+
+	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+	if !ok {
+		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
+	}
+
+	if err := chainProvider.LoadFreeSenders(a.HomePath); err != nil {
+		return err
+	}
+
+	tr := NewTunnelRelayer(
+		a.Log,
+		tunnel.ID,
+		tunnel.TargetAddress,
+		a.Config.Global.CheckingPacketInterval,
+		a.BandClient,
+		chainProvider,
+	)
+
+	return tr.CheckAndRelay(ctx)
 }

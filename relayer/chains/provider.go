@@ -56,7 +56,10 @@ type KeyProvider interface {
 	Listkeys() []*chainstypes.Key
 
 	// ShowKey shows the address of the given key
-	Showkey(keyName string) string
+	ShowKey(keyName string) string
+
+	// LoadFreeSenders loads key info to prepare to relay the packet
+	LoadFreeSenders(homePath string) error
 }
 
 // BaseChainProvider is a base object for connecting with the chain network.

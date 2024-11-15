@@ -53,6 +53,10 @@ $ %s k a eth test-key`, appName, appName)),
 				return err
 			}
 
+			if mnemonic != "" && privateKey != "" {
+				return fmt.Errorf("only one of mnemonic or private key should be provided, not both")
+			}
+
 			coinType, err := cmd.Flags().GetInt32(flagCoinType)
 			if err != nil {
 				return err
