@@ -235,7 +235,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 			))
 		}
 
-		nextKey := res.GetPagination().GetNextKey()
+		nextKey = res.GetPagination().GetNextKey()
 		if len(nextKey) == 0 {
 			break
 		}
