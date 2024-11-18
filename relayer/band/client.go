@@ -195,7 +195,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	), nil
 }
 
-// GetTunnels returns all tunnel in band chain.
+// GetTunnels returns every tss-route tunnels in band chain.
 func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
@@ -218,16 +218,16 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 		for _, tunnel := range res.Tunnels {
 			// Extract route information
 			var route tunneltypes.RouteI
-			err = c.UnpackAny(tunnel.Route, &route)
-			if err != nil {
+			if err := c.UnpackAny(tunnel.Route, &route); err != nil {
 				return nil, err
 			}
+
+			// if not tssRoute, skip this tunnel
 			tssRoute, ok := route.(*tunneltypes.TSSRoute)
 			if !ok {
-				// unsupported route type
-
 				continue
 			}
+
 			tunnels = append(tunnels, *types.NewTunnel(
 				tunnel.ID,
 				tunnel.Sequence,
