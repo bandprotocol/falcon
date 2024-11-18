@@ -271,7 +271,7 @@ func (cp *EVMChainProvider) RelayPacket(
 		)
 
 		// bump gas and retry
-		gasInfo, err = cp.BumpGas(ctx, gasInfo)
+		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
 		if err != nil {
 			cp.Log.Error(
 				"cannot bump gas",
@@ -399,48 +399,63 @@ func (cp *EVMChainProvider) EstimateGas(ctx context.Context) (GasInfo, error) {
 			return GasInfo{}, err
 		}
 
-		if gasPrice.Cmp(big.NewInt(int64(cp.Config.MaxGasPrice))) > 0 {
-			gasPrice = big.NewInt(int64(cp.Config.MaxGasPrice))
-		}
-
-		return NewGasLegacyInfo(gasPrice), nil
+		return cp.BumpAndBoundGas(ctx, NewGasLegacyInfo(gasPrice), 1.0)
 	case GasTypeEIP1559:
 		priorityFee, err := cp.Client.EstimateGasTipCap(ctx)
 		if err != nil {
 			return GasInfo{}, err
 		}
 
-		if priorityFee.Cmp(big.NewInt(int64(cp.Config.MaxPriorityFee))) > 0 {
-			priorityFee = big.NewInt(int64(cp.Config.MaxPriorityFee))
-		}
-
-		return NewGasEIP1559Info(priorityFee, big.NewInt(int64(cp.Config.MaxBaseFee))), nil
+		return cp.BumpAndBoundGas(
+			ctx,
+			NewGasEIP1559Info(priorityFee, big.NewInt(int64(cp.Config.MaxBaseFee))),
+			1.0,
+		)
 	default:
 		return GasInfo{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 }
 
-// BumpGas bumps the gas price.
-func (cp *EVMChainProvider) BumpGas(
+// BumpAndBoundGas bumps the gas price.
+func (cp *EVMChainProvider) BumpAndBoundGas(
 	ctx context.Context,
 	gasInfo GasInfo,
-) (GasInfo, error) {
+	multiplier float64,
+) (newGasInfo GasInfo, err error) {
 	switch gasInfo.Type {
 	case GasTypeLegacy:
-		// calculate new gas price and compare with the one being setup in the configuration.
-		// TODO: if not set this, should query from the contract.
-		newGasPrice := MultiplyBigIntWithFloat64(gasInfo.GasPrice, cp.Config.GasMultiplier)
-		if newGasPrice.Cmp(big.NewInt(int64(cp.Config.MaxGasPrice))) > 0 {
-			newGasPrice = big.NewInt(int64(cp.Config.MaxGasPrice))
+		// calculate new gas price and compare with the cap being setup in the configuration.
+		// if the cap is not set in the configuration, should query from the contract.
+		newGasPrice := MultiplyBigIntWithFloat64(gasInfo.GasPrice, multiplier)
+
+		maxGasPrice := big.NewInt(int64(cp.Config.MaxGasPrice))
+		if maxGasPrice.Cmp(big.NewInt(0)) <= 0 {
+			maxGasPrice, err = cp.queryRelayerGasFee(ctx)
+			if err != nil {
+				return GasInfo{}, err
+			}
+		}
+
+		if newGasPrice.Cmp(maxGasPrice) > 0 {
+			newGasPrice = maxGasPrice
 		}
 
 		return NewGasLegacyInfo(newGasPrice), nil
 	case GasTypeEIP1559:
-		// calculate new priority fee and compare with the one being setup in the configuration.
-		// TODO: if not set this, should query from the contract.
-		newPriorityFee := MultiplyBigIntWithFloat64(gasInfo.GasPriorityFee, cp.Config.GasMultiplier)
-		if newPriorityFee.Cmp(big.NewInt(int64(cp.Config.MaxPriorityFee))) > 0 {
-			newPriorityFee = big.NewInt(int64(cp.Config.MaxPriorityFee))
+		// calculate new priority fee and compare with the cap being setup in the configuration.
+		// if the cap is not set in the configuration, should query from the contract.
+		newPriorityFee := MultiplyBigIntWithFloat64(gasInfo.GasPriorityFee, multiplier)
+
+		maxPriorityFee := big.NewInt(int64(cp.Config.MaxPriorityFee))
+		if maxPriorityFee.Cmp(big.NewInt(0)) <= 0 {
+			maxPriorityFee, err = cp.queryRelayerGasFee(ctx)
+			if err != nil {
+				return GasInfo{}, err
+			}
+		}
+
+		if newPriorityFee.Cmp(maxPriorityFee) > 0 {
+			newPriorityFee = maxPriorityFee
 		}
 
 		// this can be fixed value, no need to query from chain.
@@ -606,4 +621,24 @@ func (cp *EVMChainProvider) QueryBalance(
 	}
 
 	return cp.Client.GetBalance(ctx, address)
+}
+
+// queryRelayerGasFee queries the relayer gas fee being set on tunnel router.
+func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, error) {
+	calldata, err := cp.TunnelRouterABI.Pack("gasFee")
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack calldata: %w", err)
+	}
+
+	b, err := cp.Client.Query(ctx, cp.TunnelRouterAddress, calldata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query data: %w", err)
+	}
+
+	var output *big.Int
+	if err := cp.TunnelRouterABI.UnpackIntoInterface(&output, "gasFee", b); err != nil {
+		return nil, fmt.Errorf("failed to unpack data: %w", err)
+	}
+
+	return output, nil
 }
