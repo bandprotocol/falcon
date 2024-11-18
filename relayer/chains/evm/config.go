@@ -22,7 +22,7 @@ type EVMChainProviderConfig struct {
 	GasLimit                   uint64        `mapstructure:"gas_limit"                    toml:"gas_limit,omitempty"`
 
 	GasType         GasType       `mapstructure:"gas_type"          toml:"gas_type"`
-	GasPrice        uint64        `mapstructure:"gas_price"         toml:"gas_price,omitempty"`
+	MaxGasPrice     uint64        `mapstructure:"max_gas_price"     toml:"max_gas_price,omitempty"`
 	MaxBaseFee      uint64        `mapstructure:"max_base_fee"      toml:"max_base_fee,omitempty"`
 	MaxPriorityFee  uint64        `mapstructure:"max_priority_fee"  toml:"max_priority_fee,omitempty"`
 	GasMultiplier   float64       `mapstructure:"gas_multiplier"    toml:"gas_multiplier"`

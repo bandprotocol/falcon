@@ -34,6 +34,8 @@ type Client interface {
 	) (decimal.NullDecimal, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
+	EstimateGasPrice(ctx context.Context) (*big.Int, error)
+	EstimateGasTipCap(ctx context.Context) (*big.Int, error)
 	BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error)
 	GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error)
 }
@@ -295,7 +297,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	return res, nil
 }
 
-// EstimateGas estimates the gas of the given message.
+// EstimateGas estimates the gas being used of the given message.
 func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
@@ -313,6 +315,44 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	}
 
 	return gas, nil
+}
+
+// EstimateGasPrice estimates the gas price of the EVM chain.
+func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	gasPrice, err := c.client.SuggestGasPrice(newCtx)
+	if err != nil {
+		c.Log.Error(
+			"Failed to estimate gas price",
+			zap.Error(err),
+			zap.String("chain_name", c.ChainName),
+			zap.String("endpoint", c.selectedEndpoint),
+		)
+		return nil, err
+	}
+
+	return gasPrice, nil
+}
+
+// EstimateGasTipCap estimates the gas tip cap of the EVM chain.
+func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	gasTipCap, err := c.client.SuggestGasTipCap(newCtx)
+	if err != nil {
+		c.Log.Error(
+			"Failed to estimate gas tip cap",
+			zap.Error(err),
+			zap.String("chain_name", c.ChainName),
+			zap.String("endpoint", c.selectedEndpoint),
+		)
+		return nil, err
+	}
+
+	return gasTipCap, nil
 }
 
 // BroadcastTx sends the transaction to the EVM chain.

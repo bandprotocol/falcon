@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/big"
 	"path"
 	"strings"
@@ -162,6 +161,16 @@ func (cp *EVMChainProvider) RelayPacket(
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
+	gasInfo, err := cp.EstimateGas(ctx)
+	if err != nil {
+		cp.Log.Error(
+			"failed to estimate gas",
+			zap.Error(err),
+			zap.String("chain_name", cp.ChainName),
+		)
+		return fmt.Errorf("failed to estimate gas: %w", err)
+	}
+
 	retryCount := 0
 	for retryCount < cp.Config.MaxRetry {
 		cp.Log.Info(
@@ -172,7 +181,8 @@ func (cp *EVMChainProvider) RelayPacket(
 			zap.Int("retry_count", retryCount),
 		)
 
-		txHash, err := cp.handleRelay(ctx, packet, retryCount)
+		// create and submit a transaction; if failed, retry, no need to bump gas.
+		txHash, err := cp.handleRelay(ctx, packet, gasInfo)
 		if err != nil {
 			cp.Log.Error(
 				"HandleRelay error",
@@ -260,6 +270,19 @@ func (cp *EVMChainProvider) RelayPacket(
 			zap.Int("retry_count", retryCount),
 		)
 
+		// bump gas and retry
+		gasInfo, err = cp.BumpGas(ctx, gasInfo)
+		if err != nil {
+			cp.Log.Error(
+				"cannot bump gas",
+				zap.Error(err),
+				zap.String("chain_name", cp.ChainName),
+				zap.Uint64("tunnel_id", packet.TunnelID),
+				zap.Uint64("sequence", packet.Sequence),
+				zap.Int("retry_count", retryCount),
+			)
+		}
+
 		retryCount += 1
 	}
 
@@ -270,7 +293,7 @@ func (cp *EVMChainProvider) RelayPacket(
 func (cp *EVMChainProvider) handleRelay(
 	ctx context.Context,
 	packet *bandtypes.Packet,
-	retryCount int,
+	gasInfo GasInfo,
 ) (txHash string, err error) {
 	calldata, err := cp.createCalldata(packet)
 	if err != nil {
@@ -280,11 +303,9 @@ func (cp *EVMChainProvider) handleRelay(
 	if len(cp.FreeSenders) == 0 {
 		return "", fmt.Errorf("no key available to relay packet")
 	}
-	sender := <-cp.FreeSenders
 
-	defer func() {
-		cp.FreeSenders <- sender
-	}()
+	sender := <-cp.FreeSenders
+	defer func() { cp.FreeSenders <- sender }()
 
 	cp.Log.Debug(
 		fmt.Sprintf("Relaying packet using address: %v", sender.Address),
@@ -294,7 +315,7 @@ func (cp *EVMChainProvider) handleRelay(
 		zap.Uint64("sequence", packet.Sequence),
 	)
 
-	tx, err := cp.newRelayTx(ctx, calldata, sender.Address, retryCount)
+	tx, err := cp.newRelayTx(ctx, calldata, sender.Address, gasInfo)
 	if err != nil {
 		return "", fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
@@ -369,6 +390,68 @@ func (cp *EVMChainProvider) GetEffectiveGas(
 	}
 }
 
+// EstimateGas estimates the gas for the transaction.
+func (cp *EVMChainProvider) EstimateGas(ctx context.Context) (GasInfo, error) {
+	switch cp.GasType {
+	case GasTypeLegacy:
+		gasPrice, err := cp.Client.EstimateGasPrice(ctx)
+		if err != nil {
+			return GasInfo{}, err
+		}
+
+		if gasPrice.Cmp(big.NewInt(int64(cp.Config.MaxGasPrice))) > 0 {
+			gasPrice = big.NewInt(int64(cp.Config.MaxGasPrice))
+		}
+
+		return NewGasLegacyInfo(gasPrice), nil
+	case GasTypeEIP1559:
+		priorityFee, err := cp.Client.EstimateGasTipCap(ctx)
+		if err != nil {
+			return GasInfo{}, err
+		}
+
+		if priorityFee.Cmp(big.NewInt(int64(cp.Config.MaxPriorityFee))) > 0 {
+			priorityFee = big.NewInt(int64(cp.Config.MaxPriorityFee))
+		}
+
+		return NewGasEIP1559Info(priorityFee, big.NewInt(int64(cp.Config.MaxBaseFee))), nil
+	default:
+		return GasInfo{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+	}
+}
+
+// BumpGas bumps the gas price.
+func (cp *EVMChainProvider) BumpGas(
+	ctx context.Context,
+	gasInfo GasInfo,
+) (GasInfo, error) {
+	switch gasInfo.Type {
+	case GasTypeLegacy:
+		// calculate new gas price and compare with the one being setup in the configuration.
+		// TODO: if not set this, should query from the contract.
+		newGasPrice := MultiplyBigIntWithFloat64(gasInfo.GasPrice, cp.Config.GasMultiplier)
+		if newGasPrice.Cmp(big.NewInt(int64(cp.Config.MaxGasPrice))) > 0 {
+			newGasPrice = big.NewInt(int64(cp.Config.MaxGasPrice))
+		}
+
+		return NewGasLegacyInfo(newGasPrice), nil
+	case GasTypeEIP1559:
+		// calculate new priority fee and compare with the one being setup in the configuration.
+		// TODO: if not set this, should query from the contract.
+		newPriorityFee := MultiplyBigIntWithFloat64(gasInfo.GasPriorityFee, cp.Config.GasMultiplier)
+		if newPriorityFee.Cmp(big.NewInt(int64(cp.Config.MaxPriorityFee))) > 0 {
+			newPriorityFee = big.NewInt(int64(cp.Config.MaxPriorityFee))
+		}
+
+		// this can be fixed value, no need to query from chain.
+		newBaseFee := big.NewInt(int64(cp.Config.MaxBaseFee))
+
+		return NewGasEIP1559Info(newPriorityFee, newBaseFee), nil
+	default:
+		return GasInfo{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+	}
+}
+
 // queryTunnelInfo queries the target contract information.
 func (cp *EVMChainProvider) queryTunnelInfo(
 	ctx context.Context,
@@ -398,7 +481,7 @@ func (cp *EVMChainProvider) newRelayTx(
 	ctx context.Context,
 	data []byte,
 	sender gethcommon.Address,
-	retryCount int,
+	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
 	nonce, err := cp.Client.GetNonce(ctx, sender)
 	if err != nil {
@@ -420,25 +503,21 @@ func (cp *EVMChainProvider) newRelayTx(
 		}
 	}
 
-	multiplier := math.Pow(cp.Config.GasMultiplier, float64(retryCount))
-
 	// set fee info
 	var tx *gethtypes.Transaction
 	switch cp.GasType {
 	case GasTypeLegacy:
-		bumpedGasPrice := int64(math.Round(float64(cp.Config.GasPrice) * multiplier))
-
 		tx = gethtypes.NewTx(&gethtypes.LegacyTx{
 			Nonce:    nonce,
 			To:       &cp.TunnelRouterAddress,
 			Value:    decimal.NewFromInt(0).BigInt(),
 			Data:     data,
 			Gas:      gasLimit,
-			GasPrice: big.NewInt(bumpedGasPrice),
+			GasPrice: gasInfo.GasPrice,
 		})
 
 	case GasTypeEIP1559:
-		bumpedPriorityFee := int64(math.Round(float64(cp.Config.MaxPriorityFee) * multiplier))
+		gasFeeCap := new(big.Int).Add(gasInfo.GasBaseFee, gasInfo.GasPriorityFee)
 
 		tx = gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 			ChainID:   big.NewInt(int64(cp.Config.ChainID)),
@@ -447,8 +526,8 @@ func (cp *EVMChainProvider) newRelayTx(
 			Value:     decimal.NewFromInt(0).BigInt(),
 			Data:      data,
 			Gas:       gasLimit,
-			GasFeeCap: big.NewInt(bumpedPriorityFee + int64(cp.Config.MaxBaseFee)),
-			GasTipCap: big.NewInt(bumpedPriorityFee),
+			GasFeeCap: gasFeeCap,
+			GasTipCap: gasInfo.GasPriorityFee,
 		})
 
 	default:
