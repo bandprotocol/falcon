@@ -195,7 +195,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	), nil
 }
 
-// GetTunnels returns all tunnel in band chain.
+// GetTunnels returns every tss-route tunnels in band chain.
 func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
