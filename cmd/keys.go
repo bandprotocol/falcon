@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -39,11 +40,62 @@ func keysAddCmd(app *relayer.App) *cobra.Command {
 $ %s keys add eth test-key
 $ %s k a eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			chainName := args[0]
+			keyName := args[1]
+
+			mnemonic, err := cmd.Flags().GetString(flagMnemonic)
+			if err != nil {
+				return err
+			}
+
+			privateKey, err := cmd.Flags().GetString(flagPrivateKey)
+			if err != nil {
+				return err
+			}
+
+			if mnemonic != "" && privateKey != "" {
+				return fmt.Errorf("only one of mnemonic or private key should be provided, not both")
+			}
+
+			coinType, err := cmd.Flags().GetInt32(flagCoinType)
+			if err != nil {
+				return err
+			}
+
+			if coinType < 0 {
+				coinType = defaultCoinType
+			}
+
+			account, err := cmd.Flags().GetUint(flagAccount)
+			if err != nil {
+				return err
+			}
+
+			index, err := cmd.Flags().GetUint(flagAccountIndex)
+			if err != nil {
+				return err
+			}
+
+			keyOutput, err := app.AddKey(chainName, keyName, mnemonic, privateKey, uint32(coinType), account, index)
+			if err != nil {
+				return err
+			}
+
+			out, err := json.MarshalIndent(keyOutput, "", "  ")
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
 		},
 	}
-
+	cmd.Flags().StringP(flagMnemonic, "m", "", "add new key from specified mnemonic")
+	cmd.Flags().StringP(flagPrivateKey, "p", "", "add new key from specified private key")
+	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
+	cmd.Flags().Uint(flagAccount, 0, "account number within the HD derivation path")
+	cmd.Flags().
+		Uint(flagAccountIndex, 0, "Index number for the specific address within an account in the HD derivation path")
 	return cmd
 }
 
@@ -55,11 +107,12 @@ func keysDeleteCmd(app *relayer.App) *cobra.Command {
 		Short:   "Delete a key from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys delete eth test-key -y
-$ %s keys delete eth test-key`, appName, appName)),
+$ %s keys delete eth test-key 
+$ %s k d eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
-			return nil
+			chainName := args[0]
+			keyName := args[1]
+			return app.DeleteKey(chainName, keyName)
 		},
 	}
 
@@ -77,7 +130,18 @@ func keysListCmd(app *relayer.App) *cobra.Command {
 $ %s keys list eth
 $ %s k l eth`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			chainName := args[0]
+			keys, err := app.ListKeys(chainName)
+			if err != nil {
+				return err
+			}
+
+			out := "key(%s) -> %s"
+
+			for _, key := range keys {
+				fmt.Fprintln(cmd.OutOrStdout(), fmt.Sprintf(out, key.KeyName, key.Address))
+			}
+
 			return nil
 		},
 	}
@@ -96,7 +160,15 @@ func keysExportCmd(app *relayer.App) *cobra.Command {
 $ %s keys export eth test-key
 $ %s k e eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			chainName := args[0]
+			keyName := args[1]
+
+			privateKey, err := app.ExportKey(chainName, keyName)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), privateKey)
 			return nil
 		},
 	}
@@ -115,7 +187,16 @@ func keysShowCmd(app *relayer.App) *cobra.Command {
 $ %s keys show eth test-key
 $ %s k s eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			chainName := args[0]
+			keyName := args[1]
+
+			address, err := app.ShowKey(chainName, keyName)
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), address)
+
 			return nil
 		},
 	}

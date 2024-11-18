@@ -35,6 +35,7 @@ type Client interface {
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error)
+	GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error)
 }
 
 // Client is the struct that handles interactions with the EVM chain.
@@ -412,4 +413,24 @@ func (c *client) CheckAndConnect(ctx context.Context) error {
 	}
 
 	return c.Connect(ctx)
+}
+
+// GetBalance get the balance of specific account the EVM chain.
+func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	res, err := c.client.BalanceAt(newCtx, gethAddr, nil)
+	if err != nil {
+		c.Log.Error(
+			"Failed to query balance",
+			zap.Error(err),
+			zap.String("chain_name", c.ChainName),
+			zap.String("endpoint", c.selectedEndpoint),
+			zap.String("evm_address", gethAddr.Hex()),
+		)
+		return nil, fmt.Errorf("[EVMClient] failed to query balance: %w", err)
+	}
+
+	return res, nil
 }

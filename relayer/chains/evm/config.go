@@ -38,7 +38,7 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)
 
-	return NewEVMChainProvider(chainName, client, cpc, log)
+	return NewEVMChainProvider(chainName, client, cpc, log, homePath)
 }
 
 // Validate validates the EVM chain provider configuration.

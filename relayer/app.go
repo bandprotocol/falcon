@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"path"
 
@@ -102,12 +103,17 @@ func (a *App) initLogger(configLogLevel string) error {
 		logLevel = configLogLevel
 	}
 
-	log, err := newRootLogger(a.Viper.GetString("log-format"), logLevel)
-	if err != nil {
-		return err
+	// initialize logger only if user run command "start" or log level is "debug"
+	if os.Args[1] == "start" || logLevel == "debug" {
+		log, err := newRootLogger(a.Viper.GetString("log-format"), logLevel)
+		if err != nil {
+			return err
+		}
+		a.Log = log
+	} else {
+		a.Log = zap.NewNop()
 	}
 
-	a.Log = log
 	return nil
 }
 
@@ -141,7 +147,7 @@ func (a *App) initTargetChains(ctx context.Context) error {
 	return nil
 }
 
-// loadConfigFile reads config file into a.Config if file is present.
+// LoadConfigFile reads config file into a.Config if file is present.
 func (a *App) LoadConfigFile() error {
 	cfgPath := path.Join(a.HomePath, configFolderName, configFileName)
 	if _, err := os.Stat(cfgPath); err != nil {
@@ -276,31 +282,6 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 	return c.GetTunnelPacket(ctx, tunnelID, sequence)
 }
 
-// Relay relays the packet from the source chain to the destination chain.
-func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
-	a.Log.Debug("query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
-	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
-	if err != nil {
-		return err
-	}
-
-	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
-	if !ok {
-		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
-	}
-
-	tr := NewTunnelRelayer(
-		a.Log,
-		tunnel.ID,
-		tunnel.TargetAddress,
-		a.Config.Global.CheckingPacketInterval,
-		a.BandClient,
-		chainProvider,
-	)
-
-	return tr.CheckAndRelay(ctx)
-}
-
 func (a *App) AddChainConfig(chainName string, filePath string) error {
 	if a.Config == nil {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -366,6 +347,128 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 	return chainProviders[chainName], nil
 }
 
+func (a *App) AddKey(
+	chainName string,
+	keyName string,
+	mnemonic string,
+	privateKey string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (*chainstypes.Key, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	cp, exist := a.targetChains[chainName]
+
+	if !exist {
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	if cp.IsKeyNameExist(keyName) {
+		return nil, fmt.Errorf("key name already exists: %s", keyName)
+	}
+
+	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, coinType, account, index)
+	if err != nil {
+		return nil, err
+	}
+
+	return keyOutput, nil
+}
+
+func (a *App) DeleteKey(chainName string, keyName string) error {
+	if a.Config == nil {
+		return fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	cp, exist := a.targetChains[chainName]
+
+	if !exist {
+		return fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	if !cp.IsKeyNameExist(keyName) {
+		return fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	return cp.DeleteKey(a.HomePath, keyName)
+}
+
+func (a *App) ExportKey(chainName string, keyName string) (string, error) {
+	if a.Config == nil {
+		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	cp, exist := a.targetChains[chainName]
+
+	if !exist {
+		return "", fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	if !cp.IsKeyNameExist(keyName) {
+		return "", fmt.Errorf("key name does not exist: %s", chainName)
+	}
+
+	privateKey, err := cp.ExportPrivateKey(keyName)
+	if err != nil {
+		return "", err
+	}
+
+	return privateKey, nil
+}
+
+func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
+	if a.Config == nil {
+		return make([]*chainstypes.Key, 0), fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	cp, exist := a.targetChains[chainName]
+
+	if !exist {
+		return make([]*chainstypes.Key, 0), fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	return cp.Listkeys(), nil
+}
+
+func (a *App) ShowKey(chainName string, keyName string) (string, error) {
+	if a.Config == nil {
+		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	cp, exist := a.targetChains[chainName]
+
+	if !exist {
+		return "", fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	if !cp.IsKeyNameExist(keyName) {
+		return "", fmt.Errorf("key name does not exist: %s", chainName)
+	}
+
+	return cp.ShowKey(keyName), nil
+}
+
+func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	cp, exist := a.targetChains[chainName]
+
+	if !exist {
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	if !cp.IsKeyNameExist(keyName) {
+		return nil, fmt.Errorf("key name does not exist: %s", chainName)
+	}
+
+	return cp.QueryBalance(ctx, keyName)
+}
+
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("starting tunnel relayer")
@@ -398,6 +501,10 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
 
+		if err := chainProvider.LoadFreeSenders(a.HomePath); err != nil {
+			return err
+		}
+
 		tr := NewTunnelRelayer(
 			a.Log,
 			tunnel.ID,
@@ -418,4 +525,33 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.Config.Global.PenaltyExponentialFactor,
 	)
 	return scheduler.Start(ctx)
+}
+
+// Relay relays the packet from the source chain to the destination chain.
+func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
+	a.Log.Debug("query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
+	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
+	if err != nil {
+		return err
+	}
+
+	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+	if !ok {
+		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
+	}
+
+	if err := chainProvider.LoadFreeSenders(a.HomePath); err != nil {
+		return err
+	}
+
+	tr := NewTunnelRelayer(
+		a.Log,
+		tunnel.ID,
+		tunnel.TargetAddress,
+		a.Config.Global.CheckingPacketInterval,
+		a.BandClient,
+		chainProvider,
+	)
+
+	return tr.CheckAndRelay(ctx)
 }

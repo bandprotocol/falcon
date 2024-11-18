@@ -110,7 +110,13 @@ func queryBalanceCmd(app *relayer.App) *cobra.Command {
 $ %s query balance eth test-key
 $ %s q b eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = app
+			chainName := args[0]
+			keyName := args[1]
+			bal, err := app.QueryBalance(cmd.Context(), chainName, keyName)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), bal.String())
 			return nil
 		},
 	}
