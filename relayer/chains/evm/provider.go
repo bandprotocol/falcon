@@ -33,7 +33,7 @@ type EVMChainProvider struct {
 	GasType GasType
 
 	KeyInfo     KeyInfo
-	FreeSenders FreeSenders
+	FreeSenders chan *Sender
 
 	TunnelRouterAddress gethcommon.Address
 	TunnelRouterABI     abi.ABI

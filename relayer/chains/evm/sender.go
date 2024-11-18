@@ -26,9 +26,6 @@ func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender
 	}
 }
 
-// FreeSenders is the struct that holds senders available to perform transactions.
-type FreeSenders chan *Sender
-
 // LoadFreeSenders loads the FreeSenders channel with sender instances.
 // derived from the keys stored in the keystore located at the specified homePath.
 func (cp *EVMChainProvider) LoadFreeSenders(
