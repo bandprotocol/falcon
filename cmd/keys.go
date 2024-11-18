@@ -90,8 +90,8 @@ $ %s k a eth test-key`, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().StringP(flagMnemonic, "m", "", "store new key from specified mnemonic")
-	cmd.Flags().StringP(flagPrivateKey, "f", "", "fetch toml data from specified private key")
+	cmd.Flags().StringP(flagMnemonic, "m", "", "add new key from specified mnemonic")
+	cmd.Flags().StringP(flagPrivateKey, "p", "", "add new key from specified private key")
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
 	cmd.Flags().Uint(flagAccount, 0, "account number within the HD derivation path")
 	cmd.Flags().
@@ -107,8 +107,8 @@ func keysDeleteCmd(app *relayer.App) *cobra.Command {
 		Short:   "Delete a key from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys delete eth test-key -y
-$ %s keys delete eth test-key`, appName, appName)),
+$ %s keys delete eth test-key 
+$ %s k d eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keyName := args[1]
