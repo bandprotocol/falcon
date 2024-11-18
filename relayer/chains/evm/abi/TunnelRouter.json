@@ -40,7 +40,7 @@
     "name": "gasFee",
     "inputs": [],
     "outputs": [
-      { "name": "gasPrice", "type": "uint256", "internalType": "uint256" }
+      { "name": "gasFee", "type": "uint256", "internalType": "uint256" }
     ]
   }
 ]
