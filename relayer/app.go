@@ -237,6 +237,7 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
+// InitPassphrase hashes the provided passphrase and saves it to the given path.
 func (a *App) InitPassphrase() error {
 	// Load and hash the passphrase
 	passphrase := a.loadEnvPassphrase()
@@ -308,24 +309,6 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 
 	c := a.BandClient
 	return c.GetTunnelPacket(ctx, tunnelID, sequence)
-}
-
-func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
-	}
-
-	cp, exist := a.targetChains[chainName]
-
-	if !exist {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	if !cp.IsKeyNameExist(keyName) {
-		return nil, fmt.Errorf("key name does not exist: %s", chainName)
-	}
-
-	return cp.QueryBalance(ctx, keyName)
 }
 
 func (a *App) AddChainConfig(chainName string, filePath string) error {
@@ -515,6 +498,26 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 	return cp.ShowKey(keyName), nil
 }
 
+func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	cp, exist := a.targetChains[chainName]
+
+	if !exist {
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	if !cp.IsKeyNameExist(keyName) {
+		return nil, fmt.Errorf("key name does not exist: %s", chainName)
+	}
+
+	return cp.QueryBalance(ctx, keyName)
+}
+
+// validatePassphrase checks if the provided passphrase (from the environment)
+// matches the hashed passphrase stored on disk.
 func (a *App) validatePassphrase(envPassphrase string) error {
 	// prepare bytes slices of hashed env passphrase
 	h := sha256.New()
@@ -537,6 +540,7 @@ func (a *App) validatePassphrase(envPassphrase string) error {
 	return nil
 }
 
+// loadEnvPassphrase loads passphrase string from .env file
 func (a *App) loadEnvPassphrase() string {
 	// load passphrase from .env
 	if err := godotenv.Load(); err != nil {
