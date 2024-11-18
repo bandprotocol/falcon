@@ -29,7 +29,6 @@ const (
 	infoDir       = "info"
 	privateKeyDir = "priv"
 	infoFileName  = "info.toml"
-	passphrase    = ""
 )
 
 func (cp *EVMChainProvider) AddKey(
@@ -40,11 +39,12 @@ func (cp *EVMChainProvider) AddKey(
 	coinType uint32,
 	account uint,
 	index uint,
+	passphrase string,
 ) (*chainstypes.Key, error) {
 	if privateKey != "" {
-		return cp.AddKeyWithPrivateKey(keyName, privateKey, homePath)
+		return cp.AddKeyWithPrivateKey(keyName, privateKey, homePath, passphrase)
 	}
-	return cp.AddKeyWithMnemonic(keyName, mnemonic, homePath, coinType, account, index)
+	return cp.AddKeyWithMnemonic(keyName, mnemonic, homePath, coinType, account, index, passphrase)
 }
 
 // AddKeyWithMnemonic adds a key using a mnemonic phrase.
@@ -55,6 +55,7 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	coinType uint32,
 	account uint,
 	index uint,
+	passphrase string,
 ) (*chainstypes.Key, error) {
 	var err error
 
@@ -72,14 +73,15 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 		return nil, err
 	}
 
-	return cp.finalizeKeyAddition(keyName, priv, mnemonic, homePath)
+	return cp.finalizeKeyAddition(keyName, priv, mnemonic, homePath, passphrase)
 }
 
 // AddKeyWithPrivateKey adds a key using a raw private key.
 func (cp *EVMChainProvider) AddKeyWithPrivateKey(
-	keyName string,
-	privateKey string,
-	homePath string,
+	keyName,
+	privateKey,
+	homePath,
+	passphrase string,
 ) (*chainstypes.Key, error) {
 	// Convert private key from hex
 	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey))
@@ -88,7 +90,7 @@ func (cp *EVMChainProvider) AddKeyWithPrivateKey(
 	}
 
 	// No mnemonic is used, so pass an empty string
-	return cp.finalizeKeyAddition(keyName, priv, "", homePath)
+	return cp.finalizeKeyAddition(keyName, priv, "", homePath, passphrase)
 }
 
 // finalizeKeyAddition stores the private key and initializes the sender.
@@ -97,6 +99,7 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	priv *ecdsa.PrivateKey,
 	mnemonic string,
 	homePath string,
+	passphrase string,
 ) (*chainstypes.Key, error) {
 	// Get public key from private key
 	publicKeyECDSA, ok := priv.Public().(*ecdsa.PublicKey)
@@ -105,7 +108,7 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	}
 
 	// Store private key and get account info
-	_, err := cp.storePrivateKey(priv)
+	_, err := cp.storePrivateKey(priv, passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +131,7 @@ func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
 }
 
 // DeleteKey deletes the given key name from the key store and removes its information.
-func (cp *EVMChainProvider) DeleteKey(homePath, keyName string) error {
+func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) error {
 	address, err := HexToAddress(cp.KeyInfo[keyName])
 	if err != nil {
 		return err
@@ -143,8 +146,8 @@ func (cp *EVMChainProvider) DeleteKey(homePath, keyName string) error {
 }
 
 // ExportPrivateKey exports private key of given key name.
-func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
-	key, err := cp.getKeyFromKeyName(keyName)
+func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
+	key, err := cp.getKeyFromKeyName(keyName, passphrase)
 	if err != nil {
 		return "", err
 	}
@@ -169,6 +172,7 @@ func (cp *EVMChainProvider) ShowKey(keyName string) string {
 // storePrivateKey stores private key to keyStore.
 func (cp *EVMChainProvider) storePrivateKey(
 	priv *ecdsa.PrivateKey,
+	passphrase string,
 ) (*accounts.Account, error) {
 	accs, err := cp.KeyStore.ImportECDSA(priv, passphrase)
 	if err != nil {
@@ -232,7 +236,7 @@ func (cp *EVMChainProvider) generatePrivateKey(
 }
 
 func (cp *EVMChainProvider) getKeyFromKeyName(
-	keyName string,
+	keyName, passphrase string,
 ) (*keyStore.Key, error) {
 	address, err := HexToAddress(cp.KeyInfo[keyName])
 	if err != nil {
