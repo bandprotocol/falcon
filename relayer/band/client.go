@@ -224,7 +224,9 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 			}
 			tssRoute, ok := route.(*tunneltypes.TSSRoute)
 			if !ok {
-				return nil, fmt.Errorf("unsupported route type: %T", route)
+				// unsupported route type
+
+				continue
 			}
 			tunnels = append(tunnels, *types.NewTunnel(
 				tunnel.ID,
