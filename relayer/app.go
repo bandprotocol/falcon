@@ -352,7 +352,7 @@ func (a *App) AddKey(
 	keyName string,
 	mnemonic string,
 	privateKey string,
-	cointType uint32,
+	coinType uint32,
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
@@ -370,7 +370,7 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("key name already exists: %s", keyName)
 	}
 
-	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, cointType, account, index)
+	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}
