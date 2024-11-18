@@ -84,3 +84,18 @@ func (mr *MockClientMockRecorder) GetTunnelPacket(ctx, tunnelID, sequence any) *
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTunnelPacket", reflect.TypeOf((*MockClient)(nil).GetTunnelPacket), ctx, tunnelID, sequence)
 }
+
+// GetTunnels mocks base method.
+func (m *MockClient) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTunnels", ctx)
+	ret0, _ := ret[0].([]types.Tunnel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTunnels indicates an expected call of GetTunnels.
+func (mr *MockClientMockRecorder) GetTunnels(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTunnels", reflect.TypeOf((*MockClient)(nil).GetTunnels), ctx)
+}

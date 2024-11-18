@@ -476,7 +476,11 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// query tunnels
 	var tunnels []bandtypes.Tunnel
 	if len(tunnelIDs) == 0 {
-		// TODO: query all tunnels
+		var err error
+		tunnels, err = a.BandClient.GetTunnels(ctx)
+		if err != nil {
+			return err
+		}
 	} else {
 		tunnels = make([]bandtypes.Tunnel, 0, len(tunnelIDs))
 		for _, tunnelID := range tunnelIDs {

@@ -7,6 +7,7 @@ import (
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"go.uber.org/zap"
 
 	bandtsstypes "github.com/bandprotocol/chain/v3/x/bandtss/types"
@@ -27,6 +28,9 @@ type Client interface {
 
 	// Connect will establish connection to rpc endpoints
 	Connect(timeout uint) error
+
+	// GetTunnels returns all tunnel in band chain.
+	GetTunnels(ctx context.Context) ([]types.Tunnel, error)
 }
 
 // QueryClient groups the gRPC clients for querying BandChain-specific data.
@@ -189,6 +193,57 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 		currentGroupSigning,
 		incomingGroupSigning,
 	), nil
+}
+
+// GetTunnels returns every tss-route tunnels in band chain.
+func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
+	// check connection to bandchain
+	if c.QueryClient == nil {
+		return nil, fmt.Errorf("cannot connect to bandchain")
+	}
+
+	tunnels := make([]types.Tunnel, 0)
+	var nextKey []byte
+
+	for {
+		res, err := c.QueryClient.TunnelQueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{
+			Pagination: &querytypes.PageRequest{
+				Key: nextKey,
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, tunnel := range res.Tunnels {
+			// Extract route information
+			var route tunneltypes.RouteI
+			if err := c.UnpackAny(tunnel.Route, &route); err != nil {
+				return nil, err
+			}
+
+			// if not tssRoute, skip this tunnel
+			tssRoute, ok := route.(*tunneltypes.TSSRoute)
+			if !ok {
+				continue
+			}
+
+			tunnels = append(tunnels, *types.NewTunnel(
+				tunnel.ID,
+				tunnel.Sequence,
+				tssRoute.DestinationContractAddress,
+				tssRoute.DestinationChainID,
+				tunnel.IsActive,
+			))
+		}
+
+		nextKey = res.GetPagination().GetNextKey()
+		if len(nextKey) == 0 {
+			break
+		}
+	}
+
+	return tunnels, nil
 }
 
 // unpackAny unpacks the provided *codectypes.Any into the specified interface.
