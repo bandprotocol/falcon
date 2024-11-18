@@ -297,7 +297,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	return res, nil
 }
 
-// EstimateGas estimates the gas being used of the given message.
+// EstimateGas estimates the gas amount being used to submit the given message.
 func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
@@ -317,7 +317,7 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	return gas, nil
 }
 
-// EstimateGasPrice estimates the gas price of the EVM chain.
+// EstimateGasPrice estimates the current gas price on the EVM chain.
 func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
@@ -336,7 +336,7 @@ func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 	return gasPrice, nil
 }
 
-// EstimateGasTipCap estimates the gas tip cap of the EVM chain.
+// EstimateGasTipCap estimates the current gas tip cap on the EVM chain.
 func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
