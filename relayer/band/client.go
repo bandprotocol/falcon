@@ -7,6 +7,7 @@ import (
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"go.uber.org/zap"
 
 	bandtsstypes "github.com/bandprotocol/chain/v3/x/bandtss/types"
@@ -201,31 +202,43 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 		return nil, fmt.Errorf("cannot connect to bandchain")
 	}
 
-	res, err := c.QueryClient.TunnelQueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{})
-	if err != nil {
-		return nil, err
-	}
+	tunnels := make([]types.Tunnel, 0)
+	var nextKey []byte
 
-	tunnels := make([]types.Tunnel, 0, len(res.Tunnels))
-
-	for _, tunnel := range res.Tunnels {
-		// Extract route information
-		var route tunneltypes.RouteI
-		err = c.UnpackAny(tunnel.Route, &route)
+	for {
+		res, err := c.QueryClient.TunnelQueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{
+			Pagination: &querytypes.PageRequest{
+				Key: nextKey,
+			},
+		})
 		if err != nil {
 			return nil, err
 		}
-		tssRoute, ok := route.(*tunneltypes.TSSRoute)
-		if !ok {
-			return nil, fmt.Errorf("unsupported route type: %T", route)
+
+		for _, tunnel := range res.Tunnels {
+			// Extract route information
+			var route tunneltypes.RouteI
+			err = c.UnpackAny(tunnel.Route, &route)
+			if err != nil {
+				return nil, err
+			}
+			tssRoute, ok := route.(*tunneltypes.TSSRoute)
+			if !ok {
+				return nil, fmt.Errorf("unsupported route type: %T", route)
+			}
+			tunnels = append(tunnels, *types.NewTunnel(
+				tunnel.ID,
+				tunnel.Sequence,
+				tssRoute.DestinationContractAddress,
+				tssRoute.DestinationChainID,
+				tunnel.IsActive,
+			))
 		}
-		tunnels = append(tunnels, *types.NewTunnel(
-			tunnel.ID,
-			tunnel.Sequence,
-			tssRoute.DestinationContractAddress,
-			tssRoute.DestinationChainID,
-			tunnel.IsActive,
-		))
+
+		nextKey := res.GetPagination().GetNextKey()
+		if len(nextKey) == 0 {
+			break
+		}
 	}
 
 	return tunnels, nil
