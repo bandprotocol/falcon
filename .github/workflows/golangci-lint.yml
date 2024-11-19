@@ -1,9 +1,6 @@
 name: Golangci-lint
 on: pull_request
 
-env:
-  GOPRIVATE: github.com/bandprotocol/private-chain
-
 jobs:
   lint:
     runs-on: ubuntu-latest
