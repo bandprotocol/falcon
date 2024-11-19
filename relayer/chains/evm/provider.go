@@ -406,11 +406,12 @@ func (cp *EVMChainProvider) EstimateGas(ctx context.Context) (GasInfo, error) {
 			return GasInfo{}, err
 		}
 
-		return cp.BumpAndBoundGas(
-			ctx,
-			NewGasEIP1559Info(priorityFee, big.NewInt(int64(cp.Config.MaxBaseFee))),
-			1.0,
-		)
+		baseFee, err := cp.Client.EstimateBaseFee(ctx)
+		if err != nil {
+			return GasInfo{}, err
+		}
+
+		return cp.BumpAndBoundGas(ctx, NewGasEIP1559Info(priorityFee, baseFee), 1.0)
 	default:
 		return GasInfo{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
@@ -458,8 +459,10 @@ func (cp *EVMChainProvider) BumpAndBoundGas(
 			newPriorityFee = maxPriorityFee
 		}
 
-		// this can be fixed value, no need to query from chain.
-		newBaseFee := big.NewInt(int64(cp.Config.MaxBaseFee))
+		newBaseFee := gasInfo.GasBaseFee
+		if newBaseFee.Cmp(big.NewInt(int64(cp.Config.MaxBaseFee))) > 0 {
+			newBaseFee = big.NewInt(int64(cp.Config.MaxBaseFee))
+		}
 
 		return NewGasEIP1559Info(newPriorityFee, newBaseFee), nil
 	default:

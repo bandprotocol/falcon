@@ -35,6 +35,7 @@ type Client interface {
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	EstimateGasPrice(ctx context.Context) (*big.Int, error)
+	EstimateBaseFee(ctx context.Context) (*big.Int, error)
 	EstimateGasTipCap(ctx context.Context) (*big.Int, error)
 	BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error)
 	GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error)
@@ -334,6 +335,19 @@ func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 	}
 
 	return gasPrice, nil
+}
+
+// EstimateBaseFee estimates the current base fee on the EVM chain.
+func (c *client) EstimateBaseFee(ctx context.Context) (*big.Int, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	latestHeader, err := c.client.HeaderByNumber(newCtx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return latestHeader.BaseFee, nil
 }
 
 // EstimateGasTipCap estimates the current gas tip cap on the EVM chain.
