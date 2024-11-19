@@ -278,6 +278,36 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	s.Require().Equal(expectedBytes, actualBytes)
 }
 
+func (s *AppTestSuite) TestAddChainConfigWithRepeatedName() {
+	s.app.Config = nil
+	// create new chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
+	chainName := "testnet"
+
+	// write chain config file
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(chainCfgPath)
+
+	// init chain config file
+	customCfgPath := ""
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	// load config
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	err = s.app.AddChainConfig(chainName, chainCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.AddChainConfig(chainName, chainCfgPath)
+	s.ErrorContains(err, "existing chain name")
+}
+
 func (s *AppTestSuite) TestDeleteChainConfig() {
 	s.app.Config = nil
 	customCfgPath := path.Join(s.app.HomePath, "custom.toml")

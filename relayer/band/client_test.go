@@ -10,6 +10,7 @@ import (
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types"
+	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -193,6 +194,109 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 		s.log,
 		[]string{})
 	actual, err := s.client.GetTunnelPacket(s.ctx, uint64(1), uint64(100))
+	s.Require().NoError(err)
+	s.Require().Equal(expected, actual)
+}
+
+func (s *AppTestSuite) TestGetTunnels() {
+	// mock route value
+	destinationChainID := "eth"
+	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
+	r := &tunneltypes.TSSRoute{
+		DestinationChainID:         destinationChainID,
+		DestinationContractAddress: destinationContractAddress,
+	}
+	var routeI tunneltypes.RouteI = r
+	msg, ok := routeI.(proto.Message)
+	s.Require().Equal(true, ok)
+
+	any, err := codectypes.NewAnyWithValue(msg)
+	s.Require().NoError(err)
+
+	// mock first request
+	tunnels1 := make([]*tunneltypes.Tunnel, 0, 100)
+	for i := 1; i <= 100; i++ {
+		tunnel := &tunneltypes.Tunnel{
+			ID:               uint64(i),
+			Sequence:         100,
+			Route:            any,
+			Encoder:          0,
+			FeePayer:         "cosmos1xyz...",
+			SignalDeviations: []tunneltypes.SignalDeviation{},
+			Interval:         60,
+			TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
+			IsActive:         false,
+			CreatedAt:        time.Now().Unix(),
+			Creator:          "cosmos1abc...",
+		}
+		tunnels1 = append(tunnels1, tunnel)
+	}
+	// mock first response
+	queryResponse1 := &tunneltypes.QueryTunnelsResponse{
+		Tunnels: tunnels1,
+		Pagination: &querytypes.PageResponse{
+			NextKey: []byte("next-key"),
+		},
+	}
+
+	// expect first response from bandQueryClient
+	s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
+		Pagination: &querytypes.PageRequest{
+			Key: nil,
+		},
+	}).Return(queryResponse1, nil)
+
+	// mock second request
+	tunnels2 := make([]*tunneltypes.Tunnel, 0, 100)
+	for i := 101; i <= 120; i++ {
+		tunnel := &tunneltypes.Tunnel{
+			ID:               uint64(i),
+			Sequence:         100,
+			Route:            any,
+			Encoder:          0,
+			FeePayer:         "cosmos1xyz...",
+			SignalDeviations: []tunneltypes.SignalDeviation{},
+			Interval:         60,
+			TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
+			IsActive:         false,
+			CreatedAt:        time.Now().Unix(),
+			Creator:          "cosmos1abc...",
+		}
+		tunnels2 = append(tunnels2, tunnel)
+	}
+	// mock second response
+	queryResponse2 := &tunneltypes.QueryTunnelsResponse{
+		Tunnels: tunnels2,
+		Pagination: &querytypes.PageResponse{
+			NextKey: []byte(""),
+		},
+	}
+
+	// expect second response from bandQueryClient
+	s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
+		Pagination: &querytypes.PageRequest{
+			Key: []byte("next-key"),
+		},
+	}).Return(queryResponse2, nil)
+
+	encodingConfig := band.MakeEncodingConfig()
+	s.client = band.NewClient(
+		cosmosclient.Context{}.
+			WithCodec(encodingConfig.Marshaler).
+			WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
+		band.NewQueryClient(s.tunnelQueryClient, s.bandtssQueryClient),
+		s.log,
+		[]string{})
+
+	expected := make([]bandclienttypes.Tunnel, 0, 120)
+	for i := 1; i <= 120; i++ {
+		expected = append(
+			expected,
+			*bandclienttypes.NewTunnel(uint64(i), 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false),
+		)
+	}
+
+	actual, err := s.client.GetTunnels(s.ctx)
 	s.Require().NoError(err)
 	s.Require().Equal(expected, actual)
 }
