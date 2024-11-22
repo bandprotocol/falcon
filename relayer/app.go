@@ -3,14 +3,13 @@ package relayer
 import (
 	"context"
 	"fmt"
-	"math/big"
-	"os"
-	"path"
-
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"math/big"
+	"os"
+	"path"
 
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"

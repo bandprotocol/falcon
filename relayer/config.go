@@ -18,6 +18,7 @@ import (
 type GlobalConfig struct {
 	LogLevel                         string        `mapstructure:"log_level"                            toml:"log_level"`
 	CheckingPacketInterval           time.Duration `mapstructure:"checking_packet_interval"             toml:"checking_packet_interval"`
+	SyncTunnelsInterval              time.Duration `mapstructure:"sync_tunnels_interval"                toml:"sync_tunnels_interval"`
 	MaxCheckingPacketPenaltyDuration time.Duration `mapstructure:"max_checking_packet_penalty_duration" toml:"max_checking_packet_penalty_duration"`
 	PenaltyExponentialFactor         float64       `mapstructure:"penalty_exponential_factor"           toml:"penalty_exponential_factor"`
 }
