@@ -31,6 +31,10 @@ func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender
 func (cp *EVMChainProvider) LoadFreeSenders(
 	homePath string,
 ) error {
+	if cp.FreeSenders != nil {
+		return nil
+	}
+
 	freeSenders := make(chan *Sender, len(cp.KeyInfo))
 
 	for keyName := range cp.KeyInfo {

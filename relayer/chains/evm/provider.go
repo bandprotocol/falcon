@@ -472,10 +472,6 @@ func (cp *EVMChainProvider) createCalldata(packet *bandtypes.Packet) ([]byte, er
 		return nil, fmt.Errorf("missing signing")
 	}
 
-	if signing.EVMSignature == nil {
-		return nil, fmt.Errorf("evm signature is unavailable")
-	}
-
 	rAddr, err := HexToAddress(signing.EVMSignature.RAddress.String())
 	if err != nil {
 		return nil, err

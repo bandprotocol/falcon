@@ -524,8 +524,11 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.Log,
 		tunnelRelayers,
 		a.Config.Global.CheckingPacketInterval,
+		a.Config.Global.SyncTunnelsInterval,
 		a.Config.Global.MaxCheckingPacketPenaltyDuration,
 		a.Config.Global.PenaltyExponentialFactor,
+		a.BandClient,
+		a.targetChains,
 	)
 	return scheduler.Start(ctx)
 }

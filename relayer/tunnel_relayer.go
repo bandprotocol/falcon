@@ -7,7 +7,9 @@ import (
 
 	"go.uber.org/zap"
 
+	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
 	"github.com/bandprotocol/falcon/relayer/band"
+
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
@@ -108,6 +110,30 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 				zap.Uint64("sequence", seq),
 			)
 			return err
+		}
+
+		signing := packet.CurrentGroupSigning
+		if signing == nil {
+			signing = packet.IncomingGroupSigning
+		}
+
+		switch signing.Status {
+		case tsstypes.SIGNING_STATUS_FALLEN:
+			t.Log.Error(
+				"Failed to relay packet",
+				zap.Error(fmt.Errorf("signing status is fallen")),
+				zap.Uint64("tunnel_id", t.TunnelID),
+				zap.Uint64("sequence", seq),
+			)
+			return err
+
+		case tsstypes.SIGNING_STATUS_WAITING:
+			t.Log.Info(
+				"Signing status is waiting",
+				zap.Uint64("tunnel_id", t.TunnelID),
+				zap.Uint64("sequence", seq),
+			)
+			return nil
 		}
 
 		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {

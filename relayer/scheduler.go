@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/chains"
 	"go.uber.org/zap"
 )
 
@@ -12,11 +14,15 @@ type Scheduler struct {
 	Log                              *zap.Logger
 	TunnelRelayers                   []*TunnelRelayer
 	CheckingPacketInterval           time.Duration
+	SyncTunnelsInterval              time.Duration
 	MaxCheckingPacketPenaltyDuration time.Duration
 	ExponentialFactor                float64
 
 	isErrorOnHolds []bool
 	penaltyTaskCh  chan Task
+
+	BandClient     band.Client
+	ChainProviders chains.ChainProviders
 }
 
 // NewScheduler creates a new Scheduler
@@ -24,27 +30,35 @@ func NewScheduler(
 	log *zap.Logger,
 	tunnelRelayers []*TunnelRelayer,
 	checkingPacketInterval time.Duration,
+	syncTunnelsInterval time.Duration,
 	maxCheckingPacketPenaltyDuration time.Duration,
 	exponentialFactor float64,
+	bandClient band.Client,
+	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
 		TunnelRelayers:                   tunnelRelayers,
 		CheckingPacketInterval:           checkingPacketInterval,
+		SyncTunnelsInterval:              syncTunnelsInterval,
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
 		ExponentialFactor:                exponentialFactor,
 		isErrorOnHolds:                   make([]bool, len(tunnelRelayers)),
 		penaltyTaskCh:                    make(chan Task, len(tunnelRelayers)),
+		BandClient:                       bandClient,
+		ChainProviders:                   chainProviders,
 	}
 }
 
 // Start starts all tunnel relayers
 func (s *Scheduler) Start(ctx context.Context) error {
 	ticker := time.NewTicker(s.CheckingPacketInterval)
+	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 
 	// execute once we start the scheduler.
 	s.Execute(ctx)
 	defer ticker.Stop()
+	defer syncTunnelTicker.Stop()
 
 	for {
 		select {
@@ -52,6 +66,8 @@ func (s *Scheduler) Start(ctx context.Context) error {
 			s.Log.Info("Stopping the scheduler")
 
 			return nil
+		case <-syncTunnelTicker.C:
+			s.SyncTunnels(ctx)
 		case <-ticker.C:
 			s.Execute(ctx)
 		case task := <-s.penaltyTaskCh:
@@ -126,6 +142,49 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		"tunnel relayer is successfully executed",
 		zap.Uint64("tunnel_id", tr.TunnelID),
 	)
+}
+
+func (s *Scheduler) SyncTunnels(ctx context.Context) {
+	s.Log.Info("starting sync tunnels")
+	tunnels, err := s.BandClient.GetTunnels(ctx)
+	if err != nil {
+		s.Log.Error("Failed to fetch tunnels from Band Chain", zap.Error(err))
+		return
+	}
+	oldTunnelCount := len(s.TunnelRelayers)
+
+	if oldTunnelCount == len(tunnels) {
+		s.Log.Info("No new tunnels to sync")
+		return
+	}
+
+	for i := oldTunnelCount; i < len(tunnels); i++ {
+		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
+		if !ok {
+			s.Log.Warn(
+				"Chain provider not found for tunnel",
+				zap.Uint64("tunnel_id", tunnels[i].ID),
+				zap.String("target_chain_id", tunnels[i].TargetChainID),
+			)
+			continue
+		}
+		tr := NewTunnelRelayer(
+			s.Log,
+			tunnels[i].ID,
+			tunnels[i].TargetAddress,
+			s.CheckingPacketInterval,
+			s.BandClient,
+			chainProvider,
+		)
+
+		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
+		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
+
+	}
+	for len(s.penaltyTaskCh) > 0 {
+		// Wait for penalty tasks to drain
+	}
+	s.penaltyTaskCh = make(chan Task, len(s.TunnelRelayers))
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit
