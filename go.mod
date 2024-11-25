@@ -5,7 +5,7 @@ go 1.22.3
 require (
 	cosmossdk.io/math v1.3.0
 	cosmossdk.io/x/tx v0.13.5
-	github.com/bandprotocol/chain/v3 v3.0.0-20241022072813-1c8053b2d11b
+	github.com/bandprotocol/chain/v3 v3.0.0-20241114094927-3b26d104360f
 	github.com/cometbft/cometbft v0.38.12
 	github.com/cosmos/cosmos-sdk v0.50.10
 	github.com/cosmos/gogoproto v1.7.0
@@ -186,8 +186,6 @@ require (
 replace (
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
-	// replace bandprotocol chain with private chain
-	github.com/bandprotocol/chain/v3 => github.com/bandprotocol/private-chain/v3 v3.0.0-20241113123354-221107b430f9
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	// stick with compatible version of rapid in v0.47.x line
 	pgregory.net/rapid => pgregory.net/rapid v0.5.5
