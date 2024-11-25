@@ -22,7 +22,7 @@ var CustomCfgTextWithTimeStr string
 var CustomCfg = falcon.Config{
 	Global: falcon.GlobalConfig{
 		CheckingPacketInterval:           1 * time.Minute,
-		SyncTunnelsInterval:              1 * time.Minute,
+		SyncTunnelsInterval:              5 * time.Minute,
 		MaxCheckingPacketPenaltyDuration: 1 * time.Hour,
 		PenaltyExponentialFactor:         1.1,
 		LogLevel:                         "info",

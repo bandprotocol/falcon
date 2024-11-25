@@ -135,6 +135,7 @@ func DefaultConfig() *Config {
 		Global: GlobalConfig{
 			LogLevel:                         "info",
 			CheckingPacketInterval:           time.Minute,
+			SyncTunnelsInterval:              5 * time.Minute,
 			MaxCheckingPacketPenaltyDuration: time.Hour,
 			PenaltyExponentialFactor:         1.0,
 		},

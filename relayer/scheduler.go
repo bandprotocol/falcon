@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	"go.uber.org/zap"
 )
 
 // Scheduler is a struct to manage all tunnel relayers
@@ -138,10 +139,17 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 
 	// If the task is successful, reset the error flag.
 	s.isErrorOnHolds[task.RelayerID] = false
-	s.Log.Info(
-		"tunnel relayer is successfully executed",
-		zap.Uint64("tunnel_id", tr.TunnelID),
-	)
+	if tr.isWaitingSignature {
+		s.Log.Info(
+			"the current packet must wait for a signature",
+			zap.Uint64("tunnel_id", tr.TunnelID),
+		)
+	} else {
+		s.Log.Info(
+			"tunnel relayer is successfully executed",
+			zap.Uint64("tunnel_id", tr.TunnelID),
+		)
+	}
 }
 
 func (s *Scheduler) SyncTunnels(ctx context.Context) {
@@ -162,9 +170,9 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
 			s.Log.Warn(
-				"Chain provider not found for tunnel",
+				"Chain name not found in config",
+				zap.String("chain_name", tunnels[i].TargetChainID),
 				zap.Uint64("tunnel_id", tunnels[i].ID),
-				zap.String("target_chain_id", tunnels[i].TargetChainID),
 			)
 			continue
 		}
@@ -179,7 +187,11 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 
 		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
 		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
-
+		s.Log.Info(
+			"New tunnel synchronized successfully",
+			zap.String("chain_name", tunnels[i].TargetChainID),
+			zap.Uint64("tunnel_id", tunnels[i].ID),
+		)
 	}
 	for len(s.penaltyTaskCh) > 0 {
 		// Wait for penalty tasks to drain

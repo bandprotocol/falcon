@@ -8,8 +8,8 @@ import (
 	"go.uber.org/zap"
 
 	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
-	"github.com/bandprotocol/falcon/relayer/band"
 
+	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
@@ -22,7 +22,8 @@ type TunnelRelayer struct {
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
 
-	isExecuting bool
+	isExecuting        bool
+	isWaitingSignature bool
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -42,12 +43,14 @@ func NewTunnelRelayer(
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
 		isExecuting:            false,
+		isWaitingSignature:     false,
 	}
 }
 
 // CheckAndRelay checks the tunnel and relays the packet
 func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 	t.isExecuting = true
+	t.isWaitingSignature = false
 	defer func() {
 		t.isExecuting = false
 
@@ -117,7 +120,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			signing = packet.IncomingGroupSigning
 		}
 
-		switch signing.Status {
+		switch tsstypes.SigningStatus(tsstypes.SigningStatus_value[signing.Status]) {
 		case tsstypes.SIGNING_STATUS_FALLEN:
 			t.Log.Error(
 				"Failed to relay packet",
@@ -129,10 +132,11 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		case tsstypes.SIGNING_STATUS_WAITING:
 			t.Log.Info(
-				"Signing status is waiting",
+				"The current packet must wait for the completion of the EVM signature",
 				zap.Uint64("tunnel_id", t.TunnelID),
 				zap.Uint64("sequence", seq),
 			)
+			t.isWaitingSignature = true
 			return nil
 		}
 
