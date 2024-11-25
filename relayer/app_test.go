@@ -62,7 +62,7 @@ func (s *AppTestSuite) SetupTest() {
 	}
 	s.ctx = context.Background()
 
-	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
+	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg, "")
 
 	err = s.app.Init(s.ctx)
 	s.app.BandClient = s.client

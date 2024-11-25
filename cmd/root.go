@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -29,7 +30,7 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 
 // NewRootCmd returns the root command for falcon.
 func NewRootCmd(log *zap.Logger) *cobra.Command {
-	app := falcon.NewApp(log, viper.New(), defaultHome, false, nil)
+	app := falcon.NewApp(log, viper.New(), defaultHome, false, nil, loadEnvPassphrase())
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
@@ -161,4 +162,13 @@ func withUsage(inner cobra.PositionalArgs) cobra.PositionalArgs {
 
 		return nil
 	}
+}
+
+// loadEnvPassphrase loads passphrase string from .env file
+func loadEnvPassphrase() string {
+	// load passphrase from .env
+	if err := godotenv.Load(); err != nil {
+		return ""
+	}
+	return os.Getenv("PASSPHRASE")
 }
