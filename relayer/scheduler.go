@@ -10,6 +10,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
+const penaltyTaskChSize = 1000
+
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
 	Log                              *zap.Logger
@@ -20,6 +22,7 @@ type Scheduler struct {
 	ExponentialFactor                float64
 
 	isErrorOnHolds []bool
+	isSyncAllowed  bool
 	penaltyTaskCh  chan Task
 
 	BandClient     band.Client
@@ -34,6 +37,7 @@ func NewScheduler(
 	syncTunnelsInterval time.Duration,
 	maxCheckingPacketPenaltyDuration time.Duration,
 	exponentialFactor float64,
+	isSyncAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
@@ -45,7 +49,8 @@ func NewScheduler(
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
 		ExponentialFactor:                exponentialFactor,
 		isErrorOnHolds:                   make([]bool, len(tunnelRelayers)),
-		penaltyTaskCh:                    make(chan Task, len(tunnelRelayers)),
+		isSyncAllowed:                    isSyncAllowed,
+		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
 	}
@@ -139,20 +144,18 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 
 	// If the task is successful, reset the error flag.
 	s.isErrorOnHolds[task.RelayerID] = false
-	if tr.isWaitingSignature {
-		s.Log.Info(
-			"the current packet must wait for a signature",
-			zap.Uint64("tunnel_id", tr.TunnelID),
-		)
-	} else {
-		s.Log.Info(
-			"tunnel relayer is successfully executed",
-			zap.Uint64("tunnel_id", tr.TunnelID),
-		)
-	}
+	s.Log.Info(
+		"Tunnel relayer finished execution",
+		zap.Uint64("tunnel_id", tr.TunnelID),
+	)
 }
 
+// SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
 func (s *Scheduler) SyncTunnels(ctx context.Context) {
+	if !s.isSyncAllowed {
+		return
+	}
+
 	s.Log.Info("starting sync tunnels")
 	tunnels, err := s.BandClient.GetTunnels(ctx)
 	if err != nil {
@@ -193,10 +196,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			zap.Uint64("tunnel_id", tunnels[i].ID),
 		)
 	}
-	for len(s.penaltyTaskCh) > 0 {
-		// Wait for penalty tasks to drain
-	}
-	s.penaltyTaskCh = make(chan Task, len(s.TunnelRelayers))
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit

@@ -22,8 +22,7 @@ type TunnelRelayer struct {
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
 
-	isExecuting        bool
-	isWaitingSignature bool
+	isExecuting bool
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -43,14 +42,12 @@ func NewTunnelRelayer(
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
 		isExecuting:            false,
-		isWaitingSignature:     false,
 	}
 }
 
 // CheckAndRelay checks the tunnel and relays the packet
 func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 	t.isExecuting = true
-	t.isWaitingSignature = false
 	defer func() {
 		t.isExecuting = false
 
@@ -136,7 +133,6 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 				zap.Uint64("tunnel_id", t.TunnelID),
 				zap.Uint64("sequence", seq),
 			)
-			t.isWaitingSignature = true
 			return nil
 		}
 

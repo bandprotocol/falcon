@@ -473,11 +473,14 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("starting tunnel relayer")
 
+	isSyncAllowed := false
+
 	// query tunnels
 	var tunnels []bandtypes.Tunnel
 	if len(tunnelIDs) == 0 {
 		var err error
 		tunnels, err = a.BandClient.GetTunnels(ctx)
+		isSyncAllowed = true
 		if err != nil {
 			return err
 		}
@@ -528,6 +531,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.Config.Global.SyncTunnelsInterval,
 		a.Config.Global.MaxCheckingPacketPenaltyDuration,
 		a.Config.Global.PenaltyExponentialFactor,
+		isSyncAllowed,
 		a.BandClient,
 		a.targetChains,
 	)
