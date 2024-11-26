@@ -512,16 +512,18 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 	return cp.QueryBalance(ctx, keyName)
 }
 
-// loadEnvPassphrase loads passphrase string from .env file
+// loadEnvPassphrase retrieves the passphrase string from the .env file or system environment variables.
+// It first attempts to load the .env file. If the file is not found or cannot be loaded,
+// it falls back to retrieving the "PASSPHRASE" variable from the system environment variables.
 func (a *App) loadEnvPassphrase() string {
 	// load passphrase from .env first. if not present, use env variable from command
 	if err := godotenv.Load(); err != nil {
-		a.Log.Info(
+		a.Log.Debug(
 			".env file not found, attempting to use system environment variables",
 			zap.Error(err),
 		)
 	} else {
-		a.Log.Info("Loaded .env file successfully, attempting to use variable from .env file")
+		a.Log.Debug("Loaded .env file successfully, attempting to use variable from .env file")
 	}
 	return os.Getenv("PASSPHRASE")
 }
