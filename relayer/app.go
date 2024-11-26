@@ -10,6 +10,7 @@ import (
 	"path"
 
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
+	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -47,15 +48,13 @@ func NewApp(
 	homePath string,
 	debug bool,
 	config *Config,
-	envPassphrase string,
 ) *App {
 	app := App{
-		Log:           log,
-		Viper:         viper,
-		HomePath:      homePath,
-		Debug:         debug,
-		Config:        config,
-		EnvPassphrase: envPassphrase,
+		Log:      log,
+		Viper:    viper,
+		HomePath: homePath,
+		Debug:    debug,
+		Config:   config,
 	}
 	return &app
 }
@@ -86,6 +85,8 @@ func (a *App) Init(ctx context.Context) error {
 			return err
 		}
 	}
+
+	a.EnvPassphrase = a.loadEnvPassphrase()
 
 	return nil
 }
@@ -509,6 +510,20 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 	}
 
 	return cp.QueryBalance(ctx, keyName)
+}
+
+// loadEnvPassphrase loads passphrase string from .env file
+func (a *App) loadEnvPassphrase() string {
+	// load passphrase from .env first. if not present, use env variable from command
+	if err := godotenv.Load(); err != nil {
+		a.Log.Info(
+			".env file not found, attempting to use system environment variables",
+			zap.Error(err),
+		)
+	} else {
+		a.Log.Info("Loaded .env file successfully, attempting to use variable from .env file")
+	}
+	return os.Getenv("PASSPHRASE")
 }
 
 // validatePassphrase checks if the provided passphrase (from the environment)

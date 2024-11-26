@@ -20,7 +20,7 @@ func TestLoadConfig(t *testing.T) {
 	customConfigPath := ""
 	cfgPath := path.Join(tmpDir, "config", "config.toml")
 
-	app := relayer.NewApp(nil, nil, tmpDir, false, nil, "")
+	app := relayer.NewApp(nil, nil, tmpDir, false, nil)
 
 	// Prepare config before test
 	err := app.InitConfigFile(tmpDir, customConfigPath)

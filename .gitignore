@@ -15,3 +15,6 @@ vendor
 /docker-config/genesis.json
 
 coverage.out
+
+# Configuration files
+.env
