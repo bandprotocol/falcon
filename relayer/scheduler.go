@@ -21,9 +21,9 @@ type Scheduler struct {
 	MaxCheckingPacketPenaltyDuration time.Duration
 	ExponentialFactor                float64
 
-	isErrorOnHolds []bool
-	isSyncAllowed  bool
-	penaltyTaskCh  chan Task
+	isErrorOnHolds       []bool
+	isSyncTunnelsAllowed bool
+	penaltyTaskCh        chan Task
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
@@ -37,7 +37,7 @@ func NewScheduler(
 	syncTunnelsInterval time.Duration,
 	maxCheckingPacketPenaltyDuration time.Duration,
 	exponentialFactor float64,
-	isSyncAllowed bool,
+	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
@@ -49,7 +49,7 @@ func NewScheduler(
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
 		ExponentialFactor:                exponentialFactor,
 		isErrorOnHolds:                   make([]bool, len(tunnelRelayers)),
-		isSyncAllowed:                    isSyncAllowed,
+		isSyncTunnelsAllowed:             isSyncTunnelsAllowed,
 		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
@@ -152,7 +152,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
 func (s *Scheduler) SyncTunnels(ctx context.Context) {
-	if !s.isSyncAllowed {
+	if !s.isSyncTunnelsAllowed {
 		return
 	}
 
