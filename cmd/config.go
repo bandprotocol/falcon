@@ -73,7 +73,11 @@ $ %s cfg i`, appName, defaultHome, appName)),
 				return err
 			}
 
-			return app.InitConfigFile(home, file)
+			if err := app.InitConfigFile(home, file); err != nil {
+				return err
+			}
+
+			return app.InitPassphrase()
 		},
 	}
 	cmd.Flags().StringP(flagFile, "f", "", "fetch toml data from specified file")

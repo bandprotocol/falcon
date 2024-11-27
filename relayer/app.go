@@ -1,13 +1,16 @@
 package relayer
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"math/big"
 	"os"
 	"path"
 
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
+	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -20,8 +23,10 @@ import (
 )
 
 const (
-	configFolderName = "config"
-	configFileName   = "config.toml"
+	configFolderName   = "config"
+	configFileName     = "config.toml"
+	passphraseFileName = "passphrase.hash"
+	passphraseEnvKey   = "PASSPHRASE"
 )
 
 // App is the main application struct.
@@ -32,8 +37,9 @@ type App struct {
 	Debug    bool
 	Config   *Config
 
-	targetChains chains.ChainProviders
-	BandClient   band.Client
+	targetChains  chains.ChainProviders
+	BandClient    band.Client
+	EnvPassphrase string
 }
 
 // NewApp creates a new App instance.
@@ -80,6 +86,8 @@ func (a *App) Init(ctx context.Context) error {
 			return err
 		}
 	}
+
+	a.EnvPassphrase = a.loadEnvPassphrase()
 
 	return nil
 }
@@ -233,6 +241,30 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	return nil
 }
 
+// InitPassphrase hashes the provided passphrase and saves it to the given path.
+func (a *App) InitPassphrase() error {
+	// Load and hash the passphrase
+	h := sha256.New()
+	h.Write([]byte(a.EnvPassphrase))
+	b := h.Sum(nil)
+
+	cfgDir := path.Join(a.HomePath, configFolderName)
+	passphrasePath := path.Join(cfgDir, passphraseFileName)
+
+	// Create the file and write the hashed passphrase to the given location.
+	f, err := os.Create(passphrasePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, err = f.Write(b); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // QueryTunnelInfo queries tunnel information by given tunnel ID
 func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	if a.Config == nil {
@@ -360,6 +392,10 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
+	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+		return nil, err
+	}
+
 	cp, exist := a.targetChains[chainName]
 
 	if !exist {
@@ -370,7 +406,7 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("key name already exists: %s", keyName)
 	}
 
-	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, coinType, account, index)
+	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, coinType, account, index, a.EnvPassphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -383,6 +419,10 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
+	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+		return err
+	}
+
 	cp, exist := a.targetChains[chainName]
 
 	if !exist {
@@ -393,12 +433,16 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
-	return cp.DeleteKey(a.HomePath, keyName)
+	return cp.DeleteKey(a.HomePath, keyName, a.EnvPassphrase)
 }
 
 func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 	if a.Config == nil {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
+	}
+
+	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+		return "", err
 	}
 
 	cp, exist := a.targetChains[chainName]
@@ -411,7 +455,7 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 		return "", fmt.Errorf("key name does not exist: %s", chainName)
 	}
 
-	privateKey, err := cp.ExportPrivateKey(keyName)
+	privateKey, err := cp.ExportPrivateKey(keyName, a.EnvPassphrase)
 	if err != nil {
 		return "", err
 	}
@@ -469,6 +513,46 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 	return cp.QueryBalance(ctx, keyName)
 }
 
+// loadEnvPassphrase retrieves the passphrase string from the .env file or system environment variables.
+// It first attempts to load the .env file. If the file is not found or cannot be loaded,
+// it falls back to retrieving the "PASSPHRASE" variable from the system environment variables.
+func (a *App) loadEnvPassphrase() string {
+	// load passphrase from .env first. if not present, use env variable from command
+	if err := godotenv.Load(); err != nil {
+		a.Log.Debug(
+			".env file not found, attempting to use system environment variables",
+			zap.Error(err),
+		)
+	} else {
+		a.Log.Debug("Loaded .env file successfully, attempting to use variable from .env file")
+	}
+	return os.Getenv(passphraseEnvKey)
+}
+
+// validatePassphrase checks if the provided passphrase (from the environment)
+// matches the hashed passphrase stored on disk.
+func (a *App) validatePassphrase(envPassphrase string) error {
+	// prepare bytes slices of hashed env passphrase
+	h := sha256.New()
+	h.Write([]byte(envPassphrase))
+	envb := h.Sum(nil)
+
+	// load passphrase from local disk
+	cfgDir := path.Join(a.HomePath, configFolderName)
+	passphrasePath := path.Join(cfgDir, passphraseFileName)
+
+	b, err := os.ReadFile(passphrasePath)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(envb, b) {
+		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored passphrase")
+	}
+
+	return nil
+}
+
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("starting tunnel relayer")
@@ -499,13 +583,18 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 	// initialize the tunnel relayer
 	tunnelRelayers := []*TunnelRelayer{}
+
+	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+		return err
+	}
+
 	for _, tunnel := range tunnels {
 		chainProvider, ok := a.targetChains[tunnel.TargetChainID]
 		if !ok {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
 
-		if err := chainProvider.LoadFreeSenders(a.HomePath); err != nil {
+		if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
 			return err
 		}
 
@@ -539,12 +628,16 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return err
 	}
 
+	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+		return err
+	}
+
 	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
 	if !ok {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 	}
 
-	if err := chainProvider.LoadFreeSenders(a.HomePath); err != nil {
+	if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
 		return err
 	}
 

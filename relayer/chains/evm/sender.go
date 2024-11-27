@@ -30,11 +30,12 @@ func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender
 // derived from the keys stored in the keystore located at the specified homePath.
 func (cp *EVMChainProvider) LoadFreeSenders(
 	homePath string,
+	passphrase string,
 ) error {
 	freeSenders := make(chan *Sender, len(cp.KeyInfo))
 
 	for keyName := range cp.KeyInfo {
-		key, err := cp.getKeyFromKeyName(keyName)
+		key, err := cp.getKeyFromKeyName(keyName, passphrase)
 		if err != nil {
 			return err
 		}
