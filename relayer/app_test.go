@@ -2,6 +2,7 @@ package relayer_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"os"
 	"path"
 	"testing"
@@ -425,4 +426,208 @@ func (s *AppTestSuite) TestGetChainConfigNotExistChainName() {
 	chainName := "testnet-2"
 	_, err = s.app.GetChainConfig(chainName)
 	s.Require().ErrorContains(err, "not existing chain name")
+}
+
+func (s *AppTestSuite) TestInitPassphrase() {
+	passphrase := "secret"
+	s.app.EnvPassphrase = passphrase
+
+	err := os.Mkdir(path.Join(s.app.HomePath, "config"), os.ModePerm)
+	s.Require().NoError(err)
+
+	// Call InitPassphrase
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// Verify the file exists
+	passphrasePath := path.Join(s.app.HomePath, "config", "passphrase.hash")
+	_, err = os.Stat(passphrasePath)
+	s.Require().NoError(err)
+
+	// Verify file content
+	hasher := sha256.New()
+	hasher.Write([]byte(passphrase))
+	expectedHash := hasher.Sum(nil)
+
+	actualContent, err := os.ReadFile(passphrasePath)
+	s.Require().NoError(err)
+	s.Require().Equal(expectedHash, actualContent)
+}
+
+func (s *AppTestSuite) TestAddKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet_evm"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	address := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+	responseMnemonic := "evil cool swamp nurse emotion dumb lecture foam stamp cigar bamboo arctic leaf twin brand sight soda drill december dial raccoon race seek expose"
+
+	// Mock ChainProvider methods
+	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(false)
+	s.chainProvider.EXPECT().
+		AddKey(keyName, mnemonic, privateKey, s.app.HomePath, coinType, account, index, "").
+		Return(chainstypes.NewKey(responseMnemonic, address, ""), nil)
+
+	// Run AddKey
+	actual, err := s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().NotNil(actual)
+	s.Require().Equal(chainstypes.NewKey(responseMnemonic, address, ""), actual)
+}
+
+func (s *AppTestSuite) TestDeleteKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet_evm"
+	keyName := "testkey"
+
+	// Mock ChainProvider methods
+	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(true)
+	s.chainProvider.EXPECT().DeleteKey(s.app.HomePath, keyName, "").Return(nil)
+
+	// Run DeleteKey
+	err = s.app.DeleteKey(chainName, keyName)
+
+	// Assertions
+	s.Require().NoError(err)
+}
+
+func (s *AppTestSuite) TestExportKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet_evm"
+	keyName := "testkey"
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+	// Mock ChainProvider methods
+	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(true)
+	s.chainProvider.EXPECT().ExportPrivateKey(keyName, "").Return(privateKey, nil)
+
+	// Run ExportKey
+	actual, err := s.app.ExportKey(chainName, keyName)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().Equal(privateKey, actual)
+}
+
+func (s *AppTestSuite) TestListKeys() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet_evm"
+	expectedKeys := []*chainstypes.Key{
+		chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "key1"),
+		chainstypes.NewKey("", "0x4B0897b0513fDDEFe1c7074c71A43Faa663f8f57", "key2"),
+	}
+
+	// Mock ChainProvider methods
+	s.chainProvider.EXPECT().Listkeys().Return(expectedKeys)
+
+	// Run ListKeys
+	actual, err := s.app.ListKeys(chainName)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().Equal(expectedKeys, actual)
+}
+
+func (s *AppTestSuite) TestShowKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet_evm"
+	keyName := "testkey"
+	expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+
+	// Mock ChainProvider methods
+	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(true)
+	s.chainProvider.EXPECT().ShowKey(keyName).Return(expectedAddress)
+
+	// Run ShowKey
+	actual, err := s.app.ShowKey(chainName, keyName)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().Equal(expectedAddress, actual)
 }
