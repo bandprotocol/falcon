@@ -26,6 +26,7 @@ const (
 	configFolderName   = "config"
 	configFileName     = "config.toml"
 	passphraseFileName = "passphrase.hash"
+	passphraseEnvKey   = "PASSPHRASE"
 )
 
 // App is the main application struct.
@@ -525,7 +526,7 @@ func (a *App) loadEnvPassphrase() string {
 	} else {
 		a.Log.Debug("Loaded .env file successfully, attempting to use variable from .env file")
 	}
-	return os.Getenv("PASSPHRASE")
+	return os.Getenv(passphraseEnvKey)
 }
 
 // validatePassphrase checks if the provided passphrase (from the environment)
