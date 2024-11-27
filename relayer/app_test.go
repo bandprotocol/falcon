@@ -245,11 +245,9 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 
 func (s *AppTestSuite) TestAddChainConfig() {
 	s.app.Config = nil
-	// create new chain config file
-	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
-	chainName := "testnet"
 
 	// write chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
 	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
 	s.Require().NoError(err)
 
@@ -266,6 +264,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	err = s.app.LoadConfigFile()
 	s.Require().NoError(err)
 
+	chainName := "testnet"
 	err = s.app.AddChainConfig(chainName, chainCfgPath)
 	s.Require().NoError(err)
 
@@ -276,6 +275,63 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	s.Require().Equal(relayertest.DefaultCfgTextWithChainCfg, string(actualBytes))
 
 	s.Require().Equal(expectedBytes, actualBytes)
+}
+
+func (s *AppTestSuite) TestAddChainConfigDuplicateChainName() {
+	s.app.Config = nil
+
+	// write chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(chainCfgPath)
+
+	// write config file
+	cfgPath := path.Join(s.app.HomePath, "default_with_chain_config.toml")
+	err = os.WriteFile(cfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(cfgPath)
+
+	// init config file
+	err = s.app.InitConfigFile(s.app.HomePath, cfgPath)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	// load config
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	err = s.app.AddChainConfig(chainName, chainCfgPath)
+	s.Require().ErrorContains(err, "existing chain name")
+}
+
+func (s *AppTestSuite) TestAddChainConfigInvalidChainType() {
+	s.app.Config = nil
+	// write chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config_invalid_chain_type.toml")
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgInvalidChainTypeText), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(chainCfgPath)
+
+	// init chain config file
+	customCfgPath := ""
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	// load config
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	err = s.app.AddChainConfig(chainName, chainCfgPath)
+	s.Require().ErrorContains(err, "unsupported chain type")
 }
 
 func (s *AppTestSuite) TestDeleteChainConfig() {
@@ -306,6 +362,27 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 	s.Require().Equal(expectedBytes, actualBytes)
 }
 
+func (s *AppTestSuite) TestDeleteChainConfigNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	// delete chain config by given chain name
+	chainName := "testnet-2"
+	err = s.app.DeleteChainConfig(chainName)
+	s.Require().ErrorContains(err, "not existing chain name")
+}
+
 func (s *AppTestSuite) TestGetChainConfig() {
 	s.app.Config = nil
 	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
@@ -328,4 +405,24 @@ func (s *AppTestSuite) TestGetChainConfig() {
 	expect := relayertest.CustomCfg.TargetChains[chainName]
 
 	s.Require().Equal(expect, actual)
+}
+
+func (s *AppTestSuite) TestGetChainConfigNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet-2"
+	_, err = s.app.GetChainConfig(chainName)
+	s.Require().ErrorContains(err, "not existing chain name")
 }

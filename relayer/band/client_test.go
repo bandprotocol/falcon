@@ -25,7 +25,7 @@ import (
 	bandclienttypes "github.com/bandprotocol/falcon/relayer/band/types"
 )
 
-type AppTestSuite struct {
+type ClientTestSuite struct {
 	suite.Suite
 
 	ctx                context.Context
@@ -35,12 +35,12 @@ type AppTestSuite struct {
 	log                *zap.Logger
 }
 
-func TestAppTestSuite(t *testing.T) {
-	suite.Run(t, new(AppTestSuite))
+func TestClientTestSuite(t *testing.T) {
+	suite.Run(t, new(ClientTestSuite))
 }
 
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
-func (s *AppTestSuite) SetupTest() {
+func (s *ClientTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
 
 	log, err := zap.NewDevelopment()
@@ -53,7 +53,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.ctx = context.Background()
 }
 
-func (s *AppTestSuite) TestGetTunnel() {
+func (s *ClientTestSuite) TestGetTunnel() {
 	// mock route value
 	destinationChainID := "eth"
 	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
@@ -105,7 +105,7 @@ func (s *AppTestSuite) TestGetTunnel() {
 	s.Require().Equal(expected, actual)
 }
 
-func (s *AppTestSuite) TestGetTunnelPacket() {
+func (s *ClientTestSuite) TestGetTunnelPacket() {
 	// mock query response
 	destinationChainID := "eth"
 	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
