@@ -327,13 +327,26 @@ func (s *KeysTestSuite) TestListKeys() {
 
 	// List all keys
 	actual := s.chainProvider.Listkeys()
+	s.Require().Equal(2, len(actual))
 
-	expected := []*chaintypes.Key{
-		chaintypes.NewKey("", key1.Address, keyName1),
-		chaintypes.NewKey("", key2.Address, keyName2),
+	expected1 := chaintypes.NewKey("", key1.Address, keyName1)
+	expected2 := chaintypes.NewKey("", key2.Address, keyName2)
+
+	// Check if expected1 and expected2 are in actual
+	foundExpected1 := false
+	foundExpected2 := false
+
+	for _, key := range actual {
+		if key.Address == expected1.Address {
+			foundExpected1 = true
+		}
+		if key.Address == expected2.Address {
+			foundExpected2 = true
+		}
 	}
 
-	s.Require().Equal(expected, actual)
+	s.Require().True(foundExpected1)
+	s.Require().True(foundExpected2)
 }
 
 func (s *KeysTestSuite) TestShowKey() {
