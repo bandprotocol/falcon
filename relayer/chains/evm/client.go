@@ -34,6 +34,9 @@ type Client interface {
 	) (decimal.NullDecimal, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
+	EstimateGasPrice(ctx context.Context) (*big.Int, error)
+	EstimateBaseFee(ctx context.Context) (*big.Int, error)
+	EstimateGasTipCap(ctx context.Context) (*big.Int, error)
 	BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error)
 	GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error)
 }
@@ -295,7 +298,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	return res, nil
 }
 
-// EstimateGas estimates the gas of the given message.
+// EstimateGas estimates the gas amount being used to submit the given message.
 func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
@@ -313,6 +316,57 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	}
 
 	return gas, nil
+}
+
+// EstimateGasPrice estimates the current gas price on the EVM chain.
+func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	gasPrice, err := c.client.SuggestGasPrice(newCtx)
+	if err != nil {
+		c.Log.Error(
+			"Failed to estimate gas price",
+			zap.Error(err),
+			zap.String("chain_name", c.ChainName),
+			zap.String("endpoint", c.selectedEndpoint),
+		)
+		return nil, err
+	}
+
+	return gasPrice, nil
+}
+
+// EstimateBaseFee estimates the current base fee on the EVM chain.
+func (c *client) EstimateBaseFee(ctx context.Context) (*big.Int, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	latestHeader, err := c.client.HeaderByNumber(newCtx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return latestHeader.BaseFee, nil
+}
+
+// EstimateGasTipCap estimates the current gas tip cap on the EVM chain.
+func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	gasTipCap, err := c.client.SuggestGasTipCap(newCtx)
+	if err != nil {
+		c.Log.Error(
+			"Failed to estimate gas tip cap",
+			zap.Error(err),
+			zap.String("chain_name", c.ChainName),
+			zap.String("endpoint", c.selectedEndpoint),
+		)
+		return nil, err
+	}
+
+	return gasTipCap, nil
 }
 
 // BroadcastTx sends the transaction to the EVM chain.
