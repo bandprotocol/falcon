@@ -34,5 +34,13 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "gasFee",
+    "inputs": [],
+    "outputs": [
+      { "name": "gasFee", "type": "uint256", "internalType": "uint256" }
+    ]
   }
 ]

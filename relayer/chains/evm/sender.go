@@ -53,6 +53,7 @@ func LoadKeyInfo(homePath, chainName string) (KeyInfo, error) {
 
 	keyInfoDir := path.Join(homePath, keyDir, chainName, infoDir)
 	keyInfoPath := path.Join(keyInfoDir, infoFileName)
+
 	if _, err := os.Stat(keyInfoPath); err != nil {
 		// don't return error if file doesn't exist
 		return keyInfo, nil

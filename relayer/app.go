@@ -483,13 +483,12 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 	}
 
 	cp, exist := a.targetChains[chainName]
-
 	if !exist {
 		return "", fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
 	if !cp.IsKeyNameExist(keyName) {
-		return "", fmt.Errorf("key name does not exist: %s", chainName)
+		return "", fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
 	return cp.ShowKey(keyName), nil

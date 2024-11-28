@@ -2,6 +2,7 @@ package evm
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 )
 
@@ -58,4 +59,29 @@ func ToGasType(s string) GasType {
 	}
 
 	return GasTypeUndefined
+}
+
+// GasInfo contains the gas type and gas information being used for submitting a transaction.
+type GasInfo struct {
+	Type           GasType
+	GasPrice       *big.Int
+	GasPriorityFee *big.Int
+	GasBaseFee     *big.Int
+}
+
+// NewGasLegacyInfo creates a new GasInfo instance with gas type legacy.
+func NewGasLegacyInfo(gasPrice *big.Int) GasInfo {
+	return GasInfo{
+		Type:     GasTypeLegacy,
+		GasPrice: gasPrice,
+	}
+}
+
+// NewGasEIP1559Info creates a new GasInfo instance with gas type EIP1559.
+func NewGasEIP1559Info(gasPriorityFee, gasBaseFee *big.Int) GasInfo {
+	return GasInfo{
+		Type:           GasTypeEIP1559,
+		GasPriorityFee: gasPriorityFee,
+		GasBaseFee:     gasBaseFee,
+	}
 }
