@@ -459,9 +459,10 @@ func (cp *EVMChainProvider) BumpAndBoundGas(
 			newPriorityFee = maxPriorityFee
 		}
 
+		maxBaseFee := big.NewInt(int64(cp.Config.MaxBaseFee))
 		newBaseFee := gasInfo.GasBaseFee
-		if newBaseFee.Cmp(big.NewInt(int64(cp.Config.MaxBaseFee))) > 0 {
-			newBaseFee = big.NewInt(int64(cp.Config.MaxBaseFee))
+		if maxBaseFee.Cmp(big.NewInt(0)) > 0 && newBaseFee.Cmp(maxBaseFee) > 0 {
+			newBaseFee = maxBaseFee
 		}
 
 		return NewGasEIP1559Info(newPriorityFee, newBaseFee), nil
