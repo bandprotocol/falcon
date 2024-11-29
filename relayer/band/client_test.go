@@ -136,6 +136,7 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 		Signing: tsstypes.Signing{
 			ID:      2,
 			Message: cmbytes.HexBytes("0xdeadbeef"),
+			Status:  tsstypes.SIGNING_STATUS_SUCCESS,
 		},
 		EVMSignature: &tsstypes.EVMSignature{
 			RAddress:  cmbytes.HexBytes("0x1234"),
@@ -172,6 +173,7 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 			cmbytes.HexBytes("0x1234"),
 			cmbytes.HexBytes("0xabcd"),
 		),
+		"SIGNING_STATUS_SUCCESS",
 	)
 
 	// Define the expected Packet result

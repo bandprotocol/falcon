@@ -28,6 +28,7 @@ type Signing struct {
 	ID           uint64           `json:"id"`
 	Message      cmbytes.HexBytes `json:"messsage"`
 	EVMSignature *EVMSignature    `json:"evm_signature"`
+	Status       string           `json:"signing_status"`
 }
 
 // ConvertSigning converts tsstypes.SigningResult and return .Signing
@@ -48,6 +49,7 @@ func ConvertSigning(res *tsstypes.SigningResult) *Signing {
 		uint64(res.Signing.ID),
 		res.Signing.Message,
 		evmSignature,
+		tsstypes.SigningStatus_name[int32(res.Signing.Status)],
 	)
 }
 
@@ -56,10 +58,12 @@ func NewSigning(
 	id uint64,
 	message cmbytes.HexBytes,
 	evmSignature *EVMSignature,
+	status string,
 ) *Signing {
 	return &Signing{
 		ID:           id,
 		Message:      message,
 		EVMSignature: evmSignature,
+		Status:       status,
 	}
 }

@@ -556,11 +556,14 @@ func (a *App) validatePassphrase(envPassphrase string) error {
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("starting tunnel relayer")
 
+	isSyncTunnelsAllowed := false
+
 	// query tunnels
 	var tunnels []bandtypes.Tunnel
 	if len(tunnelIDs) == 0 {
 		var err error
 		tunnels, err = a.BandClient.GetTunnels(ctx)
+		isSyncTunnelsAllowed = true
 		if err != nil {
 			return err
 		}
@@ -613,8 +616,12 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.Log,
 		tunnelRelayers,
 		a.Config.Global.CheckingPacketInterval,
+		a.Config.Global.SyncTunnelsInterval,
 		a.Config.Global.MaxCheckingPacketPenaltyDuration,
 		a.Config.Global.PenaltyExponentialFactor,
+		isSyncTunnelsAllowed,
+		a.BandClient,
+		a.targetChains,
 	)
 	return scheduler.Start(ctx)
 }

@@ -216,6 +216,7 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 		1,
 		cmbytes.HexBytes("0xdeadbeef"),
 		evmSignature,
+		"SIGNING_STATUS_SUCCESS",
 	)
 
 	// Create the expected Packet object
