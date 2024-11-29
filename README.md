@@ -17,12 +17,12 @@
 - Queries packet data and EVM signatures for verification in the TSS verifier.
 
 ### 2. Chain Provider
-intermediary between the relayer application and the target blockchain. It encapsulates all logic required to interact with a specific type of blockchain, such as Ethereum Virtual Machine (EVM)-based chains, and abstracts the details of blockchain operations like transaction creation, execution, querying, and validation.
+Intermediary between the relayer application and the target blockchain. It encapsulates all logic required to interact with a specific type of blockchain, such as Ethereum Virtual Machine (EVM)-based chains, and abstracts the details of blockchain operations like transaction creation, execution, querying, and validation.
 (At this moment, only EVM chains are supported.)
 - Keys Manipulation
   - Manages key operations such as adding, deleting, listing, and securely storing them.
 - Transaction Creation 
-  - Constructs calldata for packet relaying using ABI methods.
+  - Constructs calldata for packet relaying.
   - Dynamically calculates gas fees for both EIP-1559 and Legacy transactions.
 - Transaction Execution
   - Signs transactions using keys from the senders pool.
@@ -31,11 +31,12 @@ intermediary between the relayer application and the target blockchain. It encap
 
 ### 3. Scheduler
 - Executes tasks for each `TunnelRelayer` periodically.
-- Exponential backoff for error scenarios.
-- Synchornize latest tunnel from the Bandchain periodically.
+- Penalizes failing tasks with an exponential backoff.
+- Synchornizes with BandChain periodically to ensure that Falcon keeps all tunnels aligned and up-to-date with BandChain.
 
 ### 4. Tunnel Relayer
-- Prerequisite handles the packet relaying process
+- Fetches tunnel information and packet by `BandChain Client` and `Chain Provider`
+- Handles the packet relaying process
   - Validates tunnel state (e.g., active status, latest sequence).
   - Fetches unrelayed packets from BandChain.
   - Submit packet to `Chain Provider` to continue on transaction process.
@@ -44,25 +45,25 @@ intermediary between the relayer application and the target blockchain. It encap
 ---
 ## Flow
 ### 1. Initialization
-- Initialize Tunnel Relayers
-   - Retrieves tunnel information from BandChain and target contract
-   - Validates the provider and loads keys into the FreeSenders channel.
-- Validate Passphrase 
+- Initializes Tunnel Relayers
+   - Fetches tunnel information from BandChain and target chains.
+   - Validates the provider and loads keys into the sender channel.
+- Validates Passphrase 
   - Checks if the user-provided passphrase matches the stored hash to ensure security. 
-- Start Scheduler
+- Starts Scheduler
   - Scheduler manages periodic relaying tasks for all initialized `TunnelRelayer` instances.
 
 ### 2. Starting Scheduler
-The Scheduler starts execution time and tunnel synchronization tickers based on the given configuration and handles penalized tasks resulting from consecutive relay packet failures.
+The Scheduler starts execution ticker and tunnel synchronization ticker based on the given configuration, and handles penalized tasks resulting from consecutive relay packet failures.
 - Periodic Execution
-  - asynchronously trigger each `TunnelRelayer` instances to check (3.) and relay (4.) the packet
+  - Asynchronously triggers each `TunnelRelayer` instances to check (3.) and relay (4.) the packet and confirm transaction(5.).
 - Tunnels synchronization
-  - Updates tunnel information from BandChain to ensure relayers operate on the latest tunnel metadata.
+  - Updates tunnel information from BandChain to ensure that Falcon keeps all tunnels aligned and up-to-date with BandChain.
 - Handling penalty task
   - Retries failed tasks after waiting for a penalty duration, which is calculated using exponential backoff.
 
 ### 3. Checking Packets
-- Check Tunnel State
+- Checks Tunnel State
   - Queries tunnel information from BandChain and the target chain.
   - Validates if the target chain's tunnel is active and ensures sequence consistency.
 - Determine Next Packet
@@ -85,7 +86,7 @@ The Scheduler starts execution time and tunnel synchronization tickers based on 
     - LondonSigner for EIP-1559 transactions.
 - #### 4.3 Broadcast Transaction 
   - Send the transaction to the target chain.
-### 5. Checking Transaction
+### 5. Confirming Transaction
 - Fetch the transaction receipt and check its status and block confirmations to ensure success.
 - Continuously check the transaction status within a specified duration. If the transaction remains unconfirmed for too long, mark it as unmined and handle it accordingly.
 - If the transaction fails, adjust the gas by using `GasMultiplier` and retry to relay packet again
@@ -121,31 +122,30 @@ Go binary should be at /usr/local/go/bin and any executable compiled by go insta
 #### 1.2: Clone & Install Falcon
 ```
 cd ~
-# Clone BandChain Laozi version v2.5.4
+# Clone Falcon
 git clone https://github.com/bandprotocol/falcon
 cd falcon
-git fetch
 
 # Install binaries to $GOPATH/bin
 make install
 ```
 ### 2. Initialize the configuration directory/file
 #### 2.1 Set passphrase
-You can set passphrase as a additonal encrypted key for every `falcon keys add <chain_name> <key_name>` in `.env` file
+You can set passphrase ain `.env` file as an additonal encrypted key for keys storage.
 ```
 PASSPHRASE=secret
 ```
-> NOTE: Default passphrase is `""`
+Default passphrase is `""`
 
 Default config file location: ~/.falcon/config/passphrase.hash
 
 #### 2.2 Init config
 ```
-$ falcon config init
+falcon config init
 ```
-you can also pass `PASSPHRASE` as an system environment variable by 
+You can also pass `PASSPHRASE` as an system environment variable by 
 ```
-$ PASSPHRASE=<YOUR-SECRET> falcon config init
+PASSPHRASE=<YOUR-SECRET> falcon config init
 ```
 
 Default config file location: ~/.falcon/config/config.toml
@@ -167,14 +167,15 @@ timeout = 3000000000
 ```
 
 
-To customize the config for relaying, you can use custom config file and use the --file flag when initializing the configuration.
+To customize the config for relaying, you can use custom config file and use the `--file` flag when initializing the configuration.
 ```
 falcon config init --file custom_config.toml
 ```
-> NOTE: once, config has been initialized. The passphrase that you configure will become your program passphrase forever
+> NOTE: Once the configuration is initialized, the passphrase you set will become your program's permanent passphrase and cannot be changed.
 
 ### 3. Configure target chains you want to relay
-you have to create chain config file to add into config. For now,  we only support only EVM chain.<br/> Ex. 
+You need to create a chain configuration file to add it to the configuration. Currently, only EVM chains are supported.
+<br/> Example:
 ```
 endpoints = ['http://localhost:8545']
 chain_type = 'evm'
@@ -197,7 +198,7 @@ falcon chains add testnet chain_config.toml
 ```
 
 ### 4. Check target chain's activeness
-To able to relay packet to target chain, we have to check that tunnel in target chain side is active or not by 
+To relay packets to the target chain, you need to ensure that the tunnel on the target chain is active. This can be checked using
 ```
 falcon query tunnel <TUNNEL_ID>
 ```
