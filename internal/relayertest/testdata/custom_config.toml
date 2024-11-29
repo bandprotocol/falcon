@@ -1,6 +1,7 @@
 [global]
 log_level = 'info'
 checking_packet_interval = 60000000000
+sync_tunnels_interval = 300000000000
 max_checking_packet_penalty_duration = 3600000000000
 penalty_exponential_factor = 1.1
 
