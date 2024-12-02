@@ -72,7 +72,6 @@ func (s *AppTestSuite) TestGetTunnel() {
 		ID:               uint64(1),
 		Sequence:         100,
 		Route:            any,
-		Encoder:          0,
 		FeePayer:         "cosmos1xyz...",
 		SignalDeviations: []tunneltypes.SignalDeviation{},
 		Interval:         60,
