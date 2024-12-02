@@ -163,17 +163,17 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	}
 
 	// Extract tunnel packet information
-	var packetContent tunneltypes.PacketContentI
-	err = c.UnpackAny(resPacket.Packet.PacketContent, &packetContent)
+	var packetReceipt tunneltypes.PacketReceiptI
+	err = c.UnpackAny(resPacket.Packet.Receipt, &packetReceipt)
 	if err != nil {
 		return nil, err
 	}
 
-	tssPacketContent, ok := packetContent.(*tunneltypes.TSSPacketContent)
+	tssPacketReceipt, ok := packetReceipt.(*tunneltypes.TSSPacketReceipt)
 	if !ok {
-		return nil, fmt.Errorf("unsupported packet content type: %T", packetContent)
+		return nil, fmt.Errorf("unsupported packet content type: %T", packetReceipt)
 	}
-	signingID := uint64(tssPacketContent.SigningID)
+	signingID := uint64(tssPacketReceipt.SigningID)
 
 	// Get tss signing information by given signing ID
 	resSigning, err := c.QueryClient.BandtssQueryClient.Signing(ctx, &bandtsstypes.QuerySigningRequest{
