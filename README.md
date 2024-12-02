@@ -8,7 +8,12 @@
 
 **Disclaimer:** This project is still in its early stages of development and is considered a prototype. Please refrain from using it in production.
 
-`Falcon` is a CLI program designed for smart contract developers from any blockchains to easily request and retrieve data from BandChain.
+`Falcon` is a CLI program designed for smart contract developers to relay data from the [Tunnel](https://github.com/bandprotocol/chain/tree/master/x/tunnel) on BandChain to their target blockchain seamlessly.
+
+# Table Of Contents
+- [Components](#components)
+- [Flow](#flow)
+- [Getting Started](#getting-started)
 
 ---
 ## Components 
@@ -56,7 +61,7 @@ Intermediary between the relayer application and the target blockchain. It encap
 ### 2. Starting Scheduler
 The Scheduler starts execution ticker and tunnel synchronization ticker based on the given configuration, and handles penalized tasks resulting from consecutive relay packet failures.
 - Periodic Execution
-  - Asynchronously triggers each `TunnelRelayer` instances to check (3.) and relay (4.) the packet and confirm transaction(5.).
+  - Asynchronously triggers each `TunnelRelayer` instances to check [(3.)](#3-checking-packets) and relay [(4.)](#4-relating-packets) the packet and confirm transaction [(5.)](#5-confirming-transaction).
 - Tunnels synchronization
   - Updates tunnel information from BandChain to ensure that Falcon keeps all tunnels aligned and up-to-date with BandChain.
 - Handling penalty task
@@ -74,7 +79,7 @@ The Scheduler starts execution ticker and tunnel synchronization ticker based on
 - Validate Connection 
   - Ensures the chain client is connected.
 - Retry Logic 
-  - Attempts to relay the packet up to `max_retry times.
+  - Attempts to relay the packet up to `max_retry` times.
     If all attempts fail, logs the error and move this task to penalty task.
 - #### 4.1 Create Transaction
   - Fetch the sender's nonce to ensure transaction order.
@@ -98,17 +103,17 @@ The Scheduler starts execution ticker and tunnel synchronization ticker based on
 - make, gcc, g++ (can be obtained from the build-essential package on linux)
 - wget, curl for downloading files
 
-```
+``` shell
 # install required tools
 sudo apt-get update && \
 sudo apt-get upgrade -y && \
 sudo apt-get install -y build-essential curl wget jq
 ```
-- Install Go 1.19.1
-```
-# Install Go 1.19.1
-wget https://go.dev/dl/go1.19.1.linux-amd64.tar.gz
-tar xf go1.19.1.linux-amd64.tar.gz
+- Install Go 1.22.3
+```shell
+# Install Go 1.22.3
+wget https://go.dev/dl/go1.22.3.linux-amd64.tar.gz
+tar xf go1.22.3.linux-amd64.tar.gz
 sudo mv go /usr/local/go
 
 # Set Go path to $PATH variable
@@ -120,7 +125,7 @@ Go binary should be at /usr/local/go/bin and any executable compiled by go insta
 
 
 #### 1.2: Clone & Install Falcon
-```
+``` shell
 cd ~
 # Clone Falcon
 git clone https://github.com/bandprotocol/falcon
@@ -140,7 +145,7 @@ Default passphrase is `""`
 Default config file location: ~/.falcon/config/passphrase.hash
 
 #### 2.2 Init config
-```
+``` shell
 falcon config init
 ```
 You can also pass `PASSPHRASE` as an system environment variable by 
@@ -151,7 +156,7 @@ PASSPHRASE=<YOUR-SECRET> falcon config init
 Default config file location: ~/.falcon/config/config.toml
 
 By default, config will be initialized in format like this 
-```
+```toml
 [global]
 log_level = 'info'
 checking_packet_interval = 60000000000
@@ -176,7 +181,7 @@ falcon config init --file custom_config.toml
 ### 3. Configure target chains you want to relay
 You need to create a chain configuration file to add it to the configuration. Currently, only EVM chains are supported.
 <br/> Example:
-```
+``` toml
 endpoints = ['http://localhost:8545']
 chain_type = 'evm'
 max_retry = 3
@@ -193,61 +198,43 @@ execute_timeout = 3000000000
 liveliness_checking_interval = 900000000000
 ```
 
-```
+``` shell
 falcon chains add testnet chain_config.toml
 ```
 
 ### 4. Check target chain's activeness
 To relay packets to the target chain, you need to ensure that the tunnel on the target chain is active. This can be checked using
-```
+``` shell
 falcon query tunnel <TUNNEL_ID>
 ```
 
 
 ### 5. Import OR create new keys to use when signing and relaying transactions.
 If you need to generate a new private key you can use the add subcommand.
-```
+``` shell
 falcon keys add testnet testkey
 ```
 
 If you already have a mnemonic and want to retrive key from it, you can use the `--mnemonic` flag. 
-```
+``` shell
 falcon keys add testnet testkey --mnemonic "mnemonic words here"
 ```
 If you already have a private key and want to retrive key from it, you can use the `--priv_key` flag. 
-```
+``` shell
 falcon keys add testnet testkey --priv_key "0x..."
 ``` 
 ### 6. Check that the keys for the configured chains are funded
 
 You can query the balance of each configured key by running:
-```
+``` shell
 falcon q balance testkey
 ```
 ### 7. Start to relay packet
 Starts all tunnels that `falcon q tunnels` can query
-```
+``` shell
 falcon start
 ```
 > NOTE: you can choose which tunnels do you want to relay
-```
+``` shell
 falcon start 1 2 3
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
