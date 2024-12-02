@@ -3,6 +3,8 @@ package evm
 import (
 	"context"
 	"encoding/hex"
+	"os"
+	"path"
 	"testing"
 	"time"
 
@@ -15,8 +17,9 @@ import (
 )
 
 const (
-	privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	address    = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	privateKey = "0x72d4772a70645a5a5ec3fdc27afda98d2860a6f7903bff5fd45c0a23d7982121"
+	address    = "0x990Ec0f6dFc9e8eE20dec3Ab855D03007A9dD946"
+	mnemonic   = "repeat sugar clarify visa chief soon walnut kangaroo rude parrot height piano spoil desk basket swim income catalog more plunge supreme above later worry"
 )
 
 var evmCfg = &EVMChainProviderConfig{
@@ -72,49 +75,103 @@ func (s *KeysTestSuite) SetupTest() {
 	s.homePath = tmpDir
 }
 
-func (s *KeysTestSuite) TestAddKeyWithPrivateKey() {
-	keyName := "testkey"
-	privatekeyHex := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-
-	actual, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
-	s.Require().NoError(err)
-
-	expected := chaintypes.NewKey("", address, "")
-	s.Require().Equal(expected, actual)
-
-	addr, err := HexToAddress(address)
-	s.Require().NoError(err)
-
-	// check that key actually added in keystore
-	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
-
-	// check that key info actually stored in local disk
-	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-	s.Require().NoError(err)
-
-	_, exist := keyInfo[keyName]
-	s.Require().True(exist)
-}
-
-func (s *KeysTestSuite) TestAddKeyWithNoMnemonic() {
+func (s *KeysTestSuite) TestAddKeyPrivateKeyInputNotEmpty() {
 	keyName := "testkey"
 	mnemonic := ""
 	coinType := 60
 	account := 0
 	index := 0
+	passphrase := ""
 
-	actual, err := s.chainProvider.AddKeyWithMnemonic(
+	actual, err := s.chainProvider.AddKey(
 		keyName,
 		mnemonic,
+		privateKey,
 		s.homePath,
 		uint32(coinType),
 		uint(account),
 		uint(index),
-		"",
+		passphrase,
+	)
+	s.Require().NoError(err)
+
+	expected := chaintypes.NewKey("", address, "")
+	s.Require().Equal(expected, actual)
+
+	addr, err := HexToAddress(address)
+	s.Require().NoError(err)
+
+	// check that key actually added in keystore
+	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
+
+	// check that key info actually stored in local disk
+	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
+	s.Require().NoError(err)
+
+	_, exist := keyInfo[keyName]
+	s.Require().True(exist)
+}
+
+func (s *KeysTestSuite) TestAddKeyMnemonicInputNotEmpty() {
+	keyName := "testkey"
+	privatekeyHex := ""
+	coinType := 60
+	account := 0
+	index := 0
+	passphrase := ""
+
+	actual, err := s.chainProvider.AddKey(
+		keyName,
+		mnemonic,
+		privatekeyHex,
+		s.homePath,
+		uint32(coinType),
+		uint(account),
+		uint(index),
+		passphrase,
+	)
+	s.Require().NoError(err)
+
+	expected := chaintypes.NewKey(mnemonic, address, "")
+	s.Require().Equal(expected, actual)
+
+	addr, err := HexToAddress(address)
+	s.Require().NoError(err)
+
+	// check that key actually added in keystore
+	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
+
+	// check that key info actually stored in local disk
+	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
+	s.Require().NoError(err)
+
+	_, exist := keyInfo[keyName]
+	s.Require().True(exist)
+}
+
+func (s *KeysTestSuite) TestAddKeyMnemonicInputEmpty() {
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := ""
+	coinType := 60
+	account := 0
+	index := 0
+	passphrase := ""
+
+	actual, err := s.chainProvider.AddKey(
+		keyName,
+		mnemonic,
+		privateKey,
+		s.homePath,
+		uint32(coinType),
+		uint(account),
+		uint(index),
+		passphrase,
 	)
 	s.Require().NoError(err)
 
 	s.Require().NotEqual("", actual.Mnemonic)
+	s.Require().NotEqual("", actual.Address)
 
 	addr, err := HexToAddress(actual.Address)
 	s.Require().NoError(err)
@@ -130,9 +187,8 @@ func (s *KeysTestSuite) TestAddKeyWithNoMnemonic() {
 	s.Require().True(exist)
 }
 
-func (s *KeysTestSuite) TestAddKeyWithGivenMnemonic() {
+func (s *KeysTestSuite) TestAddKeyWithMnemonic() {
 	keyName := "testkey"
-	mnemonic := "evil cool swamp nurse emotion dumb lecture foam stamp cigar bamboo arctic leaf twin brand sight soda drill december dial raccoon race seek expose"
 	coinType := 60
 	account := 0
 	index := 0
@@ -164,36 +220,8 @@ func (s *KeysTestSuite) TestAddKeyWithGivenMnemonic() {
 	s.Require().True(exist)
 }
 
-func (s *KeysTestSuite) TestAddKeyWithDuplicatePrivateKey() {
+func (s *KeysTestSuite) TestAddKeyWithMnemonicDuplicateMnemonic() {
 	keyName := "testkey"
-	privatekeyHex := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-
-	actual, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
-	s.Require().NoError(err)
-
-	expected := chaintypes.NewKey("", address, "")
-	s.Require().Equal(expected, actual)
-
-	addr, err := HexToAddress(address)
-	s.Require().NoError(err)
-
-	// check that key actually added in keystore
-	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
-
-	// check that key info actually stored in local disk
-	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-	s.Require().NoError(err)
-
-	_, exist := keyInfo[keyName]
-	s.Require().True(exist)
-
-	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
-	s.Require().ErrorContains(err, "account already exists")
-}
-
-func (s *KeysTestSuite) TestAddKeyWithDuplicateMnemonic() {
-	keyName := "testkey"
-	mnemonic := "evil cool swamp nurse emotion dumb lecture foam stamp cigar bamboo arctic leaf twin brand sight soda drill december dial raccoon race seek expose"
 	coinType := 60
 	account := 0
 	index := 0
@@ -236,28 +264,76 @@ func (s *KeysTestSuite) TestAddKeyWithDuplicateMnemonic() {
 	s.Require().ErrorContains(err, "account already exists")
 }
 
-func (s *KeysTestSuite) TestAddKeyWithInvalidPrivateKeyFormat() {
+func (s *KeysTestSuite) TestAddKeyWithPrivateKey() {
 	keyName := "testkey"
-	privatekeyHex := "privatekey"
 
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	actual, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
+	s.Require().NoError(err)
+
+	expected := chaintypes.NewKey("", address, "")
+	s.Require().Equal(expected, actual)
+
+	addr, err := HexToAddress(address)
+	s.Require().NoError(err)
+
+	// check that key actually added in keystore
+	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
+
+	// check that key info actually stored in local disk
+	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
+	s.Require().NoError(err)
+
+	_, exist := keyInfo[keyName]
+	s.Require().True(exist)
+}
+
+func (s *KeysTestSuite) TestAddKeyWithPrivateKeyInvalidPrivateKey() {
+	keyName := "testkey"
+	privateKey := "x72d4772a70645a5a5ec3fdc27afda98d2860a6f7903bff5fd45c0a23d7982121"
+
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
 	s.Require().Error(err)
 }
 
-func (s *KeysTestSuite) TestIsKeyNameExist() {
-	keyName := "existingkey"
-	privatekeyHex := privateKey
-	s.Require().False(s.chainProvider.IsKeyNameExist(keyName))
+func (s *KeysTestSuite) TestAddKeyWithPrivateKeyDuplicatePrivateKey() {
+	keyName := "testkey"
 
-	// Add a key to test existence
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	actual, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
 	s.Require().NoError(err)
 
-	// Check that the key exists
-	s.Require().True(s.chainProvider.IsKeyNameExist(keyName))
+	expected := chaintypes.NewKey("", address, "")
+	s.Require().Equal(expected, actual)
 
-	// Check that a non-existent key returns false
-	s.Require().False(s.chainProvider.IsKeyNameExist("nonexistentkey"))
+	addr, err := HexToAddress(address)
+	s.Require().NoError(err)
+
+	// check that key actually added in keystore
+	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
+
+	// check that key info actually stored in local disk
+	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
+	s.Require().NoError(err)
+
+	_, exist := keyInfo[keyName]
+	s.Require().True(exist)
+
+	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
+	s.Require().ErrorContains(err, "account already exists")
+
+}
+
+func (s *KeysTestSuite) TestFinalizeKeyAddition() {
+	keyName := "testkey"
+	mnemonic := ""
+	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey))
+	s.Require().NoError(err)
+	passphrase := ""
+
+	actual, err := s.chainProvider.finalizeKeyAddition(keyName, priv, mnemonic, s.homePath, passphrase)
+	s.Require().NoError(err)
+
+	expected := chaintypes.NewKey(mnemonic, address, "")
+	s.Require().Equal(expected, actual)
 }
 
 func (s *KeysTestSuite) TestDeleteKey() {
@@ -299,29 +375,34 @@ func (s *KeysTestSuite) TestListKeys() {
 	// Add multiple keys
 	keyName1 := "key1"
 	keyName2 := "key2"
+	mnemonic := ""
+	privateKey := ""
 	coinType := 60
 	account := 0
 	index := 0
+	passphrase := ""
 
-	key1, err := s.chainProvider.AddKeyWithMnemonic(
+	key1, err := s.chainProvider.AddKey(
 		keyName1,
-		"",
+		mnemonic,
+		privateKey,
 		s.homePath,
 		uint32(coinType),
 		uint(account),
 		uint(index),
-		"",
+		passphrase,
 	)
 	s.Require().NoError(err)
 
-	key2, err := s.chainProvider.AddKeyWithMnemonic(
+	key2, err := s.chainProvider.AddKey(
 		keyName2,
-		"",
+		mnemonic,
+		privateKey,
 		s.homePath,
 		uint32(coinType),
 		uint(account),
 		uint(index),
-		"",
+		passphrase,
 	)
 	s.Require().NoError(err)
 
@@ -376,20 +457,40 @@ func (s *KeysTestSuite) TestStorePrivateKey() {
 	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
 }
 
+func (s *KeysTestSuite) TestStorePrivateKeyDuplicatePrivateKey() {
+	privateKeyECDSA, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey)) // Remove "0x" prefix
+	s.Require().NoError(err)
+
+	// Store the private key in the keystore
+	account, err := s.chainProvider.storePrivateKey(privateKeyECDSA, "")
+	s.Require().NoError(err)
+	s.Require().NotNil(account)
+
+	// Verify that the key exists in the keystore
+	addr := crypto.PubkeyToAddress(privateKeyECDSA.PublicKey)
+	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
+
+	_, err = s.chainProvider.storePrivateKey(privateKeyECDSA, "")
+	s.Require().Error(err)
+}
+
 func (s *KeysTestSuite) TestStoreKeyInfo() {
-	keyName := "testkeyinfo"
-	privatekeyHex := privateKey
+	keyName := "testkey"
+	address := "0xc0ffee254729296a45a3885639AC7E10F9d54979"
+	s.chainProvider.KeyInfo[keyName] = address
+
+	err := os.MkdirAll(path.Join(s.homePath, "keys", s.chainProvider.ChainName), os.ModePerm)
+	s.Require().NoError(err)
+	err = s.chainProvider.storeKeyInfo(s.homePath)
+	s.Require().NoError(err)
 
 	// Add a key to simulate storing key info
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	keyInfoPath := path.Join(s.homePath, "keys", s.chainProvider.ChainName, "info", "info.toml")
+	b, err := os.ReadFile(keyInfoPath)
 	s.Require().NoError(err)
 
-	// Verify that key info is correctly stored in the file
-	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-	s.Require().NoError(err)
-
-	address := s.chainProvider.ShowKey(keyName)
-	s.Require().Equal(keyInfo[keyName], address)
+	expected := "testkey = '0xc0ffee254729296a45a3885639AC7E10F9d54979'\n"
+	s.Require().Equal(expected, string(b))
 }
 
 func (s *KeysTestSuite) TestGeneratePrivateKey() {
@@ -408,6 +509,17 @@ func (s *KeysTestSuite) TestGeneratePrivateKey() {
 	s.Require().NotEmpty(address)
 }
 
+func (s *KeysTestSuite) TestGeneratePrivateKeyWithInvalidMnemonic() {
+	mnemonic := "invalid" // Sample mnemonic
+	coinType := 60
+	account := 0
+	index := 0
+
+	// Generate the private key
+	_, err := s.chainProvider.generatePrivateKey(mnemonic, uint32(coinType), uint(account), uint(index))
+	s.Require().Error((err))
+}
+
 func (s *KeysTestSuite) TestGetKeyFromKeyName() {
 	keyName := "testkeyname"
 	privatekeyHex := privateKey
@@ -423,4 +535,19 @@ func (s *KeysTestSuite) TestGetKeyFromKeyName() {
 
 	// Verify that the retrieved private key matches the original private key
 	s.Require().Equal(privateKey[2:], hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))) // Remove "0x"
+}
+
+func (s *KeysTestSuite) TestGetKeyFromKeyNameWithInvalidPassphrase() {
+	keyName := "testkeyname"
+	privatekeyHex := privateKey
+	passphrase := ""
+	invalidPassphrase := "invalid"
+
+	// Add a key to test retrieval
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, passphrase)
+	s.Require().NoError(err)
+
+	// Retrieve the key using the key name
+	_, err = s.chainProvider.getKeyFromKeyName(keyName, invalidPassphrase)
+	s.Require().Error(err)
 }

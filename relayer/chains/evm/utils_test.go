@@ -66,3 +66,14 @@ func TestHexToAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertPrivateKeyStrToHexWithPrefixWith0xPrefix(t *testing.T) {
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	expected := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	require.Equal(t, expected, evm.ConvertPrivateKeyStrToHex(privateKey))
+}
+
+func TestConvertPrivateKeyStrToHexWithPrefixWithout0xPrefix(t *testing.T) {
+	privateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	require.Equal(t, privateKey, evm.ConvertPrivateKeyStrToHex(privateKey))
+}
