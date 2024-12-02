@@ -14,11 +14,11 @@ empty = $(whitespace) $(whitespace)
 comma := ,
 build_tags_comma_sep := $(subst $(empty),$(comma),$(build_tags))
 
-ldflags = -X github.com/bandprotocol/falcon/version.Name=falcon \
-	-X github.com/bandprotocol/falcon/version.AppName=falcon \
-	-X github.com/bandprotocol/falcon/version.Commit=$(COMMIT) \
-	-X github.com/bandprotocol/falcon/version.Version=$(VERSION) \
-	-X "github.com/bandprotocol/falcon/version.BuildTags=$(build_tags_comma_sep)"
+ldflags = -X github.com/bandprotocol/falcon/main.Name=falcon \
+	-X github.com/bandprotocol/falcon/cmd.AppName=falcon \
+	-X github.com/bandprotocol/falcon/cmd.Commit=$(COMMIT) \
+	-X github.com/bandprotocol/falcon/cmd.Version=$(VERSION) \
+	-X "github.com/bandprotocol/falcon/cmd.BuildTags=$(build_tags_comma_sep)"
 
 ifeq ($(LINK_STATICALLY),true)
 	ldflags += -linkmode=external -extldflags "-Wl,-z,muldefs -static"
