@@ -107,16 +107,12 @@ func (s *AppTestSuite) TestGetTunnel() {
 
 func (s *AppTestSuite) TestGetTunnelPacket() {
 	// mock query response
-	destinationChainID := "eth"
-	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
-	pc := &tunneltypes.TSSPacketContent{
-		SigningID:                  2,
-		DestinationChainID:         destinationChainID,
-		DestinationContractAddress: destinationContractAddress,
+	pc := &tunneltypes.TSSPacketReceipt{
+		SigningID: 2,
 	}
 
-	var packetContentI tunneltypes.PacketContentI = pc
-	msg, ok := packetContentI.(proto.Message)
+	var packetReceiptI tunneltypes.PacketReceiptI = pc
+	msg, ok := packetReceiptI.(proto.Message)
 	s.Require().Equal(true, ok)
 
 	any, err := codectypes.NewAnyWithValue(msg)
@@ -129,8 +125,8 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 			{SignalID: "signal1", Price: 100},
 			{SignalID: "signal2", Price: 200},
 		},
-		PacketContent: any,
-		CreatedAt:     time.Now().Unix(),
+		Receipt:   any,
+		CreatedAt: time.Now().Unix(),
 	}
 	signingResult := &tsstypes.SigningResult{
 		Signing: tsstypes.Signing{
