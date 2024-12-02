@@ -319,7 +319,6 @@ func (s *KeysTestSuite) TestAddKeyWithPrivateKeyDuplicatePrivateKey() {
 
 	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
 	s.Require().ErrorContains(err, "account already exists")
-
 }
 
 func (s *KeysTestSuite) TestFinalizeKeyAddition() {
