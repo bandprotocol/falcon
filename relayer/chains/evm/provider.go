@@ -92,8 +92,6 @@ func NewEVMChainProvider(
 
 // Connect connects to the EVM chain.
 func (cp *EVMChainProvider) Init(ctx context.Context) error {
-	// TODO: implement loading private key from store
-
 	go cp.Client.StartLivelinessCheck(ctx, cp.Config.LivelinessCheckingInterval)
 
 	return nil
