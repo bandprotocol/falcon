@@ -5,18 +5,28 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/chains"
 )
+
+const penaltyTaskChSize = 1000
 
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
 	Log                              *zap.Logger
 	TunnelRelayers                   []*TunnelRelayer
 	CheckingPacketInterval           time.Duration
+	SyncTunnelsInterval              time.Duration
 	MaxCheckingPacketPenaltyDuration time.Duration
 	ExponentialFactor                float64
 
-	isErrorOnHolds []bool
-	penaltyTaskCh  chan Task
+	isErrorOnHolds       []bool
+	isSyncTunnelsAllowed bool
+	penaltyTaskCh        chan Task
+
+	BandClient     band.Client
+	ChainProviders chains.ChainProviders
 }
 
 // NewScheduler creates a new Scheduler
@@ -24,27 +34,37 @@ func NewScheduler(
 	log *zap.Logger,
 	tunnelRelayers []*TunnelRelayer,
 	checkingPacketInterval time.Duration,
+	syncTunnelsInterval time.Duration,
 	maxCheckingPacketPenaltyDuration time.Duration,
 	exponentialFactor float64,
+	isSyncTunnelsAllowed bool,
+	bandClient band.Client,
+	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
 		TunnelRelayers:                   tunnelRelayers,
 		CheckingPacketInterval:           checkingPacketInterval,
+		SyncTunnelsInterval:              syncTunnelsInterval,
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
 		ExponentialFactor:                exponentialFactor,
 		isErrorOnHolds:                   make([]bool, len(tunnelRelayers)),
-		penaltyTaskCh:                    make(chan Task, len(tunnelRelayers)),
+		isSyncTunnelsAllowed:             isSyncTunnelsAllowed,
+		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
+		BandClient:                       bandClient,
+		ChainProviders:                   chainProviders,
 	}
 }
 
 // Start starts all tunnel relayers
 func (s *Scheduler) Start(ctx context.Context) error {
 	ticker := time.NewTicker(s.CheckingPacketInterval)
+	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 
 	// execute once we start the scheduler.
 	s.Execute(ctx)
 	defer ticker.Stop()
+	defer syncTunnelTicker.Stop()
 
 	for {
 		select {
@@ -52,6 +72,8 @@ func (s *Scheduler) Start(ctx context.Context) error {
 			s.Log.Info("Stopping the scheduler")
 
 			return nil
+		case <-syncTunnelTicker.C:
+			s.SyncTunnels(ctx)
 		case <-ticker.C:
 			s.Execute(ctx)
 		case task := <-s.penaltyTaskCh:
@@ -123,9 +145,57 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	// If the task is successful, reset the error flag.
 	s.isErrorOnHolds[task.RelayerID] = false
 	s.Log.Info(
-		"tunnel relayer is successfully executed",
+		"Tunnel relayer finished execution",
 		zap.Uint64("tunnel_id", tr.TunnelID),
 	)
+}
+
+// SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
+func (s *Scheduler) SyncTunnels(ctx context.Context) {
+	if !s.isSyncTunnelsAllowed {
+		return
+	}
+
+	s.Log.Info("starting sync tunnels")
+	tunnels, err := s.BandClient.GetTunnels(ctx)
+	if err != nil {
+		s.Log.Error("Failed to fetch tunnels from Band Chain", zap.Error(err))
+		return
+	}
+	oldTunnelCount := len(s.TunnelRelayers)
+
+	if oldTunnelCount == len(tunnels) {
+		s.Log.Info("No new tunnels to sync")
+		return
+	}
+
+	for i := oldTunnelCount; i < len(tunnels); i++ {
+		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
+		if !ok {
+			s.Log.Warn(
+				"Chain name not found in config",
+				zap.String("chain_name", tunnels[i].TargetChainID),
+				zap.Uint64("tunnel_id", tunnels[i].ID),
+			)
+			continue
+		}
+		tr := NewTunnelRelayer(
+			s.Log,
+			tunnels[i].ID,
+			tunnels[i].TargetAddress,
+			s.CheckingPacketInterval,
+			s.BandClient,
+			chainProvider,
+		)
+
+		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
+		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
+		s.Log.Info(
+			"New tunnel synchronized successfully",
+			zap.String("chain_name", tunnels[i].TargetChainID),
+			zap.Uint64("tunnel_id", tunnels[i].ID),
+		)
+	}
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit

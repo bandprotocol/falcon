@@ -73,7 +73,6 @@ func (s *ClientTestSuite) TestGetTunnel() {
 		ID:               uint64(1),
 		Sequence:         100,
 		Route:            any,
-		Encoder:          0,
 		FeePayer:         "cosmos1xyz...",
 		SignalDeviations: []tunneltypes.SignalDeviation{},
 		Interval:         60,
@@ -108,16 +107,12 @@ func (s *ClientTestSuite) TestGetTunnel() {
 
 func (s *ClientTestSuite) TestGetTunnelPacket() {
 	// mock query response
-	destinationChainID := "eth"
-	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
-	pc := &tunneltypes.TSSPacketContent{
-		SigningID:                  2,
-		DestinationChainID:         destinationChainID,
-		DestinationContractAddress: destinationContractAddress,
+	pc := &tunneltypes.TSSPacketReceipt{
+		SigningID: 2,
 	}
 
-	var packetContentI tunneltypes.PacketContentI = pc
-	msg, ok := packetContentI.(proto.Message)
+	var packetReceiptI tunneltypes.PacketReceiptI = pc
+	msg, ok := packetReceiptI.(proto.Message)
 	s.Require().Equal(true, ok)
 
 	any, err := codectypes.NewAnyWithValue(msg)
@@ -130,13 +125,14 @@ func (s *ClientTestSuite) TestGetTunnelPacket() {
 			{SignalID: "signal1", Price: 100},
 			{SignalID: "signal2", Price: 200},
 		},
-		PacketContent: any,
-		CreatedAt:     time.Now().Unix(),
+		Receipt:   any,
+		CreatedAt: time.Now().Unix(),
 	}
 	signingResult := &tsstypes.SigningResult{
 		Signing: tsstypes.Signing{
 			ID:      2,
 			Message: cmbytes.HexBytes("0xdeadbeef"),
+			Status:  tsstypes.SIGNING_STATUS_SUCCESS,
 		},
 		EVMSignature: &tsstypes.EVMSignature{
 			RAddress:  cmbytes.HexBytes("0x1234"),
@@ -173,6 +169,7 @@ func (s *ClientTestSuite) TestGetTunnelPacket() {
 			cmbytes.HexBytes("0x1234"),
 			cmbytes.HexBytes("0xabcd"),
 		),
+		"SIGNING_STATUS_SUCCESS",
 	)
 
 	// Define the expected Packet result

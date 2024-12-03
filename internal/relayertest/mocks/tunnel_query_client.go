@@ -142,6 +142,26 @@ func (mr *MockTunnelQueryClientMockRecorder) Params(ctx, in any, opts ...any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Params", reflect.TypeOf((*MockTunnelQueryClient)(nil).Params), varargs...)
 }
 
+// TotalFees mocks base method.
+func (m *MockTunnelQueryClient) TotalFees(ctx context.Context, in *types.QueryTotalFeesRequest, opts ...grpc.CallOption) (*types.QueryTotalFeesResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "TotalFees", varargs...)
+	ret0, _ := ret[0].(*types.QueryTotalFeesResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TotalFees indicates an expected call of TotalFees.
+func (mr *MockTunnelQueryClientMockRecorder) TotalFees(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TotalFees", reflect.TypeOf((*MockTunnelQueryClient)(nil).TotalFees), varargs...)
+}
+
 // Tunnel mocks base method.
 func (m *MockTunnelQueryClient) Tunnel(ctx context.Context, in *types.QueryTunnelRequest, opts ...grpc.CallOption) (*types.QueryTunnelResponse, error) {
 	m.ctrl.T.Helper()
