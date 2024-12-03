@@ -123,12 +123,6 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	return chainstypes.NewKey(mnemonic, addressHex, ""), nil
 }
 
-// IsKeyNameExist checks whether the given key name is already in use.
-func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
-	_, ok := cp.KeyInfo[keyName]
-	return ok
-}
-
 // DeleteKey deletes the given key name from the key store and removes its information.
 func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) error {
 	address, err := HexToAddress(cp.KeyInfo[keyName])
@@ -166,6 +160,12 @@ func (cp *EVMChainProvider) Listkeys() []*chainstypes.Key {
 // ShowKey shows key by the given name.
 func (cp *EVMChainProvider) ShowKey(keyName string) string {
 	return cp.KeyInfo[keyName]
+}
+
+// IsKeyNameExist checks whether the given key name is already in use.
+func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
+	_, ok := cp.KeyInfo[keyName]
+	return ok
 }
 
 // storePrivateKey stores private key to keyStore.

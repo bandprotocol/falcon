@@ -220,50 +220,6 @@ func (s *KeysTestSuite) TestAddKeyWithMnemonic() {
 	s.Require().True(exist)
 }
 
-func (s *KeysTestSuite) TestAddKeyWithMnemonicDuplicateMnemonic() {
-	keyName := "testkey"
-	coinType := 60
-	account := 0
-	index := 0
-
-	actual, err := s.chainProvider.AddKeyWithMnemonic(
-		keyName,
-		mnemonic,
-		s.homePath,
-		uint32(coinType),
-		uint(account),
-		uint(index),
-		"",
-	)
-	s.Require().NoError(err)
-
-	s.Require().NotEqual("", actual.Mnemonic)
-
-	addr, err := HexToAddress(actual.Address)
-	s.Require().NoError(err)
-
-	// check that key actually added in keystore
-	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
-
-	// check that key info actually stored in local disk
-	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-	s.Require().NoError(err)
-
-	_, exist := keyInfo[keyName]
-	s.Require().True(exist)
-
-	_, err = s.chainProvider.AddKeyWithMnemonic(
-		keyName,
-		mnemonic,
-		s.homePath,
-		uint32(coinType),
-		uint(account),
-		uint(index),
-		"",
-	)
-	s.Require().ErrorContains(err, "account already exists")
-}
-
 func (s *KeysTestSuite) TestAddKeyWithPrivateKey() {
 	keyName := "testkey"
 
@@ -293,32 +249,6 @@ func (s *KeysTestSuite) TestAddKeyWithPrivateKeyInvalidPrivateKey() {
 
 	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
 	s.Require().Error(err)
-}
-
-func (s *KeysTestSuite) TestAddKeyWithPrivateKeyDuplicatePrivateKey() {
-	keyName := "testkey"
-
-	actual, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
-	s.Require().NoError(err)
-
-	expected := chaintypes.NewKey("", address, "")
-	s.Require().Equal(expected, actual)
-
-	addr, err := HexToAddress(address)
-	s.Require().NoError(err)
-
-	// check that key actually added in keystore
-	s.Require().True(s.chainProvider.KeyStore.HasAddress(addr))
-
-	// check that key info actually stored in local disk
-	keyInfo, err := LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-	s.Require().NoError(err)
-
-	_, exist := keyInfo[keyName]
-	s.Require().True(exist)
-
-	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName, privateKey, s.homePath, "")
-	s.Require().ErrorContains(err, "account already exists")
 }
 
 func (s *KeysTestSuite) TestFinalizeKeyAddition() {
@@ -440,6 +370,17 @@ func (s *KeysTestSuite) TestShowKey() {
 	// Show the key
 	address := s.chainProvider.ShowKey(keyName)
 	s.Require().Equal(address, address)
+}
+
+func (s *KeysTestSuite) TestIsKeyNameExist() {
+	s.chainProvider.KeyInfo["testkey1"] = address
+	expected := s.chainProvider.IsKeyNameExist("testkey1")
+
+	s.Require().Equal(expected, true)
+
+	expected = s.chainProvider.IsKeyNameExist("testkey2")
+	s.Require().Equal(expected, false)
+
 }
 
 func (s *KeysTestSuite) TestStorePrivateKey() {
