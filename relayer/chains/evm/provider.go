@@ -85,7 +85,7 @@ func NewEVMChainProvider(
 		KeyInfo:             keyInfo,
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
-		Log:                 log,
+		Log:                 log.With(zap.String("chain_name", chainName)),
 		KeyStore:            keyStore,
 	}, nil
 }
@@ -106,31 +106,21 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 	tunnelDestinationAddr string,
 ) (*chainstypes.Tunnel, error) {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
-		cp.Log.Error(
-			"connect client error",
-			zap.Error(err),
-			zap.String("chain_name", cp.ChainName),
-		)
+		cp.Log.Error("Connect client error", zap.Error(err))
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
 	addr, err := HexToAddress(tunnelDestinationAddr)
 	if err != nil {
-		cp.Log.Error(
-			"invalid address",
-			zap.Error(err),
-			zap.String("chain_name", cp.ChainName),
-			zap.String("address", tunnelDestinationAddr),
-		)
+		cp.Log.Error("Invalid address", zap.Error(err), zap.String("address", tunnelDestinationAddr))
 		return nil, fmt.Errorf("[EVMProvider] invalid address: %w", err)
 	}
 
 	info, err := cp.queryTunnelInfo(ctx, tunnelID, addr)
 	if err != nil {
 		cp.Log.Error(
-			"query contract error",
+			"Query contract error",
 			zap.Error(err),
-			zap.String("chain_name", cp.ChainName),
 			zap.Uint64("tunnel_id", tunnelID),
 			zap.String("address", tunnelDestinationAddr),
 		)
@@ -153,21 +143,13 @@ func (cp *EVMChainProvider) RelayPacket(
 	packet *bandtypes.Packet,
 ) error {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
-		cp.Log.Error(
-			"connect client error",
-			zap.Error(err),
-			zap.String("chain_name", cp.ChainName),
-		)
+		cp.Log.Error("Connect client error", zap.Error(err))
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
 	gasInfo, err := cp.EstimateGas(ctx)
 	if err != nil {
-		cp.Log.Error(
-			"failed to estimate gas",
-			zap.Error(err),
-			zap.String("chain_name", cp.ChainName),
-		)
+		cp.Log.Error("Failed to estimate gas", zap.Error(err))
 		return fmt.Errorf("failed to estimate gas: %w", err)
 	}
 
@@ -175,45 +157,27 @@ func (cp *EVMChainProvider) RelayPacket(
 	sender := <-cp.FreeSenders
 	defer func() { cp.FreeSenders <- sender }()
 
-	cp.Log.Debug(
-		fmt.Sprintf("Relaying packet using address: %v", sender.Address),
-		zap.String("evm_sender_address", sender.Address.String()),
-		zap.String("chain_name", cp.ChainName),
+	log := cp.Log.With(
 		zap.Uint64("tunnel_id", packet.TunnelID),
 		zap.Uint64("sequence", packet.Sequence),
+		zap.String("sender_address", sender.Address.String()),
 	)
 
-	retryCount := 0
-	for retryCount < cp.Config.MaxRetry {
-		cp.Log.Info(
-			"relaying a message",
-			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", packet.TunnelID),
-			zap.Uint64("sequence", packet.Sequence),
-			zap.Int("retry_count", retryCount),
-		)
+	retryCount := 1
+	for retryCount <= cp.Config.MaxRetry {
+		log.Info("Relaying a message", zap.Int("retry_count", retryCount))
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		txHash, err := cp.handleRelay(ctx, packet, sender, gasInfo)
 		if err != nil {
-			cp.Log.Error(
-				"HandleRelay error",
-				zap.Error(err),
-				zap.String("chain_name", cp.ChainName),
-				zap.Uint64("tunnel_id", packet.TunnelID),
-				zap.Uint64("sequence", packet.Sequence),
-				zap.Int("retry_count", retryCount),
-			)
+			log.Error("HandleRelay error", zap.Error(err), zap.Int("retry_count", retryCount))
 			retryCount += 1
 			continue
 		}
 		createdAt := time.Now()
 
-		cp.Log.Info(
-			"submitted a message; checking transaction status",
-			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", packet.TunnelID),
-			zap.Uint64("sequence", packet.Sequence),
+		log.Info(
+			"Submitted a message; checking transaction status",
 			zap.String("tx_hash", txHash),
 			zap.Int("retry_count", retryCount),
 		)
@@ -224,12 +188,9 @@ func (cp *EVMChainProvider) RelayPacket(
 		for time.Since(createdAt) < cp.Config.WaitingTxDuration {
 			result, err := cp.checkConfirmedTx(ctx, txHash)
 			if err != nil {
-				cp.Log.Debug(
+				log.Debug(
 					"Failed to check tx status",
 					zap.Error(err),
-					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", packet.TunnelID),
-					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -244,11 +205,8 @@ func (cp *EVMChainProvider) RelayPacket(
 			txStatus = result.Status
 			switch result.Status {
 			case TX_STATUS_SUCCESS:
-				cp.Log.Info(
+				log.Info(
 					"Packet is successfully relayed",
-					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", packet.TunnelID),
-					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -257,12 +215,9 @@ func (cp *EVMChainProvider) RelayPacket(
 				retryCount += 1
 				break checkTxLogic
 			case TX_STATUS_UNMINED:
-				cp.Log.Debug(
+				log.Debug(
 					"Waiting for tx to be mined",
 					zap.Error(err),
-					zap.String("chain_name", cp.ChainName),
-					zap.Uint64("tunnel_id", packet.TunnelID),
-					zap.Uint64("sequence", packet.Sequence),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
@@ -271,13 +226,10 @@ func (cp *EVMChainProvider) RelayPacket(
 			}
 		}
 
-		cp.Log.Error(
+		log.Error(
 			"Failed to relaying a packet with status and error",
 			zap.Error(checkTxErr),
 			zap.String("status", txStatus.String()),
-			zap.String("chain_name", cp.ChainName),
-			zap.Uint64("tunnel_id", packet.TunnelID),
-			zap.Uint64("sequence", packet.Sequence),
 			zap.String("tx_hash", txHash),
 			zap.Int("retry_count", retryCount),
 		)
@@ -285,14 +237,7 @@ func (cp *EVMChainProvider) RelayPacket(
 		// bump gas and retry
 		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
 		if err != nil {
-			cp.Log.Error(
-				"cannot bump gas",
-				zap.Error(err),
-				zap.String("chain_name", cp.ChainName),
-				zap.Uint64("tunnel_id", packet.TunnelID),
-				zap.Uint64("sequence", packet.Sequence),
-				zap.Int("retry_count", retryCount),
-			)
+			log.Error("Cannot bump gas", zap.Error(err), zap.Int("retry_count", retryCount))
 		}
 
 		retryCount += 1
@@ -606,7 +551,7 @@ func (cp *EVMChainProvider) QueryBalance(
 ) (*big.Int, error) {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error(
-			"connect client error",
+			"Connect client error",
 			zap.Error(err),
 			zap.String("chain_name", cp.ChainName),
 		)
