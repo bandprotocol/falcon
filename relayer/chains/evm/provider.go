@@ -502,7 +502,7 @@ func (cp *EVMChainProvider) newRelayTx(
 	sender gethcommon.Address,
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
-	nonce, err := cp.Client.GetNonce(ctx, sender)
+	nonce, err := cp.Client.PendingNonceAt(ctx, sender)
 	if err != nil {
 		return nil, err
 	}

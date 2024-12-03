@@ -21,7 +21,7 @@ type Client interface {
 	Connect(ctx context.Context) error
 	CheckAndConnect(ctx context.Context) error
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
-	GetNonce(ctx context.Context, address gethcommon.Address) (uint64, error)
+	PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
 	GetEffectiveGasPrice(
@@ -114,15 +114,15 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	}
 }
 
-// GetNonce returns the current nonce of the given address.
-func (c *client) GetNonce(ctx context.Context, address gethcommon.Address) (uint64, error) {
+// PendingNonceAt returns the current pending nonce of the given address.
+func (c *client) PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	nonce, err := c.client.NonceAt(newCtx, address, nil)
+	nonce, err := c.client.PendingNonceAt(newCtx, address)
 	if err != nil {
 		c.Log.Error(
-			"Failed to get nonce",
+			"Failed to get pending nonce",
 			zap.Error(err),
 			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
@@ -434,6 +434,14 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 				return
 			}
 
+			c.Log.Debug(
+				"get height of the given client",
+				zap.Error(err),
+				zap.String("endpoint", endpoint),
+				zap.String("chain_name", c.ChainName),
+				zap.Uint64("block_number", block.NumberU64()),
+			)
+
 			ch <- ClientConnectionResult{endpoint, client, block.NumberU64()}
 		}(endpoint)
 	}
@@ -442,7 +450,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight >= result.BlockHeight {
+			if r.BlockHeight > result.BlockHeight {
 				if result.Client != nil {
 					result.Client.Close()
 				}
