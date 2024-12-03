@@ -171,6 +171,18 @@ func (cp *EVMChainProvider) RelayPacket(
 		return fmt.Errorf("failed to estimate gas: %w", err)
 	}
 
+	// get a free sender
+	sender := <-cp.FreeSenders
+	defer func() { cp.FreeSenders <- sender }()
+
+	cp.Log.Debug(
+		fmt.Sprintf("Relaying packet using address: %v", sender.Address),
+		zap.String("evm_sender_address", sender.Address.String()),
+		zap.String("chain_name", cp.ChainName),
+		zap.Uint64("tunnel_id", packet.TunnelID),
+		zap.Uint64("sequence", packet.Sequence),
+	)
+
 	retryCount := 0
 	for retryCount < cp.Config.MaxRetry {
 		cp.Log.Info(
@@ -182,7 +194,7 @@ func (cp *EVMChainProvider) RelayPacket(
 		)
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
-		txHash, err := cp.handleRelay(ctx, packet, gasInfo)
+		txHash, err := cp.handleRelay(ctx, packet, sender, gasInfo)
 		if err != nil {
 			cp.Log.Error(
 				"HandleRelay error",
@@ -293,27 +305,13 @@ func (cp *EVMChainProvider) RelayPacket(
 func (cp *EVMChainProvider) handleRelay(
 	ctx context.Context,
 	packet *bandtypes.Packet,
+	sender *Sender,
 	gasInfo GasInfo,
 ) (txHash string, err error) {
 	calldata, err := cp.createCalldata(packet)
 	if err != nil {
 		return "", fmt.Errorf("failed to create calldata: %w", err)
 	}
-
-	if len(cp.FreeSenders) == 0 {
-		return "", fmt.Errorf("no key available to relay packet")
-	}
-
-	sender := <-cp.FreeSenders
-	defer func() { cp.FreeSenders <- sender }()
-
-	cp.Log.Debug(
-		fmt.Sprintf("Relaying packet using address: %v", sender.Address),
-		zap.String("evm_sender_address", sender.Address.String()),
-		zap.String("chain_name", cp.ChainName),
-		zap.Uint64("tunnel_id", packet.TunnelID),
-		zap.Uint64("sequence", packet.Sequence),
-	)
 
 	tx, err := cp.newRelayTx(ctx, calldata, sender.Address, gasInfo)
 	if err != nil {
