@@ -380,7 +380,6 @@ func (s *KeysTestSuite) TestIsKeyNameExist() {
 
 	expected = s.chainProvider.IsKeyNameExist("testkey2")
 	s.Require().Equal(expected, false)
-
 }
 
 func (s *KeysTestSuite) TestStorePrivateKey() {
