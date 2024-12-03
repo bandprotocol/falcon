@@ -37,7 +37,7 @@ Intermediary between the relayer application and the target blockchain. It encap
 ### 3. Scheduler
 - Executes tasks for each `TunnelRelayer` periodically.
 - Penalizes failing tasks with an exponential backoff.
-- Synchornizes with BandChain periodically to ensure that Falcon keeps all tunnels aligned and up-to-date with BandChain.
+- Synchronizes with BandChain periodically to ensure that Falcon keeps all tunnels aligned and up-to-date with BandChain.
 
 ### 4. Tunnel Relayer
 - Fetches tunnel information and packet by `BandChain Client` and `Chain Provider`
@@ -51,8 +51,8 @@ Intermediary between the relayer application and the target blockchain. It encap
 ## Flow
 ### 1. Initialization
 - Initializes Tunnel Relayers
-   - Fetches tunnel information from BandChain and target chains.
-   - Validates the provider and loads keys into the sender channel.
+  - Fetches tunnel information from BandChain and target chains.
+  - Validates the provider and loads keys into the sender channel.
 - Validates Passphrase 
   - Checks if the user-provided passphrase matches the stored hash to ensure security. 
 - Starts Scheduler
@@ -61,7 +61,7 @@ Intermediary between the relayer application and the target blockchain. It encap
 ### 2. Starting Scheduler
 The Scheduler starts execution ticker and tunnel synchronization ticker based on the given configuration, and handles penalized tasks resulting from consecutive relay packet failures.
 - Periodic Execution
-  - Asynchronously triggers each `TunnelRelayer` instances to check [(3.)](#3-checking-packets) and relay [(4.)](#4-relating-packets) the packet and confirm transaction [(5.)](#5-confirming-transaction).
+  - Asynchronously triggers each `TunnelRelayer` instances to check [(3.)](#3-checking-packets) and relay [(4.)](#4-relaying-packets) the packet and confirm transaction [(5.)](#5-confirming-transaction).
 - Tunnels synchronization
   - Updates tunnel information from BandChain to ensure that Falcon keeps all tunnels aligned and up-to-date with BandChain.
 - Handling penalty task
@@ -98,7 +98,9 @@ The Scheduler starts execution ticker and tunnel synchronization ticker based on
 
 ---
 ## Getting Started
+**Note:** This guide assumes that the program runs on a Linux environment.
 ### 1. Node Installation
+
 #### 1.1 Node Configuration
 - make, gcc, g++ (can be obtained from the build-essential package on linux)
 - wget, curl for downloading files
@@ -122,8 +124,6 @@ source ~/.profile
 ```
 Go binary should be at /usr/local/go/bin and any executable compiled by go install command should be at ~/go/bin
 
-
-
 #### 1.2: Clone & Install Falcon
 ``` shell
 cd ~
@@ -134,28 +134,32 @@ cd falcon
 # Install binaries to $GOPATH/bin
 make install
 ```
-### 2. Initialize the configuration directory/file
-#### 2.1 Set passphrase
-You can set passphrase ain `.env` file as an additonal encrypted key for keys storage.
-```
-PASSPHRASE=secret
-```
-Default passphrase is `""`
 
-Default config file location: ~/.falcon/config/passphrase.hash
+### 2. Set passphrase 
+In Falcon, the passphrase serves as an **encryption key** for securing sensitive data.
+- The passphrase can be set in one of the following ways:
+  - As an environment variable via a `.env` file.
+    ``` shell
+    PASSPHRASE=secret
+    ```
+  - Passed inline with commands that require it.
+    ``` shell
+    PASSPHRASE=secret falcon ...
+    ```
+- Some commands require the passphrase to:
+  - Validate its correctness when performing operations like managing keys.
+  - Initialize and encrypt configuration files for the program.
+- If no passphrase is provided, it defaults to an empty string `""`.
 
-#### 2.2 Init config
+### 3. Initialize the configuration directory/file
 ``` shell
 falcon config init
 ```
-You can also pass `PASSPHRASE` as an system environment variable by 
-```
-PASSPHRASE=<YOUR-SECRET> falcon config init
-```
+- The passphrase will be init after this command, it will become your program's permanent passphrase and cannot be changed. Please check that you set the correct passphrase during this step.
 
-Default config file location: ~/.falcon/config/config.toml
+- Default config directory: ~/.falcon/config
 
-By default, config will be initialized in format like this 
+- By default, config will be initialized in format like this 
 ```toml
 [global]
 log_level = 'info'
@@ -176,9 +180,8 @@ To customize the config for relaying, you can use custom config file and use the
 ```
 falcon config init --file custom_config.toml
 ```
-> NOTE: Once the configuration is initialized, the passphrase you set will become your program's permanent passphrase and cannot be changed.
 
-### 3. Configure target chains you want to relay
+### 4. Configure target chains you want to relay
 You need to create a chain configuration file to add it to the configuration. Currently, only EVM chains are supported.
 <br/> Example:
 ``` toml
@@ -198,18 +201,30 @@ execute_timeout = 3000000000
 liveliness_checking_interval = 900000000000
 ```
 
+The supported `gas_type` values are `legacy` and `eip1559`. Each type requires specific configuration fields.
+- `legacy`
+  - `max_gas_price` defines the maximum gas price.
+  - If `max_gas_price` is not specified, it will be retrieved from the tunnel router.
+- `eip1559`
+  - `max_base_fee` defines the maximum base fee.
+  - `max_priority_fee` defines the maximum priority fee.
+   - If `max_priority_fee` is not defined, it will also be retrieved from the tunnel router
+
 ``` shell
 falcon chains add testnet chain_config.toml
 ```
 
-### 4. Check target chain's activeness
+### 5. Check target chain's activeness
 To relay packets to the target chain, you need to ensure that the tunnel on the target chain is active. This can be checked using
 ``` shell
 falcon query tunnel <TUNNEL_ID>
 ```
 
 
-### 5. Import OR create new keys to use when signing and relaying transactions.
+### 6. Import OR create new keys to use when signing and relaying transactions.
+>Please ensure that you are using the correct passphrase that was set during initialization for the `add`, `delete`, and `export` commands.
+</br>
+>
 If you need to generate a new private key you can use the add subcommand.
 ``` shell
 falcon keys add testnet testkey
@@ -223,14 +238,14 @@ If you already have a private key and want to retrive key from it, you can use t
 ``` shell
 falcon keys add testnet testkey --priv_key "0x..."
 ``` 
-### 6. Check that the keys for the configured chains are funded
+### 7. Check that the keys for the configured chains are funded
 
 You can query the balance of each configured key by running:
 ``` shell
 falcon q balance testkey
 ```
-### 7. Start to relay packet
-Starts all tunnels that `falcon q tunnels` can query
+### 8. Start to relay packet
+Starts all tunnels that `falcon query tunnels` can query
 ``` shell
 falcon start
 ```
