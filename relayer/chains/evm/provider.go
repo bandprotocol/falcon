@@ -152,6 +152,7 @@ func (cp *EVMChainProvider) RelayPacket(
 	}
 
 	// get a free sender
+	cp.Log.Debug("Waiting for a free sender...")
 	sender := <-cp.FreeSenders
 	defer func() { cp.FreeSenders <- sender }()
 
@@ -284,7 +285,6 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 		TX_STATUS_UNMINED,
 		decimal.NullDecimal{},
 		cp.GasType,
-		decimal.NullDecimal{},
 	)
 
 	receipt, err := cp.Client.GetTxReceipt(ctx, txHash)
@@ -308,27 +308,7 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 
 	// calculate gas used and effective gas price
 	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
-
-	effectiveGas, err := cp.GetEffectiveGas(ctx, receipt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get effective gas price: %w", err)
-	}
-
-	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, cp.GasType, effectiveGas), nil
-}
-
-func (cp *EVMChainProvider) GetEffectiveGas(
-	ctx context.Context,
-	receipt *gethtypes.Receipt,
-) (decimal.NullDecimal, error) {
-	switch cp.GasType {
-	case GasTypeLegacy:
-		return cp.Client.GetEffectiveGasPrice(ctx, receipt)
-	case GasTypeEIP1559:
-		return cp.Client.GetEffectiveGasTipValue(ctx, receipt)
-	default:
-		return decimal.NullDecimal{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
-	}
+	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, cp.GasType), nil
 }
 
 // EstimateGas estimates the gas for the transaction.

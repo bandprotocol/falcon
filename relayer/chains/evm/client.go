@@ -10,7 +10,6 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 )
 
@@ -24,14 +23,6 @@ type Client interface {
 	PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
-	GetEffectiveGasPrice(
-		ctx context.Context,
-		receipt *gethtypes.Receipt,
-	) (decimal.NullDecimal, error)
-	GetEffectiveGasTipValue(
-		ctx context.Context,
-		receipt *gethtypes.Receipt,
-	) (decimal.NullDecimal, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	EstimateGasPrice(ctx context.Context) (*big.Int, error)
@@ -124,27 +115,13 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	block, err := c.client.BlockByNumber(newCtx, nil)
+	blockHeight, err := c.client.BlockNumber(newCtx)
 	if err != nil {
 		c.Log.Error("Failed to get block height", zap.Error(err), zap.String("endpoint", c.selectedEndpoint))
 		return 0, fmt.Errorf("[EVMClient] failed to get block height: %w", err)
 	}
 
-	return block.NumberU64(), nil
-}
-
-// GetBlock returns the block information of the given height.
-func (c *client) GetBlock(ctx context.Context, height uint64) (*gethtypes.Block, error) {
-	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
-	defer cancel()
-
-	block, err := c.client.BlockByNumber(newCtx, new(big.Int).SetUint64(height))
-	if err != nil {
-		c.Log.Error("Failed to get block information", zap.Error(err), zap.String("endpoint", c.selectedEndpoint))
-		return nil, fmt.Errorf("[EVMClient] failed to get block information: %w", err)
-	}
-
-	return block, nil
+	return blockHeight, nil
 }
 
 // GetTxReceipt returns the transaction receipt of the given transaction hash.
@@ -184,64 +161,6 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 	}
 
 	return tx, isPending, nil
-}
-
-// GetEffectiveGasTipValue returns the effective gas tip of the given transaction receipt.
-func (c *client) GetEffectiveGasTipValue(
-	ctx context.Context,
-	receipt *gethtypes.Receipt,
-) (decimal.NullDecimal, error) {
-	tx, isPending, err := c.GetTxByHash(ctx, receipt.TxHash.String())
-	if err != nil {
-		return decimal.NullDecimal{}, err
-	}
-
-	if isPending {
-		c.Log.Debug(
-			"Tx is pending",
-			zap.String("endpoint", c.selectedEndpoint),
-			zap.String("tx_hash", receipt.TxHash.String()),
-		)
-		return decimal.NullDecimal{}, fmt.Errorf("[EVMClient] tx is pending")
-	}
-
-	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
-	defer cancel()
-
-	header, err := c.GetBlock(newCtx, receipt.BlockNumber.Uint64())
-	if err != nil {
-		return decimal.NullDecimal{}, err
-	}
-
-	baseFee := header.BaseFee()
-	priorityFee := tx.EffectiveGasTipValue(baseFee)
-	return decimal.NewNullDecimal(
-		decimal.New(new(big.Int).Add(baseFee, priorityFee).Int64(), 0),
-	), nil
-}
-
-// GetEffectiveGasPrice returns the effective gas price of the given transaction receipt.
-func (c *client) GetEffectiveGasPrice(
-	ctx context.Context,
-	receipt *gethtypes.Receipt,
-) (decimal.NullDecimal, error) {
-	tx, isPending, err := c.GetTxByHash(ctx, receipt.TxHash.String())
-	if err != nil {
-		return decimal.NullDecimal{}, err
-	}
-
-	if isPending {
-		c.Log.Debug(
-			"Tx is pending",
-			zap.String("endpoint", c.selectedEndpoint),
-			zap.String("tx_hash", receipt.TxHash.String()),
-		)
-		return decimal.NullDecimal{}, fmt.Errorf("[EVMClient] tx is pending")
-	}
-
-	return decimal.NewNullDecimal(
-		decimal.New(int64(tx.GasPrice().Uint64()), 0),
-	), nil
 }
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
@@ -386,7 +305,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 			defer cancel()
 
-			block, err := client.BlockByNumber(newCtx, nil)
+			blockHeight, err := client.BlockNumber(newCtx)
 			if err != nil {
 				c.Log.Debug(
 					"Failed to get block height",
@@ -401,10 +320,10 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 				"Get height of the given client",
 				zap.Error(err),
 				zap.String("endpoint", endpoint),
-				zap.Uint64("block_number", block.NumberU64()),
+				zap.Uint64("block_number", blockHeight),
 			)
 
-			ch <- ClientConnectionResult{endpoint, client, block.NumberU64()}
+			ch <- ClientConnectionResult{endpoint, client, blockHeight}
 		}(endpoint)
 	}
 
