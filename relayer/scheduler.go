@@ -27,6 +27,9 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
+
+	HomePath      string
+	EnvPassphrase string
 }
 
 // NewScheduler creates a new Scheduler
@@ -179,6 +182,16 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			)
 			continue
 		}
+		err := chainProvider.LoadFreeSenders(s.HomePath, s.EnvPassphrase)
+		if err != nil {
+			s.Log.Warn(
+				"cannot load keys in target chain",
+				zap.String("chain_name", tunnels[i].TargetChainID),
+				zap.Uint64("tunnel_id", tunnels[i].ID),
+			)
+			continue
+		}
+
 		tr := NewTunnelRelayer(
 			s.Log,
 			tunnels[i].ID,
