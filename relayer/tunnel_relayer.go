@@ -107,7 +107,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 				zap.Error(fmt.Errorf("signing status is fallen")),
 				zap.Uint64("sequence", seq),
 			)
-			return err
+			return fmt.Errorf("signing status is fallen")
 
 		case tsstypes.SIGNING_STATUS_WAITING:
 			t.Log.Info(
