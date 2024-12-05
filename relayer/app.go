@@ -622,7 +622,10 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.targetChains,
+		a.HomePath,
+		a.EnvPassphrase,
 	)
+
 	return scheduler.Start(ctx)
 }
 

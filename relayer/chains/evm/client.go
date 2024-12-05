@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
+	"sync"
 )
 
 var _ Client = &client{}
@@ -52,6 +53,7 @@ type client struct {
 
 	selectedEndpoint string
 	client           *ethclient.Client
+	mutex            sync.Mutex
 }
 
 // NewClient creates a new EVM client from config file and load keys.
@@ -67,6 +69,15 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 
 // Connect connects to the EVM chain.
 func (c *client) Connect(ctx context.Context) error {
+	// Lock to prevent concurrent calls
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	// Check if already connected to avoid redundant calls
+	if c.client != nil {
+		return nil
+	}
+
 	res, err := c.getClientWithMaxHeight(ctx)
 	if err != nil {
 		c.Log.Error(
