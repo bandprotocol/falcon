@@ -43,6 +43,8 @@ func NewScheduler(
 	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
+	homePath string,
+	envPassphrase string,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
@@ -56,6 +58,8 @@ func NewScheduler(
 		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
+		HomePath:                         homePath,
+		EnvPassphrase:                    envPassphrase,
 	}
 }
 
