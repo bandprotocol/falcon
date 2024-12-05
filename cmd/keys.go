@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -43,19 +45,22 @@ $ %s k a eth test-key`, appName, appName)),
 			chainName := args[0]
 			keyName := args[1]
 
-			mnemonic, err := cmd.Flags().GetString(flagMnemonic)
-			if err != nil {
-				return err
+			reader := bufio.NewReader(os.Stdin)
+
+			// Prompt for mnemonic or private key
+			fmt.Print("Enter mnemonic (leave empty if using private key): ")
+			mnemonic, _ := reader.ReadString('\n')
+			mnemonic = strings.TrimSpace(mnemonic)
+
+			privateKey := ""
+			if mnemonic == "" {
+				fmt.Print("Enter private key (leave empty to generate a new one): ")
+				privateKey, _ = reader.ReadString('\n')
+				privateKey = strings.TrimSpace(privateKey)
 			}
 
-			privateKey, err := cmd.Flags().GetString(flagPrivateKey)
-			if err != nil {
-				return err
-			}
-
-			if mnemonic != "" && privateKey != "" {
-				return fmt.Errorf("only one of mnemonic or private key should be provided, not both")
-			}
+			fmt.Println(mnemonic)
+			fmt.Println(privateKey)
 
 			coinType, err := cmd.Flags().GetInt32(flagCoinType)
 			if err != nil {
@@ -90,8 +95,6 @@ $ %s k a eth test-key`, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().StringP(flagMnemonic, "m", "", "add new key from specified mnemonic")
-	cmd.Flags().StringP(flagPrivateKey, "p", "", "add new key from specified private key")
 	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
 	cmd.Flags().Uint(flagAccount, 0, "account number within the HD derivation path")
 	cmd.Flags().
