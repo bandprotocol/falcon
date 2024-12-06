@@ -102,12 +102,9 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		switch tsstypes.SigningStatus(tsstypes.SigningStatus_value[signing.Status]) {
 		case tsstypes.SIGNING_STATUS_FALLEN:
-			t.Log.Error(
-				"Failed to relay packet",
-				zap.Error(fmt.Errorf("signing status is fallen")),
-				zap.Uint64("sequence", seq),
-			)
-			return fmt.Errorf("signing status is fallen")
+			err := fmt.Errorf("signing status is fallen")
+			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
+			return err
 
 		case tsstypes.SIGNING_STATUS_WAITING:
 			t.Log.Info(
