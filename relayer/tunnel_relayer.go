@@ -35,7 +35,7 @@ func NewTunnelRelayer(
 	targetChainProvider chains.ChainProvider,
 ) TunnelRelayer {
 	return TunnelRelayer{
-		Log:                    log,
+		Log:                    log.With(zap.Uint64("tunnel_id", tunnelID)),
 		TunnelID:               tunnelID,
 		ContractAddress:        contractAddress,
 		CheckingPacketInterval: checkingPacketInterval,
@@ -64,11 +64,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 	// Query tunnel info from BandChain
 	tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 	if err != nil {
-		t.Log.Error(
-			"failed to get tunnel",
-			zap.Error(err),
-			zap.Uint64("tunnel_id", t.TunnelID),
-		)
+		t.Log.Error("Failed to get tunnel", zap.Error(err))
 		return err
 	}
 
@@ -78,37 +74,24 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		return err
 	}
 	if !tunnelChainInfo.IsActive {
-		t.Log.Error("tunnel is not active on target chain", zap.Uint64("tunnel_id", t.TunnelID))
+		t.Log.Error("Tunnel is not active on target chain")
 		return fmt.Errorf("tunnel is not active on target chain")
 	}
 
 	// end process if current packet is already relayed
 	nextSeq := tunnelChainInfo.LatestSequence + 1
 	if tunnelBandInfo.LatestSequence < nextSeq {
-		t.Log.Info(
-			"no new packet to relay",
-			zap.Uint64("tunnel_id", t.TunnelID),
-			zap.Uint64("sequence", tunnelChainInfo.LatestSequence),
-		)
+		t.Log.Info("No new packet to relay", zap.Uint64("sequence", tunnelChainInfo.LatestSequence))
 		return nil
 	}
 
 	// Relay packets
 	for seq := nextSeq; seq <= tunnelBandInfo.LatestSequence; seq++ {
-		t.Log.Info(
-			"relaying packet",
-			zap.Uint64("tunnel_id", t.TunnelID),
-			zap.Uint64("sequence", seq),
-		)
+		t.Log.Info("Relaying packet", zap.Uint64("sequence", seq))
 
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
-			t.Log.Error(
-				"failed to get packet",
-				zap.Error(err),
-				zap.Uint64("tunnel_id", t.TunnelID),
-				zap.Uint64("sequence", seq),
-			)
+			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
 		}
 
@@ -119,38 +102,24 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		switch tsstypes.SigningStatus(tsstypes.SigningStatus_value[signing.Status]) {
 		case tsstypes.SIGNING_STATUS_FALLEN:
-			t.Log.Error(
-				"Failed to relay packet",
-				zap.Error(fmt.Errorf("signing status is fallen")),
-				zap.Uint64("tunnel_id", t.TunnelID),
-				zap.Uint64("sequence", seq),
-			)
+			err := fmt.Errorf("signing status is fallen")
+			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
 
 		case tsstypes.SIGNING_STATUS_WAITING:
 			t.Log.Info(
 				"The current packet must wait for the completion of the EVM signature",
-				zap.Uint64("tunnel_id", t.TunnelID),
 				zap.Uint64("sequence", seq),
 			)
 			return nil
 		}
 
 		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
-			t.Log.Error(
-				"failed to relay packet",
-				zap.Error(err),
-				zap.Uint64("tunnel_id", t.TunnelID),
-				zap.Uint64("sequence", seq),
-			)
+			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
 		}
 
-		t.Log.Info(
-			"successfully relayed packet",
-			zap.Uint64("tunnel_id", t.TunnelID),
-			zap.Uint64("sequence", seq),
-		)
+		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}
 
 	return nil
