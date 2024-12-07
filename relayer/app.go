@@ -129,14 +129,14 @@ func (a *App) initLogger(configLogLevel string) error {
 func (a *App) initTargetChains(ctx context.Context) error {
 	a.targetChains = make(chains.ChainProviders)
 	if a.Config == nil || a.Config.TargetChains == nil {
-		a.Log.Error("target chains not found in config")
+		a.Log.Error("Target chains not found in config")
 		return nil
 	}
 
 	for chainName, chainConfig := range a.Config.TargetChains {
 		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug)
 		if err != nil {
-			a.Log.Error("cannot create chain provider",
+			a.Log.Error("Cannot create chain provider",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
 			)
@@ -144,7 +144,7 @@ func (a *App) initTargetChains(ctx context.Context) error {
 		}
 
 		if err := cp.Init(ctx); err != nil {
-			a.Log.Error("cannot initialize chain provider",
+			a.Log.Error("Cannot initialize chain provider",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
 			)
@@ -554,7 +554,7 @@ func (a *App) validatePassphrase(envPassphrase string) error {
 
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
-	a.Log.Info("starting tunnel relayer")
+	a.Log.Info("Starting tunnel relayer")
 
 	isSyncTunnelsAllowed := false
 
@@ -579,7 +579,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	if len(tunnels) == 0 {
-		a.Log.Error("no tunnel ID provided")
+		a.Log.Error("No tunnel ID provided")
 		return fmt.Errorf("no tunnel ID provided")
 	}
 
@@ -628,7 +628,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 // Relay relays the packet from the source chain to the destination chain.
 func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
-	a.Log.Debug("query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
+	a.Log.Debug("Query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return err
