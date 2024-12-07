@@ -179,7 +179,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			)
 			continue
 		}
-
 		tr := NewTunnelRelayer(
 			s.Log,
 			tunnels[i].ID,

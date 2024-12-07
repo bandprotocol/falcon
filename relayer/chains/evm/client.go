@@ -355,8 +355,7 @@ func (c *client) CheckAndConnect(ctx context.Context) error {
 		return nil
 	}
 
-	err := c.Connect(ctx)
-	return err
+	return c.Connect(ctx)
 }
 
 // GetBalance get the balance of specific account the EVM chain.

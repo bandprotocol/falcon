@@ -655,6 +655,14 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 	}
 
+	if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
+		a.Log.Error("Cannot load keys in target chain",
+			zap.Error(err),
+			zap.String("chain_name", tunnel.TargetChainID),
+		)
+		return err
+	}
+
 	tr := NewTunnelRelayer(
 		a.Log,
 		tunnel.ID,
