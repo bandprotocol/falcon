@@ -27,9 +27,6 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
-
-	HomePath      string
-	EnvPassphrase string
 }
 
 // NewScheduler creates a new Scheduler
@@ -43,8 +40,6 @@ func NewScheduler(
 	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
-	homePath string,
-	envPassphrase string,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
@@ -58,8 +53,6 @@ func NewScheduler(
 		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
-		HomePath:                         homePath,
-		EnvPassphrase:                    envPassphrase,
 	}
 }
 
@@ -181,15 +174,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		if !ok {
 			s.Log.Warn(
 				"Chain name not found in config",
-				zap.String("chain_name", tunnels[i].TargetChainID),
-				zap.Uint64("tunnel_id", tunnels[i].ID),
-			)
-			continue
-		}
-		err := chainProvider.LoadFreeSenders(s.HomePath, s.EnvPassphrase)
-		if err != nil {
-			s.Log.Warn(
-				"cannot load keys in target chain",
 				zap.String("chain_name", tunnels[i].TargetChainID),
 				zap.Uint64("tunnel_id", tunnels[i].ID),
 			)

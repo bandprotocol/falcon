@@ -28,6 +28,9 @@ type ChainProvider interface {
 
 	// QueryBalance queries balance by given key name from the destination chain.
 	QueryBalance(ctx context.Context, keyName string) (*big.Int, error)
+
+	// Connect establishes a connection to the target chain's node with the highest block height.
+	Connect(ctx context.Context) error
 }
 
 // KeyProvider defines the interface for the key interaction with destination chain

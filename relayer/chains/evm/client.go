@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -44,7 +43,6 @@ type client struct {
 
 	selectedEndpoint string
 	client           *ethclient.Client
-	mutex            sync.Mutex
 }
 
 // NewClient creates a new EVM client from config file and load keys.
@@ -60,15 +58,6 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 
 // Connect connects to the EVM chain.
 func (c *client) Connect(ctx context.Context) error {
-	// Lock to prevent concurrent calls
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	// Check if already connected to avoid redundant calls
-	if c.client != nil {
-		return nil
-	}
-
 	res, err := c.getClientWithMaxHeight(ctx)
 	if err != nil {
 		c.Log.Error("Failed to connect to EVM chain", zap.Error(err))
@@ -366,7 +355,8 @@ func (c *client) CheckAndConnect(ctx context.Context) error {
 		return nil
 	}
 
-	return c.Connect(ctx)
+	err := c.Connect(ctx)
+	return err
 }
 
 // GetBalance get the balance of specific account the EVM chain.

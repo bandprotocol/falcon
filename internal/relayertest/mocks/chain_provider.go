@@ -58,6 +58,20 @@ func (mr *MockChainProviderMockRecorder) AddKey(keyName, mnemonic, privateKeyHex
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKey", reflect.TypeOf((*MockChainProvider)(nil).AddKey), keyName, mnemonic, privateKeyHex, homePath, coinType, account, index, passphrase)
 }
 
+// Connect mocks base method.
+func (m *MockChainProvider) Connect(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Connect", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Connect indicates an expected call of Connect.
+func (mr *MockChainProviderMockRecorder) Connect(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockChainProvider)(nil).Connect), ctx)
+}
+
 // DeleteKey mocks base method.
 func (m *MockChainProvider) DeleteKey(homePath, keyName, passphrase string) error {
 	m.ctrl.T.Helper()

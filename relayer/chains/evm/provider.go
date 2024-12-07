@@ -563,3 +563,8 @@ func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, e
 
 	return output, nil
 }
+
+// Connect establishes a connection to the target chain's node with the highest block height.
+func (cp *EVMChainProvider) Connect(ctx context.Context) error {
+	return cp.Client.Connect(ctx)
+}
