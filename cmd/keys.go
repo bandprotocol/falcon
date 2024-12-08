@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
-	"github.com/charmbracelet/huh"
 )
 
 const (
