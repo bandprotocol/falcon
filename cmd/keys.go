@@ -1,15 +1,20 @@
 package cmd
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
+	"github.com/charmbracelet/huh"
+)
+
+const (
+	privateKeyLabel = "Private key (provide an existing private key)"
+	mnemonicLabel   = "Mnemonic (recover from an existing mnemonic phrase)"
+	defaultLabel    = "Generate new address (no private key or mnemonic needed)"
 )
 
 // keysCmd represents the keys command
@@ -44,29 +49,55 @@ $ %s k a eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keyName := args[1]
-
-			reader := bufio.NewReader(os.Stdin)
-
-			// Prompt for mnemonic or private key
-			fmt.Print("Enter mnemonic (leave empty if using private key): ")
-			mnemonic, _ := reader.ReadString('\n')
-			mnemonic = strings.TrimSpace(mnemonic)
-
+			mnemonic := ""
 			privateKey := ""
-			if mnemonic == "" {
-				fmt.Print("Enter private key (leave empty to generate a new one): ")
-				privateKey, _ = reader.ReadString('\n')
-				privateKey = strings.TrimSpace(privateKey)
+
+			// Use huh to create a form for user input
+			selection := ""
+			selectionPrompt := huh.NewGroup(huh.NewSelect[string]().
+				Title("Choose how to add a key").
+				Options(
+					huh.NewOption(privateKeyLabel, privateKeyLabel),
+					huh.NewOption(mnemonicLabel, mnemonicLabel),
+					huh.NewOption(defaultLabel, defaultLabel),
+				).
+				Value(&selection))
+
+			form := huh.NewForm(selectionPrompt)
+			if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+				return err
 			}
 
-			fmt.Println(mnemonic)
-			fmt.Println(privateKey)
+			// Handle the selected option
+			switch selection {
+			case privateKeyLabel:
+				privateKeyPrompt := huh.NewGroup(huh.NewInput().
+					Title("Enter your private key").
+					EchoMode(huh.EchoModePassword).
+					Value(&privateKey))
 
+				form := huh.NewForm(privateKeyPrompt)
+				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+					return err
+				}
+
+			case mnemonicLabel:
+				mnemonicPrompt := huh.NewGroup(huh.NewInput().
+					Title("Enter your mnemonic").
+					EchoMode(huh.EchoModePassword).
+					Value(&mnemonic))
+
+				form := huh.NewForm(mnemonicPrompt)
+				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+					return err
+				}
+			}
+
+			// Get additional flags
 			coinType, err := cmd.Flags().GetInt32(flagCoinType)
 			if err != nil {
 				return err
 			}
-
 			if coinType < 0 {
 				coinType = defaultCoinType
 			}
@@ -81,6 +112,7 @@ $ %s k a eth test-key`, appName, appName)),
 				return err
 			}
 
+			// Add the key to the app
 			keyOutput, err := app.AddKey(chainName, keyName, mnemonic, privateKey, uint32(coinType), account, index)
 			if err != nil {
 				return err
@@ -95,8 +127,10 @@ $ %s k a eth test-key`, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
-	cmd.Flags().Uint(flagAccount, 0, "account number within the HD derivation path")
+
+	// Command flags
+	cmd.Flags().Int32(flagCoinType, -1, "Coin type number for HD derivation")
+	cmd.Flags().Uint(flagAccount, 0, "Account number within the HD derivation path")
 	cmd.Flags().
 		Uint(flagAccountIndex, 0, "Index number for the specific address within an account in the HD derivation path")
 	return cmd
