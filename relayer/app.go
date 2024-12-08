@@ -592,10 +592,6 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 			return err
 		}
 
-		if err := chainProvider.Connect(ctx); err != nil {
-			return err
-		}
-
 		if err := chainProvider.Init(ctx); err != nil {
 			a.Log.Error("Cannot initialize chain provider",
 				zap.Error(err),
