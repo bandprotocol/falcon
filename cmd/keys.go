@@ -73,7 +73,6 @@ $ %s k a eth test-key`, appName, appName)),
 			case privateKeyLabel:
 				privateKeyPrompt := huh.NewGroup(huh.NewInput().
 					Title("Enter your private key").
-					EchoMode(huh.EchoModePassword).
 					Value(&privateKey))
 
 				form := huh.NewForm(privateKeyPrompt)
@@ -84,7 +83,6 @@ $ %s k a eth test-key`, appName, appName)),
 			case mnemonicLabel:
 				mnemonicPrompt := huh.NewGroup(huh.NewInput().
 					Title("Enter your mnemonic").
-					EchoMode(huh.EchoModePassword).
 					Value(&mnemonic))
 
 				form := huh.NewForm(mnemonicPrompt)
