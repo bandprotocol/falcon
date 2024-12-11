@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -58,6 +59,11 @@ $ %s k a eth test-key`, appName, appName)),
 			mnemonic := ""
 			privateKey := ""
 
+			var (
+				coinType, account, index          uint64
+				coinTypeStr, accountStr, indexStr string
+			)
+
 			// Use huh to create a form for user input
 			selection := 0
 			selectionPrompt := huh.NewGroup(huh.NewSelect[int]().
@@ -74,6 +80,66 @@ $ %s k a eth test-key`, appName, appName)),
 				return err
 			}
 
+			// Coin type input
+			coinTypeInput := huh.NewInput().
+				Title("Enter a coin type").
+				Description("Coin type number for HD derivation (default: 60; leave empty to use default)").
+				Value(&coinTypeStr).Validate(
+				func(s string) error {
+					if s == "" {
+						coinType = defaultCoinType
+						return nil
+					}
+					var err error
+					coinType, err = strconv.ParseUint(s, 10, 32)
+					if err != nil {
+						return fmt.Errorf("invalid coin type input (should be uint32)")
+					}
+
+					return nil
+				},
+			)
+
+			// Account type input
+			accountInput := huh.NewInput().
+				Title("Enter an account").
+				Description("Account number in the HD derivation path (default: 0; leave empty to use default)").
+				Value(&accountStr).Validate(
+				func(s string) error {
+					if s == "" {
+						account = 0
+						return nil
+					}
+					var err error
+					account, err = strconv.ParseUint(s, 10, 32)
+					if err != nil {
+						return fmt.Errorf("invalid account input (should be uint32)")
+					}
+
+					return nil
+				},
+			)
+
+			// Index type input
+			indexInput := huh.NewInput().
+				Title("Enter an index").
+				Description("Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)").
+				Value(&indexStr).Validate(
+				func(s string) error {
+					if s == "" {
+						index = 0
+						return nil
+					}
+					var err error
+					index, err = strconv.ParseUint(s, 10, 32)
+					if err != nil {
+						return fmt.Errorf("invalid index input (should be uint32)")
+					}
+
+					return nil
+				},
+			)
+
 			// Handle the selected option
 			switch selection {
 			case privateKeyResult:
@@ -89,35 +155,34 @@ $ %s k a eth test-key`, appName, appName)),
 			case mnemonicResult:
 				mnemonicPrompt := huh.NewGroup(huh.NewInput().
 					Title("Enter your mnemonic").
-					Value(&mnemonic))
+					Value(&mnemonic),
+					coinTypeInput,
+					accountInput,
+					indexInput,
+				)
 
 				form := huh.NewForm(mnemonicPrompt)
 				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
 					return err
 				}
-			}
-
-			// Get additional flags
-			coinType, err := cmd.Flags().GetInt32(flagCoinType)
-			if err != nil {
-				return err
-			}
-			if coinType < 0 {
-				coinType = defaultCoinType
-			}
-
-			account, err := cmd.Flags().GetUint(flagAccount)
-			if err != nil {
-				return err
-			}
-
-			index, err := cmd.Flags().GetUint(flagAccountIndex)
-			if err != nil {
-				return err
+			case defaultResult:
+				defaultPrompt := huh.NewGroup(coinTypeInput, accountInput, indexInput)
+				form := huh.NewForm(defaultPrompt)
+				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+					return err
+				}
 			}
 
 			// Add the key to the app
-			keyOutput, err := app.AddKey(chainName, keyName, mnemonic, privateKey, uint32(coinType), account, index)
+			keyOutput, err := app.AddKey(
+				chainName,
+				keyName,
+				mnemonic,
+				privateKey,
+				uint32(coinType),
+				uint(account),
+				uint(index),
+			)
 			if err != nil {
 				return err
 			}
@@ -132,11 +197,6 @@ $ %s k a eth test-key`, appName, appName)),
 		},
 	}
 
-	// Command flags
-	cmd.Flags().Int32(flagCoinType, -1, "Coin type number for HD derivation")
-	cmd.Flags().Uint(flagAccount, 0, "Account number within the HD derivation path")
-	cmd.Flags().
-		Uint(flagAccountIndex, 0, "Index number for the specific address within an account in the HD derivation path")
 	return cmd
 }
 
