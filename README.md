@@ -230,14 +230,26 @@ If you need to generate a new private key you can use the add subcommand.
 falcon keys add testnet testkey
 ```
 
-If you already have a mnemonic and want to retrive key from it, you can use the `--mnemonic` flag. 
-``` shell
-falcon keys add testnet testkey --mnemonic "mnemonic words here"
+There are 3 options for user to add key 
+``` shell 
+Choose how to add a key
+> Private key (provide an existing private key)
+  Mnemonic (recover from an existing mnemonic phrase)
+  Generate new address (no private key or mnemonic needed)
 ```
-If you already have a private key and want to retrive key from it, you can use the `--priv_key` flag. 
+
+If you already have a private key and want to retrive key from it, you can choose `Private key` option. 
 ``` shell
-falcon keys add testnet testkey --priv_key "0x..."
-``` 
+Enter your private key
+>
+```
+
+If you already have a mnemonic and want to retrive key from it, you can choose `Mnemonic` option. 
+``` shell
+Enter your mnemonic
+>
+```
+
 ### 7. Check that the keys for the configured chains are funded
 
 You can query the balance of each configured key by running:
