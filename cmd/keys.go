@@ -17,6 +17,12 @@ const (
 	defaultLabel    = "Generate new address (no private key or mnemonic needed)"
 )
 
+const (
+	privateKeyResult = iota
+	mnemonicResult
+	defaultResult
+)
+
 // keysCmd represents the keys command
 func keysCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
@@ -53,13 +59,13 @@ $ %s k a eth test-key`, appName, appName)),
 			privateKey := ""
 
 			// Use huh to create a form for user input
-			selection := ""
-			selectionPrompt := huh.NewGroup(huh.NewSelect[string]().
+			selection := 0
+			selectionPrompt := huh.NewGroup(huh.NewSelect[int]().
 				Title("Choose how to add a key").
 				Options(
-					huh.NewOption(privateKeyLabel, privateKeyLabel),
-					huh.NewOption(mnemonicLabel, mnemonicLabel),
-					huh.NewOption(defaultLabel, defaultLabel),
+					huh.NewOption(privateKeyLabel, privateKeyResult),
+					huh.NewOption(mnemonicLabel, mnemonicResult),
+					huh.NewOption(defaultLabel, defaultResult),
 				).
 				Value(&selection))
 
@@ -70,7 +76,7 @@ $ %s k a eth test-key`, appName, appName)),
 
 			// Handle the selected option
 			switch selection {
-			case privateKeyLabel:
+			case privateKeyResult:
 				privateKeyPrompt := huh.NewGroup(huh.NewInput().
 					Title("Enter your private key").
 					Value(&privateKey))
@@ -80,7 +86,7 @@ $ %s k a eth test-key`, appName, appName)),
 					return err
 				}
 
-			case mnemonicLabel:
+			case mnemonicResult:
 				mnemonicPrompt := huh.NewGroup(huh.NewInput().
 					Title("Enter your mnemonic").
 					Value(&mnemonic))
