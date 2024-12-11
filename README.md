@@ -225,7 +225,7 @@ falcon query tunnel <TUNNEL_ID>
 >Please ensure that you are using the correct passphrase that was set during initialization for the `add`, `delete`, and `export` commands.
 </br>
 >
-If you need to generate a new private key you can use the add subcommand.
+If you need to generate a new private key you can use the `add` subcommand.
 ``` shell
 falcon keys add testnet testkey
 ```
@@ -248,6 +248,34 @@ If you already have a mnemonic and want to retrive key from it, you can choose `
 ``` shell
 Enter your mnemonic
 >
+
+Enter a coin type 
+Coin type number for HD derivation (default: 60; leave empty to use default)
+>
+
+Enter an account 
+Account number in the HD derivation path (default: 0; leave empty to use default)
+>
+
+Enter an index
+Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)
+> 
+```
+
+If you want to generate a new address, choose the `Generate new address` option.
+```shell
+Enter a coin type 
+Coin type number for HD derivation (default: 60; leave empty to use default)
+>
+
+Enter an account 
+Account number in the HD derivation path (default: 0; leave empty to use default)
+>
+
+Enter an index
+Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)
+> 
+
 ```
 
 ### 7. Check that the keys for the configured chains are funded
