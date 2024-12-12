@@ -191,7 +191,6 @@ max_retry = 3
 query_timeout = 3000000000
 chain_id = 31337
 tunnel_router_address = '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9'
-private_key = ''
 block_confirmation = 5
 waiting_tx_duration = 3000000000
 checking_tx_interval = 1000000000
