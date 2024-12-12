@@ -157,7 +157,7 @@ falcon config init
 ```
 - The passphrase will be init after this command, it will become your program's permanent passphrase and cannot be changed. Please check that you set the correct passphrase during this step.
 
-- Default config directory: ~/.falcon/config
+- Default config directory: `~/.falcon/config`
 
 - By default, config will be initialized in format like this 
 ```toml
@@ -224,8 +224,8 @@ falcon query tunnel <TUNNEL_ID>
 ### 6. Import OR create new keys to use when signing and relaying transactions.
 >Please ensure that you are using the correct passphrase that was set during initialization for the `add`, `delete`, and `export` commands.
 </br>
->
-If you need to generate a new private key you can use the `add` subcommand.
+
+If you need to generate a new key, use the `add` subcommand.
 ``` shell
 falcon keys add testnet testkey
 ```
