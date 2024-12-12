@@ -92,6 +92,10 @@ func NewEVMChainProvider(
 
 // Connect connects to the EVM chain.
 func (cp *EVMChainProvider) Init(ctx context.Context) error {
+	if err := cp.Client.Connect(ctx); err != nil {
+		return err
+	}
+
 	go cp.Client.StartLivelinessCheck(ctx, cp.Config.LivelinessCheckingInterval)
 
 	return nil
