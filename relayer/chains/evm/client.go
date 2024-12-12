@@ -203,6 +203,9 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 		return 0, fmt.Errorf("[EVMClient] failed to estimate gas: %w", err)
 	}
 
+	// NOTE: Add 20% buffer to the estimated gas.
+	gas = gas * 120 / 100
+
 	return gas, nil
 }
 
