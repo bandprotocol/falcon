@@ -231,7 +231,7 @@ falcon keys add testnet testkey
 ```
 
 There are 3 options for user to add key 
-``` shell 
+```
 Choose how to add a key
 > Private key (provide an existing private key)
   Mnemonic (recover from an existing mnemonic phrase)
@@ -239,13 +239,13 @@ Choose how to add a key
 ```
 
 If you already have a private key and want to retrive key from it, you can choose `Private key` option. 
-``` shell
+```
 Enter your private key
 >
 ```
 
 If you already have a mnemonic and want to retrive key from it, you can choose `Mnemonic` option. 
-``` shell
+```
 Enter your mnemonic
 >
 
@@ -263,7 +263,7 @@ Index number for the specific address within an account in the HD derivation pat
 ```
 
 If you want to generate a new address, choose the `Generate new address` option.
-```shell
+```
 Enter a coin type 
 Coin type number for HD derivation (default: 60; leave empty to use default)
 >
@@ -275,7 +275,6 @@ Account number in the HD derivation path (default: 0; leave empty to use default
 Enter an index
 Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)
 > 
-
 ```
 
 ### 7. Check that the keys for the configured chains are funded
@@ -289,7 +288,7 @@ Starts all tunnels that `falcon query tunnels` can query
 ``` shell
 falcon start
 ```
-> NOTE: you can choose which tunnels do you want to relay
+> NOTE: You can choose which tunnels do you want to relay.
 ``` shell
 falcon start 1 2 3
 ```
