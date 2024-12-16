@@ -385,6 +385,7 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 	return chainProviders[chainName], nil
 }
 
+// AddKey adds a new key to the chain provider.
 func (a *App) AddKey(
 	chainName string,
 	keyName string,
@@ -420,6 +421,7 @@ func (a *App) AddKey(
 	return keyOutput, nil
 }
 
+// DeleteKey deletes the key from the chain provider.
 func (a *App) DeleteKey(chainName string, keyName string) error {
 	if a.Config == nil {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -442,6 +444,7 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 	return cp.DeleteKey(a.HomePath, keyName, a.EnvPassphrase)
 }
 
+// ExportKey exports the private key from the chain provider.
 func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 	if a.Config == nil {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -469,6 +472,7 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 	return privateKey, nil
 }
 
+// ListKeys retrieves the list of keys from the chain provider.
 func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 	if a.Config == nil {
 		return make([]*chainstypes.Key, 0), fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -483,6 +487,7 @@ func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 	return cp.Listkeys(), nil
 }
 
+// ShowKey retrieves the key information from the chain provider.
 func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 	if a.Config == nil {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -500,6 +505,7 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 	return cp.ShowKey(keyName), nil
 }
 
+// QueryBalance retrieves the balance of the key from the chain provider.
 func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
