@@ -484,7 +484,7 @@ func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 		return make([]*chainstypes.Key, 0), fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
-	return cp.Listkeys(), nil
+	return cp.ListKeys(), nil
 }
 
 // ShowKey retrieves the key information from the chain provider.
