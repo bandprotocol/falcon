@@ -291,8 +291,8 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		tunnel.IsActive,
 	)
 
-	cp, exists := a.targetChains[bandChainInfo.TargetChainID]
-	if !exists {
+	cp, ok := a.targetChains[bandChainInfo.TargetChainID]
+	if !ok {
 		a.Log.Debug("Target chain provider not found", zap.String("chain_id", bandChainInfo.TargetChainID))
 		return types.NewTunnel(bandChainInfo, nil), nil
 	}
@@ -323,7 +323,7 @@ func (a *App) AddChainConfig(chainName string, filePath string) error {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if _, exists := a.Config.TargetChains[chainName]; exists {
+	if _, ok := a.Config.TargetChains[chainName]; ok {
 		return fmt.Errorf("existing chain name : %s", chainName)
 	}
 
@@ -352,7 +352,7 @@ func (a *App) DeleteChainConfig(chainName string) error {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if _, exist := a.Config.TargetChains[chainName]; !exist {
+	if _, ok := a.Config.TargetChains[chainName]; !ok {
 		return fmt.Errorf("not existing chain name : %s", chainName)
 	}
 
@@ -378,7 +378,7 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 
 	chainProviders := a.Config.TargetChains
 
-	if _, exist := chainProviders[chainName]; !exist {
+	if _, ok := chainProviders[chainName]; !ok {
 		return nil, fmt.Errorf("not existing chain name : %s", chainName)
 	}
 
@@ -562,26 +562,10 @@ func (a *App) validatePassphrase(envPassphrase string) error {
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("Starting tunnel relayer")
 
-	isSyncTunnelsAllowed := false
-
 	// query tunnels
-	var tunnels []bandtypes.Tunnel
-	if len(tunnelIDs) == 0 {
-		var err error
-		tunnels, err = a.BandClient.GetTunnels(ctx)
-		isSyncTunnelsAllowed = true
-		if err != nil {
-			return err
-		}
-	} else {
-		tunnels = make([]bandtypes.Tunnel, 0, len(tunnelIDs))
-		for _, tunnelID := range tunnelIDs {
-			tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
-			if err != nil {
-				return err
-			}
-			tunnels = append(tunnels, *tunnel)
-		}
+	tunnels, err := a.getTunnels(ctx, tunnelIDs)
+	if err != nil {
+		a.Log.Error("Cannot get tunnels", zap.Error(err))
 	}
 
 	if len(tunnels) == 0 {
@@ -589,13 +573,12 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		return fmt.Errorf("no tunnel ID provided")
 	}
 
-	// initialize the tunnel relayer
-	tunnelRelayers := []*TunnelRelayer{}
-
+	// validate passphrase
 	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
+	// initialize target chain providers
 	for chainName, chainProvider := range a.targetChains {
 		if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
 			a.Log.Error("Cannot load keys in target chain",
@@ -614,9 +597,11 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		}
 	}
 
+	// initialize the tunnel relayer
+	tunnelRelayers := []*TunnelRelayer{}
 	for _, tunnel := range tunnels {
-		chainProvider, exists := a.targetChains[tunnel.TargetChainID]
-		if !exists {
+		chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+		if !ok {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
 
@@ -632,6 +617,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	// start the tunnel relayers
+	isSyncTunnelsAllowed := (len(tunnelIDs) == 0)
 	scheduler := NewScheduler(
 		a.Log,
 		tunnelRelayers,
@@ -659,8 +645,8 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return err
 	}
 
-	chainProvider, exists := a.targetChains[tunnel.TargetChainID]
-	if !exists {
+	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+	if !ok {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 	}
 
@@ -682,4 +668,24 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	)
 
 	return tr.CheckAndRelay(ctx)
+}
+
+// GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
+// get all tunnels
+func (a *App) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
+	if len(tunnelIDs) == 0 {
+		return a.BandClient.GetTunnels(ctx)
+	}
+
+	tunnels := make([]bandtypes.Tunnel, 0, len(tunnelIDs))
+	for _, tunnelID := range tunnelIDs {
+		tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
+		if err != nil {
+			return nil, err
+		}
+
+		tunnels = append(tunnels, *tunnel)
+	}
+
+	return tunnels, nil
 }

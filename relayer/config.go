@@ -42,8 +42,8 @@ type ConfigInputWrapper struct {
 
 // ParseChainProviderConfig converts a TOMLWrapper object to a ChainProviderConfig object.
 func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProviderConfig, error) {
-	typeName, exists := w["chain_type"].(string)
-	if !exists {
+	typeName, ok := w["chain_type"].(string)
+	if !ok {
 		return nil, fmt.Errorf("chain_type is required")
 	}
 	chainType := chains.ToChainType(typeName)
