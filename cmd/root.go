@@ -33,12 +33,12 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
 		Use:   appName,
-		Short: "This application relays tunnel messages to the target chains/contracts.",
-		Long: strings.TrimSpace(`falcon has:
-   1. Configuration management for destination chains
-   2. Key management for managing multiple keys for multiple chains
-   3. transaction Execution functionality on destination chains.
-   4. Query functionality on source and destination chains.
+		Short: "Falcon relays tss tunnel messages from BandChain to destination chains/smart contracts",
+		Long: strings.TrimSpace(`This application has:
+   1. Configuration Management: Handles the configuration of the program.
+   2. Key Management: Supports managing multiple keys across multiple chains.
+   3. Transaction Execution: Enables executing transactions on destination chains.
+   4. Query Functionality: Facilitates querying data from both source and destination chains.
 
    NOTE: Most of the commands have aliases that make typing them much quicker 
          (i.e. 'falcon tx', 'falcon q', etc...)`),
