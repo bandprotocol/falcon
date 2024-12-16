@@ -76,7 +76,7 @@ func (a *App) Init(ctx context.Context) error {
 	}
 
 	// initialize target chains
-	if err := a.initTargetChains(ctx); err != nil {
+	if err := a.initTargetChains(); err != nil {
 		return err
 	}
 
@@ -126,30 +126,23 @@ func (a *App) initLogger(configLogLevel string) error {
 }
 
 // InitTargetChains initializes the target chains.
-func (a *App) initTargetChains(ctx context.Context) error {
+func (a *App) initTargetChains() error {
 	a.targetChains = make(chains.ChainProviders)
 	if a.Config == nil || a.Config.TargetChains == nil {
-		a.Log.Error("target chains not found in config")
+		a.Log.Error("Target chains not found in config")
 		return nil
 	}
 
 	for chainName, chainConfig := range a.Config.TargetChains {
 		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug)
 		if err != nil {
-			a.Log.Error("cannot create chain provider",
+			a.Log.Error("Cannot create chain provider",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
 			)
 			return err
 		}
 
-		if err := cp.Init(ctx); err != nil {
-			a.Log.Error("cannot initialize chain provider",
-				zap.Error(err),
-				zap.String("chain_name", chainName),
-			)
-			return err
-		}
 		a.targetChains[chainName] = cp
 	}
 	return nil
@@ -554,7 +547,7 @@ func (a *App) validatePassphrase(envPassphrase string) error {
 
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
-	a.Log.Info("starting tunnel relayer")
+	a.Log.Info("Starting tunnel relayer")
 
 	isSyncTunnelsAllowed := false
 
@@ -579,7 +572,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	if len(tunnels) == 0 {
-		a.Log.Error("no tunnel ID provided")
+		a.Log.Error("No tunnel ID provided")
 		return fmt.Errorf("no tunnel ID provided")
 	}
 
@@ -590,14 +583,28 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		return err
 	}
 
+	for chainName, chainProvider := range a.targetChains {
+		if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
+			a.Log.Error("Cannot load keys in target chain",
+				zap.Error(err),
+				zap.String("chain_name", chainName),
+			)
+			return err
+		}
+
+		if err := chainProvider.Init(ctx); err != nil {
+			a.Log.Error("Cannot initialize chain provider",
+				zap.Error(err),
+				zap.String("chain_name", chainName),
+			)
+			return err
+		}
+	}
+
 	for _, tunnel := range tunnels {
 		chainProvider, ok := a.targetChains[tunnel.TargetChainID]
 		if !ok {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
-		}
-
-		if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
-			return err
 		}
 
 		tr := NewTunnelRelayer(
@@ -623,12 +630,13 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.BandClient,
 		a.targetChains,
 	)
+
 	return scheduler.Start(ctx)
 }
 
 // Relay relays the packet from the source chain to the destination chain.
 func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
-	a.Log.Debug("query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
+	a.Log.Debug("Query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return err
@@ -644,6 +652,10 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	}
 
 	if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
+		a.Log.Error("Cannot load keys in target chain",
+			zap.Error(err),
+			zap.String("chain_name", tunnel.TargetChainID),
+		)
 		return err
 	}
 

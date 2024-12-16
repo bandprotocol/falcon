@@ -10,7 +10,6 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 )
 
@@ -21,17 +20,9 @@ type Client interface {
 	Connect(ctx context.Context) error
 	CheckAndConnect(ctx context.Context) error
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
-	GetNonce(ctx context.Context, address gethcommon.Address) (uint64, error)
+	PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
-	GetEffectiveGasPrice(
-		ctx context.Context,
-		receipt *gethtypes.Receipt,
-	) (decimal.NullDecimal, error)
-	GetEffectiveGasTipValue(
-		ctx context.Context,
-		receipt *gethtypes.Receipt,
-	) (decimal.NullDecimal, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	EstimateGasPrice(ctx context.Context) (*big.Int, error)
@@ -61,7 +52,7 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 		Endpoints:      cfg.Endpoints,
 		QueryTimeout:   cfg.QueryTimeout,
 		ExecuteTimeout: cfg.ExecuteTimeout,
-		Log:            log,
+		Log:            log.With(zap.String("chain_name", chainName)),
 	}
 }
 
@@ -69,21 +60,13 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *
 func (c *client) Connect(ctx context.Context) error {
 	res, err := c.getClientWithMaxHeight(ctx)
 	if err != nil {
-		c.Log.Error(
-			"failed to connect to EVM chain",
-			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
-		)
+		c.Log.Error("Failed to connect to EVM chain", zap.Error(err))
 		return err
 	}
 
 	c.selectedEndpoint = res.Endpoint
 	c.client = res.Client
-	c.Log.Info(
-		"Connected to EVM chain",
-		zap.String("chain_name", c.ChainName),
-		zap.String("endpoint", c.selectedEndpoint),
-	)
+	c.Log.Info("Connected to EVM chain", zap.String("endpoint", c.selectedEndpoint))
 
 	return nil
 }
@@ -94,10 +77,7 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	for {
 		select {
 		case <-ctx.Done():
-			c.Log.Info(
-				"Stopping liveliness check",
-				zap.String("chain_name", c.ChainName),
-			)
+			c.Log.Info("Stopping liveliness check")
 
 			ticker.Stop()
 
@@ -105,26 +85,22 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 		case <-ticker.C:
 			err := c.Connect(ctx)
 			if err != nil {
-				c.Log.Error(
-					"liveliness check: unable to reconnect to any endpoints",
-					zap.Error(err),
-				)
+				c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
 			}
 		}
 	}
 }
 
-// GetNonce returns the current nonce of the given address.
-func (c *client) GetNonce(ctx context.Context, address gethcommon.Address) (uint64, error) {
+// PendingNonceAt returns the current pending nonce of the given address.
+func (c *client) PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	nonce, err := c.client.NonceAt(newCtx, address, nil)
+	nonce, err := c.client.PendingNonceAt(newCtx, address)
 	if err != nil {
 		c.Log.Error(
-			"Failed to get nonce",
+			"Failed to get pending nonce",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", address.Hex()),
 		)
@@ -139,37 +115,13 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	block, err := c.client.BlockByNumber(newCtx, nil)
+	blockHeight, err := c.client.BlockNumber(newCtx)
 	if err != nil {
-		c.Log.Error(
-			"Failed to get block height",
-			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
-			zap.String("endpoint", c.selectedEndpoint),
-		)
+		c.Log.Error("Failed to get block height", zap.Error(err), zap.String("endpoint", c.selectedEndpoint))
 		return 0, fmt.Errorf("[EVMClient] failed to get block height: %w", err)
 	}
 
-	return block.NumberU64(), nil
-}
-
-// GetBlock returns the block information of the given height.
-func (c *client) GetBlock(ctx context.Context, height uint64) (*gethtypes.Block, error) {
-	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
-	defer cancel()
-
-	block, err := c.client.BlockByNumber(newCtx, new(big.Int).SetUint64(height))
-	if err != nil {
-		c.Log.Error(
-			"Failed to get block information",
-			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
-			zap.String("endpoint", c.selectedEndpoint),
-		)
-		return nil, fmt.Errorf("[EVMClient] failed to get block information: %w", err)
-	}
-
-	return block, nil
+	return blockHeight, nil
 }
 
 // GetTxReceipt returns the transaction receipt of the given transaction hash.
@@ -183,7 +135,6 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Re
 		c.Log.Debug(
 			"Failed to get tx receipt",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("tx_hash", txHash),
 		)
@@ -203,7 +154,6 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 		c.Log.Error(
 			"Failed to get tx by hash",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("tx_hash", txHash),
 		)
@@ -211,66 +161,6 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 	}
 
 	return tx, isPending, nil
-}
-
-// GetEffectiveGasTipValue returns the effective gas tip of the given transaction receipt.
-func (c *client) GetEffectiveGasTipValue(
-	ctx context.Context,
-	receipt *gethtypes.Receipt,
-) (decimal.NullDecimal, error) {
-	tx, isPending, err := c.GetTxByHash(ctx, receipt.TxHash.String())
-	if err != nil {
-		return decimal.NullDecimal{}, err
-	}
-
-	if isPending {
-		c.Log.Debug(
-			"tx is pending",
-			zap.String("chain_name", c.ChainName),
-			zap.String("endpoint", c.selectedEndpoint),
-			zap.String("tx_hash", receipt.TxHash.String()),
-		)
-		return decimal.NullDecimal{}, fmt.Errorf("[EVMClient] tx is pending")
-	}
-
-	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
-	defer cancel()
-
-	header, err := c.GetBlock(newCtx, receipt.BlockNumber.Uint64())
-	if err != nil {
-		return decimal.NullDecimal{}, err
-	}
-
-	baseFee := header.BaseFee()
-	priorityFee := tx.EffectiveGasTipValue(baseFee)
-	return decimal.NewNullDecimal(
-		decimal.New(new(big.Int).Add(baseFee, priorityFee).Int64(), 0),
-	), nil
-}
-
-// GetEffectiveGasPrice returns the effective gas price of the given transaction receipt.
-func (c *client) GetEffectiveGasPrice(
-	ctx context.Context,
-	receipt *gethtypes.Receipt,
-) (decimal.NullDecimal, error) {
-	tx, isPending, err := c.GetTxByHash(ctx, receipt.TxHash.String())
-	if err != nil {
-		return decimal.NullDecimal{}, err
-	}
-
-	if isPending {
-		c.Log.Debug(
-			"tx is pending",
-			zap.String("chain_name", c.ChainName),
-			zap.String("endpoint", c.selectedEndpoint),
-			zap.String("tx_hash", receipt.TxHash.String()),
-		)
-		return decimal.NullDecimal{}, fmt.Errorf("[EVMClient] tx is pending")
-	}
-
-	return decimal.NewNullDecimal(
-		decimal.New(int64(tx.GasPrice().Uint64()), 0),
-	), nil
 }
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
@@ -288,7 +178,6 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 		c.Log.Error(
 			"Failed to query contract",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", gethAddr.Hex()),
 		)
@@ -308,12 +197,14 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 		c.Log.Error(
 			"Failed to estimate gas",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", msg.To.Hex()),
 		)
 		return 0, fmt.Errorf("[EVMClient] failed to estimate gas: %w", err)
 	}
+
+	// NOTE: Add 20% buffer to the estimated gas.
+	gas = gas * 120 / 100
 
 	return gas, nil
 }
@@ -328,7 +219,6 @@ func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 		c.Log.Error(
 			"Failed to estimate gas price",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 		)
 		return nil, err
@@ -360,7 +250,6 @@ func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
 		c.Log.Error(
 			"Failed to estimate gas tip cap",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 		)
 		return nil, err
@@ -373,7 +262,6 @@ func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
 func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error) {
 	c.Log.Debug(
 		"Broadcasting tx",
-		zap.String("chain_name", c.ChainName),
 		zap.String("endpoint", c.selectedEndpoint),
 		zap.String("tx_hash", tx.Hash().Hex()),
 		zap.String("to", tx.To().Hex()),
@@ -390,7 +278,6 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 		c.Log.Error(
 			"Failed to broadcast tx",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("tx_hash", tx.Hash().Hex()),
 		)
@@ -413,7 +300,6 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"Failed to connect to EVM chain",
 					zap.Error(err),
 					zap.String("endpoint", endpoint),
-					zap.String("chain_name", c.ChainName),
 				)
 				ch <- ClientConnectionResult{endpoint, nil, 0}
 				return
@@ -422,19 +308,25 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 			defer cancel()
 
-			block, err := client.BlockByNumber(newCtx, nil)
+			blockHeight, err := client.BlockNumber(newCtx)
 			if err != nil {
 				c.Log.Debug(
 					"Failed to get block height",
 					zap.Error(err),
 					zap.String("endpoint", endpoint),
-					zap.String("chain_name", c.ChainName),
 				)
 				ch <- ClientConnectionResult{endpoint, client, 0}
 				return
 			}
 
-			ch <- ClientConnectionResult{endpoint, client, block.NumberU64()}
+			c.Log.Debug(
+				"Get height of the given client",
+				zap.Error(err),
+				zap.String("endpoint", endpoint),
+				zap.Uint64("block_number", blockHeight),
+			)
+
+			ch <- ClientConnectionResult{endpoint, client, blockHeight}
 		}(endpoint)
 	}
 
@@ -442,7 +334,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight >= result.BlockHeight {
+			if r.BlockHeight > result.BlockHeight {
 				if result.Client != nil {
 					result.Client.Close()
 				}
@@ -479,7 +371,6 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*
 		c.Log.Error(
 			"Failed to query balance",
 			zap.Error(err),
-			zap.String("chain_name", c.ChainName),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", gethAddr.Hex()),
 		)

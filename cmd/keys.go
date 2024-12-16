@@ -3,11 +3,25 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
+)
+
+const (
+	privateKeyLabel = "Private key (provide an existing private key)"
+	mnemonicLabel   = "Mnemonic (recover from an existing mnemonic phrase)"
+	defaultLabel    = "Generate new address (no private key or mnemonic needed)"
+)
+
+const (
+	privateKeyResult = iota
+	mnemonicResult
+	defaultResult
 )
 
 // keysCmd represents the keys command
@@ -42,41 +56,133 @@ $ %s k a eth test-key`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keyName := args[1]
+			mnemonic := ""
+			privateKey := ""
 
-			mnemonic, err := cmd.Flags().GetString(flagMnemonic)
-			if err != nil {
+			var (
+				coinType, account, index          uint64
+				coinTypeStr, accountStr, indexStr string
+			)
+
+			// Use huh to create a form for user input
+			selection := 0
+			selectionPrompt := huh.NewGroup(huh.NewSelect[int]().
+				Title("Choose how to add a key").
+				Options(
+					huh.NewOption(privateKeyLabel, privateKeyResult),
+					huh.NewOption(mnemonicLabel, mnemonicResult),
+					huh.NewOption(defaultLabel, defaultResult),
+				).
+				Value(&selection))
+
+			form := huh.NewForm(selectionPrompt)
+			if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
 				return err
 			}
 
-			privateKey, err := cmd.Flags().GetString(flagPrivateKey)
-			if err != nil {
-				return err
+			// Coin type input
+			coinTypeInput := huh.NewInput().
+				Title("Enter a coin type").
+				Description("Coin type number for HD derivation (default: 60; leave empty to use default)").
+				Value(&coinTypeStr).Validate(
+				func(s string) error {
+					if s == "" {
+						coinType = defaultCoinType
+						return nil
+					}
+					var err error
+					coinType, err = strconv.ParseUint(s, 10, 32)
+					if err != nil {
+						return fmt.Errorf("invalid coin type input (should be uint32)")
+					}
+
+					return nil
+				},
+			)
+
+			// Account type input
+			accountInput := huh.NewInput().
+				Title("Enter an account").
+				Description("Account number in the HD derivation path (default: 0; leave empty to use default)").
+				Value(&accountStr).Validate(
+				func(s string) error {
+					if s == "" {
+						account = 0
+						return nil
+					}
+					var err error
+					account, err = strconv.ParseUint(s, 10, 32)
+					if err != nil {
+						return fmt.Errorf("invalid account input (should be uint32)")
+					}
+
+					return nil
+				},
+			)
+
+			// Index type input
+			indexInput := huh.NewInput().
+				Title("Enter an index").
+				Description("Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)").
+				Value(&indexStr).Validate(
+				func(s string) error {
+					if s == "" {
+						index = 0
+						return nil
+					}
+					var err error
+					index, err = strconv.ParseUint(s, 10, 32)
+					if err != nil {
+						return fmt.Errorf("invalid index input (should be uint32)")
+					}
+
+					return nil
+				},
+			)
+
+			// Handle the selected option
+			switch selection {
+			case privateKeyResult:
+				privateKeyPrompt := huh.NewGroup(huh.NewInput().
+					Title("Enter your private key").
+					Value(&privateKey))
+
+				form := huh.NewForm(privateKeyPrompt)
+				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+					return err
+				}
+
+			case mnemonicResult:
+				mnemonicPrompt := huh.NewGroup(huh.NewInput().
+					Title("Enter your mnemonic").
+					Value(&mnemonic),
+					coinTypeInput,
+					accountInput,
+					indexInput,
+				)
+
+				form := huh.NewForm(mnemonicPrompt)
+				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+					return err
+				}
+			case defaultResult:
+				defaultPrompt := huh.NewGroup(coinTypeInput, accountInput, indexInput)
+				form := huh.NewForm(defaultPrompt)
+				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+					return err
+				}
 			}
 
-			if mnemonic != "" && privateKey != "" {
-				return fmt.Errorf("only one of mnemonic or private key should be provided, not both")
-			}
-
-			coinType, err := cmd.Flags().GetInt32(flagCoinType)
-			if err != nil {
-				return err
-			}
-
-			if coinType < 0 {
-				coinType = defaultCoinType
-			}
-
-			account, err := cmd.Flags().GetUint(flagAccount)
-			if err != nil {
-				return err
-			}
-
-			index, err := cmd.Flags().GetUint(flagAccountIndex)
-			if err != nil {
-				return err
-			}
-
-			keyOutput, err := app.AddKey(chainName, keyName, mnemonic, privateKey, uint32(coinType), account, index)
+			// Add the key to the app
+			keyOutput, err := app.AddKey(
+				chainName,
+				keyName,
+				mnemonic,
+				privateKey,
+				uint32(coinType),
+				uint(account),
+				uint(index),
+			)
 			if err != nil {
 				return err
 			}
@@ -90,12 +196,7 @@ $ %s k a eth test-key`, appName, appName)),
 			return nil
 		},
 	}
-	cmd.Flags().StringP(flagMnemonic, "m", "", "add new key from specified mnemonic")
-	cmd.Flags().StringP(flagPrivateKey, "p", "", "add new key from specified private key")
-	cmd.Flags().Int32(flagCoinType, -1, "coin type number for HD derivation")
-	cmd.Flags().Uint(flagAccount, 0, "account number within the HD derivation path")
-	cmd.Flags().
-		Uint(flagAccountIndex, 0, "Index number for the specific address within an account in the HD derivation path")
+
 	return cmd
 }
 
