@@ -70,18 +70,17 @@ func NewClient(ctx cosmosclient.Context, queryClient *QueryClient, log *zap.Logg
 
 // Connect connects to the Band chain using the provided RPC endpoints.
 func (c *client) Connect(timeout uint) error {
+	// Return if there are no RPC endpoints
+	if len(c.RpcEndpoints) == 0 {
+		return nil
+	}
+
 	for _, rpcEndpoint := range c.RpcEndpoints {
 		// Create a new HTTP client for the specified node URI
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
 		if err != nil {
 			c.Log.Error("Failed to create HTTP client", zap.String("rpcEndpoint", rpcEndpoint), zap.Error(err))
 			continue // Try the next endpoint if there's an error
-		}
-
-		// Start the client to establish a connection
-		if err = client.Start(); err != nil {
-			c.Log.Error("Failed to start client", zap.String("rpcEndpoint", rpcEndpoint), zap.Error(err))
-			continue // Try the next endpoint if starting the client fails
 		}
 
 		// Create a new client context and configure it with necessary parameters
@@ -99,7 +98,7 @@ func (c *client) Connect(timeout uint) error {
 		return nil
 	}
 
-	return nil
+	return fmt.Errorf("failed to connect to Band Chain")
 }
 
 // GetTunnel gets tunnel info from band client
@@ -246,7 +245,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	return tunnels, nil
 }
 
-// unpackAny unpacks the provided *codectypes.Any into the specified interface.
+// UnpackAny unpacks the provided *codectypes.Any into the specified interface.
 func (c *client) UnpackAny(any *codectypes.Any, target interface{}) error {
 	err := c.Context.InterfaceRegistry.UnpackAny(any, target)
 	if err != nil {

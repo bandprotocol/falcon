@@ -80,10 +80,10 @@ func (a *App) Init(ctx context.Context) error {
 		return err
 	}
 
-	// initialize band client
+	// initialize band client; if error due to init band client, log and continue
 	if a.Config != nil {
 		if err := a.initBandClient(); err != nil {
-			return err
+			a.Log.Debug("Cannot initialize band client", zap.Error(err))
 		}
 	}
 
