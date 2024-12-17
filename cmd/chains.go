@@ -110,7 +110,7 @@ func chainsShowCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [chain_name]",
 		Aliases: []string{"s"},
-		Short:   "Return a chain's configuration data",
+		Short:   "Return chain's configuration data",
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s ch s eth

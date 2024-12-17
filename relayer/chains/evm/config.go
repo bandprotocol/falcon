@@ -14,7 +14,6 @@ var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
 type EVMChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	PrivateKey                 string        `mapstructure:"private_key"                  toml:"private_key"`
 	BlockConfirmation          uint64        `mapstructure:"block_confirmation"           toml:"block_confirmation"`
 	WaitingTxDuration          time.Duration `mapstructure:"waiting_tx_duration"          toml:"waiting_tx_duration"`
 	LivelinessCheckingInterval time.Duration `mapstructure:"liveliness_checking_interval" toml:"liveliness_checking_interval"`

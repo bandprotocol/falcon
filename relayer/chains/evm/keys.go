@@ -154,8 +154,8 @@ func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string
 	return hex.EncodeToString(crypto.FromECDSA(key.PrivateKey)), nil
 }
 
-// Listkeys lists all keys.
-func (cp *EVMChainProvider) Listkeys() []*chainstypes.Key {
+// ListKeys lists all keys.
+func (cp *EVMChainProvider) ListKeys() []*chainstypes.Key {
 	res := make([]*chainstypes.Key, 0, len(cp.KeyInfo))
 	for keyName, address := range cp.KeyInfo {
 		key := chainstypes.NewKey("", address, keyName)

@@ -54,7 +54,7 @@ type KeyProvider interface {
 	DeleteKey(homePath, keyName, passphrase string) error
 
 	// ListKeys lists all keys
-	Listkeys() []*chainstypes.Key
+	ListKeys() []*chainstypes.Key
 
 	// ShowKey shows the address of the given key
 	ShowKey(keyName string) string
