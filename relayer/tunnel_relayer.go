@@ -73,6 +73,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+
 	if !tunnelChainInfo.IsActive {
 		t.Log.Error("Tunnel is not active on target chain")
 		return fmt.Errorf("tunnel is not active on target chain")

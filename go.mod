@@ -5,7 +5,7 @@ go 1.22.3
 require (
 	cosmossdk.io/math v1.4.0
 	cosmossdk.io/x/tx v0.13.5
-	github.com/bandprotocol/chain/v3 v3.0.0-20241203075418-774ab7177a89
+	github.com/bandprotocol/chain/v3 v3.0.0-20241212091149-e8afa0a231fb
 	github.com/charmbracelet/huh v0.6.0
 	github.com/cometbft/cometbft v0.38.12
 	github.com/cosmos/cosmos-sdk v0.50.10

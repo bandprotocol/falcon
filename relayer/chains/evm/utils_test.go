@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -62,6 +63,82 @@ func TestHexToAddress(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, tc.output, addr.Hex())
+			}
+		})
+	}
+}
+
+func TestStripPrivateKeyPrefix(t *testing.T) {
+	tests := []struct {
+		name       string
+		privateKey string
+		expected   string
+	}{
+		{
+			name:       "With 0x prefix",
+			privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+			expected:   "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		},
+		{
+			name:       "Without 0x prefix",
+			privateKey: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+			expected:   "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evm.StripPrivateKeyPrefix(tt.privateKey)
+			require.Equal(t, tt.expected, result, "unexpected result for privateKey %s", tt.privateKey)
+		})
+	}
+}
+
+func TestMultiplyBigIntWithFloat64(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      *big.Int
+		multiplier float64
+		expected   *big.Int
+	}{
+		{
+			name:       "Multiply positive value",
+			input:      big.NewInt(100),
+			multiplier: 2.5,
+			expected:   big.NewInt(250),
+		},
+		{
+			name:       "Multiply by zero",
+			input:      big.NewInt(100),
+			multiplier: 0,
+			expected:   big.NewInt(0),
+		},
+		{
+			name:       "Multiply negative value",
+			input:      big.NewInt(-100),
+			multiplier: 1.5,
+			expected:   big.NewInt(-150),
+		},
+		{
+			name:       "Multiply large number",
+			input:      big.NewInt(1e6),
+			multiplier: 1.1,
+			expected:   big.NewInt(1100000),
+		},
+		{
+			name:       "Multiply by fractional multiplier",
+			input:      big.NewInt(100),
+			multiplier: 0.333,
+			expected:   big.NewInt(33), // Rounded down
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evm.MultiplyBigIntWithFloat64(tt.input, tt.multiplier)
+			if result.Cmp(tt.expected) != 0 {
+				t.Errorf("MultiplyBigIntWithFloat64(%v, %f) = %v, want %v",
+					tt.input, tt.multiplier, result, tt.expected)
 			}
 		})
 	}

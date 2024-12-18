@@ -246,7 +246,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	return tunnels, nil
 }
 
-// unpackAny unpacks the provided *codectypes.Any into the specified interface.
+// UnpackAny unpacks the provided *codectypes.Any into the specified interface.
 func (c *client) UnpackAny(any *codectypes.Any, target interface{}) error {
 	err := c.Context.InterfaceRegistry.UnpackAny(any, target)
 	if err != nil {

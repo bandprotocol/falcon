@@ -44,6 +44,15 @@ func (cp *EVMChainProvider) AddKey(
 	if privateKey != "" {
 		return cp.AddKeyWithPrivateKey(keyName, privateKey, homePath, passphrase)
 	}
+
+	var err error
+	// Generate mnemonic if not provided
+	if mnemonic == "" {
+		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return cp.AddKeyWithMnemonic(keyName, mnemonic, homePath, coinType, account, index, passphrase)
 }
 
@@ -57,16 +66,6 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	index uint,
 	passphrase string,
 ) (*chainstypes.Key, error) {
-	var err error
-
-	// Generate mnemonic if not provided
-	if mnemonic == "" {
-		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// Generate private key using mnemonic
 	priv, err := cp.generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
@@ -84,7 +83,7 @@ func (cp *EVMChainProvider) AddKeyWithPrivateKey(
 	passphrase string,
 ) (*chainstypes.Key, error) {
 	// Convert private key from hex
-	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey))
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(privateKey))
 	if err != nil {
 		return nil, err
 	}
@@ -122,12 +121,6 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	}
 
 	return chainstypes.NewKey(mnemonic, addressHex, ""), nil
-}
-
-// IsKeyNameExist checks whether the given key name is already in use.
-func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
-	_, ok := cp.KeyInfo[keyName]
-	return ok
 }
 
 // DeleteKey deletes the given key name from the key store and removes its information.
@@ -169,6 +162,12 @@ func (cp *EVMChainProvider) ShowKey(keyName string) string {
 	return cp.KeyInfo[keyName]
 }
 
+// IsKeyNameExist checks whether the given key name is already in use.
+func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
+	_, ok := cp.KeyInfo[keyName]
+	return ok
+}
+
 // storePrivateKey stores private key to keyStore.
 func (cp *EVMChainProvider) storePrivateKey(
 	priv *ecdsa.PrivateKey,
@@ -190,6 +189,7 @@ func (cp *EVMChainProvider) storeKeyInfo(homePath string) error {
 
 	keyInfoDir := path.Join(homePath, keyDir, cp.ChainName, infoDir)
 	keyInfoPath := path.Join(keyInfoDir, infoFileName)
+
 	// Create the info folder if doesn't exist
 	if _, err := os.Stat(keyInfoDir); os.IsNotExist(err) {
 		if err = os.Mkdir(keyInfoDir, os.ModePerm); err != nil {

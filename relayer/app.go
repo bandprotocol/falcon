@@ -385,7 +385,7 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return nil, err
 	}
 
@@ -412,7 +412,7 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
@@ -434,7 +434,7 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return "", err
 	}
 
@@ -521,9 +521,9 @@ func (a *App) loadEnvPassphrase() string {
 	return os.Getenv(passphraseEnvKey)
 }
 
-// validatePassphrase checks if the provided passphrase (from the environment)
+// ValidatePassphrase checks if the provided passphrase (from the environment)
 // matches the hashed passphrase stored on disk.
-func (a *App) validatePassphrase(envPassphrase string) error {
+func (a *App) ValidatePassphrase(envPassphrase string) error {
 	// prepare bytes slices of hashed env passphrase
 	h := sha256.New()
 	h.Write([]byte(envPassphrase))
@@ -579,7 +579,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize the tunnel relayer
 	tunnelRelayers := []*TunnelRelayer{}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
@@ -642,7 +642,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return err
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
