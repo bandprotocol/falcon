@@ -95,7 +95,7 @@ func (s *Scheduler) Execute(ctx context.Context) {
 	// Execute the task for each tunnel relayer
 	for i, tr := range s.TunnelRelayers {
 		if s.isErrorOnHolds[i] {
-			s.Log.Info(
+			s.Log.Debug(
 				"Skipping this tunnel: the operation is on hold due to error on last round.",
 				zap.Uint64("tunnel_id", tr.TunnelID),
 				zap.Int("relayer_id", i),
@@ -113,17 +113,17 @@ func (s *Scheduler) Execute(ctx context.Context) {
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	tr := s.TunnelRelayers[task.RelayerID]
-	s.Log.Info("Executing task", zap.Uint64("tunnel_id", tr.TunnelID))
 
 	// if the tunnel relayer is executing, skip the round
 	if tr.IsExecuting() {
-		s.Log.Info(
+		s.Log.Debug(
 			"Skipping this tunnel: tunnel relayer is executing on another process",
 			zap.Uint64("tunnel_id", tr.TunnelID),
 		)
-
 		return
 	}
+
+	s.Log.Info("Executing task", zap.Uint64("tunnel_id", tr.TunnelID))
 
 	// Check and relay the packet, if error occurs, set the error flag.
 	if err := tr.CheckAndRelay(ctx); err != nil {
@@ -156,7 +156,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		return
 	}
 
-	s.Log.Info("starting sync tunnels")
+	s.Log.Info("Starting sync tunnels")
 	tunnels, err := s.BandClient.GetTunnels(ctx)
 	if err != nil {
 		s.Log.Error("Failed to fetch tunnels from Band Chain", zap.Error(err))

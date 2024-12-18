@@ -32,5 +32,6 @@ func MultiplyBigIntWithFloat64(value *big.Int, multiplier float64) *big.Int {
 	valueBig.Mul(valueBig, multiplierBig)
 
 	valueBigInt, _ := valueBig.Int(nil)
+
 	return valueBigInt
 }

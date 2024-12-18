@@ -35,11 +35,10 @@ func (t TxStatus) String() string {
 
 // ConfirmTxResult is the result of confirming a transaction
 type ConfirmTxResult struct {
-	TxHash       string
-	Status       TxStatus
-	GasUsed      decimal.NullDecimal
-	GasType      GasType
-	EffectiveGas decimal.NullDecimal
+	TxHash  string
+	Status  TxStatus
+	GasUsed decimal.NullDecimal
+	GasType GasType
 }
 
 func NewConfirmTxResult(
@@ -47,14 +46,12 @@ func NewConfirmTxResult(
 	status TxStatus,
 	gasUsed decimal.NullDecimal,
 	gasType GasType,
-	effectiveGas decimal.NullDecimal,
 ) *ConfirmTxResult {
 	return &ConfirmTxResult{
-		TxHash:       txHash,
-		Status:       status,
-		GasUsed:      gasUsed,
-		GasType:      gasType,
-		EffectiveGas: effectiveGas,
+		TxHash:  txHash,
+		Status:  status,
+		GasUsed: gasUsed,
+		GasType: gasType,
 	}
 }
 

@@ -3,7 +3,6 @@ package evm_test
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -91,7 +90,6 @@ func TestLoadKeyInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	keyInfoDir := path.Join(tmpDir, "keys", chainName, "info")
-	fmt.Println(keyInfoDir)
 	keyInfoPath := path.Join(keyInfoDir, "info.toml")
 	// Create the info folder if doesn't exist
 	err = os.MkdirAll(keyInfoDir, os.ModePerm)

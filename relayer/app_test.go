@@ -965,3 +965,50 @@ func (s *AppTestSuite) TestShowKeyWithNotExistKeyName() {
 	_, err = s.app.ShowKey(chainName, keyName)
 	s.Require().ErrorContains(err, "key name does not exist")
 }
+
+func (s *AppTestSuite) TestValidatePassphrase() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	s.app.EnvPassphrase = "passphrase"
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	envPassphrase := "passphrase"
+	err = s.app.ValidatePassphrase(envPassphrase)
+	s.Require().NoError(err)
+}
+
+func (s *AppTestSuite) TestValidatePassphraseInvalidPassphrase() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	envPassphrase := "invalid"
+	err = s.app.ValidatePassphrase(envPassphrase)
+	s.Require().Error(err)
+}

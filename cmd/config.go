@@ -52,7 +52,7 @@ $ %s cfg list`, appName, defaultHome, appName)),
 	return cmd
 }
 
-// configInitCmd returns the commands that for initializing an empty config at the --home location
+// configInitCmd returns the commands that initializes an empty config at the --home location
 func configInitCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",

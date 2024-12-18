@@ -289,7 +289,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelaySigningStatusFallen() {
 	)
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	fmt.Println(err)
+
 	s.Require().Error(err)
 }
 
