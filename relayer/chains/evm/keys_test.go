@@ -254,7 +254,7 @@ func (s *KeysTestSuite) TestAddKeyWithPrivateKeyInvalidPrivateKey() {
 func (s *KeysTestSuite) TestFinalizeKeyAddition() {
 	keyName := "testkey"
 	mnemonic := ""
-	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(testPrivateKey))
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(testPrivateKey))
 	s.Require().NoError(err)
 	passphrase := ""
 
@@ -297,7 +297,7 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 	exportedKey, err := s.chainProvider.ExportPrivateKey(keyName, "")
 	s.Require().NoError(err)
 
-	s.Require().Equal(ConvertPrivateKeyStrToHex(privatekeyHex), ConvertPrivateKeyStrToHex(exportedKey))
+	s.Require().Equal(StripPrivateKeyPrefix(privatekeyHex), StripPrivateKeyPrefix(exportedKey))
 }
 
 func (s *KeysTestSuite) TestListKeys() {
@@ -383,7 +383,7 @@ func (s *KeysTestSuite) TestIsKeyNameExist() {
 }
 
 func (s *KeysTestSuite) TestStorePrivateKey() {
-	privateKeyECDSA, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(testPrivateKey)) // Remove "0x" prefix
+	privateKeyECDSA, err := crypto.HexToECDSA(StripPrivateKeyPrefix(testPrivateKey)) // Remove "0x" prefix
 	s.Require().NoError(err)
 
 	// Store the private key in the keystore
@@ -397,7 +397,7 @@ func (s *KeysTestSuite) TestStorePrivateKey() {
 }
 
 func (s *KeysTestSuite) TestStorePrivateKeyDuplicatePrivateKey() {
-	privateKeyECDSA, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(testPrivateKey)) // Remove "0x" prefix
+	privateKeyECDSA, err := crypto.HexToECDSA(StripPrivateKeyPrefix(testPrivateKey)) // Remove "0x" prefix
 	s.Require().NoError(err)
 
 	// Store the private key in the keystore

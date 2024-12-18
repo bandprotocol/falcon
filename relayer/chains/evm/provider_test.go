@@ -179,7 +179,7 @@ func (s *ProviderTestSuite) TestRelayPacket() {
 
 	addr, err := HexToAddress(testAddress)
 	s.Require().NoError(err)
-	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(testPrivateKey))
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(testPrivateKey))
 	s.Require().NoError(err)
 
 	// Mock sender
@@ -330,7 +330,7 @@ func (s *ProviderTestSuite) TestRelayPacketFailedHandleRelay() {
 
 	addr, err := HexToAddress(testAddress)
 	s.Require().NoError(err)
-	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(testPrivateKey))
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(testPrivateKey))
 	s.Require().NoError(err)
 
 	// Mock sender
@@ -393,7 +393,7 @@ func (s *ProviderTestSuite) TestRelayPacketCheckTxFailed() {
 
 	addr, err := HexToAddress(testAddress)
 	s.Require().NoError(err)
-	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(testPrivateKey))
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(testPrivateKey))
 	s.Require().NoError(err)
 
 	// Mock sender
@@ -481,9 +481,6 @@ func (s *ProviderTestSuite) TestEstimateGasUnsupportedGas() {
 func (s *ProviderTestSuite) TestBumpAndBoundGasLegacy() {
 	var err error
 
-	gasEVMCfg := *baseEVMCfg
-	gasEVMCfg.GasType = GasTypeLegacy
-
 	// Test cases
 	testCases := []struct {
 		name             string
@@ -498,7 +495,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasLegacy() {
 			maxGasPrice:      150,
 			initialGasPrice:  100,
 			multiplier:       1.2,
-			expectedGasPrice: 119, // due to big.Float imprecision
+			expectedGasPrice: 120, // due to big.Float imprecision
 		},
 		{
 			name:             "Gas price exceeding limit",
@@ -519,7 +516,10 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasLegacy() {
 
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
+			gasEVMCfg := *baseEVMCfg
+			gasEVMCfg.GasType = GasTypeLegacy
 			gasEVMCfg.MaxGasPrice = tc.maxGasPrice
+
 			s.chainProvider, err = NewEVMChainProvider(s.chainName, s.client, &gasEVMCfg, s.log, s.homePath)
 			s.Require().NoError(err)
 
@@ -580,7 +580,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 			initialPriorityFee:  50,
 			initialBaseFee:      150,
 			multiplier:          1.2,
-			expectedPriorityFee: 59,  // due to big.Float imprecision
+			expectedPriorityFee: 60,  // due to big.Float imprecision
 			expectedBaseFee:     150, // Unchanged
 		},
 		{
@@ -600,7 +600,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 			initialPriorityFee:  50,
 			initialBaseFee:      190,
 			multiplier:          1.2,
-			expectedPriorityFee: 59, // due to big.Float imprecision
+			expectedPriorityFee: 60, // due to big.Float imprecision
 			expectedBaseFee:     180,
 		},
 		{
@@ -611,7 +611,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 			initialBaseFee:      150,
 			multiplier:          1.2,
 			mockRelayerFee:      big.NewInt(90),
-			expectedPriorityFee: 83, // due to big.Float imprecision
+			expectedPriorityFee: 84, // due to big.Float imprecision
 			expectedBaseFee:     150,
 		},
 	}

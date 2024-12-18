@@ -141,7 +141,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 		s.Require().NotNil(sender)
 
 		actualAddress := sender.Address.Hex()
-		actualPrivateKey := evm.ConvertPrivateKeyStrToHex(
+		actualPrivateKey := evm.StripPrivateKeyPrefix(
 			hex.EncodeToString(crypto.FromECDSA(sender.PrivateKey)),
 		)
 
@@ -150,7 +150,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 
 		// Validate the private key matches
 		s.Require().
-			Equal(evm.ConvertPrivateKeyStrToHex(expectedPrivateKey), evm.ConvertPrivateKeyStrToHex(actualPrivateKey))
+			Equal(evm.StripPrivateKeyPrefix(expectedPrivateKey), evm.StripPrivateKeyPrefix(actualPrivateKey))
 
 		// Remove the validated sender from the map
 		delete(expectedSenders, actualAddress)

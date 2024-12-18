@@ -68,15 +68,30 @@ func TestHexToAddress(t *testing.T) {
 	}
 }
 
-func TestConvertPrivateKeyStrToHexWithPrefixWith0xPrefix(t *testing.T) {
-	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	expected := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	require.Equal(t, expected, evm.ConvertPrivateKeyStrToHex(privateKey))
-}
+func TestStripPrivateKeyPrefix(t *testing.T) {
+	tests := []struct {
+		name       string
+		privateKey string
+		expected   string
+	}{
+		{
+			name:       "With 0x prefix",
+			privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+			expected:   "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		},
+		{
+			name:       "Without 0x prefix",
+			privateKey: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+			expected:   "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+		},
+	}
 
-func TestConvertPrivateKeyStrToHexWithPrefixWithout0xPrefix(t *testing.T) {
-	privateKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	require.Equal(t, privateKey, evm.ConvertPrivateKeyStrToHex(privateKey))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := evm.StripPrivateKeyPrefix(tt.privateKey)
+			require.Equal(t, tt.expected, result, "unexpected result for privateKey %s", tt.privateKey)
+		})
+	}
 }
 
 func TestMultiplyBigIntWithFloat64(t *testing.T) {

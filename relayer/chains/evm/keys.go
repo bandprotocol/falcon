@@ -83,7 +83,7 @@ func (cp *EVMChainProvider) AddKeyWithPrivateKey(
 	passphrase string,
 ) (*chainstypes.Key, error) {
 	// Convert private key from hex
-	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey))
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(privateKey))
 	if err != nil {
 		return nil, err
 	}
