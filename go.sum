@@ -93,8 +93,8 @@ github.com/aws/aws-sdk-go v1.44.224/go.mod h1:aVsgQcEevwlmQ7qHE9I3h+dtQgpqhFB+i8
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiErDT4WkJ2k=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
-github.com/bandprotocol/chain/v3 v3.0.0-20241203075418-774ab7177a89 h1:l+b89+gNcBZQ6R7/hmDaw8jHgzQ4k5oQdSMK9/ZOkkI=
-github.com/bandprotocol/chain/v3 v3.0.0-20241203075418-774ab7177a89/go.mod h1:7609g+Iyhar8ySbKEJiqHfRq8xwJh5r2YE5vBebXMS4=
+github.com/bandprotocol/chain/v3 v3.0.0-20241212091149-e8afa0a231fb h1:hC1ib3QCNJt2fRj0y6GpVGlhYPT872FQFbhgMZ2EqTY=
+github.com/bandprotocol/chain/v3 v3.0.0-20241212091149-e8afa0a231fb/go.mod h1:7609g+Iyhar8ySbKEJiqHfRq8xwJh5r2YE5vBebXMS4=
 github.com/bandprotocol/go-owasm v0.3.1 h1:L38qAEmb0KyTICHBHJaBoo6yy5+BlbOzQeQ+ioUV5Uw=
 github.com/bandprotocol/go-owasm v0.3.1/go.mod h1:SAzGihlBl8eZDXA1dO2aeAZLm8J2QkNd+KvnA2Dw9Kg=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
