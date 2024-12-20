@@ -7,7 +7,6 @@ import (
 
 	"cosmossdk.io/math"
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -50,6 +49,11 @@ func (s *AppTestSuite) SetupTest() {
 	s.log = log
 	s.tunnelQueryClient = mocks.NewMockTunnelQueryClient(ctrl)
 	s.bandtssQueryClient = mocks.NewMockBandtssQueryClient(ctrl)
+	s.client = band.NewClient(
+		band.NewQueryClient(s.tunnelQueryClient, s.bandtssQueryClient),
+		s.log,
+		&band.Config{LivelinessCheckingInterval: 15 * time.Minute},
+	)
 	s.ctx = context.Background()
 }
 
@@ -88,14 +92,6 @@ func (s *AppTestSuite) TestGetTunnel() {
 	s.tunnelQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
 		TunnelId: uint64(1),
 	}).Return(queryResponse, nil)
-	encodingConfig := band.MakeEncodingConfig()
-	s.client = band.NewClient(
-		cosmosclient.Context{}.
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
-		band.NewQueryClient(s.tunnelQueryClient, s.bandtssQueryClient),
-		s.log,
-		[]string{})
 
 	expected := bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false)
 
@@ -181,14 +177,6 @@ func (s *AppTestSuite) TestGetTunnelPacket() {
 	)
 
 	// actual result
-	encodingConfig := band.MakeEncodingConfig()
-	s.client = band.NewClient(
-		cosmosclient.Context{}.
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
-		band.NewQueryClient(s.tunnelQueryClient, s.bandtssQueryClient),
-		s.log,
-		[]string{})
 	actual, err := s.client.GetTunnelPacket(s.ctx, uint64(1), uint64(100))
 	s.Require().NoError(err)
 	s.Require().Equal(expected, actual)

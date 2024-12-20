@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
@@ -82,23 +81,12 @@ func (a *App) Init(ctx context.Context) error {
 
 	// initialize band client
 	if a.Config != nil {
-		if err := a.initBandClient(); err != nil {
-			return err
-		}
+		a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
+		a.BandClient.Init(ctx)
 	}
 
 	a.EnvPassphrase = a.loadEnvPassphrase()
 
-	return nil
-}
-
-// initBandClient establishes connection to rpc endpoints.
-func (a *App) initBandClient() error {
-	c := band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
-	if err := c.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
-		return err
-	}
-	a.BandClient = c
 	return nil
 }
 

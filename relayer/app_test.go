@@ -54,7 +54,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProvider.EXPECT().Init(gomock.Any()).Return(nil).AnyTimes()
 
 	cfg := relayer.Config{
-		BandChain: band.Config{},
+		BandChain: band.Config{LivelinessCheckingInterval: 15 * time.Minute},
 		TargetChains: map[string]chains.ChainProviderConfig{
 			"testnet_evm": s.chainProviderConfig,
 		},

@@ -41,20 +41,6 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
-// Connect mocks base method.
-func (m *MockClient) Connect(timeout uint) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connect", timeout)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Connect indicates an expected call of Connect.
-func (mr *MockClientMockRecorder) Connect(timeout any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockClient)(nil).Connect), timeout)
-}
-
 // GetTunnel mocks base method.
 func (m *MockClient) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	m.ctrl.T.Helper()
@@ -98,4 +84,16 @@ func (m *MockClient) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 func (mr *MockClientMockRecorder) GetTunnels(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTunnels", reflect.TypeOf((*MockClient)(nil).GetTunnels), ctx)
+}
+
+// Init mocks base method.
+func (m *MockClient) Init(ctx context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Init", ctx)
+}
+
+// Init indicates an expected call of Init.
+func (mr *MockClientMockRecorder) Init(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockClient)(nil).Init), ctx)
 }
