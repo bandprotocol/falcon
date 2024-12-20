@@ -3,6 +3,7 @@ package band
 import (
 	"context"
 	"fmt"
+	"time"
 
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
@@ -20,14 +21,15 @@ var _ Client = &client{}
 
 // Client is the interface to interact with the BandChain.
 type Client interface {
+	// Init initializes the BandChain client by connecting to the chain and starting
+	// periodic liveliness checks.
+	Init(ctx context.Context)
+
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
 
 	// GetTunnel returns the tunnel with the given tunnelID.
 	GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error)
-
-	// Connect will establish connection to rpc endpoints
-	Connect(timeout uint) error
 
 	// GetTunnels returns all tunnel in band chain.
 	GetTunnels(ctx context.Context) ([]types.Tunnel, error)
@@ -52,25 +54,41 @@ func NewQueryClient(
 
 // client is the BandChain client struct.
 type client struct {
-	Context      cosmosclient.Context
-	QueryClient  *QueryClient
-	Log          *zap.Logger
-	RpcEndpoints []string
+	Context     cosmosclient.Context
+	QueryClient *QueryClient
+	Log         *zap.Logger
+	Config      *Config
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(ctx cosmosclient.Context, queryClient *QueryClient, log *zap.Logger, rpcEndpoints []string) Client {
+func NewClient(queryClient *QueryClient, log *zap.Logger, bandChainCfg *Config) Client {
+	encodingConfig := MakeEncodingConfig()
+	ctx := cosmosclient.Context{}.
+		WithCodec(encodingConfig.Marshaler).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry)
+
 	return &client{
-		Context:      ctx,
-		QueryClient:  queryClient,
-		Log:          log,
-		RpcEndpoints: rpcEndpoints,
+		Context:     ctx,
+		QueryClient: queryClient,
+		Log:         log,
+		Config:      bandChainCfg,
 	}
 }
 
-// Connect connects to the Band chain using the provided RPC endpoints.
-func (c *client) Connect(timeout uint) error {
-	for _, rpcEndpoint := range c.RpcEndpoints {
+// Init initializes the BandChain client by connecting to the chain and starting
+// periodic liveliness checks.
+func (c *client) Init(ctx context.Context) {
+	timeout := uint(c.Config.Timeout)
+	if err := c.connect(timeout); err != nil {
+		c.Log.Debug("Failed to connect to BandChain", zap.Error(err))
+	}
+
+	go c.startLivelinessCheck(ctx, timeout, c.Config.LivelinessCheckingInterval)
+}
+
+// connect connects to the BandChain using the provided RPC endpoints.
+func (c *client) connect(timeout uint) error {
+	for _, rpcEndpoint := range c.Config.RpcEndpoints {
 		// Create a new HTTP client for the specified node URI
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
 		if err != nil {
@@ -84,22 +102,41 @@ func (c *client) Connect(timeout uint) error {
 			continue // Try the next endpoint if starting the client fails
 		}
 
-		// Create a new client context and configure it with necessary parameters
-		encodingConfig := MakeEncodingConfig()
-		ctx := cosmosclient.Context{}.
-			WithClient(client).
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry)
-
-		c.Context = ctx
-		c.QueryClient = NewQueryClient(tunneltypes.NewQueryClient(ctx), bandtsstypes.NewQueryClient(ctx))
+		c.Context.Client = client
+		c.Context.NodeURI = rpcEndpoint
+		c.QueryClient = NewQueryClient(tunneltypes.NewQueryClient(c.Context), bandtsstypes.NewQueryClient(c.Context))
 
 		c.Log.Info("Connected to Band chain", zap.String("endpoint", rpcEndpoint))
 
 		return nil
 	}
+	return fmt.Errorf("no available RPC endpoint")
+}
 
-	return nil
+// StartLivelinessCheck starts the liveliness check for the BandChain.
+func (c *client) startLivelinessCheck(ctx context.Context, timeout uint, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-ctx.Done():
+			c.Log.Info("Stopping liveliness check")
+
+			ticker.Stop()
+
+			return
+		case <-ticker.C:
+			if _, err := c.Context.Client.Status(ctx); err != nil {
+				c.Log.Error(
+					"BandChain client disconnected",
+					zap.String("rpcEndpoint", c.Context.NodeURI),
+					zap.Error(err),
+				)
+				if err := c.connect(timeout); err != nil {
+					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
+				}
+			}
+		}
+	}
 }
 
 // GetTunnel gets tunnel info from band client
