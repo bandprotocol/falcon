@@ -80,7 +80,7 @@ func NewClient(queryClient *QueryClient, log *zap.Logger, bandChainCfg *Config) 
 func (c *client) Init(ctx context.Context) {
 	timeout := uint(c.Config.Timeout)
 	if err := c.connect(timeout); err != nil {
-		c.Log.Debug("Failed to connect to BandChain", zap.Error(err))
+		c.Log.Error("Failed to connect to BandChain", zap.Error(err))
 	}
 
 	go c.startLivelinessCheck(ctx, timeout, c.Config.LivelinessCheckingInterval)
