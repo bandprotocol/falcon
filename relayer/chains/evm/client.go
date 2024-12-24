@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -104,7 +103,7 @@ func (c *client) PendingNonceAt(ctx context.Context, address gethcommon.Address)
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", address.Hex()),
 		)
-		return 0, fmt.Errorf("[EVMClient] failed to get nonce: %w", err)
+		return 0, ErrGetNonce(err)
 	}
 
 	return nonce, nil
@@ -118,7 +117,7 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	blockHeight, err := c.client.BlockNumber(newCtx)
 	if err != nil {
 		c.Log.Error("Failed to get block height", zap.Error(err), zap.String("endpoint", c.selectedEndpoint))
-		return 0, fmt.Errorf("[EVMClient] failed to get block height: %w", err)
+		return 0, ErrGetBlockHeight(err)
 	}
 
 	return blockHeight, nil
@@ -138,7 +137,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Re
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("tx_hash", txHash),
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
+		return nil, ErrGetTxReceipt(err)
 	}
 
 	return receipt, nil
@@ -157,7 +156,7 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("tx_hash", txHash),
 		)
-		return nil, false, fmt.Errorf("[EVMClient] failed to get tx by hash: %w", err)
+		return nil, false, ErrGetTxByHash(err)
 	}
 
 	return tx, isPending, nil
@@ -181,7 +180,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", gethAddr.Hex()),
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to query: %w", err)
+		return nil, ErrQuery(err)
 	}
 
 	return res, nil
@@ -200,7 +199,7 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", msg.To.Hex()),
 		)
-		return 0, fmt.Errorf("[EVMClient] failed to estimate gas: %w", err)
+		return 0, ErrEstimateGas(err, true)
 	}
 
 	// NOTE: Add 20% buffer to the estimated gas.
@@ -282,7 +281,7 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 			zap.String("tx_hash", tx.Hash().Hex()),
 		)
 
-		return "", fmt.Errorf("[EVMClient] failed to broadcast tx with error %s", err.Error())
+		return "", ErrBroadcastTx(err.Error())
 	}
 
 	return tx.Hash().Hex(), nil
@@ -346,7 +345,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 	}
 
 	if result.Client == nil {
-		return ClientConnectionResult{}, fmt.Errorf("[EVMClient] failed to connect to EVM chain")
+		return ClientConnectionResult{}, ErrConnectEVMChain
 	}
 
 	return result, nil
@@ -374,7 +373,7 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", gethAddr.Hex()),
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to query balance: %w", err)
+		return nil, ErrQueryBalance(err)
 	}
 
 	return res, nil

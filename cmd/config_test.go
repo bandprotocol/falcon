@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/bandprotocol/falcon/cmd"
 	"github.com/bandprotocol/falcon/internal/relayertest"
 )
 
@@ -133,5 +134,5 @@ func TestInitCmdAlreadyExist(t *testing.T) {
 	require.FileExists(t, cfgPath)
 
 	res = sys.RunWithInput(t, "config", "init")
-	require.ErrorContains(t, res.Err, "config already exists")
+	require.Error(t, res.Err, cmd.ErrConfigNotExist(sys.HomeDir))
 }

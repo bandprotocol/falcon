@@ -73,7 +73,7 @@ func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProvide
 
 		cfg = &newCfg
 	default:
-		return cfg, fmt.Errorf("unsupported chain type: %s", typeName)
+		return cfg, ErrUnsupportedChainType(typeName)
 	}
 
 	return cfg, nil
