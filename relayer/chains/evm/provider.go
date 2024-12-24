@@ -57,7 +57,7 @@ func NewEVMChainProvider(
 			zap.Error(err),
 			zap.String("chain_name", chainName),
 		)
-		return nil, fmt.Errorf("[EVMProvider] failed to load abi: %w", err)
+		return nil, ErrLoadAbi(err)
 	}
 
 	addr, err := HexToAddress(cfg.TunnelRouterAddress)
@@ -66,7 +66,7 @@ func NewEVMChainProvider(
 			zap.Error(err),
 			zap.String("chain_name", chainName),
 		)
-		return nil, fmt.Errorf("[EVMProvider] incorrect address: %w", err)
+		return nil, ErrInvalidAddress(err)
 	}
 
 	keyStoreDir := path.Join(homePath, keyDir, chainName, privateKeyDir)
@@ -109,13 +109,13 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 ) (*chainstypes.Tunnel, error) {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error("Connect client error", zap.Error(err))
-		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
+		return nil, ErrClientConnection(err)
 	}
 
 	addr, err := HexToAddress(tunnelDestinationAddr)
 	if err != nil {
 		cp.Log.Error("Invalid address", zap.Error(err), zap.String("address", tunnelDestinationAddr))
-		return nil, fmt.Errorf("[EVMProvider] invalid address: %w", err)
+		return nil, ErrInvalidAddress(err)
 	}
 
 	info, err := cp.queryTunnelInfo(ctx, tunnelID, addr)
@@ -127,7 +127,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 			zap.String("address", tunnelDestinationAddr),
 		)
 
-		return nil, fmt.Errorf("[EVMProvider] failed to query contract: %w", err)
+		return nil, ErrQueryData(err)
 	}
 
 	return &chainstypes.Tunnel{
@@ -146,13 +146,13 @@ func (cp *EVMChainProvider) RelayPacket(
 ) error {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error("Connect client error", zap.Error(err))
-		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
+		return ErrClientConnection(err)
 	}
 
 	gasInfo, err := cp.EstimateGas(ctx)
 	if err != nil {
 		cp.Log.Error("Failed to estimate gas", zap.Error(err))
-		return fmt.Errorf("failed to estimate gas: %w", err)
+		return ErrEstimateGas(err, false)
 	}
 
 	// get a free sender
@@ -246,7 +246,7 @@ func (cp *EVMChainProvider) RelayPacket(
 		retryCount += 1
 	}
 
-	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
+	return ErrRelayPacketRetries(cp.Config.MaxRetry)
 }
 
 // handleRelay handles the relay message from the source chain to the destination chain.
@@ -338,7 +338,7 @@ func (cp *EVMChainProvider) EstimateGas(ctx context.Context) (GasInfo, error) {
 
 		return cp.BumpAndBoundGas(ctx, NewGasEIP1559Info(priorityFee, baseFee), 1.0)
 	default:
-		return GasInfo{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+		return GasInfo{}, ErrUnsupportedGasType(cp.GasType)
 	}
 }
 
@@ -392,7 +392,7 @@ func (cp *EVMChainProvider) BumpAndBoundGas(
 
 		return NewGasEIP1559Info(newPriorityFee, newBaseFee), nil
 	default:
-		return GasInfo{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+		return GasInfo{}, ErrUnsupportedGasType(cp.GasType)
 	}
 }
 
@@ -404,17 +404,17 @@ func (cp *EVMChainProvider) queryTunnelInfo(
 ) (*TunnelInfoOutput, error) {
 	calldata, err := cp.TunnelRouterABI.Pack("tunnelInfo", tunnelID, addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack calldata: %w", err)
+		return nil, ErrPackCalldata(err)
 	}
 
 	b, err := cp.Client.Query(ctx, cp.TunnelRouterAddress, calldata)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query data: %w", err)
+		return nil, ErrQueryData(err)
 	}
 
 	var output TunnelInfoOutputRaw
 	if err := cp.TunnelRouterABI.UnpackIntoInterface(&output, "tunnelInfo", b); err != nil {
-		return nil, fmt.Errorf("failed to unpack data: %w", err)
+		return nil, ErrUnpackData(err)
 	}
 
 	return &output.Info, nil
@@ -475,7 +475,7 @@ func (cp *EVMChainProvider) newRelayTx(
 		})
 
 	default:
-		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+		return nil, ErrUnsupportedGasType(cp.GasType)
 	}
 
 	return tx, nil
@@ -520,7 +520,7 @@ func (cp *EVMChainProvider) signTx(
 	case GasTypeEIP1559:
 		signer = gethtypes.NewLondonSigner(big.NewInt(int64(cp.Config.ChainID)))
 	default:
-		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+		return nil, ErrUnsupportedGasType(cp.GasType)
 	}
 
 	return gethtypes.SignTx(tx, signer, sender.PrivateKey)
@@ -537,7 +537,7 @@ func (cp *EVMChainProvider) QueryBalance(
 			zap.Error(err),
 			zap.String("chain_name", cp.ChainName),
 		)
-		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
+		return nil, ErrClientConnection(err)
 	}
 
 	address, err := HexToAddress(cp.KeyInfo[keyName])
@@ -552,17 +552,17 @@ func (cp *EVMChainProvider) QueryBalance(
 func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, error) {
 	calldata, err := cp.TunnelRouterABI.Pack("gasFee")
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack calldata: %w", err)
+		return nil, ErrPackCalldata(err)
 	}
 
 	b, err := cp.Client.Query(ctx, cp.TunnelRouterAddress, calldata)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query data: %w", err)
+		return nil, ErrQueryData(err)
 	}
 
 	var output *big.Int
 	if err := cp.TunnelRouterABI.UnpackIntoInterface(&output, "gasFee", b); err != nil {
-		return nil, fmt.Errorf("failed to unpack data: %w", err)
+		return nil, ErrUnpackData(err)
 	}
 
 	return output, nil

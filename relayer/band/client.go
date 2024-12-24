@@ -106,7 +106,7 @@ func (c *client) Connect(timeout uint) error {
 func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to bandchain")
+		return nil, ErrBandChainNotConnect
 	}
 
 	res, err := c.QueryClient.TunnelQueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
@@ -141,7 +141,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to bandchain")
+		return nil, ErrBandChainNotConnect
 	}
 
 	// Get packet information by given tunnel ID and sequence
@@ -199,7 +199,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to bandchain")
+		return nil, ErrBandChainNotConnect
 	}
 
 	tunnels := make([]types.Tunnel, 0)

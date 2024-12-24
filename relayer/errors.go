@@ -1,0 +1,27 @@
+package relayer
+
+import "fmt"
+
+func ErrConfigNotExist(homePath string) error {
+	return fmt.Errorf("config does not exist: %s", homePath)
+}
+
+func ErrConfigExist(cfgPath string) error {
+	return fmt.Errorf("config already exists: %s", cfgPath)
+}
+
+func ErrChainNameExist(chainName string) error {
+	return fmt.Errorf("chain name already exists: %s", chainName)
+}
+
+func ErrChainNameNotExist(chainName string) error {
+	return fmt.Errorf("chain name does not exist: %s", chainName)
+}
+
+func ErrKeyNameExist(keyName string) error {
+	return fmt.Errorf("key name already exists: %s", keyName)
+}
+
+func ErrKeyNameNotExist(keyName string) error {
+	return fmt.Errorf("key name does not exist: %s", keyName)
+}

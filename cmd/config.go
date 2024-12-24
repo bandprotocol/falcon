@@ -37,7 +37,7 @@ $ %s config show --home %s
 $ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app.Config == nil {
-				return fmt.Errorf("config does not exist: %s", app.HomePath)
+				return ErrConfigNotExist(app.HomePath)
 			}
 
 			b, err := toml.Marshal(app.Config)
