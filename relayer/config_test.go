@@ -53,7 +53,7 @@ chain_type = 'evms'
 	require.NoError(t, err)
 
 	_, err = relayer.LoadConfig(cfgPath)
-	require.ErrorContains(t, err, "unsupported chain type: evms")
+	require.Error(t, err, relayer.ErrUnsupportedChainType("evms"))
 }
 
 func TestParseChainProviderConfigTypeEVM(t *testing.T) {
@@ -81,7 +81,7 @@ func TestParseChainProviderConfigTypeNotFound(t *testing.T) {
 	}
 
 	_, err := relayer.ParseChainProviderConfig(w)
-	require.ErrorContains(t, err, "unsupported chain type: evms")
+	require.Error(t, err, relayer.ErrUnsupportedChainType("evms"))
 }
 
 func TestParseChainProviderConfigNoChainType(t *testing.T) {
@@ -108,7 +108,7 @@ func TestParseConfigInvalidChainProviderConfig(t *testing.T) {
 	}
 
 	_, err := relayer.ParseConfig(w)
-	require.ErrorContains(t, err, "unsupported chain type: evms")
+	require.Error(t, err, relayer.ErrUnsupportedChainType("evms"))
 }
 
 func TestUnmarshalConfig(t *testing.T) {

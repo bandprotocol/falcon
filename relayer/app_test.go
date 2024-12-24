@@ -104,7 +104,7 @@ func (s *AppTestSuite) TestInitExistingConfig() {
 
 	// second time should fail
 	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
-	s.Require().ErrorContains(err, "config already exists:")
+	s.Require().Error(err, relayer.ErrConfigExist(s.app.HomePath))
 }
 
 func (s *AppTestSuite) TestInitCustomConfig() {
