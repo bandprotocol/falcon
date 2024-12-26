@@ -61,17 +61,17 @@ func (s *KeysTestSuite) SetupTest() {
 	log, err := zap.NewDevelopment()
 	s.Require().NoError(err)
 
-	// mock objects.
-	s.log = log
-
 	chainName := "testnet"
 
 	client := NewClient(chainName, evmCfg, log)
 
+	s.ctx = context.Background()
+
 	s.chainProvider, err = NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir)
 	s.Require().NoError(err)
 
-	s.ctx = context.Background()
+	s.log = log
+
 	s.homePath = tmpDir
 }
 

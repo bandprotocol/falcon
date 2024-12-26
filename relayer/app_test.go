@@ -279,7 +279,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	s.Require().Equal(expectedBytes, actualBytes)
 }
 
-func (s *AppTestSuite) TestAddChainConfigDuplicateChainName() {
+func (s *AppTestSuite) TestAddChainConfigWithExistingChainName() {
 	s.app.Config = nil
 
 	// write chain config file
@@ -364,7 +364,7 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 	s.Require().Equal(expectedBytes, actualBytes)
 }
 
-func (s *AppTestSuite) TestDeleteChainConfigNotExistChainName() {
+func (s *AppTestSuite) TestDeleteChainConfigWithNotExistChainName() {
 	s.app.Config = nil
 	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
 
@@ -409,7 +409,7 @@ func (s *AppTestSuite) TestGetChainConfig() {
 	s.Require().Equal(expect, actual)
 }
 
-func (s *AppTestSuite) TestGetChainConfigNotExistChainName() {
+func (s *AppTestSuite) TestGetChainConfigWithNotExistChainName() {
 	s.app.Config = nil
 	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
 
@@ -469,11 +469,11 @@ func (s *AppTestSuite) TestAddKey() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
 	mnemonic := ""
 	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -481,13 +481,6 @@ func (s *AppTestSuite) TestAddKey() {
 	coinType := uint32(60)
 	account := uint(0)
 	index := uint(0)
-	responseMnemonic := "evil cool swamp nurse emotion dumb lecture foam stamp cigar bamboo arctic leaf twin brand sight soda drill december dial raccoon race seek expose"
-
-	// Mock ChainProvider methods
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(false)
-	s.chainProvider.EXPECT().
-		AddKey(keyName, mnemonic, privateKey, s.app.HomePath, coinType, account, index, "").
-		Return(chainstypes.NewKey(responseMnemonic, address, ""), nil)
 
 	// Run AddKey
 	actual, err := s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
@@ -495,7 +488,7 @@ func (s *AppTestSuite) TestAddKey() {
 	// Assertions
 	s.Require().NoError(err)
 	s.Require().NotNil(actual)
-	s.Require().Equal(chainstypes.NewKey(responseMnemonic, address, ""), actual)
+	s.Require().Equal(chainstypes.NewKey("", address, ""), actual)
 }
 
 func (s *AppTestSuite) TestAddKeyWithInvalidPassphrase() {
@@ -513,10 +506,10 @@ func (s *AppTestSuite) TestAddKeyWithInvalidPassphrase() {
 	s.Require().NoError(err)
 
 	// load config file
-	err = s.app.LoadConfigFile()
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
 	mnemonic := ""
 	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -543,11 +536,11 @@ func (s *AppTestSuite) TestAddKeyWithNotExistingChainName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm2"
+	chainName := "testnet2"
 	keyName := "testkey"
 	mnemonic := ""
 	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -574,11 +567,11 @@ func (s *AppTestSuite) TestAddKeyWithExistingKeyName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
 	mnemonic := ""
 	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
@@ -586,10 +579,11 @@ func (s *AppTestSuite) TestAddKeyWithExistingKeyName() {
 	account := uint(0)
 	index := uint(0)
 
-	// Mock ChainProvider methods
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(true)
-
 	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run AddKey again
 	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
 	s.Require().ErrorContains(err, "key name already exists")
 }
@@ -608,16 +602,21 @@ func (s *AppTestSuite) TestDeleteKey() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
 
-	// Mock ChainProvider methods
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(true)
-	s.chainProvider.EXPECT().DeleteKey(s.app.HomePath, keyName, "").Return(nil)
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
 
 	// Run DeleteKey
 	err = s.app.DeleteKey(chainName, keyName)
@@ -640,16 +639,27 @@ func (s *AppTestSuite) TestDeleteKeyWithInvalidPassphrase() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
-	s.app.EnvPassphrase = "invalid"
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
 
 	// Run DeleteKey
+	s.app.EnvPassphrase = "invalid"
 	err = s.app.DeleteKey(chainName, keyName)
+
+	// Assertions
 	s.Require().Error(err)
 }
 
@@ -667,11 +677,11 @@ func (s *AppTestSuite) TestDeleteKeyWithNotExistChainName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm2"
+	chainName := "testnet2"
 	keyName := "testkey"
 
 	// Run DeleteKey
@@ -693,14 +703,12 @@ func (s *AppTestSuite) TestDeleteKeyWithNotExistKeyName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
-
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(false)
 
 	// Run DeleteKey
 	err = s.app.DeleteKey(chainName, keyName)
@@ -721,24 +729,28 @@ func (s *AppTestSuite) TestExportKey() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
+	mnemonic := ""
 	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
 
-	// Mock ChainProvider methods
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(true)
-	s.chainProvider.EXPECT().ExportPrivateKey(keyName, "").Return(privateKey, nil)
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
 
 	// Run ExportKey
 	actual, err := s.app.ExportKey(chainName, keyName)
 
 	// Assertions
 	s.Require().NoError(err)
-	s.Require().Equal(privateKey, actual)
+	s.Require().Equal(privateKey[2:], actual)
 }
 
 func (s *AppTestSuite) TestExportKeyWithInvalidPassphrase() {
@@ -754,12 +766,25 @@ func (s *AppTestSuite) TestExportKeyWithInvalidPassphrase() {
 
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
-	s.app.EnvPassphrase = "invalid"
 
-	chainName := "testnet_evm"
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
+	s.Require().NoError(err)
+
+	chainName := "testnet"
 	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
 
 	// Run ExportKey
+	s.app.EnvPassphrase = "invalid"
 	_, err = s.app.ExportKey(chainName, keyName)
 	s.Require().Error(err)
 }
@@ -778,11 +803,11 @@ func (s *AppTestSuite) TestExportKeyWithNotExistChainName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm2"
+	chainName := "testnet2"
 	keyName := "testkey"
 
 	// Run ExportKey
@@ -804,14 +829,12 @@ func (s *AppTestSuite) TestExportKeyWithNotExistKeyName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
-
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(false)
 
 	// Run ExportKey
 	_, err = s.app.ExportKey(chainName, keyName)
@@ -832,25 +855,36 @@ func (s *AppTestSuite) TestListKeys() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
-	expectedKeys := []*chainstypes.Key{
-		chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "key1"),
-		chainstypes.NewKey("", "0x4B0897b0513fDDEFe1c7074c71A43Faa663f8f57", "key2"),
-	}
+	keyName1 := "testkey1"
+	keyName2 := "testkey2"
 
-	// Mock ChainProvider methods
-	s.chainProvider.EXPECT().Listkeys().Return(expectedKeys)
+	chainName := "testnet"
+	mnemonic := ""
+	privateKey := ""
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run Add testkey1
+	_, err = s.app.AddKey(chainName, keyName1, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run Add testkey2
+	_, err = s.app.AddKey(chainName, keyName2, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
 
 	// Run ListKeys
 	actual, err := s.app.ListKeys(chainName)
-
-	// Assertions
 	s.Require().NoError(err)
-	s.Require().Equal(expectedKeys, actual)
+
+	for _, key := range actual {
+		s.Require().Contains([]string{keyName1, keyName2}, key.KeyName)
+		s.Require().NotEmpty(key.Address)
+	}
 }
 
 func (s *AppTestSuite) TestListKeysWithNotExistChainName() {
@@ -867,11 +901,11 @@ func (s *AppTestSuite) TestListKeysWithNotExistChainName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm2"
+	chainName := "testnet2"
 
 	// Run ListKeys
 	_, err = s.app.ListKeys(chainName)
@@ -892,22 +926,25 @@ func (s *AppTestSuite) TestShowKey() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
+	chainName := "testnet"
 	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
 
-	// Mock ChainProvider methods
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(true)
-	s.chainProvider.EXPECT().ShowKey(keyName).Return(expectedAddress)
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
 
 	// Run ShowKey
 	actual, err := s.app.ShowKey(chainName, keyName)
-
-	// Assertions
 	s.Require().NoError(err)
 	s.Require().Equal(expectedAddress, actual)
 }
@@ -926,11 +963,11 @@ func (s *AppTestSuite) TestShowKeyWithNotExistChainName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm2"
+	chainName := "testnet2"
 	keyName := "testkey"
 
 	// Run ShowKey
@@ -952,14 +989,12 @@ func (s *AppTestSuite) TestShowKeyWithNotExistKeyName() {
 	err = s.app.InitPassphrase()
 	s.Require().NoError(err)
 
-	// load config file
-	err = s.app.LoadConfigFile()
+	// load config file and init target chains
+	err = s.app.Init(s.ctx)
 	s.Require().NoError(err)
 
-	chainName := "testnet_evm"
-	keyName := "testkey"
-
-	s.chainProvider.EXPECT().IsKeyNameExist(keyName).Return(false)
+	chainName := "testnet"
+	keyName := "testkey2"
 
 	// Run ShowKey
 	_, err = s.app.ShowKey(chainName, keyName)
