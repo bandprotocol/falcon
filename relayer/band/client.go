@@ -29,7 +29,7 @@ type Client interface {
 	// Connect will establish connection to rpc endpoints
 	Connect(timeout uint) error
 
-	// GetTunnels returns all tunnel in band chain.
+	// GetTunnels returns all tunnel in BandChain.
 	GetTunnels(ctx context.Context) ([]types.Tunnel, error)
 }
 
@@ -68,7 +68,7 @@ func NewClient(ctx cosmosclient.Context, queryClient *QueryClient, log *zap.Logg
 	}
 }
 
-// Connect connects to the Band chain using the provided RPC endpoints.
+// Connect connects to the BandChain using the provided RPC endpoints.
 func (c *client) Connect(timeout uint) error {
 	// Return if there are no RPC endpoints
 	if len(c.RpcEndpoints) == 0 {
@@ -93,12 +93,12 @@ func (c *client) Connect(timeout uint) error {
 		c.Context = ctx
 		c.QueryClient = NewQueryClient(tunneltypes.NewQueryClient(ctx), bandtsstypes.NewQueryClient(ctx))
 
-		c.Log.Info("Connected to Band chain", zap.String("endpoint", rpcEndpoint))
+		c.Log.Info("Connected to BandChain", zap.String("endpoint", rpcEndpoint))
 
 		return nil
 	}
 
-	return fmt.Errorf("failed to connect to Band Chain")
+	return fmt.Errorf("failed to connect to BandChain")
 }
 
 // GetTunnel gets tunnel info from band client
@@ -194,11 +194,11 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	), nil
 }
 
-// GetTunnels returns every tss-route tunnels in band chain.
+// GetTunnels returns every tss-route tunnels in BandChain.
 func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to bandchain")
+		return nil, fmt.Errorf("cannot connect to BandChain")
 	}
 
 	tunnels := make([]types.Tunnel, 0)

@@ -160,7 +160,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 	s.Log.Info("Start syncing new tunnels")
 	tunnels, err := s.BandClient.GetTunnels(ctx)
 	if err != nil {
-		s.Log.Error("Failed to fetch tunnels from Band Chain", zap.Error(err))
+		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
 		return
 	}
 	oldTunnelCount := len(s.TunnelRelayers)

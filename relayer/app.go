@@ -60,7 +60,7 @@ func NewApp(
 	return &app
 }
 
-// Initialize the application.
+// Init initialize the application.
 func (a *App) Init(ctx context.Context) error {
 	if a.Config == nil {
 		if err := a.LoadConfigFile(); err != nil {
@@ -83,12 +83,12 @@ func (a *App) Init(ctx context.Context) error {
 		return nil
 	}
 
-	// initialize target chain clients.
+	// initialize target chain clients
 	if err := a.initTargetChains(); err != nil {
 		return err
 	}
 
-	// initialize band chain client
+	// initialize BandChain client
 	if err := a.initBandClient(); err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (a *App) Init(ctx context.Context) error {
 func (a *App) initBandClient() error {
 	a.BandClient = band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
 
-	// connect to band chain, if error occurs, log the error as debug and continue
+	// connect to BandChain, if error occurs, log the error as debug and continue
 	if err := a.BandClient.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
 		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
 		return err
@@ -109,13 +109,13 @@ func (a *App) initBandClient() error {
 	return nil
 }
 
-// InitLogger initializes the logger with the given log level.
+// initLogger initializes the logger with the given log level.
 func (a *App) initLogger(configLogLevel string) error {
 	// Assign log level based on the following priority:
 	// 1. debug flag
 	// 2. log-level flag from viper
-	// 3. log-level from configuration object.
-	// 4. given log level from the input.
+	// 3. log-level from configuration object
+	// 4. given log level from the input
 	logLevel := configLogLevel
 	logLevelViper := a.Viper.GetString("log-level")
 
@@ -141,7 +141,7 @@ func (a *App) initLogger(configLogLevel string) error {
 	return nil
 }
 
-// InitTargetChains initializes the target chains.
+// initTargetChains initializes the target chains.
 func (a *App) initTargetChains() error {
 	a.targetChains = make(chains.ChainProviders)
 
@@ -641,7 +641,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 // Relay relays the packet from the source chain to the destination chain.
 func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
-	a.Log.Debug("Query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
+	a.Log.Debug("Query tunnel info on BandChain", zap.Uint64("tunnel_id", tunnelID))
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return err
