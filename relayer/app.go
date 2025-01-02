@@ -12,7 +12,6 @@ import (
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal"
@@ -33,7 +32,6 @@ const (
 // App is the main application struct.
 type App struct {
 	Log      *zap.Logger
-	Viper    *viper.Viper
 	HomePath string
 	Debug    bool
 	Config   *Config
@@ -46,14 +44,12 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp(
 	log *zap.Logger,
-	viper *viper.Viper,
 	homePath string,
 	debug bool,
 	config *Config,
 ) *App {
 	app := App{
 		Log:      log,
-		Viper:    viper,
 		HomePath: homePath,
 		Debug:    debug,
 		Config:   config,
@@ -62,7 +58,7 @@ func NewApp(
 }
 
 // Init initialize the application.
-func (a *App) Init(ctx context.Context) error {
+func (a *App) Init(ctx context.Context, logLevel, logFormat string) error {
 	if a.Config == nil {
 		if err := a.LoadConfigFile(); err != nil {
 			return err
@@ -71,7 +67,7 @@ func (a *App) Init(ctx context.Context) error {
 
 	// initialize logger, if not already initialized
 	if a.Log == nil {
-		if err := a.initLogger(""); err != nil {
+		if err := a.initLogger(logLevel, logFormat); err != nil {
 			return err
 		}
 	}
@@ -111,26 +107,14 @@ func (a *App) initBandClient() error {
 }
 
 // initLogger initializes the logger with the given log level.
-func (a *App) initLogger(configLogLevel string) error {
-	// Assign log level based on the following priority:
-	// 1. debug flag
-	// 2. log-level flag from viper
-	// 3. log-level from configuration object
-	// 4. given log level from the input
-	logLevel := configLogLevel
-	logLevelViper := a.Viper.GetString("log-level")
-
-	if a.Viper.GetBool("debug") {
-		logLevel = "debug"
-	} else if logLevelViper != "" {
-		logLevel = logLevelViper
-	} else if a.Config != nil {
+func (a *App) initLogger(logLevel, logFormat string) error {
+	if logLevel == "" && a.Config != nil {
 		logLevel = a.Config.Global.LogLevel
 	}
 
 	// initialize logger only if user run command "start" or log level is "debug"
 	if os.Args[1] == "start" || logLevel == "debug" {
-		log, err := newRootLogger(a.Viper.GetString("log-format"), logLevel)
+		log, err := newRootLogger(logFormat, logLevel)
 		if err != nil {
 			return err
 		}

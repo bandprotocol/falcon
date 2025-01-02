@@ -62,9 +62,9 @@ func (s *AppTestSuite) SetupTest() {
 	}
 	s.ctx = context.Background()
 
-	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
+	s.app = relayer.NewApp(log, tmpDir, false, &cfg)
 
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.app.BandClient = s.client
 	s.Require().NoError(err)
 }
@@ -179,7 +179,7 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 
 func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
-	err := s.app.Init(s.ctx)
+	err := s.app.Init(s.ctx, "", "")
 
 	s.Require().NoError(err)
 
