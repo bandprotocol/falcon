@@ -574,11 +574,6 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.Log.Error("Cannot get tunnels", zap.Error(err))
 	}
 
-	if len(tunnels) == 0 {
-		a.Log.Error("No tunnel ID provided")
-		return fmt.Errorf("no tunnel ID provided")
-	}
-
 	// validate passphrase
 	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
 		return err
