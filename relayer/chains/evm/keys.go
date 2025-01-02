@@ -13,6 +13,7 @@ import (
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/bandprotocol/falcon/internal"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
@@ -190,12 +191,12 @@ func (cp *EVMChainProvider) storeKeyInfo(homePath string) error {
 
 	keyInfoDir := path.Join(homePath, keyDir, cp.ChainName, infoDir)
 	keyInfoPath := path.Join(keyInfoDir, infoFileName)
+
 	// Create the info folder if doesn't exist
-	if _, err := os.Stat(keyInfoDir); os.IsNotExist(err) {
-		if err = os.Mkdir(keyInfoDir, os.ModePerm); err != nil {
-			return err
-		}
+	if err := internal.CheckAndCreateFolder(keyInfoDir); err != nil {
+		return err
 	}
+
 	// Create the file and write the default config to the given location.
 	f, err := os.Create(keyInfoPath)
 	if err != nil {

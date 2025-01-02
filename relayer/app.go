@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -217,20 +218,12 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	}
 
 	// Create the home folder if doesn't exist
-	if _, err := os.Stat(homePath); os.IsNotExist(err) {
-		if err = os.Mkdir(homePath, os.ModePerm); err != nil {
-			return err
-		}
-	} else if err != nil {
+	if err := internal.CheckAndCreateFolder(homePath); err != nil {
 		return err
 	}
 
 	// Create the config folder if doesn't exist
-	if _, err := os.Stat(cfgDir); os.IsNotExist(err) {
-		if err = os.Mkdir(cfgDir, os.ModePerm); err != nil {
-			return err
-		}
-	} else if err != nil {
+	if err := internal.CheckAndCreateFolder(cfgDir); err != nil {
 		return err
 	}
 
