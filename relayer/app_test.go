@@ -54,7 +54,9 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProvider.EXPECT().Init(gomock.Any()).Return(nil).AnyTimes()
 
 	cfg := relayer.Config{
-		BandChain: band.Config{},
+		BandChain: band.Config{
+			RpcEndpoints: []string{"http://localhost:26659"},
+		},
 		TargetChains: map[string]chains.ChainProviderConfig{
 			"testnet_evm": s.chainProviderConfig,
 		},

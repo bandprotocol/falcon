@@ -70,11 +70,6 @@ func NewClient(ctx cosmosclient.Context, queryClient *QueryClient, log *zap.Logg
 
 // Connect connects to the BandChain using the provided RPC endpoints.
 func (c *client) Connect(timeout uint) error {
-	// Return if there are no RPC endpoints
-	if len(c.RpcEndpoints) == 0 {
-		return nil
-	}
-
 	for _, rpcEndpoint := range c.RpcEndpoints {
 		// Create a new HTTP client for the specified node URI
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
