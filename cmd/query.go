@@ -16,7 +16,7 @@ func queryCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "query",
 		Aliases: []string{"q"},
-		Short:   "Query commands on source and destination chains.",
+		Short:   "Query commands on source and destination chains",
 	}
 
 	cmd.AddCommand(

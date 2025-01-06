@@ -130,7 +130,7 @@ func DefaultConfig() *Config {
 		BandChain: band.Config{
 			RpcEndpoints:               []string{"http://localhost:26657"},
 			Timeout:                    3 * time.Second,
-			LivelinessCheckingInterval: 15 * time.Minute,
+			LivelinessCheckingInterval: 5 * time.Minute,
 		},
 		TargetChains: make(map[string]chains.ChainProviderConfig),
 		Global: GlobalConfig{

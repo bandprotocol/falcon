@@ -87,9 +87,11 @@ func (mr *MockClientMockRecorder) GetTunnels(ctx any) *gomock.Call {
 }
 
 // Init mocks base method.
-func (m *MockClient) Init(ctx context.Context) {
+func (m *MockClient) Init(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Init", ctx)
+	ret := m.ctrl.Call(m, "Init", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Init indicates an expected call of Init.

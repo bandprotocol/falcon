@@ -23,7 +23,7 @@ var _ Client = &client{}
 type Client interface {
 	// Init initializes the BandChain client by connecting to the chain and starting
 	// periodic liveliness checks.
-	Init(ctx context.Context)
+	Init(ctx context.Context) error
 
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
@@ -31,7 +31,7 @@ type Client interface {
 	// GetTunnel returns the tunnel with the given tunnelID.
 	GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error)
 
-	// GetTunnels returns all tunnel in band chain.
+	// GetTunnels returns all tunnel in BandChain.
 	GetTunnels(ctx context.Context) ([]types.Tunnel, error)
 }
 
@@ -77,13 +77,15 @@ func NewClient(queryClient *QueryClient, log *zap.Logger, bandChainCfg *Config) 
 
 // Init initializes the BandChain client by connecting to the chain and starting
 // periodic liveliness checks.
-func (c *client) Init(ctx context.Context) {
+func (c *client) Init(ctx context.Context) error {
 	timeout := uint(c.Config.Timeout)
 	if err := c.connect(timeout); err != nil {
 		c.Log.Error("Failed to connect to BandChain", zap.Error(err))
+		return err
 	}
 
 	go c.startLivelinessCheck(ctx, timeout, c.Config.LivelinessCheckingInterval)
+	return nil
 }
 
 // connect connects to the BandChain using the provided RPC endpoints.
@@ -96,21 +98,16 @@ func (c *client) connect(timeout uint) error {
 			continue // Try the next endpoint if there's an error
 		}
 
-		// Start the client to establish a connection
-		if err = client.Start(); err != nil {
-			c.Log.Error("Failed to start client", zap.String("rpcEndpoint", rpcEndpoint), zap.Error(err))
-			continue // Try the next endpoint if starting the client fails
-		}
-
 		c.Context.Client = client
 		c.Context.NodeURI = rpcEndpoint
 		c.QueryClient = NewQueryClient(tunneltypes.NewQueryClient(c.Context), bandtsstypes.NewQueryClient(c.Context))
 
-		c.Log.Info("Connected to Band chain", zap.String("endpoint", rpcEndpoint))
+		c.Log.Info("Connected to BandChain", zap.String("endpoint", rpcEndpoint))
 
 		return nil
 	}
-	return fmt.Errorf("no available RPC endpoint")
+
+	return fmt.Errorf("failed to connect to BandChain")
 }
 
 // StartLivelinessCheck starts the liveliness check for the BandChain.
@@ -232,11 +229,11 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	), nil
 }
 
-// GetTunnels returns every tss-route tunnels in band chain.
+// GetTunnels returns every tss-route tunnels in BandChain.
 func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to bandchain")
+		return nil, fmt.Errorf("cannot connect to BandChain")
 	}
 
 	tunnels := make([]types.Tunnel, 0)
@@ -283,7 +280,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	return tunnels, nil
 }
 
-// unpackAny unpacks the provided *codectypes.Any into the specified interface.
+// UnpackAny unpacks the provided *codectypes.Any into the specified interface.
 func (c *client) UnpackAny(any *codectypes.Any, target interface{}) error {
 	err := c.Context.InterfaceRegistry.UnpackAny(any, target)
 	if err != nil {

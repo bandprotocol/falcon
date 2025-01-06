@@ -54,7 +54,10 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProvider.EXPECT().Init(gomock.Any()).Return(nil).AnyTimes()
 
 	cfg := relayer.Config{
-		BandChain: band.Config{LivelinessCheckingInterval: 15 * time.Minute},
+		BandChain: band.Config{
+			RpcEndpoints:               []string{"http://localhost:26659"},
+			LivelinessCheckingInterval: 5 * time.Minute,
+		},
 		TargetChains: map[string]chains.ChainProviderConfig{
 			"testnet_evm": s.chainProviderConfig,
 		},
@@ -62,9 +65,9 @@ func (s *AppTestSuite) SetupTest() {
 	}
 	s.ctx = context.Background()
 
-	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
+	s.app = relayer.NewApp(log, tmpDir, false, &cfg)
 
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.app.BandClient = s.client
 	s.Require().NoError(err)
 }
@@ -179,7 +182,7 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 
 func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
-	err := s.app.Init(s.ctx)
+	err := s.app.Init(s.ctx, "", "")
 
 	s.Require().NoError(err)
 
