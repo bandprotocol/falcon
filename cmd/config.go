@@ -57,7 +57,7 @@ func configInitCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"i"},
-		Short:   "Create a default configuration at home directory path defined by --home",
+		Short:   "Create a default configuration at home directory path",
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config init --home %s

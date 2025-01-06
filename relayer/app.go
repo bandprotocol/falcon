@@ -12,9 +12,9 @@ import (
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -32,7 +32,6 @@ const (
 // App is the main application struct.
 type App struct {
 	Log      *zap.Logger
-	Viper    *viper.Viper
 	HomePath string
 	Debug    bool
 	Config   *Config
@@ -45,14 +44,12 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp(
 	log *zap.Logger,
-	viper *viper.Viper,
 	homePath string,
 	debug bool,
 	config *Config,
 ) *App {
 	app := App{
 		Log:      log,
-		Viper:    viper,
 		HomePath: homePath,
 		Debug:    debug,
 		Config:   config,
@@ -60,8 +57,8 @@ func NewApp(
 	return &app
 }
 
-// Initialize the application.
-func (a *App) Init(ctx context.Context) error {
+// Init initialize the application.
+func (a *App) Init(ctx context.Context, logLevel, logFormat string) error {
 	if a.Config == nil {
 		if err := a.LoadConfigFile(); err != nil {
 			return err
@@ -70,50 +67,54 @@ func (a *App) Init(ctx context.Context) error {
 
 	// initialize logger, if not already initialized
 	if a.Log == nil {
-		if err := a.initLogger(""); err != nil {
+		if err := a.initLogger(logLevel, logFormat); err != nil {
 			return err
 		}
 	}
 
-	// initialize target chains
+	// load passphrase from .env file or system environment variables
+	a.EnvPassphrase = a.loadEnvPassphrase()
+
+	// if config is not initialized, return
+	if a.Config == nil {
+		return nil
+	}
+
+	// initialize target chain clients
 	if err := a.initTargetChains(); err != nil {
 		return err
 	}
 
-	// initialize band client
-	if a.Config != nil {
-		if err := a.initBandClient(); err != nil {
-			return err
-		}
+	// initialize BandChain client
+	if err := a.initBandClient(); err != nil {
+		return err
 	}
-
-	a.EnvPassphrase = a.loadEnvPassphrase()
 
 	return nil
 }
 
 // initBandClient establishes connection to rpc endpoints.
 func (a *App) initBandClient() error {
-	c := band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
-	if err := c.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
+	a.BandClient = band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
+
+	// connect to BandChain, if error occurs, log the error as debug and continue
+	if err := a.BandClient.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
+		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
 		return err
 	}
-	a.BandClient = c
+
 	return nil
 }
 
-// InitLogger initializes the logger with the given log level.
-func (a *App) initLogger(configLogLevel string) error {
-	logLevel := a.Viper.GetString("log-level")
-	if a.Viper.GetBool("debug") {
-		logLevel = "debug"
-	} else if logLevel == "" {
-		logLevel = configLogLevel
+// initLogger initializes the logger with the given log level.
+func (a *App) initLogger(logLevel, logFormat string) error {
+	if logLevel == "" && a.Config != nil {
+		logLevel = a.Config.Global.LogLevel
 	}
 
 	// initialize logger only if user run command "start" or log level is "debug"
 	if os.Args[1] == "start" || logLevel == "debug" {
-		log, err := newRootLogger(a.Viper.GetString("log-format"), logLevel)
+		log, err := newRootLogger(logFormat, logLevel)
 		if err != nil {
 			return err
 		}
@@ -125,13 +126,9 @@ func (a *App) initLogger(configLogLevel string) error {
 	return nil
 }
 
-// InitTargetChains initializes the target chains.
+// initTargetChains initializes the target chains.
 func (a *App) initTargetChains() error {
 	a.targetChains = make(chains.ChainProviders)
-	if a.Config == nil || a.Config.TargetChains == nil {
-		a.Log.Error("Target chains not found in config")
-		return nil
-	}
 
 	for chainName, chainConfig := range a.Config.TargetChains {
 		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug)
@@ -145,27 +142,25 @@ func (a *App) initTargetChains() error {
 
 		a.targetChains[chainName] = cp
 	}
+
 	return nil
 }
 
 // LoadConfigFile reads config file into a.Config if file is present.
 func (a *App) LoadConfigFile() error {
 	cfgPath := path.Join(a.HomePath, configFolderName, configFileName)
-	if _, err := os.Stat(cfgPath); err != nil {
-		// don't return error if file doesn't exist
+
+	// check if file doesn't exist, exit the function as the config may not be initialized.
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		return nil
+	} else if err != nil {
+		return err
 	}
 
 	// read the config from config path
 	cfg, err := LoadConfig(cfgPath)
 	if err != nil {
 		return err
-	}
-
-	if a.Log == nil {
-		if err := a.initLogger(cfg.Global.LogLevel); err != nil {
-			return err
-		}
 	}
 
 	// save configuration
@@ -207,17 +202,13 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 	}
 
 	// Create the home folder if doesn't exist
-	if _, err := os.Stat(homePath); os.IsNotExist(err) {
-		if err = os.Mkdir(homePath, os.ModePerm); err != nil {
-			return err
-		}
+	if err := internal.CheckAndCreateFolder(homePath); err != nil {
+		return err
 	}
 
 	// Create the config folder if doesn't exist
-	if _, err := os.Stat(cfgDir); os.IsNotExist(err) {
-		if err = os.Mkdir(cfgDir, os.ModePerm); err != nil {
-			return err
-		}
+	if err := internal.CheckAndCreateFolder(cfgDir); err != nil {
+		return err
 	}
 
 	// Create the file and write the default config to the given location.
@@ -264,8 +255,7 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	c := a.BandClient
-	tunnel, err := c.GetTunnel(ctx, tunnelID)
+	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return nil, err
 	}
@@ -278,17 +268,15 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		tunnel.IsActive,
 	)
 
-	targetChain := tunnel.TargetChainID
-	targetAddr := tunnel.TargetAddress
+	cp, ok := a.targetChains[bandChainInfo.TargetChainID]
+	if !ok {
+		a.Log.Debug("Target chain provider not found", zap.String("chain_id", bandChainInfo.TargetChainID))
+		return types.NewTunnel(bandChainInfo, nil), nil
+	}
 
-	var tunnelChainInfo *chainstypes.Tunnel
-	cp, ok := a.targetChains[targetChain]
-	if ok {
-		var err error
-		tunnelChainInfo, err = cp.QueryTunnelInfo(ctx, tunnelID, targetAddr)
-		if err != nil {
-			return nil, err
-		}
+	tunnelChainInfo, err := cp.QueryTunnelInfo(ctx, tunnelID, bandChainInfo.TargetAddress)
+	if err != nil {
+		return nil, err
 	}
 
 	return types.NewTunnel(
@@ -303,16 +291,16 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	c := a.BandClient
-	return c.GetTunnelPacket(ctx, tunnelID, sequence)
+	return a.BandClient.GetTunnelPacket(ctx, tunnelID, sequence)
 }
 
+// AddChainConfig adds a new chain configuration to the config file.
 func (a *App) AddChainConfig(chainName string, filePath string) error {
 	if a.Config == nil {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if _, exist := a.Config.TargetChains[chainName]; exist {
+	if _, ok := a.Config.TargetChains[chainName]; ok {
 		return fmt.Errorf("existing chain name : %s", chainName)
 	}
 
@@ -335,12 +323,13 @@ func (a *App) AddChainConfig(chainName string, filePath string) error {
 	return os.WriteFile(cfgPath, b, 0o600)
 }
 
+// DeleteChainConfig deletes the chain configuration from the config file.
 func (a *App) DeleteChainConfig(chainName string) error {
 	if a.Config == nil {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if _, exist := a.Config.TargetChains[chainName]; !exist {
+	if _, ok := a.Config.TargetChains[chainName]; !ok {
 		return fmt.Errorf("not existing chain name : %s", chainName)
 	}
 
@@ -358,6 +347,7 @@ func (a *App) DeleteChainConfig(chainName string) error {
 	return os.WriteFile(cfgPath, b, 0o600)
 }
 
+// GetChainConfig retrieves the chain configuration by given chain name.
 func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -365,13 +355,14 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 
 	chainProviders := a.Config.TargetChains
 
-	if _, exist := chainProviders[chainName]; !exist {
+	if _, ok := chainProviders[chainName]; !ok {
 		return nil, fmt.Errorf("not existing chain name : %s", chainName)
 	}
 
 	return chainProviders[chainName], nil
 }
 
+// AddKey adds a new key to the chain provider.
 func (a *App) AddKey(
 	chainName string,
 	keyName string,
@@ -407,6 +398,7 @@ func (a *App) AddKey(
 	return keyOutput, nil
 }
 
+// DeleteKey deletes the key from the chain provider.
 func (a *App) DeleteKey(chainName string, keyName string) error {
 	if a.Config == nil {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -429,6 +421,7 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 	return cp.DeleteKey(a.HomePath, keyName, a.EnvPassphrase)
 }
 
+// ExportKey exports the private key from the chain provider.
 func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 	if a.Config == nil {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -456,6 +449,7 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 	return privateKey, nil
 }
 
+// ListKeys retrieves the list of keys from the chain provider.
 func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 	if a.Config == nil {
 		return make([]*chainstypes.Key, 0), fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -467,9 +461,10 @@ func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 		return make([]*chainstypes.Key, 0), fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
-	return cp.Listkeys(), nil
+	return cp.ListKeys(), nil
 }
 
+// ShowKey retrieves the key information from the chain provider.
 func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 	if a.Config == nil {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -487,6 +482,7 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 	return cp.ShowKey(keyName), nil
 }
 
+// QueryBalance retrieves the balance of the key from the chain provider.
 func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
@@ -549,40 +545,18 @@ func (a *App) validatePassphrase(envPassphrase string) error {
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("Starting tunnel relayer")
 
-	isSyncTunnelsAllowed := false
-
 	// query tunnels
-	var tunnels []bandtypes.Tunnel
-	if len(tunnelIDs) == 0 {
-		var err error
-		tunnels, err = a.BandClient.GetTunnels(ctx)
-		isSyncTunnelsAllowed = true
-		if err != nil {
-			return err
-		}
-	} else {
-		tunnels = make([]bandtypes.Tunnel, 0, len(tunnelIDs))
-		for _, tunnelID := range tunnelIDs {
-			tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
-			if err != nil {
-				return err
-			}
-			tunnels = append(tunnels, *tunnel)
-		}
+	tunnels, err := a.getTunnels(ctx, tunnelIDs)
+	if err != nil {
+		a.Log.Error("Cannot get tunnels", zap.Error(err))
 	}
 
-	if len(tunnels) == 0 {
-		a.Log.Error("No tunnel ID provided")
-		return fmt.Errorf("no tunnel ID provided")
-	}
-
-	// initialize the tunnel relayer
-	tunnelRelayers := []*TunnelRelayer{}
-
+	// validate passphrase
 	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
+	// initialize target chain providers
 	for chainName, chainProvider := range a.targetChains {
 		if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
 			a.Log.Error("Cannot load keys in target chain",
@@ -601,6 +575,8 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		}
 	}
 
+	// initialize the tunnel relayer
+	tunnelRelayers := []*TunnelRelayer{}
 	for _, tunnel := range tunnels {
 		chainProvider, ok := a.targetChains[tunnel.TargetChainID]
 		if !ok {
@@ -619,6 +595,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	// start the tunnel relayers
+	isSyncTunnelsAllowed := (len(tunnelIDs) == 0)
 	scheduler := NewScheduler(
 		a.Log,
 		tunnelRelayers,
@@ -636,7 +613,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 // Relay relays the packet from the source chain to the destination chain.
 func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
-	a.Log.Debug("Query tunnel info on band chain", zap.Uint64("tunnel_id", tunnelID))
+	a.Log.Debug("Query tunnel info on BandChain", zap.Uint64("tunnel_id", tunnelID))
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return err
@@ -669,4 +646,24 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	)
 
 	return tr.CheckAndRelay(ctx)
+}
+
+// GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
+// get all tunnels
+func (a *App) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
+	if len(tunnelIDs) == 0 {
+		return a.BandClient.GetTunnels(ctx)
+	}
+
+	tunnels := make([]bandtypes.Tunnel, 0, len(tunnelIDs))
+	for _, tunnelID := range tunnelIDs {
+		tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
+		if err != nil {
+			return nil, err
+		}
+
+		tunnels = append(tunnels, *tunnel)
+	}
+
+	return tunnels, nil
 }
