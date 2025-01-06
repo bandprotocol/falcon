@@ -118,7 +118,7 @@ func (c *client) connect(timeout uint, onStartup bool) error {
 	return fmt.Errorf("failed to connect to BandChain")
 }
 
-// StartLivelinessCheck starts the liveliness check for the BandChain.
+// startLivelinessCheck starts the liveliness check for the BandChain.
 func (c *client) startLivelinessCheck(ctx context.Context, timeout uint, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	for {
