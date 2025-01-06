@@ -55,7 +55,9 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProvider.EXPECT().Init(gomock.Any()).Return(nil).AnyTimes()
 
 	cfg := relayer.Config{
-		BandChain: band.Config{},
+		BandChain: band.Config{
+			RpcEndpoints: []string{"http://localhost:26659"},
+		},
 		TargetChains: map[string]chains.ChainProviderConfig{
 			"testnet_evm": s.chainProviderConfig,
 		},
@@ -63,9 +65,9 @@ func (s *AppTestSuite) SetupTest() {
 	}
 	s.ctx = context.Background()
 
-	s.app = relayer.NewApp(log, nil, tmpDir, false, &cfg)
+	s.app = relayer.NewApp(log, tmpDir, false, &cfg)
 
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.app.BandClient = s.client
 	s.Require().NoError(err)
 }
@@ -180,7 +182,7 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 
 func (s *AppTestSuite) TestQueryTunnelInfoNotSupportedChain() {
 	s.app.Config.TargetChains = nil
-	err := s.app.Init(s.ctx)
+	err := s.app.Init(s.ctx, "", "")
 
 	s.Require().NoError(err)
 
@@ -470,7 +472,7 @@ func (s *AppTestSuite) TestAddKey() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -506,7 +508,7 @@ func (s *AppTestSuite) TestAddKeyWithInvalidPassphrase() {
 	s.Require().NoError(err)
 
 	// load config file
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -537,7 +539,7 @@ func (s *AppTestSuite) TestAddKeyWithNotExistingChainName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet2"
@@ -568,7 +570,7 @@ func (s *AppTestSuite) TestAddKeyWithExistingKeyName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -603,7 +605,7 @@ func (s *AppTestSuite) TestDeleteKey() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -640,7 +642,7 @@ func (s *AppTestSuite) TestDeleteKeyWithInvalidPassphrase() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -678,7 +680,7 @@ func (s *AppTestSuite) TestDeleteKeyWithNotExistChainName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet2"
@@ -704,7 +706,7 @@ func (s *AppTestSuite) TestDeleteKeyWithNotExistKeyName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -730,7 +732,7 @@ func (s *AppTestSuite) TestExportKey() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -768,7 +770,7 @@ func (s *AppTestSuite) TestExportKeyWithInvalidPassphrase() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -804,7 +806,7 @@ func (s *AppTestSuite) TestExportKeyWithNotExistChainName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet2"
@@ -830,7 +832,7 @@ func (s *AppTestSuite) TestExportKeyWithNotExistKeyName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -856,7 +858,7 @@ func (s *AppTestSuite) TestListKeys() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	keyName1 := "testkey1"
@@ -902,7 +904,7 @@ func (s *AppTestSuite) TestListKeysWithNotExistChainName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet2"
@@ -927,7 +929,7 @@ func (s *AppTestSuite) TestShowKey() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"
@@ -964,7 +966,7 @@ func (s *AppTestSuite) TestShowKeyWithNotExistChainName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet2"
@@ -990,7 +992,7 @@ func (s *AppTestSuite) TestShowKeyWithNotExistKeyName() {
 	s.Require().NoError(err)
 
 	// load config file and init target chains
-	err = s.app.Init(s.ctx)
+	err = s.app.Init(s.ctx, "", "")
 	s.Require().NoError(err)
 
 	chainName := "testnet"

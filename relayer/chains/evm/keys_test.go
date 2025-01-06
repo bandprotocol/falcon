@@ -336,7 +336,7 @@ func (s *KeysTestSuite) TestListKeys() {
 	s.Require().NoError(err)
 
 	// List all keys
-	actual := s.chainProvider.Listkeys()
+	actual := s.chainProvider.ListKeys()
 	s.Require().Equal(2, len(actual))
 
 	expected1 := chaintypes.NewKey("", key1.Address, keyName1)

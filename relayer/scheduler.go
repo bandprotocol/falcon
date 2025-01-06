@@ -59,12 +59,13 @@ func NewScheduler(
 // Start starts all tunnel relayers
 func (s *Scheduler) Start(ctx context.Context) error {
 	ticker := time.NewTicker(s.CheckingPacketInterval)
+	defer ticker.Stop()
+
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
+	defer syncTunnelTicker.Stop()
 
 	// execute once we start the scheduler.
 	s.Execute(ctx)
-	defer ticker.Stop()
-	defer syncTunnelTicker.Stop()
 
 	for {
 		select {
@@ -156,10 +157,10 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		return
 	}
 
-	s.Log.Info("Starting sync tunnels")
+	s.Log.Info("Start syncing new tunnels")
 	tunnels, err := s.BandClient.GetTunnels(ctx)
 	if err != nil {
-		s.Log.Error("Failed to fetch tunnels from Band Chain", zap.Error(err))
+		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
 		return
 	}
 	oldTunnelCount := len(s.TunnelRelayers)
@@ -179,6 +180,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			)
 			continue
 		}
+
 		tr := NewTunnelRelayer(
 			s.Log,
 			tunnels[i].ID,

@@ -28,24 +28,32 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 
 // NewRootCmd returns the root command for falcon.
 func NewRootCmd(log *zap.Logger) *cobra.Command {
-	app := falcon.NewApp(log, viper.New(), defaultHome, false, nil)
+	app := falcon.NewApp(log, defaultHome, false, nil)
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
 		Use:   appName,
-		Short: "This application relays tunnel messages to the target chains/contracts.",
-		Long: strings.TrimSpace(`falcon has:
-   1. Configuration management for destination chains
-   2. Key management for managing multiple keys for multiple chains
-   3. transaction Execution functionality on destination chains.
-   4. Query functionality on source and destination chains.
+		Short: "Falcon relays tss tunnel messages from BandChain to destination chains/smart contracts",
+		Long: strings.TrimSpace(`This application has:
+   1. Configuration Management: Handles the configuration of the program.
+   2. Key Management: Supports managing multiple keys across multiple chains.
+   3. Transaction Execution: Enables executing transactions on destination chains.
+   4. Query Functionality: Facilitates querying data from both source and destination chains.
 
    NOTE: Most of the commands have aliases that make typing them much quicker 
          (i.e. 'falcon tx', 'falcon q', etc...)`),
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		return app.Init(rootCmd.Context())
+		// retrieve log level from viper
+		logLevelViper := viper.GetString("log-level")
+		if viper.GetBool("debug") {
+			logLevelViper = "debug"
+		}
+
+		logFormat := viper.GetString("log-format")
+
+		return app.Init(rootCmd.Context(), logLevelViper, logFormat)
 	}
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
@@ -58,25 +66,25 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	// Register --home flag
 	rootCmd.PersistentFlags().StringVar(&app.HomePath, flagHome, defaultHome, "set home directory")
-	if err := app.Viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
+	if err := viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
 		panic(err)
 	}
 
 	// Register --debug flag
 	rootCmd.PersistentFlags().BoolVarP(&app.Debug, "debug", "d", false, "debug output")
-	if err := app.Viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
+	if err := viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
 		panic(err)
 	}
 
 	// Register --log-format flag
 	rootCmd.PersistentFlags().String("log-format", "auto", "log output format (auto, logfmt, json, or console)")
-	if err := app.Viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
+	if err := viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
 		panic(err)
 	}
 
 	// Register --log-level flag
 	rootCmd.PersistentFlags().String("log-level", "", "log level format (info, debug, warn, error, panic or fatal)")
-	if err := app.Viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
+	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
 		panic(err)
 	}
 

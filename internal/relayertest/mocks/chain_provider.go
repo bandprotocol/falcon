@@ -115,18 +115,18 @@ func (mr *MockChainProviderMockRecorder) IsKeyNameExist(keyName any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsKeyNameExist", reflect.TypeOf((*MockChainProvider)(nil).IsKeyNameExist), keyName)
 }
 
-// Listkeys mocks base method.
-func (m *MockChainProvider) Listkeys() []*types0.Key {
+// ListKeys mocks base method.
+func (m *MockChainProvider) ListKeys() []*types0.Key {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Listkeys")
+	ret := m.ctrl.Call(m, "ListKeys")
 	ret0, _ := ret[0].([]*types0.Key)
 	return ret0
 }
 
-// Listkeys indicates an expected call of Listkeys.
-func (mr *MockChainProviderMockRecorder) Listkeys() *gomock.Call {
+// ListKeys indicates an expected call of ListKeys.
+func (mr *MockChainProviderMockRecorder) ListKeys() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Listkeys", reflect.TypeOf((*MockChainProvider)(nil).Listkeys))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockChainProvider)(nil).ListKeys))
 }
 
 // LoadFreeSenders mocks base method.
@@ -283,18 +283,18 @@ func (mr *MockKeyProviderMockRecorder) IsKeyNameExist(keyName any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsKeyNameExist", reflect.TypeOf((*MockKeyProvider)(nil).IsKeyNameExist), keyName)
 }
 
-// Listkeys mocks base method.
-func (m *MockKeyProvider) Listkeys() []*types0.Key {
+// ListKeys mocks base method.
+func (m *MockKeyProvider) ListKeys() []*types0.Key {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Listkeys")
+	ret := m.ctrl.Call(m, "ListKeys")
 	ret0, _ := ret[0].([]*types0.Key)
 	return ret0
 }
 
-// Listkeys indicates an expected call of Listkeys.
-func (mr *MockKeyProviderMockRecorder) Listkeys() *gomock.Call {
+// ListKeys indicates an expected call of ListKeys.
+func (mr *MockKeyProviderMockRecorder) ListKeys() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Listkeys", reflect.TypeOf((*MockKeyProvider)(nil).Listkeys))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockKeyProvider)(nil).ListKeys))
 }
 
 // LoadFreeSenders mocks base method.
