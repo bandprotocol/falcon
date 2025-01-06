@@ -2,6 +2,7 @@ package band_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -63,79 +64,118 @@ func (s *ClientTestSuite) SetupTest() {
 		[]string{})
 }
 
-func (s *ClientTestSuite) TestGetTSSTunnel() {
-	// mock route value
-	destinationChainID := "eth"
-	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
-	r := &tunneltypes.TSSRoute{
-		DestinationChainID:         destinationChainID,
-		DestinationContractAddress: destinationContractAddress,
-	}
-	var routeI tunneltypes.RouteI = r
-	msg, ok := routeI.(proto.Message)
-	s.Require().Equal(true, ok)
-
-	any, err := codectypes.NewAnyWithValue(msg)
-	s.Require().NoError(err)
-
-	tunnel := tunneltypes.Tunnel{
-		ID:               uint64(1),
-		Sequence:         100,
-		Route:            any,
-		FeePayer:         "cosmos1xyz...",
-		SignalDeviations: []tunneltypes.SignalDeviation{},
-		Interval:         60,
-		TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
-		IsActive:         false,
-		CreatedAt:        time.Now().Unix(),
-		Creator:          "cosmos1abc...",
-	}
-	queryResponse := &tunneltypes.QueryTunnelResponse{
-		Tunnel: tunnel,
-	}
-
-	// expect response from bandQueryClient
-	s.tunnelQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
-		TunnelId: uint64(1),
-	}).Return(queryResponse, nil)
-
-	expected := bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false)
-
-	actual, err := s.client.GetTunnel(s.ctx, uint64(1))
-	s.Require().NoError(err)
-	s.Require().Equal(expected, actual)
-}
-
-func (s *ClientTestSuite) TestGetOtherTunnel() {
-	// mock ibc tunnel
+// GetMockIBCTunnel returns a mock IBC tunnel.
+func (s *ClientTestSuite) GetMockIBCTunnel(tunnelID uint64) (tunneltypes.Tunnel, error) {
 	ibcRoute := tunneltypes.IBCRoute{ChannelID: "test"}
 	var routeI tunneltypes.RouteI = &ibcRoute
+
 	msg, ok := routeI.(proto.Message)
-	s.Require().Equal(true, ok)
+	if !ok {
+		return tunneltypes.Tunnel{}, fmt.Errorf("cannot convert route to proto.Message")
+	}
 
-	routeIBCAny, err := codectypes.NewAnyWithValue(msg)
-	s.Require().NoError(err)
+	routeAny, err := codectypes.NewAnyWithValue(msg)
+	if err != nil {
+		return tunneltypes.Tunnel{}, err
+	}
 
-	tunnel := tunneltypes.Tunnel{
-		ID:               2,
+	return tunneltypes.Tunnel{
+		ID:               tunnelID,
 		Sequence:         100,
-		Route:            routeIBCAny,
+		Route:            routeAny,
 		FeePayer:         "cosmos1xyz...",
 		SignalDeviations: []tunneltypes.SignalDeviation{},
 		Interval:         60,
 		TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
 		IsActive:         false,
-		CreatedAt:        time.Now().Unix(),
+		CreatedAt:        1736145613,
 		Creator:          "cosmos1abc...",
+	}, nil
+}
+
+// GetMockTSSTunnel returns a mock TSS tunnel.
+func (s *ClientTestSuite) GetMockTSSTunnel(tunnelID uint64) (tunneltypes.Tunnel, error) {
+	r := &tunneltypes.TSSRoute{
+		DestinationChainID:         "eth",
+		DestinationContractAddress: "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1",
+	}
+	var routeI tunneltypes.RouteI = r
+
+	msg, ok := routeI.(proto.Message)
+	if !ok {
+		return tunneltypes.Tunnel{}, fmt.Errorf("cannot convert route to proto.Message")
 	}
 
-	// expect response from bandQueryClient
-	s.tunnelQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
-		TunnelId: uint64(1),
-	}).Return(&tunneltypes.QueryTunnelResponse{Tunnel: tunnel}, nil)
+	routeAny, err := codectypes.NewAnyWithValue(msg)
+	if err != nil {
+		return tunneltypes.Tunnel{}, err
+	}
 
-	_, err = s.client.GetTunnel(s.ctx, uint64(1))
-	s.Require().ErrorContains(err, "unsupported route type")
+	return tunneltypes.Tunnel{
+		ID:               tunnelID,
+		Sequence:         100,
+		Route:            routeAny,
+		FeePayer:         "cosmos1xyz...",
+		SignalDeviations: []tunneltypes.SignalDeviation{},
+		Interval:         60,
+		TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
+		IsActive:         false,
+		CreatedAt:        1736145613,
+		Creator:          "cosmos1abc...",
+	}, nil
+}
+
+func (s *ClientTestSuite) TestGetTunnel() {
+	tssTunnel, err := s.GetMockTSSTunnel(1)
+	s.Require().NoError(err)
+
+	ibcTunnel, err := s.GetMockIBCTunnel(2)
+	s.Require().NoError(err)
+
+	testcases := []struct {
+		name       string
+		in         uint64
+		preprocess func(c context.Context)
+		expectOut  *bandclienttypes.Tunnel
+		expectErr  error
+	}{
+		{
+			name:      "success",
+			in:        1,
+			expectOut: bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false),
+			preprocess: func(c context.Context) {
+				s.tunnelQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
+					TunnelId: uint64(1),
+				}).Return(&tunneltypes.QueryTunnelResponse{Tunnel: tssTunnel}, nil)
+			},
+		},
+		{
+			name:      "unsupported route type",
+			in:        2,
+			expectErr: fmt.Errorf("unsupported route type"),
+			preprocess: func(c context.Context) {
+				s.tunnelQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
+					TunnelId: uint64(2),
+				}).Return(&tunneltypes.QueryTunnelResponse{Tunnel: ibcTunnel}, nil)
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		s.T().Run(tc.name, func(t *testing.T) {
+			if tc.preprocess != nil {
+				tc.preprocess(s.ctx)
+			}
+
+			actual, err := s.client.GetTunnel(s.ctx, tc.in)
+			if tc.expectErr != nil {
+				s.Require().ErrorContains(err, tc.expectErr.Error())
+			} else {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expectOut, actual)
+			}
+		})
+	}
 }
 
 func (s *ClientTestSuite) TestGetTSSTunnelPacket() {
@@ -261,153 +301,102 @@ func (s *ClientTestSuite) TestGetOtherTunnelPacket() {
 }
 
 func (s *ClientTestSuite) TestGetTunnels() {
-	// mock route value
-	destinationChainID := "eth"
-	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
-	r := &tunneltypes.TSSRoute{
-		DestinationChainID:         destinationChainID,
-		DestinationContractAddress: destinationContractAddress,
-	}
-	var routeI tunneltypes.RouteI = r
-	msg, ok := routeI.(proto.Message)
-	s.Require().Equal(true, ok)
-
-	routeAny, err := codectypes.NewAnyWithValue(msg)
-	s.Require().NoError(err)
-
 	// mock tunnels result
-	tunnels := make([]*tunneltypes.Tunnel, 0, 120)
-	for i := 1; i <= cap(tunnels); i++ {
-		tunnel := &tunneltypes.Tunnel{
-			ID:               uint64(i),
-			Sequence:         100,
-			Route:            routeAny,
-			FeePayer:         "cosmos1xyz...",
-			SignalDeviations: []tunneltypes.SignalDeviation{},
-			Interval:         60,
-			TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
-			IsActive:         false,
-			CreatedAt:        time.Now().Unix(),
-			Creator:          "cosmos1abc...",
-		}
-		tunnels = append(tunnels, tunnel)
+	tssTunnels := make([]*tunneltypes.Tunnel, 0, 120)
+	for i := 1; i <= cap(tssTunnels); i++ {
+		tunnel, err := s.GetMockTSSTunnel(uint64(i))
+		s.Require().NoError(err)
+
+		tssTunnels = append(tssTunnels, &tunnel)
 	}
 
-	// mock responses
-	queryResponse1 := &tunneltypes.QueryTunnelsResponse{
-		Tunnels: tunnels[:100],
-		Pagination: &querytypes.PageResponse{
-			NextKey: []byte("next-key"),
-		},
-	}
-	queryResponse2 := &tunneltypes.QueryTunnelsResponse{
-		Tunnels: tunnels[100:],
-		Pagination: &querytypes.PageResponse{
-			NextKey: []byte(""),
-		},
-	}
+	// expected result from tssTunnels
+	expectedRes := make([]bandclienttypes.Tunnel, 0, len(tssTunnels))
+	for _, tunnel := range tssTunnels {
+		routeI, err := tunnel.GetRouteValue()
+		s.Require().NoError(err)
 
-	// expect response from bandQueryClient
-	s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
-		Pagination: &querytypes.PageRequest{
-			Key: nil,
-		},
-	}).Return(queryResponse1, nil)
-	s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
-		Pagination: &querytypes.PageRequest{
-			Key: []byte("next-key"),
-		},
-	}).Return(queryResponse2, nil)
+		tssRoute, ok := routeI.(*tunneltypes.TSSRoute)
+		s.Require().True(ok)
 
-	expected := make([]bandclienttypes.Tunnel, 0, len(tunnels))
-	for i := 1; i <= len(tunnels); i++ {
-		expected = append(
-			expected,
-			*bandclienttypes.NewTunnel(uint64(i), 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false),
-		)
+		expectedRes = append(expectedRes, *bandclienttypes.NewTunnel(
+			tunnel.ID,
+			tunnel.Sequence,
+			tssRoute.DestinationContractAddress,
+			tssRoute.DestinationChainID,
+			tunnel.IsActive,
+		))
 	}
 
-	actual, err := s.client.GetTunnels(s.ctx)
-	s.Require().NoError(err)
-	s.Require().Equal(expected, actual)
-}
-
-func (s *ClientTestSuite) TestGetTunnelsGetMultipleRouteTypes() {
-	// mock tss tunnel
-	destinationChainID := "eth"
-	destinationContractAddress := "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1"
-	r := &tunneltypes.TSSRoute{
-		DestinationChainID:         destinationChainID,
-		DestinationContractAddress: destinationContractAddress,
-	}
-	var routeI tunneltypes.RouteI = r
-	msg, ok := routeI.(proto.Message)
-	s.Require().Equal(true, ok)
-
-	routeTSSAny, err := codectypes.NewAnyWithValue(msg)
+	// create mock ibc tunnel
+	ibcTunnel, err := s.GetMockIBCTunnel(uint64(121))
 	s.Require().NoError(err)
 
-	tssTunnel := tunneltypes.Tunnel{
-		ID:               1,
-		Sequence:         100,
-		Route:            routeTSSAny,
-		FeePayer:         "cosmos1xyz...",
-		SignalDeviations: []tunneltypes.SignalDeviation{},
-		Interval:         60,
-		TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
-		IsActive:         false,
-		CreatedAt:        time.Now().Unix(),
-		Creator:          "cosmos1abc...",
-	}
+	testcases := []struct {
+		name        string
+		preprocess  func(c context.Context)
+		expectedRes []bandclienttypes.Tunnel
+		expectedErr error
+	}{
+		{
+			name: "success",
+			preprocess: func(c context.Context) {
+				// expect response from bandQueryClient
+				s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
+					Pagination: &querytypes.PageRequest{
+						Key: nil,
+					},
+				}).Return(&tunneltypes.QueryTunnelsResponse{
+					Tunnels: tssTunnels[:100],
+					Pagination: &querytypes.PageResponse{
+						NextKey: []byte("next-key"),
+					},
+				}, nil)
 
-	// mock ibc tunnel
-	ibcRoute := tunneltypes.IBCRoute{ChannelID: "test"}
-	routeI = &ibcRoute
-	msg, ok = routeI.(proto.Message)
-	s.Require().Equal(true, ok)
-
-	routeIBCAny, err := codectypes.NewAnyWithValue(msg)
-	s.Require().NoError(err)
-
-	ibcTunnel := tunneltypes.Tunnel{
-		ID:               2,
-		Sequence:         100,
-		Route:            routeIBCAny,
-		FeePayer:         "cosmos1xyz...",
-		SignalDeviations: []tunneltypes.SignalDeviation{},
-		Interval:         60,
-		TotalDeposit:     types.NewCoins(types.NewCoin("uband", math.NewInt(1000))),
-		IsActive:         false,
-		CreatedAt:        time.Now().Unix(),
-		Creator:          "cosmos1abc...",
-	}
-
-	// mock responses
-	queryResponse := &tunneltypes.QueryTunnelsResponse{
-		Tunnels:    []*tunneltypes.Tunnel{&tssTunnel, &ibcTunnel},
-		Pagination: &querytypes.PageResponse{NextKey: []byte("")},
-	}
-
-	// expect response from bandQueryClient
-	s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
-		Pagination: &querytypes.PageRequest{
-			Key: nil,
+				s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
+					Pagination: &querytypes.PageRequest{
+						Key: []byte("next-key"),
+					},
+				}).Return(&tunneltypes.QueryTunnelsResponse{
+					Tunnels: tssTunnels[100:],
+					Pagination: &querytypes.PageResponse{
+						NextKey: []byte(""),
+					},
+				}, nil)
+			},
+			expectedRes: expectedRes,
 		},
-	}).Return(queryResponse, nil)
+		{
+			name: "filter out unrelated tunnel",
+			preprocess: func(c context.Context) {
+				s.tunnelQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
+					Pagination: &querytypes.PageRequest{
+						Key: nil,
+					},
+				}).Return(&tunneltypes.QueryTunnelsResponse{
+					Tunnels: []*tunneltypes.Tunnel{tssTunnels[0], &ibcTunnel},
+					Pagination: &querytypes.PageResponse{
+						NextKey: []byte(""),
+					},
+				}, nil)
+			},
+			expectedRes: []bandclienttypes.Tunnel{expectedRes[0]},
+		},
+	}
 
-	encodingConfig := band.MakeEncodingConfig()
-	s.client = band.NewClient(
-		cosmosclient.Context{}.
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
-		band.NewQueryClient(s.tunnelQueryClient, s.bandtssQueryClient),
-		s.log,
-		[]string{})
+	for _, tc := range testcases {
+		s.T().Run(tc.name, func(t *testing.T) {
+			if tc.preprocess != nil {
+				tc.preprocess(s.ctx)
+			}
 
-	expected := make([]bandclienttypes.Tunnel, 1)
-	expected[0] = *bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false)
-
-	actual, err := s.client.GetTunnels(s.ctx)
-	s.Require().NoError(err)
-	s.Require().Equal(expected, actual)
+			actual, err := s.client.GetTunnels(s.ctx)
+			if tc.expectedErr != nil {
+				s.Require().ErrorContains(err, tc.expectedErr.Error())
+			} else {
+				s.Require().NoError(err)
+				s.Require().Equal(tc.expectedRes, actual)
+			}
+		})
+	}
 }
