@@ -2,6 +2,7 @@ package relayer_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"os"
 	"path"
 	"testing"
@@ -248,11 +249,9 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 
 func (s *AppTestSuite) TestAddChainConfig() {
 	s.app.Config = nil
-	// create new chain config file
-	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
-	chainName := "testnet"
 
 	// write chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
 	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
 	s.Require().NoError(err)
 
@@ -269,6 +268,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	err = s.app.LoadConfigFile()
 	s.Require().NoError(err)
 
+	chainName := "testnet"
 	err = s.app.AddChainConfig(chainName, chainCfgPath)
 	s.Require().NoError(err)
 
@@ -279,6 +279,63 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	s.Require().Equal(relayertest.DefaultCfgTextWithChainCfg, string(actualBytes))
 
 	s.Require().Equal(expectedBytes, actualBytes)
+}
+
+func (s *AppTestSuite) TestAddChainConfigWithExistingChainName() {
+	s.app.Config = nil
+
+	// write chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config.toml")
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(chainCfgPath)
+
+	// write config file
+	cfgPath := path.Join(s.app.HomePath, "default_with_chain_config.toml")
+	err = os.WriteFile(cfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(cfgPath)
+
+	// init config file
+	err = s.app.InitConfigFile(s.app.HomePath, cfgPath)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	// load config
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	err = s.app.AddChainConfig(chainName, chainCfgPath)
+	s.Require().ErrorContains(err, "existing chain name")
+}
+
+func (s *AppTestSuite) TestAddChainConfigInvalidChainType() {
+	s.app.Config = nil
+	// write chain config file
+	chainCfgPath := path.Join(s.app.HomePath, "chain_config_invalid_chain_type.toml")
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgInvalidChainTypeText), 0o600)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(chainCfgPath)
+
+	// init chain config file
+	customCfgPath := ""
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	s.Require().FileExists(path.Join(s.app.HomePath, "config", "config.toml"))
+
+	// load config
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	err = s.app.AddChainConfig(chainName, chainCfgPath)
+	s.Require().ErrorContains(err, "unsupported chain type")
 }
 
 func (s *AppTestSuite) TestDeleteChainConfig() {
@@ -309,6 +366,27 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 	s.Require().Equal(expectedBytes, actualBytes)
 }
 
+func (s *AppTestSuite) TestDeleteChainConfigWithNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	// delete chain config by given chain name
+	chainName := "testnet-2"
+	err = s.app.DeleteChainConfig(chainName)
+	s.Require().ErrorContains(err, "not existing chain name")
+}
+
 func (s *AppTestSuite) TestGetChainConfig() {
 	s.app.Config = nil
 	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
@@ -331,4 +409,643 @@ func (s *AppTestSuite) TestGetChainConfig() {
 	expect := relayertest.CustomCfg.TargetChains[chainName]
 
 	s.Require().Equal(expect, actual)
+}
+
+func (s *AppTestSuite) TestGetChainConfigWithNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	chainName := "testnet-2"
+	_, err = s.app.GetChainConfig(chainName)
+	s.Require().ErrorContains(err, "not existing chain name")
+}
+
+func (s *AppTestSuite) TestInitPassphrase() {
+	passphrase := "secret"
+	s.app.EnvPassphrase = passphrase
+
+	err := os.Mkdir(path.Join(s.app.HomePath, "config"), os.ModePerm)
+	s.Require().NoError(err)
+
+	// Call InitPassphrase
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// Verify the file exists
+	passphrasePath := path.Join(s.app.HomePath, "config", "passphrase.hash")
+	_, err = os.Stat(passphrasePath)
+	s.Require().NoError(err)
+
+	// Verify file content
+	hasher := sha256.New()
+	hasher.Write([]byte(passphrase))
+	expectedHash := hasher.Sum(nil)
+
+	actualContent, err := os.ReadFile(passphrasePath)
+	s.Require().NoError(err)
+	s.Require().Equal(expectedHash, actualContent)
+}
+
+func (s *AppTestSuite) TestAddKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	address := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	actual, err := s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().NotNil(actual)
+	s.Require().Equal(chainstypes.NewKey("", address, ""), actual)
+}
+
+func (s *AppTestSuite) TestAddKeyWithInvalidPassphrase() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+	s.app.EnvPassphrase = "invalid"
+
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().Error(err)
+}
+
+func (s *AppTestSuite) TestAddKeyWithNotExistingChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet2"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().ErrorContains(err, "chain name does not exist")
+}
+
+func (s *AppTestSuite) TestAddKeyWithExistingKeyName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run AddKey again
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().ErrorContains(err, "key name already exists")
+}
+
+func (s *AppTestSuite) TestDeleteKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run DeleteKey
+	err = s.app.DeleteKey(chainName, keyName)
+
+	// Assertions
+	s.Require().NoError(err)
+}
+
+func (s *AppTestSuite) TestDeleteKeyWithInvalidPassphrase() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run DeleteKey
+	s.app.EnvPassphrase = "invalid"
+	err = s.app.DeleteKey(chainName, keyName)
+
+	// Assertions
+	s.Require().Error(err)
+}
+
+func (s *AppTestSuite) TestDeleteKeyWithNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet2"
+	keyName := "testkey"
+
+	// Run DeleteKey
+	err = s.app.DeleteKey(chainName, keyName)
+	s.Require().ErrorContains(err, "chain name does not exist")
+}
+
+func (s *AppTestSuite) TestDeleteKeyWithNotExistKeyName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+
+	// Run DeleteKey
+	err = s.app.DeleteKey(chainName, keyName)
+	s.Require().ErrorContains(err, "key name does not exist")
+}
+
+func (s *AppTestSuite) TestExportKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run ExportKey
+	actual, err := s.app.ExportKey(chainName, keyName)
+
+	// Assertions
+	s.Require().NoError(err)
+	s.Require().Equal(privateKey[2:], actual)
+}
+
+func (s *AppTestSuite) TestExportKeyWithInvalidPassphrase() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run ExportKey
+	s.app.EnvPassphrase = "invalid"
+	_, err = s.app.ExportKey(chainName, keyName)
+	s.Require().Error(err)
+}
+
+func (s *AppTestSuite) TestExportKeyWithNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet2"
+	keyName := "testkey"
+
+	// Run ExportKey
+	_, err = s.app.ExportKey(chainName, keyName)
+	s.Require().ErrorContains(err, "chain name does not exist")
+}
+
+func (s *AppTestSuite) TestExportKeyWithNotExistKeyName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+
+	// Run ExportKey
+	_, err = s.app.ExportKey(chainName, keyName)
+	s.Require().ErrorContains(err, "key name does not exist")
+}
+
+func (s *AppTestSuite) TestListKeys() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	keyName1 := "testkey1"
+	keyName2 := "testkey2"
+
+	chainName := "testnet"
+	mnemonic := ""
+	privateKey := ""
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run Add testkey1
+	_, err = s.app.AddKey(chainName, keyName1, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run Add testkey2
+	_, err = s.app.AddKey(chainName, keyName2, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run ListKeys
+	actual, err := s.app.ListKeys(chainName)
+	s.Require().NoError(err)
+
+	for _, key := range actual {
+		s.Require().Contains([]string{keyName1, keyName2}, key.KeyName)
+		s.Require().NotEmpty(key.Address)
+	}
+}
+
+func (s *AppTestSuite) TestListKeysWithNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet2"
+
+	// Run ListKeys
+	_, err = s.app.ListKeys(chainName)
+	s.Require().ErrorContains(err, "chain name does not exist")
+}
+
+func (s *AppTestSuite) TestShowKey() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey"
+	mnemonic := ""
+	privateKey := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	expectedAddress := "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+	coinType := uint32(60)
+	account := uint(0)
+	index := uint(0)
+
+	// Run AddKey
+	_, err = s.app.AddKey(chainName, keyName, mnemonic, privateKey, coinType, account, index)
+	s.Require().NoError(err)
+
+	// Run ShowKey
+	actual, err := s.app.ShowKey(chainName, keyName)
+	s.Require().NoError(err)
+	s.Require().Equal(expectedAddress, actual)
+}
+
+func (s *AppTestSuite) TestShowKeyWithNotExistChainName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet2"
+	keyName := "testkey"
+
+	// Run ShowKey
+	_, err = s.app.ShowKey(chainName, keyName)
+	s.Require().ErrorContains(err, "chain name does not exist")
+}
+
+func (s *AppTestSuite) TestShowKeyWithNotExistKeyName() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file and init target chains
+	err = s.app.Init(s.ctx, "", "")
+	s.Require().NoError(err)
+
+	chainName := "testnet"
+	keyName := "testkey2"
+
+	// Run ShowKey
+	_, err = s.app.ShowKey(chainName, keyName)
+	s.Require().ErrorContains(err, "key name does not exist")
+}
+
+func (s *AppTestSuite) TestValidatePassphrase() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	s.app.EnvPassphrase = "passphrase"
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	envPassphrase := "passphrase"
+	err = s.app.ValidatePassphrase(envPassphrase)
+	s.Require().NoError(err)
+}
+
+func (s *AppTestSuite) TestValidatePassphraseInvalidPassphrase() {
+	s.app.Config = nil
+	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
+
+	// write file
+	err := os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	s.Require().NoError(err)
+
+	err = s.app.InitConfigFile(s.app.HomePath, customCfgPath)
+	s.Require().NoError(err)
+
+	err = s.app.InitPassphrase()
+	s.Require().NoError(err)
+
+	// load config file
+	err = s.app.LoadConfigFile()
+	s.Require().NoError(err)
+
+	envPassphrase := "invalid"
+	err = s.app.ValidatePassphrase(envPassphrase)
+	s.Require().Error(err)
 }

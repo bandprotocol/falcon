@@ -55,5 +55,6 @@ func (s *System) RunWithInput(t *testing.T, args ...string) RunResult {
 	rootCmd.SetArgs(args)
 
 	res.Err = rootCmd.ExecuteContext(ctx)
+
 	return res
 }

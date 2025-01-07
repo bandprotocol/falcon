@@ -215,7 +215,12 @@ func (cp *EVMChainProvider) RelayPacket(
 				)
 				return nil
 			case TX_STATUS_FAILED:
-				retryCount += 1
+				log.Debug(
+					"Transaction failed during relay attempt",
+					zap.Error(err),
+					zap.String("tx_hash", txHash),
+					zap.Int("retry_count", retryCount),
+				)
 				break checkTxLogic
 			case TX_STATUS_UNMINED:
 				log.Debug(
