@@ -136,13 +136,13 @@ func (s *ClientTestSuite) TestGetTunnel() {
 		name       string
 		in         uint64
 		preprocess func(c context.Context)
-		expectOut  *bandclienttypes.Tunnel
-		expectErr  error
+		out        *bandclienttypes.Tunnel
+		err        error
 	}{
 		{
-			name:      "success",
-			in:        1,
-			expectOut: bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false),
+			name: "success",
+			in:   1,
+			out:  bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false),
 			preprocess: func(c context.Context) {
 				s.tunnelQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
 					TunnelId: uint64(1),
@@ -150,9 +150,9 @@ func (s *ClientTestSuite) TestGetTunnel() {
 			},
 		},
 		{
-			name:      "unsupported route type",
-			in:        2,
-			expectErr: fmt.Errorf("unsupported route type"),
+			name: "unsupported route type",
+			in:   2,
+			err:  fmt.Errorf("unsupported route type"),
 			preprocess: func(c context.Context) {
 				s.tunnelQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
 					TunnelId: uint64(2),
@@ -168,11 +168,11 @@ func (s *ClientTestSuite) TestGetTunnel() {
 			}
 
 			actual, err := s.client.GetTunnel(s.ctx, tc.in)
-			if tc.expectErr != nil {
-				s.Require().ErrorContains(err, tc.expectErr.Error())
+			if tc.err != nil {
+				s.Require().ErrorContains(err, tc.err.Error())
 			} else {
 				s.Require().NoError(err)
-				s.Require().Equal(tc.expectOut, actual)
+				s.Require().Equal(tc.out, actual)
 			}
 		})
 	}
@@ -333,10 +333,10 @@ func (s *ClientTestSuite) TestGetTunnels() {
 	s.Require().NoError(err)
 
 	testcases := []struct {
-		name        string
-		preprocess  func(c context.Context)
-		expectedRes []bandclienttypes.Tunnel
-		expectedErr error
+		name       string
+		preprocess func(c context.Context)
+		out        []bandclienttypes.Tunnel
+		err        error
 	}{
 		{
 			name: "success",
@@ -364,7 +364,7 @@ func (s *ClientTestSuite) TestGetTunnels() {
 					},
 				}, nil)
 			},
-			expectedRes: expectedRes,
+			out: expectedRes,
 		},
 		{
 			name: "filter out unrelated tunnel",
@@ -380,7 +380,7 @@ func (s *ClientTestSuite) TestGetTunnels() {
 					},
 				}, nil)
 			},
-			expectedRes: []bandclienttypes.Tunnel{expectedRes[0]},
+			out: []bandclienttypes.Tunnel{expectedRes[0]},
 		},
 	}
 
@@ -391,11 +391,11 @@ func (s *ClientTestSuite) TestGetTunnels() {
 			}
 
 			actual, err := s.client.GetTunnels(s.ctx)
-			if tc.expectedErr != nil {
-				s.Require().ErrorContains(err, tc.expectedErr.Error())
+			if tc.err != nil {
+				s.Require().ErrorContains(err, tc.err.Error())
 			} else {
 				s.Require().NoError(err)
-				s.Require().Equal(tc.expectedRes, actual)
+				s.Require().Equal(tc.out, actual)
 			}
 		})
 	}
