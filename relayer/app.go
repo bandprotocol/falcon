@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
 	"go.uber.org/zap"
@@ -86,7 +85,7 @@ func (a *App) Init(ctx context.Context, logLevel, logFormat string) error {
 	}
 
 	// initialize BandChain client
-	if err := a.initBandClient(); err != nil {
+	if err := a.initBandClient(ctx); err != nil {
 		return err
 	}
 
@@ -94,11 +93,11 @@ func (a *App) Init(ctx context.Context, logLevel, logFormat string) error {
 }
 
 // initBandClient establishes connection to rpc endpoints.
-func (a *App) initBandClient() error {
-	a.BandClient = band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
+func (a *App) initBandClient(ctx context.Context) error {
+	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
 
 	// connect to BandChain, if error occurs, log the error as debug and continue
-	if err := a.BandClient.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
+	if err := a.BandClient.Init(ctx); err != nil {
 		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
 		return err
 	}
