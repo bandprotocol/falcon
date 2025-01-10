@@ -61,47 +61,47 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 	}()
 
-	// Query tunnel info from BandChain
-	tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
-	if err != nil {
-		t.Log.Error("Failed to get tunnel", zap.Error(err))
-		return err
-	}
+	for {
+		// Query tunnel info from BandChain
+		tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
+		if err != nil {
+			t.Log.Error("Failed to get tunnel", zap.Error(err))
+			return err
+		}
 
-	// Query tunnel info from TargetChain
-	tunnelChainInfo, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, t.ContractAddress)
-	if err != nil {
-		return err
-	}
-	if !tunnelChainInfo.IsActive {
-		t.Log.Error("Tunnel is not active on target chain")
-		return fmt.Errorf("tunnel is not active on target chain")
-	}
+		// Query tunnel info from TargetChain
+		tunnelChainInfo, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, t.ContractAddress)
+		if err != nil {
+			return err
+		}
+		if !tunnelChainInfo.IsActive {
+			t.Log.Info("Tunnel is not active on target chain")
+			return nil
+		}
 
-	// end process if current packet is already relayed
-	nextSeq := tunnelChainInfo.LatestSequence + 1
-	if tunnelBandInfo.LatestSequence < nextSeq {
-		t.Log.Info("No new packet to relay", zap.Uint64("sequence", tunnelChainInfo.LatestSequence))
-		return nil
-	}
+		// end process if current packet is already relayed
+		seq := tunnelChainInfo.LatestSequence + 1
+		if tunnelBandInfo.LatestSequence < seq {
+			t.Log.Info("No new packet to relay", zap.Uint64("sequence", tunnelChainInfo.LatestSequence))
+			return nil
+		}
 
-	// Relay packets
-	for seq := nextSeq; seq <= tunnelBandInfo.LatestSequence; seq++ {
 		t.Log.Info("Relaying packet", zap.Uint64("sequence", seq))
 
+		// get packet of the sequence
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
 			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
 		}
 
+		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
+		// If it is not success (Failed or Undefined), return error.
 		signing := packet.CurrentGroupSigning
 		if signing == nil {
 			signing = packet.IncomingGroupSigning
 		}
 
-		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
-		// If it is not success (Failed or Undefined), return error.
 		signingStatus := tsstypes.SigningStatus(tsstypes.SigningStatus_value[signing.Status])
 		if signingStatus == tsstypes.SIGNING_STATUS_WAITING {
 			t.Log.Info(
@@ -115,6 +115,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			return err
 		}
 
+		// Relay the packet to the target chain
 		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
@@ -122,8 +123,6 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}
-
-	return nil
 }
 
 func (t *TunnelRelayer) IsExecuting() bool {
