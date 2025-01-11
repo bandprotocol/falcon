@@ -63,11 +63,8 @@ func (s *ProviderTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
 	s.client = mocks.NewMockEVMClient(ctrl)
 
-	log, err := zap.NewDevelopment()
-	s.Require().NoError(err)
-
 	// mock objects.
-	s.log = log
+	s.log = zap.NewNop()
 
 	chainName := "testnet"
 	s.chainName = chainName
@@ -262,6 +259,20 @@ func (s *ProviderTestSuite) TestRelayPacketFailedGasEstimation() {
 	s.chainProvider, err = NewEVMChainProvider(s.chainName, s.client, &gasEVMCfg, s.log, s.homePath)
 	s.Require().NoError(err)
 
+	addr, err := HexToAddress(testAddress)
+	s.Require().NoError(err)
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(testPrivateKey))
+	s.Require().NoError(err)
+
+	// Mock sender
+	mockSender := &Sender{
+		Address:    addr,
+		PrivateKey: priv,
+	}
+
+	s.chainProvider.FreeSenders = make(chan *Sender, 1)
+	s.chainProvider.FreeSenders <- mockSender
+
 	// Create a mock EVMSignature
 	evmSignature := bandtypes.NewEVMSignature(
 		gethcommon.HexToAddress("0xfad9c8855b740a0b7ed4c221dbad0f33a83a49ca").Bytes(),
@@ -435,7 +446,7 @@ func (s *ProviderTestSuite) TestEstimateGasLegacy() {
 
 	s.client.EXPECT().EstimateGasPrice(s.ctx).Return(big.NewInt(100), nil)
 
-	actual, err := s.chainProvider.EstimateGas(s.ctx)
+	actual, err := s.chainProvider.EstimateGasFee(s.ctx)
 	s.Require().NoError(err)
 
 	expected := GasInfo{
@@ -460,7 +471,7 @@ func (s *ProviderTestSuite) TestEstimateGasEIP1559() {
 	s.client.EXPECT().EstimateGasTipCap(s.ctx).Return(big.NewInt(50), nil)
 	s.client.EXPECT().EstimateBaseFee(s.ctx).Return(big.NewInt(100), nil)
 
-	actual, err := s.chainProvider.EstimateGas(s.ctx)
+	actual, err := s.chainProvider.EstimateGasFee(s.ctx)
 	s.Require().NoError(err)
 
 	expected := GasInfo{
@@ -468,13 +479,14 @@ func (s *ProviderTestSuite) TestEstimateGasEIP1559() {
 		GasPrice:       nil,
 		GasPriorityFee: big.NewInt(50),
 		GasBaseFee:     big.NewInt(100),
+		GasFeeCap:      big.NewInt(150),
 	}
 
 	s.Require().Equal(expected, actual)
 }
 
 func (s *ProviderTestSuite) TestEstimateGasUnsupportedGas() {
-	_, err := s.chainProvider.EstimateGas(s.ctx)
+	_, err := s.chainProvider.EstimateGasFee(s.ctx)
 	s.Require().ErrorContains(err, "unsupported gas type:")
 }
 
@@ -572,6 +584,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 		mockRelayerFee      *big.Int
 		expectedPriorityFee int64
 		expectedBaseFee     int64
+		expectedGasFeeCap   int64
 	}{
 		{
 			name:                "Priority and base fee within limits",
@@ -582,6 +595,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 			multiplier:          1.2,
 			expectedPriorityFee: 60,  // due to big.Float imprecision
 			expectedBaseFee:     150, // Unchanged
+			expectedGasFeeCap:   210, // 60 + 150
 		},
 		{
 			name:                "Priority fee exceeds cap",
@@ -592,6 +606,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 			multiplier:          1.2,
 			expectedPriorityFee: 80, // Capped at maxPriorityFee
 			expectedBaseFee:     150,
+			expectedGasFeeCap:   230, // 80 + 150
 		},
 		{
 			name:                "Base fee exceeds cap",
@@ -602,6 +617,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 			multiplier:          1.2,
 			expectedPriorityFee: 60, // due to big.Float imprecision
 			expectedBaseFee:     180,
+			expectedGasFeeCap:   240, // 60 + 180
 		},
 		{
 			name:                "No priority fee cap, use relayer fee",
@@ -613,6 +629,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 			mockRelayerFee:      big.NewInt(90),
 			expectedPriorityFee: 84, // due to big.Float imprecision
 			expectedBaseFee:     150,
+			expectedGasFeeCap:   234, // 84 + 150
 		},
 	}
 
@@ -654,6 +671,7 @@ func (s *ProviderTestSuite) TestBumpAndBoundGasEIP1559() {
 				GasPrice:       nil,
 				GasPriorityFee: big.NewInt(tc.expectedPriorityFee),
 				GasBaseFee:     big.NewInt(tc.expectedBaseFee),
+				GasFeeCap:      big.NewInt(tc.expectedGasFeeCap),
 			}
 
 			s.Require().Equal(expected, actual, "Failed test case: %s", tc.name)
@@ -766,9 +784,10 @@ func (s *ProviderTestSuite) TestNewRelayTxLegacy() {
 	gasInfo := NewGasLegacyInfo(big.NewInt(1000000000))
 
 	callMsg := ethereum.CallMsg{
-		From: sender,
-		To:   &s.chainProvider.TunnelRouterAddress,
-		Data: data,
+		From:     sender,
+		To:       &s.chainProvider.TunnelRouterAddress,
+		Data:     data,
+		GasPrice: gasInfo.GasPrice,
 	}
 
 	s.client.EXPECT().EstimateGas(s.ctx, callMsg).Return(uint64(100), nil)

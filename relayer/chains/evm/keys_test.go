@@ -58,19 +58,16 @@ func (s *KeysTestSuite) SetupTest() {
 	var err error
 	tmpDir := s.T().TempDir()
 
-	log, err := zap.NewDevelopment()
-	s.Require().NoError(err)
+	s.log = zap.NewNop()
 
 	chainName := "testnet"
 
-	client := NewClient(chainName, evmCfg, log)
+	client := NewClient(chainName, evmCfg, s.log)
 
 	s.ctx = context.Background()
 
-	s.chainProvider, err = NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir)
+	s.chainProvider, err = NewEVMChainProvider(chainName, client, evmCfg, s.log, tmpDir)
 	s.Require().NoError(err)
-
-	s.log = log
 
 	s.homePath = tmpDir
 }

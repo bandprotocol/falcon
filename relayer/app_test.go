@@ -39,8 +39,7 @@ func (s *AppTestSuite) SetupTest() {
 	tmpDir := s.T().TempDir()
 	ctrl := gomock.NewController(s.T())
 
-	log, err := zap.NewDevelopment()
-	s.Require().NoError(err)
+	log := zap.NewNop()
 
 	// mock objects.
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
@@ -67,7 +66,7 @@ func (s *AppTestSuite) SetupTest() {
 
 	s.app = relayer.NewApp(log, tmpDir, false, &cfg)
 
-	err = s.app.Init(s.ctx, "", "")
+	err := s.app.Init(s.ctx, "", "")
 	s.app.BandClient = s.client
 	s.Require().NoError(err)
 }

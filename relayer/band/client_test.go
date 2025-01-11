@@ -45,11 +45,8 @@ func TestClientTestSuite(t *testing.T) {
 func (s *ClientTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
 
-	log, err := zap.NewDevelopment()
-	s.Require().NoError(err)
-
 	// mock objects.
-	s.log = log
+	s.log = zap.NewNop()
 	s.tunnelQueryClient = mocks.NewMockTunnelQueryClient(ctrl)
 	s.bandtssQueryClient = mocks.NewMockBandtssQueryClient(ctrl)
 	s.ctx = context.Background()

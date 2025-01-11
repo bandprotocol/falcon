@@ -140,19 +140,10 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 }
 
 // RelayPacket relays the packet from the source chain to the destination chain.
-func (cp *EVMChainProvider) RelayPacket(
-	ctx context.Context,
-	packet *bandtypes.Packet,
-) error {
+func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error("Connect client error", zap.Error(err))
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
-	}
-
-	gasInfo, err := cp.EstimateGas(ctx)
-	if err != nil {
-		cp.Log.Error("Failed to estimate gas", zap.Error(err))
-		return fmt.Errorf("failed to estimate gas: %w", err)
 	}
 
 	// get a free sender
@@ -166,17 +157,39 @@ func (cp *EVMChainProvider) RelayPacket(
 		zap.String("sender_address", sender.Address.String()),
 	)
 
+	// get gas information
+	gasInfo, err := cp.EstimateGasFee(ctx)
+	if err != nil {
+		cp.Log.Error("Failed to estimate gas fee", zap.Error(err))
+		return fmt.Errorf("failed to estimate gas fee: %w", err)
+	}
+
 	retryCount := 1
 	for retryCount <= cp.Config.MaxRetry {
 		log.Info("Relaying a message", zap.Int("retry_count", retryCount))
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
-		txHash, err := cp.handleRelay(ctx, packet, sender, gasInfo)
+		signedTx, err := cp.createAndSignRelayTx(ctx, packet, sender, gasInfo)
 		if err != nil {
-			log.Error("HandleRelay error", zap.Error(err), zap.Int("retry_count", retryCount))
+			log.Error("CreateAndSignTx error", zap.Error(err), zap.Int("retry_count", retryCount))
 			retryCount += 1
 			continue
 		}
+
+		// submit the transaction, if failed, bump gas and retry
+		txHash, err := cp.Client.BroadcastTx(ctx, signedTx)
+		if err != nil {
+			log.Error("HandleRelay error", zap.Error(err), zap.Int("retry_count", retryCount))
+			// bump gas and retry
+			gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
+			if err != nil {
+				log.Error("Cannot bump gas", zap.Error(err), zap.Int("retry_count", retryCount))
+			}
+
+			retryCount += 1
+			continue
+		}
+
 		createdAt := time.Now()
 
 		log.Info(
@@ -254,34 +267,29 @@ func (cp *EVMChainProvider) RelayPacket(
 	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
 }
 
-// handleRelay handles the relay message from the source chain to the destination chain.
-func (cp *EVMChainProvider) handleRelay(
+// createAndSignRelayTx creates and signs the relay transaction.
+func (cp *EVMChainProvider) createAndSignRelayTx(
 	ctx context.Context,
 	packet *bandtypes.Packet,
 	sender *Sender,
 	gasInfo GasInfo,
-) (txHash string, err error) {
+) (*gethtypes.Transaction, error) {
 	calldata, err := cp.createCalldata(packet)
 	if err != nil {
-		return "", fmt.Errorf("failed to create calldata: %w", err)
+		return nil, fmt.Errorf("failed to create calldata: %w", err)
 	}
 
 	tx, err := cp.newRelayTx(ctx, calldata, sender.Address, gasInfo)
 	if err != nil {
-		return "", fmt.Errorf("failed to create an evm transaction: %w", err)
+		return nil, fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
 
 	signedTx, err := cp.signTx(tx, sender)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign an evm transaction: %w", err)
+		return nil, fmt.Errorf("failed to sign an evm transaction: %w", err)
 	}
 
-	txHash, err = cp.Client.BroadcastTx(ctx, signedTx)
-	if err != nil {
-		return "", fmt.Errorf("failed to broadcast an evm transaction: %w", err)
-	}
-
-	return txHash, nil
+	return signedTx, nil
 }
 
 // checkConfirmedTx checks the confirmed transaction status.
@@ -320,8 +328,8 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, cp.GasType), nil
 }
 
-// EstimateGas estimates the gas for the transaction.
-func (cp *EVMChainProvider) EstimateGas(ctx context.Context) (GasInfo, error) {
+// EstimateGasFee estimates the gas for the transaction.
+func (cp *EVMChainProvider) EstimateGasFee(ctx context.Context) (GasInfo, error) {
 	switch cp.GasType {
 	case GasTypeLegacy:
 		gasPrice, err := cp.Client.EstimateGasPrice(ctx)
@@ -329,6 +337,7 @@ func (cp *EVMChainProvider) EstimateGas(ctx context.Context) (GasInfo, error) {
 			return GasInfo{}, err
 		}
 
+		// bound gas fee
 		return cp.BumpAndBoundGas(ctx, NewGasLegacyInfo(gasPrice), 1.0)
 	case GasTypeEIP1559:
 		priorityFee, err := cp.Client.EstimateGasTipCap(ctx)
@@ -341,6 +350,7 @@ func (cp *EVMChainProvider) EstimateGas(ctx context.Context) (GasInfo, error) {
 			return GasInfo{}, err
 		}
 
+		// bound gas fee
 		return cp.BumpAndBoundGas(ctx, NewGasEIP1559Info(priorityFee, baseFee), 1.0)
 	default:
 		return GasInfo{}, fmt.Errorf("unsupported gas type: %v", cp.GasType)
@@ -438,9 +448,12 @@ func (cp *EVMChainProvider) newRelayTx(
 	}
 
 	callMsg := ethereum.CallMsg{
-		From: sender,
-		To:   &cp.TunnelRouterAddress,
-		Data: data,
+		From:      sender,
+		To:        &cp.TunnelRouterAddress,
+		Data:      data,
+		GasPrice:  gasInfo.GasPrice,
+		GasFeeCap: gasInfo.GasFeeCap,
+		GasTipCap: gasInfo.GasPriorityFee,
 	}
 
 	// calculate gas limit
@@ -466,8 +479,6 @@ func (cp *EVMChainProvider) newRelayTx(
 		})
 
 	case GasTypeEIP1559:
-		gasFeeCap := new(big.Int).Add(gasInfo.GasBaseFee, gasInfo.GasPriorityFee)
-
 		tx = gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 			ChainID:   big.NewInt(int64(cp.Config.ChainID)),
 			Nonce:     nonce,
@@ -475,7 +486,7 @@ func (cp *EVMChainProvider) newRelayTx(
 			Value:     decimal.NewFromInt(0).BigInt(),
 			Data:      data,
 			Gas:       gasLimit,
-			GasFeeCap: gasFeeCap,
+			GasFeeCap: gasInfo.GasFeeCap,
 			GasTipCap: gasInfo.GasPriorityFee,
 		})
 

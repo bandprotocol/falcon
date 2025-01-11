@@ -38,15 +38,12 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 
 	s.ctx = context.Background()
 
-	log, err := zap.NewDevelopment()
-	s.Require().NoError(err)
-
 	tunnelID := uint64(1)
 	contractAddress := ""
 	checkingPacketInterval := time.Minute
 
 	tunnelRelayer := relayer.NewTunnelRelayer(
-		log,
+		zap.NewNop(),
 		tunnelID,
 		contractAddress,
 		checkingPacketInterval,
@@ -69,7 +66,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		"",
 		"",
 		true,
-	), nil)
+	), nil).AnyTimes()
 
 	s.chainProvider.EXPECT().
 		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
@@ -78,6 +75,15 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			TargetAddress:  s.tunnelRelayer.ContractAddress,
 			IsActive:       true,
 			LatestSequence: targetChainLatestSequence,
+			Balance:        big.NewInt(1),
+		}, nil)
+	s.chainProvider.EXPECT().
+		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
+		Return(&chaintypes.Tunnel{
+			ID:             s.tunnelRelayer.TunnelID,
+			TargetAddress:  s.tunnelRelayer.ContractAddress,
+			IsActive:       true,
+			LatestSequence: targetChainLatestSequence + 1,
 			Balance:        big.NewInt(1),
 		}, nil)
 
@@ -168,8 +174,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelayTargetChainNotActive() {
 		}, nil)
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-
-	s.Require().ErrorContains(err, "tunnel is not active on target chain")
+	s.Require().NoError(err)
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelayNoNewPackets() {

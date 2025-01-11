@@ -65,7 +65,7 @@ func (s *SenderTestSuite) SetupTest() {
 	s.Require().NoError(err)
 
 	// mock objects.
-	s.log = log
+	s.log = zap.NewNop()
 
 	chainName := "testnet"
 
