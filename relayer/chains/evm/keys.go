@@ -101,6 +101,10 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	homePath string,
 	passphrase string,
 ) (*chainstypes.Key, error) {
+	if _, ok := cp.KeyInfo[keyName]; ok {
+		return nil, fmt.Errorf("duplicate key name")
+	}
+
 	// Get public key from private key
 	publicKeyECDSA, ok := priv.Public().(*ecdsa.PublicKey)
 	if !ok {
@@ -141,7 +145,7 @@ func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) erro
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
-	key, err := cp.getKeyFromKeyName(keyName, passphrase)
+	key, err := cp.GetKeyFromKeyName(keyName, passphrase)
 	if err != nil {
 		return "", err
 	}
@@ -235,9 +239,7 @@ func (cp *EVMChainProvider) generatePrivateKey(
 	return privatekey, nil
 }
 
-func (cp *EVMChainProvider) getKeyFromKeyName(
-	keyName, passphrase string,
-) (*keyStore.Key, error) {
+func (cp *EVMChainProvider) GetKeyFromKeyName(keyName, passphrase string) (*keyStore.Key, error) {
 	address, err := HexToAddress(cp.KeyInfo[keyName])
 	if err != nil {
 		return nil, err
