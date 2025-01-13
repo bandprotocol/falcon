@@ -28,25 +28,27 @@ type TunnelRelayerTestSuite struct {
 	tunnelRelayer *relayer.TunnelRelayer
 }
 
-// SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
+const (
+	defaultTunnelID               = uint64(1)
+	defaultContractAddress        = ""
+	defaultCheckingPacketInterval = time.Minute
+	defaultBandLatestSequence     = uint64(1)
+	defaultTargetChainSequence    = uint64(0)
+)
+
+// SetupTest sets up the test suite by creating mock objects and initializing the TunnelRelayer.
 func (s *TunnelRelayerTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
 
-	// mock objects.
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 	s.client = mocks.NewMockClient(ctrl)
-
 	s.ctx = context.Background()
-
-	tunnelID := uint64(1)
-	contractAddress := ""
-	checkingPacketInterval := time.Minute
 
 	tunnelRelayer := relayer.NewTunnelRelayer(
 		zap.NewNop(),
-		tunnelID,
-		contractAddress,
-		checkingPacketInterval,
+		defaultTunnelID,
+		defaultContractAddress,
+		defaultCheckingPacketInterval,
 		s.client,
 		s.chainProvider,
 	)
@@ -57,9 +59,8 @@ func TestTunnelRelayerTestSuite(t *testing.T) {
 	suite.Run(t, new(TunnelRelayerTestSuite))
 }
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
-	bandLatestSequence := uint64(1)
-	targetChainLatestSequence := uint64(0)
+// Helper function to mock GetTunnel.
+func (s *TunnelRelayerTestSuite) mockGetTunnel(bandLatestSequence uint64) {
 	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
 		s.tunnelRelayer.TunnelID,
 		bandLatestSequence,
@@ -67,60 +68,58 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		"",
 		true,
 	), nil).AnyTimes()
+}
 
+// Helper function to mock QueryTunnelInfo.
+func (s *TunnelRelayerTestSuite) mockQueryTunnelInfo(sequence uint64, isActive bool) {
 	s.chainProvider.EXPECT().
 		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
 		Return(&chaintypes.Tunnel{
 			ID:             s.tunnelRelayer.TunnelID,
 			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       true,
-			LatestSequence: targetChainLatestSequence,
+			IsActive:       isActive,
+			LatestSequence: sequence,
 			Balance:        big.NewInt(1),
 		}, nil)
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(&chaintypes.Tunnel{
-			ID:             s.tunnelRelayer.TunnelID,
-			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       true,
-			LatestSequence: targetChainLatestSequence + 1,
-			Balance:        big.NewInt(1),
-		}, nil)
+}
 
+// Helper function to create a mock Packet.
+func createMockPacket(tunnelID, sequence uint64, status string) *bandtypes.Packet {
 	signalPrices := []bandtypes.SignalPrice{
 		{SignalID: "signal1", Price: 100},
 		{SignalID: "signal2", Price: 200},
 	}
-
-	// Create a mock EVMSignature
 	evmSignature := bandtypes.NewEVMSignature(
 		cmbytes.HexBytes("0x1234"),
 		cmbytes.HexBytes("0xabcd"),
 	)
 
-	// Create mock signing information
 	signing := bandtypes.NewSigning(
 		1,
 		cmbytes.HexBytes("0xdeadbeef"),
 		evmSignature,
-		"SIGNING_STATUS_SUCCESS",
+		status,
 	)
 
-	// Create the expected Packet object
-	packet := bandtypes.NewPacket(
-		s.tunnelRelayer.TunnelID,
-		targetChainLatestSequence+1,
+	return bandtypes.NewPacket(
+		tunnelID,
+		sequence,
 		signalPrices,
 		signing,
 		nil,
 	)
-	s.client.EXPECT().GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, targetChainLatestSequence+1).Return(
-		packet, nil,
-	)
+}
 
-	s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(
-		nil,
-	)
+func (s *TunnelRelayerTestSuite) TestCheckAndRelaySuccess() {
+	s.mockGetTunnel(defaultBandLatestSequence)
+	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
+	s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true)
+	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_SUCCESS")
+
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+		Return(packet, nil)
+	s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(nil)
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
 	s.Require().NoError(err)
@@ -130,285 +129,85 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedGetTunnel() {
 	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(nil, fmt.Errorf("failed to get tunnel"))
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-
 	s.Require().ErrorContains(err, "failed to get tunnel")
 }
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedGetTargetChainTunnel() {
-	bandLatestSequence := uint64(1)
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
-		s.tunnelRelayer.TunnelID,
-		bandLatestSequence,
-		"",
-		"",
-		true,
-	), nil)
-
+func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedQueryTunnelInfo() {
+	s.mockGetTunnel(defaultBandLatestSequence)
 	s.chainProvider.EXPECT().
 		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(nil, fmt.Errorf("failed to get target chain tunnel"))
+		Return(nil, fmt.Errorf("failed to query tunnel info"))
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().ErrorContains(err, "failed to get target chain tunnel")
+	s.Require().ErrorContains(err, "failed to query tunnel info")
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelayTargetChainNotActive() {
-	bandLatestSequence := uint64(1)
-	targetChainLatestSequence := uint64(0)
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
-		s.tunnelRelayer.TunnelID,
-		bandLatestSequence,
-		"",
-		"",
-		true,
-	), nil)
-
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(&chaintypes.Tunnel{
-			ID:             s.tunnelRelayer.TunnelID,
-			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       false,
-			LatestSequence: targetChainLatestSequence,
-			Balance:        big.NewInt(1),
-		}, nil)
+	s.mockGetTunnel(defaultBandLatestSequence)
+	s.mockQueryTunnelInfo(defaultTargetChainSequence, false)
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
 	s.Require().NoError(err)
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelayNoNewPackets() {
-	bandLatestSequence := uint64(1)
-	targetChainLatestSequence := uint64(1)
+	s.mockGetTunnel(defaultBandLatestSequence)
+	s.mockQueryTunnelInfo(defaultBandLatestSequence, true)
 
-	// Mock BandClient to return the same sequence as TargetChain
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
-		s.tunnelRelayer.TunnelID,
-		bandLatestSequence,
-		"",
-		"",
-		true,
-	), nil)
-
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(&chaintypes.Tunnel{
-			ID:             s.tunnelRelayer.TunnelID,
-			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       true,
-			LatestSequence: targetChainLatestSequence,
-			Balance:        big.NewInt(1),
-		}, nil)
-
-	// Run CheckAndRelay
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-
-	// Assertions
 	s.Require().NoError(err)
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedGetPacket() {
-	bandLatestSequence := uint64(1)
-	targetChainLatestSequence := uint64(0)
+	s.mockGetTunnel(defaultBandLatestSequence)
+	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	// Mock BandClient to return tunnel info
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
-		s.tunnelRelayer.TunnelID,
-		bandLatestSequence,
-		"",
-		"",
-		true,
-	), nil)
-
-	// Mock TargetChainProvider to return chain tunnel info
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(&chaintypes.Tunnel{
-			ID:             s.tunnelRelayer.TunnelID,
-			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       true,
-			LatestSequence: targetChainLatestSequence,
-			Balance:        big.NewInt(1),
-		}, nil)
-
-	s.client.EXPECT().GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, targetChainLatestSequence+1).
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
 		Return(nil, fmt.Errorf("failed to get packet"))
 
-	// Run CheckAndRelay
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-
-	// Assertions
 	s.Require().Error(err)
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelaySigningStatusFallen() {
-	bandLatestSequence := uint64(1)
-	targetChainLatestSequence := uint64(0)
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
-		s.tunnelRelayer.TunnelID,
-		bandLatestSequence,
-		"",
-		"",
-		true,
-	), nil)
+	s.mockGetTunnel(defaultBandLatestSequence)
+	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(&chaintypes.Tunnel{
-			ID:             s.tunnelRelayer.TunnelID,
-			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       true,
-			LatestSequence: targetChainLatestSequence,
-			Balance:        big.NewInt(1),
-		}, nil)
+	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_FALLEN")
 
-	signalPrices := []bandtypes.SignalPrice{
-		{SignalID: "signal1", Price: 100},
-		{SignalID: "signal2", Price: 200},
-	}
-
-	// Create a mock EVMSignature
-	evmSignature := bandtypes.NewEVMSignature(
-		cmbytes.HexBytes("0x1234"),
-		cmbytes.HexBytes("0xabcd"),
-	)
-
-	// Create mock signing information
-	signing := bandtypes.NewSigning(
-		1,
-		cmbytes.HexBytes("0xdeadbeef"),
-		evmSignature,
-		"SIGNING_STATUS_FALLEN",
-	)
-
-	// Create the expected Packet object
-	packet := bandtypes.NewPacket(
-		s.tunnelRelayer.TunnelID,
-		targetChainLatestSequence+1,
-		signalPrices,
-		signing,
-		nil,
-	)
-	s.client.EXPECT().GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, targetChainLatestSequence+1).Return(
-		packet, nil,
-	)
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+		Return(packet, nil)
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-
 	s.Require().Error(err)
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelaySigningStatusWaiting() {
-	bandLatestSequence := uint64(1)
-	targetChainLatestSequence := uint64(0)
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
-		s.tunnelRelayer.TunnelID,
-		bandLatestSequence,
-		"",
-		"",
-		true,
-	), nil)
+	s.mockGetTunnel(defaultBandLatestSequence)
+	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(&chaintypes.Tunnel{
-			ID:             s.tunnelRelayer.TunnelID,
-			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       true,
-			LatestSequence: targetChainLatestSequence,
-			Balance:        big.NewInt(1),
-		}, nil)
+	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_WAITING")
 
-	signalPrices := []bandtypes.SignalPrice{
-		{SignalID: "signal1", Price: 100},
-		{SignalID: "signal2", Price: 200},
-	}
-
-	// Create a mock EVMSignature
-	evmSignature := bandtypes.NewEVMSignature(
-		cmbytes.HexBytes("0x1234"),
-		cmbytes.HexBytes("0xabcd"),
-	)
-
-	// Create mock signing information
-	signing := bandtypes.NewSigning(
-		1,
-		cmbytes.HexBytes("0xdeadbeef"),
-		evmSignature,
-		"SIGNING_STATUS_WAITING",
-	)
-
-	// Create the expected Packet object
-	packet := bandtypes.NewPacket(
-		s.tunnelRelayer.TunnelID,
-		targetChainLatestSequence+1,
-		signalPrices,
-		signing,
-		nil,
-	)
-	s.client.EXPECT().GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, targetChainLatestSequence+1).Return(
-		packet, nil,
-	)
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+		Return(packet, nil)
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
 	s.Require().NoError(err)
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedToRelayPacket() {
-	bandLatestSequence := uint64(1)
-	targetChainLatestSequence := uint64(0)
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
-		s.tunnelRelayer.TunnelID,
-		bandLatestSequence,
-		"",
-		"",
-		true,
-	), nil)
+	s.mockGetTunnel(defaultBandLatestSequence)
+	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(&chaintypes.Tunnel{
-			ID:             s.tunnelRelayer.TunnelID,
-			TargetAddress:  s.tunnelRelayer.ContractAddress,
-			IsActive:       true,
-			LatestSequence: targetChainLatestSequence,
-			Balance:        big.NewInt(1),
-		}, nil)
+	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_SUCCESS")
 
-	signalPrices := []bandtypes.SignalPrice{
-		{SignalID: "signal1", Price: 100},
-		{SignalID: "signal2", Price: 200},
-	}
-
-	// Create a mock EVMSignature
-	evmSignature := bandtypes.NewEVMSignature(
-		cmbytes.HexBytes("0x1234"),
-		cmbytes.HexBytes("0xabcd"),
-	)
-
-	// Create mock signing information
-	signing := bandtypes.NewSigning(
-		1,
-		cmbytes.HexBytes("0xdeadbeef"),
-		evmSignature,
-		"SIGNING_STATUS_SUCCESS",
-	)
-
-	// Create the expected Packet object
-	packet := bandtypes.NewPacket(
-		s.tunnelRelayer.TunnelID,
-		targetChainLatestSequence+1,
-		signalPrices,
-		signing,
-		nil,
-	)
-	s.client.EXPECT().GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, targetChainLatestSequence+1).Return(
-		packet, nil,
-	)
-
-	s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(
-		fmt.Errorf("failed to relay packet"),
-	)
+	s.client.EXPECT().
+		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+		Return(packet, nil)
+	s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(fmt.Errorf("failed to relay packet"))
 
 	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
 	s.Require().ErrorContains(err, "failed to relay packet")
