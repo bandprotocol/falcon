@@ -55,7 +55,8 @@ func (s *AppTestSuite) SetupTest() {
 
 	cfg := relayer.Config{
 		BandChain: band.Config{
-			RpcEndpoints: []string{"http://localhost:26659"},
+			RpcEndpoints:               []string{"http://localhost:26659"},
+			LivelinessCheckingInterval: 5 * time.Minute,
 		},
 		TargetChains: map[string]chains.ChainProviderConfig{
 			"testnet_evm": s.chainProviderConfig,

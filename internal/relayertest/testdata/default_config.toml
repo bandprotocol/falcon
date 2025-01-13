@@ -8,5 +8,6 @@ penalty_exponential_factor = 1.0
 [bandchain]
 rpc_endpoints = ['http://localhost:26657']
 timeout = 3000000000
+liveliness_checking_interval = 300000000000
 
 [target_chains]
