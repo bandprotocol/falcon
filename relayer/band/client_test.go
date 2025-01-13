@@ -8,7 +8,6 @@ import (
 
 	"cosmossdk.io/math"
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
@@ -49,16 +48,12 @@ func (s *ClientTestSuite) SetupTest() {
 	s.log = zap.NewNop()
 	s.tunnelQueryClient = mocks.NewMockTunnelQueryClient(ctrl)
 	s.bandtssQueryClient = mocks.NewMockBandtssQueryClient(ctrl)
-	s.ctx = context.Background()
-
-	encodingConfig := band.MakeEncodingConfig()
 	s.client = band.NewClient(
-		cosmosclient.Context{}.
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
 		band.NewQueryClient(s.tunnelQueryClient, s.bandtssQueryClient),
 		s.log,
-		[]string{})
+		&band.Config{LivelinessCheckingInterval: 15 * time.Minute},
+	)
+	s.ctx = context.Background()
 }
 
 // GetMockIBCTunnel returns a mock IBC tunnel.

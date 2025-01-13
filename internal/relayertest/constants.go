@@ -28,8 +28,9 @@ var CustomCfg = falcon.Config{
 		LogLevel:                         "info",
 	},
 	BandChain: band.Config{
-		RpcEndpoints: []string{"http://localhost:26657", "http://localhost:26658"},
-		Timeout:      3 * time.Second,
+		RpcEndpoints:               []string{"http://localhost:26657", "http://localhost:26658"},
+		Timeout:                    3 * time.Second,
+		LivelinessCheckingInterval: 5 * time.Minute,
 	},
 	TargetChains: chains.ChainProviderConfigs{
 		"testnet": &evm.EVMChainProviderConfig{
@@ -45,7 +46,7 @@ var CustomCfg = falcon.Config{
 			BlockConfirmation:          5,
 			WaitingTxDuration:          time.Second * 3,
 			CheckingTxInterval:         time.Second,
-			LivelinessCheckingInterval: 15 * time.Minute,
+			LivelinessCheckingInterval: 5 * time.Minute,
 			GasType:                    evm.GasTypeEIP1559,
 			GasMultiplier:              1.1,
 		},
