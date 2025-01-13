@@ -202,9 +202,6 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 		return 0, ErrEstimateGas(err, true)
 	}
 
-	// NOTE: Add 20% buffer to the estimated gas.
-	gas = gas * 120 / 100
-
 	return gas, nil
 }
 
@@ -227,6 +224,7 @@ func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 }
 
 // EstimateBaseFee estimates the current base fee on the EVM chain.
+// ref: https://ethereum.stackexchange.com/questions/132333/how-can-we-calculate-next-base-fee
 func (c *client) EstimateBaseFee(ctx context.Context) (*big.Int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
@@ -236,7 +234,8 @@ func (c *client) EstimateBaseFee(ctx context.Context) (*big.Int, error) {
 		return nil, err
 	}
 
-	return latestHeader.BaseFee, nil
+	estimatedBaseFee := MultiplyBigIntWithFloat64(latestHeader.BaseFee, 1.125)
+	return estimatedBaseFee, nil
 }
 
 // EstimateGasTipCap estimates the current gas tip cap on the EVM chain.

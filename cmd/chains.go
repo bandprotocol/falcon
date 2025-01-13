@@ -84,7 +84,7 @@ $ %s chains list
 $ %s ch l`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app.Config == nil {
-				return ErrConfigNotExist(app.HomePath)
+				return relayer.ErrConfigNotExist(app.HomePath)
 			}
 
 			i := 1
@@ -110,7 +110,7 @@ func chainsShowCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [chain_name]",
 		Aliases: []string{"s"},
-		Short:   "Return a chain's configuration data",
+		Short:   "Return chain's configuration data",
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s ch s eth

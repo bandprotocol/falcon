@@ -13,6 +13,7 @@ import (
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/pelletier/go-toml/v2"
 
+	"github.com/bandprotocol/falcon/internal"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
@@ -154,8 +155,8 @@ func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string
 	return hex.EncodeToString(crypto.FromECDSA(key.PrivateKey)), nil
 }
 
-// Listkeys lists all keys.
-func (cp *EVMChainProvider) Listkeys() []*chainstypes.Key {
+// ListKeys lists all keys.
+func (cp *EVMChainProvider) ListKeys() []*chainstypes.Key {
 	res := make([]*chainstypes.Key, 0, len(cp.KeyInfo))
 	for keyName, address := range cp.KeyInfo {
 		key := chainstypes.NewKey("", address, keyName)
@@ -190,12 +191,12 @@ func (cp *EVMChainProvider) storeKeyInfo(homePath string) error {
 
 	keyInfoDir := path.Join(homePath, keyDir, cp.ChainName, infoDir)
 	keyInfoPath := path.Join(keyInfoDir, infoFileName)
+
 	// Create the info folder if doesn't exist
-	if _, err := os.Stat(keyInfoDir); os.IsNotExist(err) {
-		if err = os.Mkdir(keyInfoDir, os.ModePerm); err != nil {
-			return err
-		}
+	if err := internal.CheckAndCreateFolder(keyInfoDir); err != nil {
+		return err
 	}
+
 	// Create the file and write the default config to the given location.
 	f, err := os.Create(keyInfoPath)
 	if err != nil {

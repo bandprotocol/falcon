@@ -37,9 +37,8 @@ $ %s config show --home %s
 $ %s cfg list`, appName, defaultHome, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app.Config == nil {
-				return ErrConfigNotExist(app.HomePath)
+				return relayer.ErrConfigNotExist(app.HomePath)
 			}
-
 			b, err := toml.Marshal(app.Config)
 			if err != nil {
 				return err
@@ -57,7 +56,7 @@ func configInitCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"i"},
-		Short:   "Create a default configuration at home directory path defined by --home",
+		Short:   "Create a default configuration at home directory path",
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config init --home %s

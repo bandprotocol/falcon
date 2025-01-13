@@ -67,6 +67,7 @@ type GasInfo struct {
 	GasPrice       *big.Int
 	GasPriorityFee *big.Int
 	GasBaseFee     *big.Int
+	GasFeeCap      *big.Int
 }
 
 // NewGasLegacyInfo creates a new GasInfo instance with gas type legacy.
@@ -83,5 +84,6 @@ func NewGasEIP1559Info(gasPriorityFee, gasBaseFee *big.Int) GasInfo {
 		Type:           GasTypeEIP1559,
 		GasPriorityFee: gasPriorityFee,
 		GasBaseFee:     gasBaseFee,
+		GasFeeCap:      new(big.Int).Add(gasPriorityFee, gasBaseFee),
 	}
 }

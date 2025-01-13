@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/bandprotocol/falcon/cmd"
 	"github.com/bandprotocol/falcon/internal/relayertest"
+	"github.com/bandprotocol/falcon/relayer"
 )
 
 func TestShowConfigCmd(t *testing.T) {
@@ -134,5 +134,5 @@ func TestInitCmdAlreadyExist(t *testing.T) {
 	require.FileExists(t, cfgPath)
 
 	res = sys.RunWithInput(t, "config", "init")
-	require.Error(t, res.Err, cmd.ErrConfigNotExist(sys.HomeDir))
+	require.Error(t, res.Err, relayer.ErrConfigNotExist(sys.HomeDir))
 }
