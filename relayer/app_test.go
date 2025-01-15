@@ -777,7 +777,7 @@ func (s *AppTestSuite) TestShowKey() {
 					Return("", fmt.Errorf("show key error"))
 			},
 			out: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92267",
-			err: fmt.Errorf("chain name does not exist:"),
+			err: fmt.Errorf("show key error"),
 		},
 		{
 			name:      "chain name does not exist",
