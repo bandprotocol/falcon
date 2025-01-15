@@ -54,7 +54,7 @@ type KeyProvider interface {
 	ListKeys() []*chainstypes.Key
 
 	// ShowKey shows the address of the given key
-	ShowKey(keyName string) string
+	ShowKey(keyName string) (string, error)
 
 	// IsKeyNameExist checks whether a key with the specified keyName already exists in storage.
 	IsKeyNameExist(keyName string) bool

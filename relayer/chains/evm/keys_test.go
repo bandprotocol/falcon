@@ -232,6 +232,10 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	addr, err := evm.HexToAddress(testAddress)
 	s.Require().NoError(err)
 	s.Require().False(s.chainProvider.KeyStore.HasAddress(addr))
+
+	// Delete the key again should return error
+	err = s.chainProvider.DeleteKey(s.homePath, keyName, "")
+	s.Require().ErrorContains(err, "key name does not exist")
 }
 
 func (s *KeysTestSuite) TestExportPrivateKey() {
@@ -317,8 +321,9 @@ func (s *KeysTestSuite) TestShowKey() {
 	s.Require().NoError(err)
 
 	// Show the key
-	address := s.chainProvider.ShowKey(keyName)
+	address, err := s.chainProvider.ShowKey(keyName)
 	s.Require().Equal(address, address)
+	s.Require().NoError(err)
 }
 
 func (s *KeysTestSuite) TestIsKeyNameExist() {

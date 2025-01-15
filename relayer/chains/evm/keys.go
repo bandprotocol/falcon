@@ -42,6 +42,10 @@ func (cp *EVMChainProvider) AddKey(
 	index uint,
 	passphrase string,
 ) (*chainstypes.Key, error) {
+	if cp.IsKeyNameExist(keyName) {
+		return nil, fmt.Errorf("duplicate key name")
+	}
+
 	if privateKey != "" {
 		return cp.AddKeyWithPrivateKey(keyName, privateKey, homePath, passphrase)
 	}
@@ -101,10 +105,6 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	homePath string,
 	passphrase string,
 ) (*chainstypes.Key, error) {
-	if _, ok := cp.KeyInfo[keyName]; ok {
-		return nil, fmt.Errorf("duplicate key name")
-	}
-
 	// Get public key from private key
 	publicKeyECDSA, ok := priv.Public().(*ecdsa.PublicKey)
 	if !ok {
@@ -130,6 +130,10 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 
 // DeleteKey deletes the given key name from the key store and removes its information.
 func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) error {
+	if !cp.IsKeyNameExist(keyName) {
+		return fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
 	address, err := HexToAddress(cp.KeyInfo[keyName])
 	if err != nil {
 		return err
@@ -145,6 +149,10 @@ func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) erro
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
+	if !cp.IsKeyNameExist(keyName) {
+		return "", fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
 	key, err := cp.GetKeyFromKeyName(keyName, passphrase)
 	if err != nil {
 		return "", err
@@ -163,8 +171,12 @@ func (cp *EVMChainProvider) ListKeys() []*chainstypes.Key {
 }
 
 // ShowKey shows key by the given name.
-func (cp *EVMChainProvider) ShowKey(keyName string) string {
-	return cp.KeyInfo[keyName]
+func (cp *EVMChainProvider) ShowKey(keyName string) (string, error) {
+	if !cp.IsKeyNameExist(keyName) {
+		return "", fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	return cp.KeyInfo[keyName], nil
 }
 
 // IsKeyNameExist checks whether the given key name is already in use.
