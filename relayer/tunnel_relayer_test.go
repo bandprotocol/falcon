@@ -67,7 +67,7 @@ func (s *TunnelRelayerTestSuite) mockGetTunnel(bandLatestSequence uint64) {
 		"",
 		"",
 		true,
-	), nil).AnyTimes()
+	), nil)
 }
 
 // Helper function to mock QueryTunnelInfo.
@@ -110,105 +110,149 @@ func createMockPacket(tunnelID, sequence uint64, status string) *bandtypes.Packe
 	)
 }
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelaySuccess() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
-	s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true)
-	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_SUCCESS")
+func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
+	testcases := []struct {
+		name       string
+		preprocess func()
+		err        error
+	}{
+		{
+			name: "success",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	s.client.EXPECT().
-		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-		Return(packet, nil)
-	s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(nil)
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					"SIGNING_STATUS_SUCCESS",
+				)
+				s.client.EXPECT().
+					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
+				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
 
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().NoError(err)
-}
+				// Check and relay the packet for the second time
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true)
+			},
+		},
+		{
+			name: "failed to get tunnel on band client",
+			preprocess: func() {
+				s.client.EXPECT().
+					GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).
+					Return(nil, fmt.Errorf("failed to get tunnel"))
+			},
+			err: fmt.Errorf("failed to get tunnel"),
+		},
+		{
+			name: "failed to query chain tunnel info",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.chainProvider.EXPECT().
+					QueryTunnelInfo(gomock.Any(), s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
+					Return(nil, fmt.Errorf("failed to query tunnel info"))
+			},
+			err: fmt.Errorf("failed to query tunnel info"),
+		},
+		{
+			name: "target chain not active",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, false)
+			},
+			err: nil,
+		},
+		{
+			name: "no new packet to relay",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true)
+			},
+			err: nil,
+		},
+		{
+			name: "fail to get a new packet",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedGetTunnel() {
-	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(nil, fmt.Errorf("failed to get tunnel"))
+				s.client.EXPECT().
+					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(nil, fmt.Errorf("failed to get packet"))
+			},
+			err: fmt.Errorf("failed to get packet"),
+		},
+		{
+			name: "signing status fallen",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().ErrorContains(err, "failed to get tunnel")
-}
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					"SIGNING_STATUS_FALLEN",
+				)
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedQueryTunnelInfo() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.chainProvider.EXPECT().
-		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, s.tunnelRelayer.ContractAddress).
-		Return(nil, fmt.Errorf("failed to query tunnel info"))
+				s.client.EXPECT().
+					GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
+			},
+			err: fmt.Errorf(("signing status is not success")),
+		},
+		{
+			name: "signing status is waiting",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().ErrorContains(err, "failed to query tunnel info")
-}
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					"SIGNING_STATUS_WAITING",
+				)
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelayTargetChainNotActive() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.mockQueryTunnelInfo(defaultTargetChainSequence, false)
+				s.client.EXPECT().
+					GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
+			},
+			err: nil,
+		},
+		{
+			name: "failed to relay packet",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
 
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().NoError(err)
-}
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					"SIGNING_STATUS_SUCCESS",
+				)
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelayNoNewPackets() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.mockQueryTunnelInfo(defaultBandLatestSequence, true)
+				s.client.EXPECT().
+					GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
+				s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(fmt.Errorf("failed to relay packet"))
+			},
+			err: fmt.Errorf("failed to relay packet"),
+		},
+	}
 
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().NoError(err)
-}
+	for _, tc := range testcases {
+		s.T().Run(tc.name, func(t *testing.T) {
+			if tc.preprocess != nil {
+				tc.preprocess()
+			}
 
-func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedGetPacket() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
-
-	s.client.EXPECT().
-		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-		Return(nil, fmt.Errorf("failed to get packet"))
-
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().Error(err)
-}
-
-func (s *TunnelRelayerTestSuite) TestCheckAndRelaySigningStatusFallen() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
-
-	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_FALLEN")
-
-	s.client.EXPECT().
-		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-		Return(packet, nil)
-
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().Error(err)
-}
-
-func (s *TunnelRelayerTestSuite) TestCheckAndRelaySigningStatusWaiting() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
-
-	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_WAITING")
-
-	s.client.EXPECT().
-		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-		Return(packet, nil)
-
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().NoError(err)
-}
-
-func (s *TunnelRelayerTestSuite) TestCheckAndRelayFailedToRelayPacket() {
-	s.mockGetTunnel(defaultBandLatestSequence)
-	s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
-
-	packet := createMockPacket(s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1, "SIGNING_STATUS_SUCCESS")
-
-	s.client.EXPECT().
-		GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-		Return(packet, nil)
-	s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(fmt.Errorf("failed to relay packet"))
-
-	err := s.tunnelRelayer.CheckAndRelay(s.ctx)
-	s.Require().ErrorContains(err, "failed to relay packet")
+			err := s.tunnelRelayer.CheckAndRelay(s.ctx)
+			if tc.err != nil {
+				s.Require().ErrorContains(err, tc.err.Error())
+			} else {
+				s.Require().NoError(err)
+			}
+		})
+	}
 }
