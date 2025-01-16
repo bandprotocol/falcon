@@ -290,7 +290,7 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 			out:  relayertest.DefaultCfgText,
 		},
 		{
-			name: "invalid chain name",
+			name: "not existing chain name",
 			in:   "testnet2",
 			err:  fmt.Errorf("not existing chain name"),
 		},
@@ -325,7 +325,7 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 	}
 }
 
-func (s *AppTestSuite) TestGetChainProvider() {
+func (s *AppTestSuite) TestGetChainConfig() {
 	testcases := []struct {
 		name string
 		in   string
@@ -554,7 +554,7 @@ func (s *AppTestSuite) TestAddKey() {
 			err: fmt.Errorf("add key error"),
 		},
 		{
-			name:       "error from AddKey",
+			name:       "chain name does not exist",
 			chainName:  "testnet_evm2",
 			keyName:    "testkey",
 			privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // anvil
