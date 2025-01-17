@@ -6,11 +6,17 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
 const penaltyTaskChSize = 1000
+
+const (
+	targetContractActiveStatus   = "active"
+	targetContractInActiveStatus = "inactive"
+)
 
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
@@ -27,6 +33,8 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
+	Metrics        *relayermetrics.PrometheusMetrics
+	ChainsName     map[string]bool
 }
 
 // NewScheduler creates a new Scheduler
@@ -40,6 +48,8 @@ func NewScheduler(
 	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
+	metrics *relayermetrics.PrometheusMetrics,
+	chainsName map[string]bool,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
@@ -53,6 +63,8 @@ func NewScheduler(
 		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
+		Metrics:                          metrics,
+		ChainsName:                       chainsName,
 	}
 }
 
@@ -63,6 +75,22 @@ func (s *Scheduler) Start(ctx context.Context) error {
 
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
+
+	// initialize and update metrics for tunnels, target chain contracts, and destination chains
+	s.Metrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
+	for _, tr := range s.TunnelRelayers {
+		t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
+		if err != nil {
+			continue
+		}
+		tr.IsTargetChainActive = t.IsActive
+		status := targetContractActiveStatus
+		if !t.IsActive {
+			status = targetContractInActiveStatus
+		}
+		s.Metrics.IncTargetContractCount(status)
+	}
+	s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName)))
 
 	// execute once we start the scheduler.
 	s.Execute(ctx)
@@ -108,6 +136,9 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		// Execute the task, if error occurs, wait for the next round.
 		task := NewTask(i, s.CheckingPacketInterval)
 		go s.TriggerTunnelRelayer(ctx, task)
+
+		// record metrics for the task execution for the current tunnel relayer
+		s.Metrics.IncTasksCount(tr.TunnelID)
 	}
 }
 
@@ -124,6 +155,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		return
 	}
 
+	startExecutionTaskTime := time.Now()
 	s.Log.Info("Executing task", zap.Uint64("tunnel_id", tr.TunnelID))
 
 	// Check and relay the packet, if error occurs, set the error flag.
@@ -145,6 +177,10 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 
 	// If the task is successful, reset the error flag.
 	s.isErrorOnHolds[task.RelayerID] = false
+
+	// ...
+	s.Metrics.ObserveTaskExecutionTime(tr.TunnelID, float64(time.Since(startExecutionTaskTime).Milliseconds())/1000)
+
 	s.Log.Info(
 		"Tunnel relayer finished execution",
 		zap.Uint64("tunnel_id", tr.TunnelID),
@@ -170,6 +206,8 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		return
 	}
 
+	oldDestinationChainCount := len(s.ChainsName)
+
 	for i := oldTunnelCount; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
@@ -188,16 +226,38 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			s.CheckingPacketInterval,
 			s.BandClient,
 			chainProvider,
+			s.Metrics,
 		)
+
+		// update metrics for the new tunnel and its target chain status
+		t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
+		if err != nil {
+			continue
+		}
+		tr.IsTargetChainActive = t.IsActive
+		status := targetContractActiveStatus
+		if !t.IsActive {
+			status = targetContractActiveStatus
+		}
+		s.Metrics.IncTargetContractCount(status)
+
+		if _, ok := s.ChainsName[tunnels[i].TargetChainID]; !ok {
+			s.ChainsName[tunnels[i].TargetChainID] = true
+		}
 
 		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
 		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
+
 		s.Log.Info(
 			"New tunnel synchronized successfully",
 			zap.String("chain_name", tunnels[i].TargetChainID),
 			zap.Uint64("tunnel_id", tunnels[i].ID),
 		)
 	}
+
+	// update metrics for the number of destination chains and tunnels after synchronization
+	s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName) - oldDestinationChainCount))
+	s.Metrics.AddTunnellCount(uint64(len(tunnels) - oldTunnelCount))
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit

@@ -9,6 +9,7 @@ import (
 
 	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
 
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
@@ -18,9 +19,11 @@ type TunnelRelayer struct {
 	Log                    *zap.Logger
 	TunnelID               uint64
 	ContractAddress        string
+	IsTargetChainActive    bool
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
+	Metrics                *relayermetrics.PrometheusMetrics
 
 	isExecuting bool
 }
@@ -33,6 +36,7 @@ func NewTunnelRelayer(
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,
 	targetChainProvider chains.ChainProvider,
+	metrics *relayermetrics.PrometheusMetrics,
 ) TunnelRelayer {
 	return TunnelRelayer{
 		Log:                    log.With(zap.Uint64("tunnel_id", tunnelID)),
@@ -41,6 +45,7 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
+		Metrics:                metrics,
 		isExecuting:            false,
 	}
 }
@@ -74,10 +79,27 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
+
 		if !tunnelChainInfo.IsActive {
+			// decrease active status and increase inactive status if the tunnel was previously active
+			if t.IsTargetChainActive {
+				t.Metrics.DecTargetContractCount(targetContractActiveStatus)
+				t.Metrics.IncTargetContractCount(targetContractInActiveStatus)
+				t.IsTargetChainActive = false
+			}
 			t.Log.Info("Tunnel is not active on target chain")
 			return nil
 		}
+
+		// increase active status and decrease inactive status if the tunnel was previously inactive
+		if tunnelChainInfo.IsActive && !t.IsTargetChainActive {
+			t.Metrics.IncTargetContractCount(targetContractActiveStatus)
+			t.Metrics.DecTargetContractCount(targetContractInActiveStatus)
+			t.IsTargetChainActive = true
+		}
+
+		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
+		t.Metrics.SetUnrelayedPacket(t.TunnelID, tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence)
 
 		// end process if current packet is already relayed
 		seq := tunnelChainInfo.LatestSequence + 1
@@ -121,6 +143,8 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			return err
 		}
 
+		// increment the packet received metric
+		t.Metrics.IncPacketlReceived(t.TunnelID)
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}
 }

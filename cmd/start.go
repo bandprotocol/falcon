@@ -31,9 +31,18 @@ $ %s start 1 12      # start relaying data from specific tunnelIDs.`, appName, a
 				tunnelIDs = append(tunnelIDs, tunnelID)
 			}
 
-			return app.Start(cmd.Context(), tunnelIDs)
+			flagEnableMetricsServer, err := cmd.Flags().GetBool(flagEnableMetricsServer)
+			if err != nil {
+				return err
+			}
+
+			return app.Start(cmd.Context(), tunnelIDs, flagEnableMetricsServer)
 		},
 	}
-
+	cmd.Flags().Bool(
+		flagEnableMetricsServer,
+		false,
+		"enables metrics server. By default, the metrics server is disabled due to security concerns.",
+	)
 	return cmd
 }

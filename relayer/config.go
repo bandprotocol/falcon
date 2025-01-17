@@ -21,6 +21,7 @@ type GlobalConfig struct {
 	SyncTunnelsInterval              time.Duration `mapstructure:"sync_tunnels_interval"                toml:"sync_tunnels_interval"`
 	MaxCheckingPacketPenaltyDuration time.Duration `mapstructure:"max_checking_packet_penalty_duration" toml:"max_checking_packet_penalty_duration"`
 	PenaltyExponentialFactor         float64       `mapstructure:"penalty_exponential_factor"           toml:"penalty_exponential_factor"`
+	MetricsListenAddr                string        `mapstructure:"metrics_listen_addr"                  toml:"metrics_listen_addr"`
 }
 
 // Config defines the configuration for the falcon tunnel relayer.
@@ -139,6 +140,7 @@ func DefaultConfig() *Config {
 			SyncTunnelsInterval:              5 * time.Minute,
 			MaxCheckingPacketPenaltyDuration: time.Hour,
 			PenaltyExponentialFactor:         1.0,
+			MetricsListenAddr:                "127.0.0.1:5184",
 		},
 	}
 }

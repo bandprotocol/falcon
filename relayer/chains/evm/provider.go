@@ -16,6 +16,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -40,6 +41,8 @@ type EVMChainProvider struct {
 	Log *zap.Logger
 
 	KeyStore *keyStore.KeyStore
+
+	Metrics *relayermetrics.PrometheusMetrics
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -192,6 +195,9 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		createdAt := time.Now()
 
+		// increment the transaction count metric for the current tunnel
+		cp.Metrics.IncTxCount(packet.TunnelID)
+
 		log.Info(
 			"Submitted a message; checking transaction status",
 			zap.String("tx_hash", txHash),
@@ -221,6 +227,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			txStatus = result.Status
 			switch result.Status {
 			case TX_STATUS_SUCCESS:
+				// track transaction processing time in seconds with millisecond precision
+				cp.Metrics.ObserveTxProcessTime(cp.ChainName, float64(time.Since(createdAt).Milliseconds())/1000)
+
+				// track gas used for the relayed transaction
+				cp.Metrics.ObserveGasUsed(packet.TunnelID, result.GasUsed.Decimal.BigInt().Uint64())
+
 				log.Info(
 					"Packet is successfully relayed",
 					zap.String("tx_hash", txHash),
@@ -577,4 +589,11 @@ func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, e
 	}
 
 	return output, nil
+}
+
+// QueryBalance queries balance of specific account address.
+func (cp *EVMChainProvider) SetMetrics(
+	m *relayermetrics.PrometheusMetrics,
+) {
+	cp.Metrics = m
 }
