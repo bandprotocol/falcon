@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	viperpkg "github.com/spf13/viper"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	falcon "github.com/bandprotocol/falcon/relayer"
@@ -29,7 +29,6 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 // NewRootCmd returns the root command for falcon.
 func NewRootCmd(log *zap.Logger) *cobra.Command {
 	app := falcon.NewApp(log, defaultHome, false, nil)
-	viper := viperpkg.New()
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{

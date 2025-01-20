@@ -13,7 +13,6 @@ import (
 )
 
 func TestChainsListEmpty(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
@@ -24,7 +23,6 @@ func TestChainsListEmpty(t *testing.T) {
 }
 
 func TestChainsAdd(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
@@ -58,7 +56,6 @@ func TestChainsAdd(t *testing.T) {
 }
 
 func TestChainsDelete(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
@@ -100,7 +97,6 @@ func TestChainsDelete(t *testing.T) {
 }
 
 func TestChainsShow(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")

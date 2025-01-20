@@ -11,7 +11,6 @@ import (
 )
 
 func TestConfigShow(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
@@ -25,7 +24,6 @@ func TestConfigShow(t *testing.T) {
 }
 
 func TestConfigShowNotInit(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "show")
@@ -33,7 +31,6 @@ func TestConfigShowNotInit(t *testing.T) {
 }
 
 func TestConfigInitDefault(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
@@ -50,7 +47,6 @@ func TestConfigInitDefault(t *testing.T) {
 }
 
 func TestConfigInitWithFileShortFlag(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -71,7 +67,6 @@ func TestConfigInitWithFileShortFlag(t *testing.T) {
 }
 
 func TestConfigInitWithFileLongFlag(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -91,7 +86,6 @@ func TestConfigInitWithFileLongFlag(t *testing.T) {
 }
 
 func TestConfigInitWithFileTimeString(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -111,7 +105,6 @@ func TestConfigInitWithFileTimeString(t *testing.T) {
 }
 
 func TestConfigInitInvalidFile(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -123,7 +116,6 @@ func TestConfigInitInvalidFile(t *testing.T) {
 }
 
 func TestConfigInitNoCustomFile(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -132,7 +124,6 @@ func TestConfigInitNoCustomFile(t *testing.T) {
 }
 
 func TestConfigInitAlreadyExist(t *testing.T) {
-	t.Parallel()
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
