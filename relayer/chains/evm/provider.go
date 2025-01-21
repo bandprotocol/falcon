@@ -202,7 +202,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		var txStatus TxStatus
 	checkTxLogic:
 		for time.Since(createdAt) < cp.Config.WaitingTxDuration {
-			result, err := cp.checkConfirmedTx(ctx, txHash)
+			result, err := cp.CheckConfirmedTx(ctx, txHash)
 			if err != nil {
 				log.Debug(
 					"Failed to check tx status",
@@ -228,7 +228,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				)
 				return nil
 			case TX_STATUS_FAILED:
-				retryCount += 1
+				log.Debug(
+					"Transaction failed during relay attempt",
+					zap.Error(err),
+					zap.String("tx_hash", txHash),
+					zap.Int("retry_count", retryCount),
+				)
 				break checkTxLogic
 			case TX_STATUS_UNMINED:
 				log.Debug(
@@ -269,12 +274,12 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	sender *Sender,
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
-	calldata, err := cp.createCalldata(packet)
+	calldata, err := cp.CreateCalldata(packet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create calldata: %w", err)
 	}
 
-	tx, err := cp.newRelayTx(ctx, calldata, sender.Address, gasInfo)
+	tx, err := cp.NewRelayTx(ctx, calldata, sender.Address, gasInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
@@ -287,8 +292,8 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	return signedTx, nil
 }
 
-// checkConfirmedTx checks the confirmed transaction status.
-func (cp *EVMChainProvider) checkConfirmedTx(
+// CheckConfirmedTx checks the confirmed transaction status.
+func (cp *EVMChainProvider) CheckConfirmedTx(
 	ctx context.Context,
 	txHash string,
 ) (*ConfirmTxResult, error) {
@@ -296,7 +301,6 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 		txHash,
 		TX_STATUS_UNMINED,
 		decimal.NullDecimal{},
-		cp.GasType,
 	)
 
 	receipt, err := cp.Client.GetTxReceipt(ctx, txHash)
@@ -320,7 +324,7 @@ func (cp *EVMChainProvider) checkConfirmedTx(
 
 	// calculate gas used and effective gas price
 	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
-	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, cp.GasType), nil
+	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed), nil
 }
 
 // EstimateGasFee estimates the gas for the transaction.
@@ -430,8 +434,8 @@ func (cp *EVMChainProvider) queryTunnelInfo(
 	return &output.Info, nil
 }
 
-// newRelayTx creates a new relay transaction.
-func (cp *EVMChainProvider) newRelayTx(
+// NewRelayTx creates a new relay transaction.
+func (cp *EVMChainProvider) NewRelayTx(
 	ctx context.Context,
 	data []byte,
 	sender gethcommon.Address,
@@ -492,8 +496,8 @@ func (cp *EVMChainProvider) newRelayTx(
 	return tx, nil
 }
 
-// createCalldata creates the calldata for the relay transaction.
-func (cp *EVMChainProvider) createCalldata(packet *bandtypes.Packet) ([]byte, error) {
+// CreateCalldata creates the calldata for the relay transaction.
+func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, error) {
 	var signing *bandtypes.Signing
 
 	// get signing from packet; prefer to use signing from

@@ -39,7 +39,7 @@ func (cp *EVMChainProvider) LoadFreeSenders(
 	freeSenders := make(chan *Sender, len(cp.KeyInfo))
 
 	for keyName := range cp.KeyInfo {
-		key, err := cp.getKeyFromKeyName(keyName, passphrase)
+		key, err := cp.GetKeyFromKeyName(keyName, passphrase)
 		if err != nil {
 			return err
 		}

@@ -44,20 +44,20 @@ type KeyProvider interface {
 		passphrase string,
 	) (*chainstypes.Key, error)
 
-	// IsKeyNameExist checks whether a key with the specified keyName already exists in storage.
-	IsKeyNameExist(keyName string) bool
+	// DeleteKey deletes the key information and private key
+	DeleteKey(homePath, keyName, passphrase string) error
 
 	// ExportPrivateKey exports private key of specified key name.
 	ExportPrivateKey(keyName string, passphrase string) (string, error)
-
-	// DeleteKey deletes the key information and private key
-	DeleteKey(homePath, keyName, passphrase string) error
 
 	// ListKeys lists all keys
 	ListKeys() []*chainstypes.Key
 
 	// ShowKey shows the address of the given key
-	ShowKey(keyName string) string
+	ShowKey(keyName string) (string, error)
+
+	// IsKeyNameExist checks whether a key with the specified keyName already exists in storage.
+	IsKeyNameExist(keyName string) bool
 
 	// LoadFreeSenders loads key info to prepare to relay the packet
 	LoadFreeSenders(homePath, passphrase string) error
