@@ -7,8 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
-
+	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )

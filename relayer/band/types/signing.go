@@ -3,7 +3,7 @@ package types
 import (
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 
-	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
+	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 )
 
 // EVMSignature defines a signature in the EVM format.
