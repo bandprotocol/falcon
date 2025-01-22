@@ -1,4 +1,4 @@
-package types
+package feeds
 
 import "github.com/cosmos/gogoproto/proto"
 
