@@ -50,13 +50,11 @@ func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 		"tunnel.v1beta1.RouteI",
 		(*tunneltypes.RouteI)(nil),
 		&tunneltypes.TSSRoute{},
-		&tunneltypes.IBCRoute{},
 	)
 
 	registry.RegisterInterface(
 		"tunnel.v1beta1.PacketReceiptI",
 		(*tunneltypes.PacketReceiptI)(nil),
 		&tunneltypes.TSSPacketReceipt{},
-		&tunneltypes.IBCPacketReceipt{},
 	)
 }
