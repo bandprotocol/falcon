@@ -699,7 +699,7 @@ func (a *App) setupMetricsServer(
 		a.Log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag")
 	} else {
 		a.Log.Info("Metrics server is enabled")
-		ln, err := net.Listen("http", metricsListenAddr)
+		ln, err := net.Listen("tcp", metricsListenAddr)
 		if err != nil {
 			a.Log.Error("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag")
 
