@@ -20,3 +20,5 @@ RUN apk add --no-cache ca-certificates
 
 # Copy over binaries from the build
 COPY --from=build /go/bin/falcon /usr/bin/falcon
+
+ENTRYPOINT ["falcon", "start"]
