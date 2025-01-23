@@ -3,6 +3,7 @@ package band
 import (
 	"context"
 	"fmt"
+	"time"
 
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
@@ -10,9 +11,8 @@ import (
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"go.uber.org/zap"
 
-	bandtsstypes "github.com/bandprotocol/chain/v3/x/bandtss/types"
-	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
-
+	bandtsstypes "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
+	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
@@ -20,57 +20,59 @@ var _ Client = &client{}
 
 // Client is the interface to interact with the BandChain.
 type Client interface {
+	// Init initializes the BandChain client by connecting to the chain and starting
+	// periodic liveliness checks.
+	Init(ctx context.Context) error
+
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
 
 	// GetTunnel returns the tunnel with the given tunnelID.
 	GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error)
 
-	// Connect will establish connection to rpc endpoints
-	Connect(timeout uint) error
-
 	// GetTunnels returns all tunnel in BandChain.
 	GetTunnels(ctx context.Context) ([]types.Tunnel, error)
 }
 
-// QueryClient groups the gRPC clients for querying BandChain-specific data.
-type QueryClient struct {
-	TunnelQueryClient  tunneltypes.QueryClient
-	BandtssQueryClient bandtsstypes.QueryClient
-}
-
-// NewQueryClient creates a new QueryClient instance.
-func NewQueryClient(
-	tunnelQueryClient tunneltypes.QueryClient,
-	bandTssQueryClient bandtsstypes.QueryClient,
-) *QueryClient {
-	return &QueryClient{
-		TunnelQueryClient:  tunnelQueryClient,
-		BandtssQueryClient: bandTssQueryClient,
-	}
-}
-
 // client is the BandChain client struct.
 type client struct {
-	Context      cosmosclient.Context
-	QueryClient  *QueryClient
-	Log          *zap.Logger
-	RpcEndpoints []string
+	Context     cosmosclient.Context
+	QueryClient QueryClient
+	Log         *zap.Logger
+	Config      *Config
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(ctx cosmosclient.Context, queryClient *QueryClient, log *zap.Logger, rpcEndpoints []string) Client {
+func NewClient(queryClient QueryClient, log *zap.Logger, bandChainCfg *Config) Client {
+	encodingConfig := MakeEncodingConfig()
+	ctx := cosmosclient.Context{}.
+		WithCodec(encodingConfig.Marshaler).
+		WithInterfaceRegistry(encodingConfig.InterfaceRegistry)
+
 	return &client{
-		Context:      ctx,
-		QueryClient:  queryClient,
-		Log:          log,
-		RpcEndpoints: rpcEndpoints,
+		Context:     ctx,
+		QueryClient: queryClient,
+		Log:         log,
+		Config:      bandChainCfg,
 	}
 }
 
-// Connect connects to the BandChain using the provided RPC endpoints.
-func (c *client) Connect(timeout uint) error {
-	for _, rpcEndpoint := range c.RpcEndpoints {
+// Init initializes the BandChain client by connecting to the chain and starting
+// periodic liveliness checks.
+func (c *client) Init(ctx context.Context) error {
+	timeout := uint(c.Config.Timeout)
+	if err := c.connect(timeout, true); err != nil {
+		c.Log.Error("Failed to connect to BandChain", zap.Error(err))
+		return err
+	}
+
+	go c.startLivelinessCheck(ctx, timeout, c.Config.LivelinessCheckingInterval)
+	return nil
+}
+
+// connect connects to the BandChain using the provided RPC endpoints.
+func (c *client) connect(timeout uint, onStartup bool) error {
+	for _, rpcEndpoint := range c.Config.RpcEndpoints {
 		// Create a new HTTP client for the specified node URI
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
 		if err != nil {
@@ -78,15 +80,17 @@ func (c *client) Connect(timeout uint) error {
 			continue // Try the next endpoint if there's an error
 		}
 
-		// Create a new client context and configure it with necessary parameters
-		encodingConfig := MakeEncodingConfig()
-		ctx := cosmosclient.Context{}.
-			WithClient(client).
-			WithCodec(encodingConfig.Marshaler).
-			WithInterfaceRegistry(encodingConfig.InterfaceRegistry)
+		// skip status check on startup to avoid blocking relayer initialization
+		// perform status checks later to ensure endpoint health and rotation
+		if !onStartup {
+			if _, err := c.Context.Client.Status(context.Background()); err != nil {
+				continue
+			}
+		}
 
-		c.Context = ctx
-		c.QueryClient = NewQueryClient(tunneltypes.NewQueryClient(ctx), bandtsstypes.NewQueryClient(ctx))
+		c.Context.Client = client
+		c.Context.NodeURI = rpcEndpoint
+		c.QueryClient = NewBandQueryClient(c.Context)
 
 		c.Log.Info("Connected to BandChain", zap.String("endpoint", rpcEndpoint))
 
@@ -96,6 +100,32 @@ func (c *client) Connect(timeout uint) error {
 	return fmt.Errorf("failed to connect to BandChain")
 }
 
+// startLivelinessCheck starts the liveliness check for the BandChain.
+func (c *client) startLivelinessCheck(ctx context.Context, timeout uint, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	for {
+		select {
+		case <-ctx.Done():
+			c.Log.Info("Stopping liveliness check")
+
+			ticker.Stop()
+
+			return
+		case <-ticker.C:
+			if _, err := c.Context.Client.Status(ctx); err != nil {
+				c.Log.Error(
+					"BandChain client disconnected",
+					zap.String("rpcEndpoint", c.Context.NodeURI),
+					zap.Error(err),
+				)
+				if err := c.connect(timeout, false); err != nil {
+					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
+				}
+			}
+		}
+	}
+}
+
 // GetTunnel gets tunnel info from band client
 func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	// check connection to bandchain
@@ -103,7 +133,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 		return nil, fmt.Errorf("cannot connect to bandchain")
 	}
 
-	res, err := c.QueryClient.TunnelQueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
+	res, err := c.QueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
 		TunnelId: tunnelID,
 	})
 	if err != nil {
@@ -139,7 +169,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	}
 
 	// Get packet information by given tunnel ID and sequence
-	resPacket, err := c.QueryClient.TunnelQueryClient.Packet(ctx, &tunneltypes.QueryPacketRequest{
+	resPacket, err := c.QueryClient.Packet(ctx, &tunneltypes.QueryPacketRequest{
 		TunnelId: tunnelID,
 		Sequence: sequence,
 	})
@@ -170,7 +200,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	signingID := uint64(tssPacketReceipt.SigningID)
 
 	// Get tss signing information by given signing ID
-	resSigning, err := c.QueryClient.BandtssQueryClient.Signing(ctx, &bandtsstypes.QuerySigningRequest{
+	resSigning, err := c.QueryClient.Signing(ctx, &bandtsstypes.QuerySigningRequest{
 		SigningId: signingID,
 	})
 	if err != nil {
@@ -200,7 +230,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	var nextKey []byte
 
 	for {
-		res, err := c.QueryClient.TunnelQueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{
+		res, err := c.QueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{
 			Pagination: &querytypes.PageRequest{
 				Key: nextKey,
 			},

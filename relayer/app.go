@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/joho/godotenv"
 	"github.com/pelletier/go-toml/v2"
 	"go.uber.org/zap"
@@ -23,10 +22,10 @@ import (
 )
 
 const (
-	configFolderName   = "config"
-	configFileName     = "config.toml"
-	passphraseFileName = "passphrase.hash"
-	passphraseEnvKey   = "PASSPHRASE"
+	ConfigFolderName   = "config"
+	ConfigFileName     = "config.toml"
+	PassphraseFileName = "passphrase.hash"
+	PassphraseEnvKey   = "PASSPHRASE"
 )
 
 // App is the main application struct.
@@ -36,7 +35,7 @@ type App struct {
 	Debug    bool
 	Config   *Config
 
-	targetChains  chains.ChainProviders
+	TargetChains  chains.ChainProviders
 	BandClient    band.Client
 	EnvPassphrase string
 }
@@ -86,7 +85,7 @@ func (a *App) Init(ctx context.Context, logLevel, logFormat string) error {
 	}
 
 	// initialize BandChain client
-	if err := a.initBandClient(); err != nil {
+	if err := a.initBandClient(ctx); err != nil {
 		return err
 	}
 
@@ -94,11 +93,11 @@ func (a *App) Init(ctx context.Context, logLevel, logFormat string) error {
 }
 
 // initBandClient establishes connection to rpc endpoints.
-func (a *App) initBandClient() error {
-	a.BandClient = band.NewClient(cosmosclient.Context{}, nil, a.Log, a.Config.BandChain.RpcEndpoints)
+func (a *App) initBandClient(ctx context.Context) error {
+	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
 
 	// connect to BandChain, if error occurs, log the error as debug and continue
-	if err := a.BandClient.Connect(uint(a.Config.BandChain.Timeout)); err != nil {
+	if err := a.BandClient.Init(ctx); err != nil {
 		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
 		return err
 	}
@@ -128,7 +127,7 @@ func (a *App) initLogger(logLevel, logFormat string) error {
 
 // initTargetChains initializes the target chains.
 func (a *App) initTargetChains() error {
-	a.targetChains = make(chains.ChainProviders)
+	a.TargetChains = make(chains.ChainProviders)
 
 	for chainName, chainConfig := range a.Config.TargetChains {
 		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug)
@@ -140,7 +139,7 @@ func (a *App) initTargetChains() error {
 			return err
 		}
 
-		a.targetChains[chainName] = cp
+		a.TargetChains[chainName] = cp
 	}
 
 	return nil
@@ -148,7 +147,7 @@ func (a *App) initTargetChains() error {
 
 // LoadConfigFile reads config file into a.Config if file is present.
 func (a *App) LoadConfigFile() error {
-	cfgPath := path.Join(a.HomePath, configFolderName, configFileName)
+	cfgPath := path.Join(a.HomePath, ConfigFolderName, ConfigFileName)
 
 	// check if file doesn't exist, exit the function as the config may not be initialized.
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
@@ -171,8 +170,8 @@ func (a *App) LoadConfigFile() error {
 
 // InitConfigFile initializes the configuration to the given path.
 func (a *App) InitConfigFile(homePath string, customFilePath string) error {
-	cfgDir := path.Join(homePath, configFolderName)
-	cfgPath := path.Join(cfgDir, configFileName)
+	cfgDir := path.Join(homePath, ConfigFolderName)
+	cfgPath := path.Join(cfgDir, ConfigFileName)
 
 	// check if the config file already exists
 	// https://stackoverflow.com/questions/12518876/how-to-check-if-a-file-exists-in-go
@@ -232,8 +231,8 @@ func (a *App) InitPassphrase() error {
 	h.Write([]byte(a.EnvPassphrase))
 	b := h.Sum(nil)
 
-	cfgDir := path.Join(a.HomePath, configFolderName)
-	passphrasePath := path.Join(cfgDir, passphraseFileName)
+	cfgDir := path.Join(a.HomePath, ConfigFolderName)
+	passphrasePath := path.Join(cfgDir, PassphraseFileName)
 
 	// Create the file and write the hashed passphrase to the given location.
 	f, err := os.Create(passphrasePath)
@@ -268,7 +267,7 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		tunnel.IsActive,
 	)
 
-	cp, ok := a.targetChains[bandChainInfo.TargetChainID]
+	cp, ok := a.TargetChains[bandChainInfo.TargetChainID]
 	if !ok {
 		a.Log.Debug("Target chain provider not found", zap.String("chain_id", bandChainInfo.TargetChainID))
 		return types.NewTunnel(bandChainInfo, nil), nil
@@ -311,8 +310,8 @@ func (a *App) AddChainConfig(chainName string, filePath string) error {
 
 	a.Config.TargetChains[chainName] = chainProviderConfig
 
-	cfgDir := path.Join(a.HomePath, configFolderName)
-	cfgPath := path.Join(cfgDir, configFileName)
+	cfgDir := path.Join(a.HomePath, ConfigFolderName)
+	cfgPath := path.Join(cfgDir, ConfigFileName)
 
 	// Marshal config object into bytes
 	b, err := toml.Marshal(a.Config)
@@ -335,8 +334,8 @@ func (a *App) DeleteChainConfig(chainName string) error {
 
 	delete(a.Config.TargetChains, chainName)
 
-	cfgDir := path.Join(a.HomePath, configFolderName)
-	cfgPath := path.Join(cfgDir, configFileName)
+	cfgDir := path.Join(a.HomePath, ConfigFolderName)
+	cfgPath := path.Join(cfgDir, ConfigFileName)
 
 	// Marshal config object into bytes
 	b, err := toml.Marshal(a.Config)
@@ -376,18 +375,13 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return nil, err
 	}
 
-	cp, exist := a.targetChains[chainName]
-
+	cp, exist := a.TargetChains[chainName]
 	if !exist {
 		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	if cp.IsKeyNameExist(keyName) {
-		return nil, fmt.Errorf("key name already exists: %s", keyName)
 	}
 
 	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, coinType, account, index, a.EnvPassphrase)
@@ -404,18 +398,13 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
-	cp, exist := a.targetChains[chainName]
-
+	cp, exist := a.TargetChains[chainName]
 	if !exist {
 		return fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	if !cp.IsKeyNameExist(keyName) {
-		return fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
 	return cp.DeleteKey(a.HomePath, keyName, a.EnvPassphrase)
@@ -427,18 +416,13 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return "", err
 	}
 
-	cp, exist := a.targetChains[chainName]
-
+	cp, exist := a.TargetChains[chainName]
 	if !exist {
 		return "", fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	if !cp.IsKeyNameExist(keyName) {
-		return "", fmt.Errorf("key name does not exist: %s", chainName)
 	}
 
 	privateKey, err := cp.ExportPrivateKey(keyName, a.EnvPassphrase)
@@ -452,13 +436,12 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 // ListKeys retrieves the list of keys from the chain provider.
 func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 	if a.Config == nil {
-		return make([]*chainstypes.Key, 0), fmt.Errorf("config does not exist: %s", a.HomePath)
+		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	cp, exist := a.targetChains[chainName]
-
+	cp, exist := a.TargetChains[chainName]
 	if !exist {
-		return make([]*chainstypes.Key, 0), fmt.Errorf("chain name does not exist: %s", chainName)
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
 	return cp.ListKeys(), nil
@@ -470,16 +453,12 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	cp, exist := a.targetChains[chainName]
+	cp, exist := a.TargetChains[chainName]
 	if !exist {
 		return "", fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
-	if !cp.IsKeyNameExist(keyName) {
-		return "", fmt.Errorf("key name does not exist: %s", keyName)
-	}
-
-	return cp.ShowKey(keyName), nil
+	return cp.ShowKey(keyName)
 }
 
 // QueryBalance retrieves the balance of the key from the chain provider.
@@ -488,7 +467,7 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
 	}
 
-	cp, exist := a.targetChains[chainName]
+	cp, exist := a.TargetChains[chainName]
 
 	if !exist {
 		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
@@ -514,20 +493,20 @@ func (a *App) loadEnvPassphrase() string {
 	} else {
 		a.Log.Debug("Loaded .env file successfully, attempting to use variable from .env file")
 	}
-	return os.Getenv(passphraseEnvKey)
+	return os.Getenv(PassphraseEnvKey)
 }
 
-// validatePassphrase checks if the provided passphrase (from the environment)
+// ValidatePassphrase checks if the provided passphrase (from the environment)
 // matches the hashed passphrase stored on disk.
-func (a *App) validatePassphrase(envPassphrase string) error {
+func (a *App) ValidatePassphrase(envPassphrase string) error {
 	// prepare bytes slices of hashed env passphrase
 	h := sha256.New()
 	h.Write([]byte(envPassphrase))
 	envb := h.Sum(nil)
 
 	// load passphrase from local disk
-	cfgDir := path.Join(a.HomePath, configFolderName)
-	passphrasePath := path.Join(cfgDir, passphraseFileName)
+	cfgDir := path.Join(a.HomePath, ConfigFolderName)
+	passphrasePath := path.Join(cfgDir, PassphraseFileName)
 
 	b, err := os.ReadFile(passphrasePath)
 	if err != nil {
@@ -552,12 +531,12 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	// validate passphrase
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
 	// initialize target chain providers
-	for chainName, chainProvider := range a.targetChains {
+	for chainName, chainProvider := range a.TargetChains {
 		if err := chainProvider.LoadFreeSenders(a.HomePath, a.EnvPassphrase); err != nil {
 			a.Log.Error("Cannot load keys in target chain",
 				zap.Error(err),
@@ -578,7 +557,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize the tunnel relayer
 	tunnelRelayers := []*TunnelRelayer{}
 	for _, tunnel := range tunnels {
-		chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+		chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
 		if !ok {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
@@ -605,7 +584,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.Config.Global.PenaltyExponentialFactor,
 		isSyncTunnelsAllowed,
 		a.BandClient,
-		a.targetChains,
+		a.TargetChains,
 	)
 
 	return scheduler.Start(ctx)
@@ -619,11 +598,11 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return err
 	}
 
-	if err := a.validatePassphrase(a.EnvPassphrase); err != nil {
+	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return err
 	}
 
-	chainProvider, ok := a.targetChains[tunnel.TargetChainID]
+	chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
 	if !ok {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 	}
