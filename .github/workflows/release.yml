@@ -24,5 +24,30 @@ jobs:
       - name: setup release environment
         run: |-
           echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > .release-env
+          
       - name: release publish
         run: make release
+
+      # upload resulting binaries linux_amd64 
+      - name: upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: falcon_linux_amd64
+          path: ./build/falcon_linux_amd64
+      
+      # upload resulting binaries
+      - name: upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: falcon_darwin_amd64
+          path: ./build/falcon_darwin_amd64
+
+       # upload resulting binaries
+      - name: upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: falcon_windows_amd64
+          path: ./build/falcon_windows_amd64
+
+
+      
