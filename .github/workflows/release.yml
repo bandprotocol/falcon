@@ -1,11 +1,9 @@
 name: 'Release'
 
-# on:
-#   push:
-#     tags:
-#       - '*' # Run release on any tag. Will be marked as draft by default anyway.
-
-on: pull_request
+on:
+  push:
+    tags:
+      - '*' # Run release on any tag. Will be marked as draft by default anyway.
 
 jobs:
   goreleaser:
@@ -24,25 +22,25 @@ jobs:
       - name: setup release environment
         run: |-
           echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > .release-env
-          
+
       - name: release publish
         run: make release
 
-      # upload resulting binaries linux_amd64 
+      # upload linux_amd64 binaries  
       - name: upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: falcon_linux_amd64
           path: ./build/falcon_linux_amd64
       
-      # upload resulting binaries
+      # upload darwin_amd64 binaries
       - name: upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: falcon_darwin_amd64
           path: ./build/falcon_darwin_amd64
 
-       # upload resulting binaries
+       # upload windows_amd64 binaries
       - name: upload binaries
         uses: actions/upload-artifact@v4
         with:
