@@ -37,10 +37,12 @@ install: go.sum
 release: go.sum
 	env GOOS=linux GOARCH=amd64 \
 		go build -mod=readonly -o ./build/falcon_linux_amd64 $(BUILD_FLAGS) main.go
+	env GOOS=linux GOARCH=arm64 \
+		go build -mod=readonly -o ./build/falcon_linux_arm64 $(BUILD_FLAGS) main.go
 	env GOOS=darwin GOARCH=amd64 \
 		go build -mod=readonly -o ./build/falcon_darwin_amd64 $(BUILD_FLAGS) main.go
-	env GOOS=windows GOARCH=amd64 \
-		go build -mod=readonly -o ./build/falcon_windows_amd64 $(BUILD_FLAGS) main.go
+	env GOOS=darwin GOARCH=arm64 \
+		go build -mod=readonly -o ./build/falcon_darwin_arm64 $(BUILD_FLAGS) main.go
 
 mocks:
 	@go install go.uber.org/mock/mockgen@latest

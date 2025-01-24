@@ -19,10 +19,6 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: setup release environment
-        run: |-
-          echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > .release-env
-
       - name: release publish
         run: make release
       
@@ -31,6 +27,7 @@ jobs:
         with:
           files: |
             ./build/falcon_linux_amd64
+            ./build/falcon_linux_arm64
             ./build/falcon_darwin_amd64
-            ./build/falcon_windows_amd64
+            ./build/falcon_darwin_arm64
  
