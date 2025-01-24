@@ -11,23 +11,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.22'
+          go-version: '1.22.3'
 
       - name: release publish
-        run: make release
+        run: |
+          make release
+          mkdir artifacts
+          mv ./build/falcon_linux_amd64 artifacts/falcon-${{ github.ref_name }}-linux-amd64
+          mv ./build/falcon_linux_arm64 artifacts/falcon-${{ github.ref_name }}-linux-arm64
+          mv ./build/falcon_darwin_amd64 artifacts/falcon-${{ github.ref_name }}-darwin-amd64
+          mv ./build/falcon_darwin_arm64 artifacts/falcon-${{ github.ref_name }}-darwin-arm64 
       
+      - name: Create checksums
+        working-directory: artifacts
+        run: sha256sum * > checksums.txt && cat checksums.txt
+
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ./build/falcon_linux_amd64
-            ./build/falcon_linux_arm64
-            ./build/falcon_darwin_amd64
-            ./build/falcon_darwin_arm64
+            artifacts/**
  
