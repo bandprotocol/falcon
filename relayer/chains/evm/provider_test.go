@@ -188,7 +188,7 @@ func (s *ProviderTestSuite) TestQueryTunnelInfo() {
 					Query(gomock.Any(), s.chainProvider.TunnelRouterAddress, queryTunnelCalldata).
 					Return([]uint8{0, 124}, nil)
 			},
-			err: fmt.Errorf("failed to unpack data"),
+			err: evm.ErrUnpackData(fmt.Errorf("")),
 		},
 	}
 
@@ -217,7 +217,7 @@ func (s *ProviderTestSuite) TestQueryTunnelInfo() {
 
 func (s *ProviderTestSuite) TestEstimateGasUnsupportedGas() {
 	_, err := s.chainProvider.EstimateGasFee(context.Background())
-	s.Require().ErrorContains(err, "unsupported gas type:")
+	s.Require().ErrorContains(err, evm.ErrUnsupportedGasType(s.chainProvider.GasType).Error())
 }
 
 func (s *ProviderTestSuite) TestCheckConfirmedTx() {

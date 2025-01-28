@@ -168,7 +168,7 @@ func (s *EIP1559ProviderTestSuite) TestRelayPacketFailedBroadcastTx() {
 	s.MockDefaultResponses()
 
 	err := s.chainProvider.RelayPacket(context.Background(), &s.relayingPacket)
-	s.Require().ErrorContains(err, "failed to relay packet after")
+	s.Require().ErrorContains(err, evm.ErrRelayPacketRetries(s.chainProvider.Config.MaxRetry).Error())
 }
 
 func (s *EIP1559ProviderTestSuite) TestRelayPacketFailedTxReceiptStatus() {
@@ -198,7 +198,7 @@ func (s *EIP1559ProviderTestSuite) TestRelayPacketFailedTxReceiptStatus() {
 	s.MockDefaultResponses()
 
 	err := s.chainProvider.RelayPacket(context.Background(), &s.relayingPacket)
-	s.Require().ErrorContains(err, "failed to relay packet after")
+	s.Require().ErrorContains(err, evm.ErrRelayPacketRetries(s.chainProvider.Config.MaxRetry).Error())
 }
 
 func (s *EIP1559ProviderTestSuite) TestBumpAndBoundGas() {
