@@ -42,8 +42,21 @@ func (cp *EVMChainProvider) AddKey(
 	index uint,
 	passphrase string,
 ) (*chainstypes.Key, error) {
+	if cp.IsKeyNameExist(keyName) {
+		return nil, fmt.Errorf("duplicate key name")
+	}
+
 	if privateKey != "" {
 		return cp.AddKeyWithPrivateKey(keyName, privateKey, homePath, passphrase)
+	}
+
+	var err error
+	// Generate mnemonic if not provided
+	if mnemonic == "" {
+		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return cp.AddKeyWithMnemonic(keyName, mnemonic, homePath, coinType, account, index, passphrase)
 }
@@ -58,16 +71,6 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	index uint,
 	passphrase string,
 ) (*chainstypes.Key, error) {
-	var err error
-
-	// Generate mnemonic if not provided
-	if mnemonic == "" {
-		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// Generate private key using mnemonic
 	priv, err := cp.generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
@@ -85,7 +88,7 @@ func (cp *EVMChainProvider) AddKeyWithPrivateKey(
 	passphrase string,
 ) (*chainstypes.Key, error) {
 	// Convert private key from hex
-	priv, err := crypto.HexToECDSA(ConvertPrivateKeyStrToHex(privateKey))
+	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(privateKey))
 	if err != nil {
 		return nil, err
 	}
@@ -125,14 +128,12 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	return chainstypes.NewKey(mnemonic, addressHex, ""), nil
 }
 
-// IsKeyNameExist checks whether the given key name is already in use.
-func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
-	_, ok := cp.KeyInfo[keyName]
-	return ok
-}
-
 // DeleteKey deletes the given key name from the key store and removes its information.
 func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) error {
+	if !cp.IsKeyNameExist(keyName) {
+		return fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
 	address, err := HexToAddress(cp.KeyInfo[keyName])
 	if err != nil {
 		return err
@@ -148,7 +149,11 @@ func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) erro
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
-	key, err := cp.getKeyFromKeyName(keyName, passphrase)
+	if !cp.IsKeyNameExist(keyName) {
+		return "", ErrKeyNameNotExist(keyName)
+	}
+
+	key, err := cp.GetKeyFromKeyName(keyName, passphrase)
 	if err != nil {
 		return "", err
 	}
@@ -166,8 +171,18 @@ func (cp *EVMChainProvider) ListKeys() []*chainstypes.Key {
 }
 
 // ShowKey shows key by the given name.
-func (cp *EVMChainProvider) ShowKey(keyName string) string {
-	return cp.KeyInfo[keyName]
+func (cp *EVMChainProvider) ShowKey(keyName string) (string, error) {
+	if !cp.IsKeyNameExist(keyName) {
+		return "", ErrKeyNameNotExist(keyName)
+	}
+
+	return cp.KeyInfo[keyName], nil
+}
+
+// IsKeyNameExist checks whether the given key name is already in use.
+func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
+	_, ok := cp.KeyInfo[keyName]
+	return ok
 }
 
 // storePrivateKey stores private key to keyStore.
@@ -236,9 +251,7 @@ func (cp *EVMChainProvider) generatePrivateKey(
 	return privatekey, nil
 }
 
-func (cp *EVMChainProvider) getKeyFromKeyName(
-	keyName, passphrase string,
-) (*keyStore.Key, error) {
+func (cp *EVMChainProvider) GetKeyFromKeyName(keyName, passphrase string) (*keyStore.Key, error) {
 	address, err := HexToAddress(cp.KeyInfo[keyName])
 	if err != nil {
 		return nil, err

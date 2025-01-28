@@ -8,7 +8,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 
-	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
+	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 )
 
 // EncodingConfig specifies the concrete encoding types to use for a given app.
@@ -35,12 +35,26 @@ func MakeEncodingConfig() EncodingConfig {
 		panic(err)
 	}
 
-	// Register the interface types
-	tunneltypes.RegisterInterfaces(interfaceRegistry)
+	RegisterInterfaces(interfaceRegistry)
 
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 	return EncodingConfig{
 		InterfaceRegistry: interfaceRegistry,
 		Marshaler:         cdc,
 	}
+}
+
+// RegisterInterfaces registers the interfaces types being used by the BandChain.
+func RegisterInterfaces(registry codectypes.InterfaceRegistry) {
+	registry.RegisterInterface(
+		"tunnel.v1beta1.RouteI",
+		(*tunneltypes.RouteI)(nil),
+		&tunneltypes.TSSRoute{},
+	)
+
+	registry.RegisterInterface(
+		"tunnel.v1beta1.PacketReceiptI",
+		(*tunneltypes.PacketReceiptI)(nil),
+		&tunneltypes.TSSPacketReceipt{},
+	)
 }

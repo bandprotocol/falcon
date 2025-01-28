@@ -18,14 +18,6 @@ func ErrChainNameNotExist(chainName string) error {
 	return fmt.Errorf("chain name does not exist: %s", chainName)
 }
 
-func ErrKeyNameExist(keyName string) error {
-	return fmt.Errorf("key name already exists: %s", keyName)
-}
-
-func ErrKeyNameNotExist(keyName string) error {
-	return fmt.Errorf("key name does not exist: %s", keyName)
-}
-
 func ErrUnsupportedChainType(typeName string) error {
 	return fmt.Errorf("unsupported chain type: %s", typeName)
 }

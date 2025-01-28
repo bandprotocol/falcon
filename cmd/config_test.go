@@ -11,7 +11,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer"
 )
 
-func TestShowConfigCmd(t *testing.T) {
+func TestConfigShow(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
@@ -24,14 +24,14 @@ func TestShowConfigCmd(t *testing.T) {
 	require.Equal(t, relayertest.DefaultCfgText+"\n", actual)
 }
 
-func TestShowConfigCmdNotInit(t *testing.T) {
+func TestConfigShowNotInit(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "show")
 	require.ErrorContains(t, res.Err, "config does not exist:")
 }
 
-func TestInitCmdDefault(t *testing.T) {
+func TestConfigInitDefault(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")
@@ -47,7 +47,7 @@ func TestInitCmdDefault(t *testing.T) {
 	require.Equal(t, relayertest.DefaultCfgText, string(actualBytes))
 }
 
-func TestInitCmdWithFileShortFlag(t *testing.T) {
+func TestConfigInitWithFileShortFlag(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -67,7 +67,7 @@ func TestInitCmdWithFileShortFlag(t *testing.T) {
 	require.Equal(t, relayertest.CustomCfgText, string(actualBytes))
 }
 
-func TestInitCmdWithFileLongFlag(t *testing.T) {
+func TestConfigInitWithFileLongFlag(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -86,7 +86,7 @@ func TestInitCmdWithFileLongFlag(t *testing.T) {
 	require.Equal(t, relayertest.CustomCfgText, string(actualBytes))
 }
 
-func TestInitCmdWithFileTimeString(t *testing.T) {
+func TestConfigInitWithFileTimeString(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -105,7 +105,7 @@ func TestInitCmdWithFileTimeString(t *testing.T) {
 	require.Equal(t, relayertest.CustomCfgText, string(actualBytes))
 }
 
-func TestInitCmdInvalidFile(t *testing.T) {
+func TestConfigInitInvalidFile(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -116,7 +116,7 @@ func TestInitCmdInvalidFile(t *testing.T) {
 	require.ErrorContains(t, res.Err, "error toml: expected newline")
 }
 
-func TestInitCmdNoCustomFile(t *testing.T) {
+func TestConfigInitNoCustomFile(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	customCfgPath := path.Join(sys.HomeDir, "custom.toml")
@@ -124,7 +124,7 @@ func TestInitCmdNoCustomFile(t *testing.T) {
 	require.ErrorContains(t, res.Err, "no such file or directory")
 }
 
-func TestInitCmdAlreadyExist(t *testing.T) {
+func TestConfigInitAlreadyExist(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "init")

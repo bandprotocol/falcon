@@ -20,6 +20,10 @@ var (
 		return evmProviderErr(fmt.Errorf("failed to estimate gas: %s", err))
 	}
 
+	ErrKeyNameNotExist = func(keyName string) error {
+		return fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
 	// EVMProvider errors
 	ErrLoadAbi = func(err error) error {
 		return evmProviderErr(fmt.Errorf("failed to load abi: %w", err))

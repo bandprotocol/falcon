@@ -1,6 +1,7 @@
 package relayer_test
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -17,80 +18,128 @@ import (
 
 func TestLoadConfig(t *testing.T) {
 	tmpDir := t.TempDir()
-	customConfigPath := ""
 	cfgPath := path.Join(tmpDir, "config", "config.toml")
 
-	app := relayer.NewApp(nil, tmpDir, false, nil)
+	testcases := []struct {
+		name        string
+		preProcess  func(t *testing.T)
+		postProcess func(t *testing.T)
+		out         *relayer.Config
+		err         error
+	}{
+		{
+			name: "read default config",
+			preProcess: func(t *testing.T) {
+				app := relayer.NewApp(nil, tmpDir, false, nil)
+				err := app.InitConfigFile(tmpDir, "")
+				require.NoError(t, err)
+			},
+			out: relayer.DefaultConfig(),
+			postProcess: func(t *testing.T) {
+				err := os.Remove(cfgPath)
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "no config file",
+			err:  fmt.Errorf("no such file or directory"),
+		},
+		{
+			name: "invalid config file; invalid chain type",
+			preProcess: func(t *testing.T) {
+				// create new toml config file
+				cfgText := `[target_chains.testnet]
+			chain_type = 'evms'
+			`
 
-	// Prepare config before test
-	err := app.InitConfigFile(tmpDir, customConfigPath)
-	require.NoError(t, err)
-
-	actual, err := relayer.LoadConfig(cfgPath)
-	require.NoError(t, err)
-	expect := relayer.DefaultConfig()
-	require.Equal(t, expect, actual)
-}
-
-func TestLoadConfigNotFound(t *testing.T) {
-	tmpDir := t.TempDir()
-	cfgPath := path.Join(tmpDir, "config", "config.toml")
-
-	_, err := relayer.LoadConfig(cfgPath)
-	require.ErrorContains(t, err, "no such file or directory")
-}
-
-func TestLoadConfigInvalidChainProviderConfig(t *testing.T) {
-	tmpDir := t.TempDir()
-	cfgPath := path.Join(tmpDir, "config.toml")
-
-	// create new toml config file
-	cfgText := `[target_chains.testnet]
-chain_type = 'evms'
-`
-
-	err := os.WriteFile(cfgPath, []byte(cfgText), 0o600)
-	require.NoError(t, err)
-
-	_, err = relayer.LoadConfig(cfgPath)
-	require.Error(t, err, relayer.ErrUnsupportedChainType("evms"))
-}
-
-func TestParseChainProviderConfigTypeEVM(t *testing.T) {
-	w := relayer.ChainProviderConfigWrapper{
-		"chain_type": "evm",
-		"endpoints":  []string{"http://localhost:8545"},
-	}
-
-	cfg, err := relayer.ParseChainProviderConfig(w)
-
-	expect := &evm.EVMChainProviderConfig{
-		BaseChainProviderConfig: chains.BaseChainProviderConfig{
-			Endpoints: []string{"http://localhost:8545"},
-			ChainType: chains.ChainTypeEVM,
+				err := os.WriteFile(cfgPath, []byte(cfgText), 0o600)
+				require.NoError(t, err)
+			},
+			err: relayer.ErrUnsupportedChainType("evms"),
+			postProcess: func(t *testing.T) {
+				err := os.Remove(cfgPath)
+				require.NoError(t, err)
+			},
 		},
 	}
-	require.NoError(t, err)
-	require.Equal(t, expect, cfg)
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.preProcess != nil {
+				tc.preProcess(t)
+			}
+
+			if tc.postProcess != nil {
+				defer tc.postProcess(t)
+			}
+
+			actual, err := relayer.LoadConfig(cfgPath)
+			if tc.err != nil {
+				require.ErrorContains(t, err, tc.err.Error())
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.out, actual)
+			}
+		})
+	}
 }
 
-func TestParseChainProviderConfigTypeNotFound(t *testing.T) {
-	w := relayer.ChainProviderConfigWrapper{
-		"chain_type": "evms",
-		"endpoints":  []string{"http://localhost:8545"},
+func TestParseChainProviderConfig(t *testing.T) {
+	testcases := []struct {
+		name string
+		in   relayer.ChainProviderConfigWrapper
+		out  chains.ChainProviderConfig
+		err  error
+	}{
+		{
+			name: "valid evm chain",
+			in: relayer.ChainProviderConfigWrapper{
+				"chain_type": "evm",
+				"endpoints":  []string{"http://localhost:8545"},
+			},
+			out: &evm.EVMChainProviderConfig{
+				BaseChainProviderConfig: chains.BaseChainProviderConfig{
+					Endpoints: []string{"http://localhost:8545"},
+					ChainType: chains.ChainTypeEVM,
+				},
+			},
+		},
+		{
+			name: "chain type not found",
+			in: relayer.ChainProviderConfigWrapper{
+				"chain_type": "evms",
+				"endpoints":  []string{"http://localhost:8545"},
+			},
+			err: fmt.Errorf("unsupported chain type: evms"),
+		},
+		{
+			name: "missing chain type",
+			in: relayer.ChainProviderConfigWrapper{
+				"endpoints": []string{"http://localhost:8545"},
+			},
+			err: fmt.Errorf("chain_type is required"),
+		},
+		{
+			name: "chain type not string",
+			in: relayer.ChainProviderConfigWrapper{
+				"chain_type": []string{"evm"},
+				"endpoints":  []string{"http://localhost:8545"},
+			},
+			err: fmt.Errorf("chain_type is required"),
+		},
 	}
 
-	_, err := relayer.ParseChainProviderConfig(w)
-	require.Error(t, err, relayer.ErrUnsupportedChainType("evms"))
-}
-
-func TestParseChainProviderConfigNoChainType(t *testing.T) {
-	w := relayer.ChainProviderConfigWrapper{
-		"endpoints": []string{"http://localhost:8545"},
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual, err := relayer.ParseChainProviderConfig(tc.in)
+			if tc.err != nil {
+				require.ErrorContains(t, err, tc.err.Error())
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.out, actual)
+			}
+		})
 	}
-
-	_, err := relayer.ParseChainProviderConfig(w)
-	require.ErrorContains(t, err, "chain_type is required")
 }
 
 func TestParseConfigInvalidChainProviderConfig(t *testing.T) {
