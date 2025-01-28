@@ -140,6 +140,10 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 		return nil, err
 	}
 
+	if res.Tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
+		return nil, fmt.Errorf("unsupported route type: %s", res.Tunnel.Route.TypeUrl)
+	}
+
 	// Extract route information
 	var route tunneltypes.RouteI
 	err = c.UnpackAny(res.Tunnel.Route, &route)
@@ -240,7 +244,11 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 		}
 
 		for _, tunnel := range res.Tunnels {
-			// Extract route information
+			// Extract route information and filter out non-TSS tunnels
+			if tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
+				continue
+			}
+
 			var route tunneltypes.RouteI
 			if err := c.UnpackAny(tunnel.Route, &route); err != nil {
 				return nil, err

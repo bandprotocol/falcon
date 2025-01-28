@@ -11,8 +11,6 @@ import (
 func init() {
 	proto.RegisterType((*TSSRoute)(nil), "band.tunnel.v1beta1.TSSRoute")
 	proto.RegisterType((*TSSPacketReceipt)(nil), "band.tunnel.v1beta1.TSSPacketReceipt")
-	proto.RegisterType((*IBCRoute)(nil), "band.tunnel.v1beta1.IBCRoute")
-	proto.RegisterType((*IBCPacketReceipt)(nil), "band.tunnel.v1beta1.IBCPacketReceipt")
 	proto.RegisterType((*TunnelPricesPacketData)(nil), "band.tunnel.v1beta1.TunnelPricesPacketData")
 }
 
