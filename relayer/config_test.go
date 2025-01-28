@@ -110,7 +110,7 @@ func TestParseChainProviderConfig(t *testing.T) {
 				"chain_type": "evms",
 				"endpoints":  []string{"http://localhost:8545"},
 			},
-			err: fmt.Errorf("unsupported chain type: evms"),
+			err: relayer.ErrUnsupportedChainType("evms"),
 		},
 		{
 			name: "missing chain type",

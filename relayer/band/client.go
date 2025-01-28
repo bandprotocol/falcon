@@ -141,7 +141,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 	}
 
 	if res.Tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
-		return nil, fmt.Errorf("unsupported route type: %s", res.Tunnel.Route.TypeUrl)
+		return nil, ErrUnsupportedRouteType(res.Tunnel.Route.TypeUrl)
 	}
 
 	// Extract route information
@@ -153,7 +153,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 
 	tssRoute, ok := route.(*tunneltypes.TSSRoute)
 	if !ok {
-		return nil, fmt.Errorf("unsupported route type: %T", route)
+		return nil, ErrUnsupportedRouteType(route.String())
 	}
 
 	return types.NewTunnel(
@@ -199,7 +199,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 
 	tssPacketReceipt, ok := packetReceipt.(*tunneltypes.TSSPacketReceipt)
 	if !ok {
-		return nil, fmt.Errorf("unsupported packet content type: %T", packetReceipt)
+		return nil, ErrUnsupportedPacketContentType(packetReceipt)
 	}
 	signingID := uint64(tssPacketReceipt.SigningID)
 
