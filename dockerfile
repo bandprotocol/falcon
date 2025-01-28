@@ -1,5 +1,6 @@
 FROM --platform=$BUILDPLATFORM golang:1.22.3-alpine3.19 as build
 
+LABEL org.opencontainers.image.source="https://github.com/bandprotocol/falcon"
 
 RUN apk add --update --no-cache curl make git libc-dev bash gcc linux-headers eudev-dev
 

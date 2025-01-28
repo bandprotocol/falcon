@@ -1,0 +1,34 @@
+# Editor and IDE files
+.DS_Store
+*.swp
+*.swo
+.vscode
+.idea
+
+# Build
+vendor
+.vendor-new
+/build
+
+coverage.out
+
+# Version control
+.git
+.github
+.gitignore
+.golangci.yml
+
+# Docker-related files
+*.dockerignore
+Dockerfile.*
+
+# Configuration files
+.env
+.env.*
+
+# Unused files
+CHANGELOG.md 
+LICENSE
+logo.svg
+README.md 
+SECURITY.md 
