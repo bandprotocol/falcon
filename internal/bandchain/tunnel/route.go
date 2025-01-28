@@ -36,17 +36,3 @@ func NewTSSPacketReceipt(signingID bandtsstypes.SigningID) *TSSPacketReceipt {
 		SigningID: signingID,
 	}
 }
-
-// NewIBCRoute creates a new IBCRoute instance.
-func NewIBCRoute(channelID string) *IBCRoute {
-	return &IBCRoute{
-		ChannelID: channelID,
-	}
-}
-
-// NewIBCPacketReceipt creates a new IBCPacketReceipt instance.
-func NewIBCPacketReceipt(sequence uint64) *IBCPacketReceipt {
-	return &IBCPacketReceipt{
-		Sequence: sequence,
-	}
-}
