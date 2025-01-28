@@ -130,7 +130,7 @@ func (c *client) startLivelinessCheck(ctx context.Context, timeout uint, interva
 func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to bandchain")
+		return nil, ErrBandChainNotConnect
 	}
 
 	res, err := c.QueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
@@ -141,7 +141,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 	}
 
 	if res.Tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
-		return nil, fmt.Errorf("unsupported route type: %s", res.Tunnel.Route.TypeUrl)
+		return nil, ErrUnsupportedRouteType(res.Tunnel.Route.TypeUrl)
 	}
 
 	// Extract route information
@@ -153,7 +153,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 
 	tssRoute, ok := route.(*tunneltypes.TSSRoute)
 	if !ok {
-		return nil, fmt.Errorf("unsupported route type: %T", route)
+		return nil, ErrUnsupportedRouteType(route.String())
 	}
 
 	return types.NewTunnel(
@@ -169,7 +169,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to bandchain")
+		return nil, ErrBandChainNotConnect
 	}
 
 	// Get packet information by given tunnel ID and sequence
@@ -199,7 +199,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 
 	tssPacketReceipt, ok := packetReceipt.(*tunneltypes.TSSPacketReceipt)
 	if !ok {
-		return nil, fmt.Errorf("unsupported packet content type: %T", packetReceipt)
+		return nil, ErrUnsupportedPacketContentType(packetReceipt)
 	}
 	signingID := uint64(tssPacketReceipt.SigningID)
 
@@ -227,7 +227,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	// check connection to bandchain
 	if c.QueryClient == nil {
-		return nil, fmt.Errorf("cannot connect to BandChain")
+		return nil, ErrBandChainNotConnect
 	}
 
 	tunnels := make([]types.Tunnel, 0)

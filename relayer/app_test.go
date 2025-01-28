@@ -101,7 +101,7 @@ func (s *AppTestSuite) TestInitConfig() {
 				s.Require().NoError(err)
 			},
 			in:  "",
-			err: fmt.Errorf("config already exists:"),
+			err: relayer.ErrConfigExist(s.app.HomePath),
 		},
 		{
 			name: "init config from specific file",
@@ -208,7 +208,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 				err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgInvalidChainTypeText), 0o600)
 				s.Require().NoError(err)
 			},
-			err: fmt.Errorf("unsupported chain type"),
+			err: relayer.ErrUnsupportedChainType(""),
 		},
 		{
 			name: "existing chain name",
@@ -226,7 +226,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 				err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
 				s.Require().NoError(err)
 			},
-			err: fmt.Errorf("existing chain name :"),
+			err: relayer.ErrChainNameExist("testnet"),
 		},
 	}
 
@@ -292,7 +292,7 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 		{
 			name: "not existing chain name",
 			in:   "testnet2",
-			err:  fmt.Errorf("not existing chain name"),
+			err:  relayer.ErrChainNameNotExist("testnet2"),
 		},
 	}
 
@@ -340,7 +340,7 @@ func (s *AppTestSuite) TestGetChainConfig() {
 		{
 			name: "not existing chain name",
 			in:   "testnet_evm2",
-			err:  fmt.Errorf("not existing chain name"),
+			err:  relayer.ErrChainNameNotExist("testnet_evm2"),
 		},
 	}
 
@@ -559,7 +559,7 @@ func (s *AppTestSuite) TestAddKey() {
 			keyName:    "testkey",
 			privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // anvil
 			coinType:   60,
-			err:        fmt.Errorf("chain name does not exist:"),
+			err:        relayer.ErrChainNameNotExist("testnet_evm2"),
 		},
 	}
 
@@ -622,7 +622,7 @@ func (s *AppTestSuite) TestDeleteKey() {
 			name:      "chain name does not exist",
 			chainName: "testnet_evm2",
 			keyName:   "testkey",
-			err:       fmt.Errorf("chain name does not exist:"),
+			err:       relayer.ErrChainNameNotExist("testnet_evm2"),
 		},
 	}
 
@@ -678,7 +678,7 @@ func (s *AppTestSuite) TestExportKey() {
 			name:      "chain name does not exist",
 			chainName: "testnet_evm2",
 			keyName:   "testkey",
-			err:       fmt.Errorf("chain name does not exist:"),
+			err:       relayer.ErrChainNameNotExist("testnet_evm2"),
 		},
 	}
 
@@ -726,7 +726,7 @@ func (s *AppTestSuite) TestListKeys() {
 		{
 			name: "chain name does not exist",
 			in:   "testnet_evm2",
-			err:  fmt.Errorf("chain name does not exist:"),
+			err:  relayer.ErrChainNameNotExist("testnet_evm2"),
 		},
 	}
 
@@ -783,7 +783,7 @@ func (s *AppTestSuite) TestShowKey() {
 			name:      "chain name does not exist",
 			chainName: "testnet_evm2",
 			keyName:   "testkey",
-			err:       fmt.Errorf("chain name does not exist:"),
+			err:       relayer.ErrChainNameNotExist("testnet_evm2"),
 		},
 	}
 
