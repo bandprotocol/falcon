@@ -59,3 +59,6 @@ var ChainCfgText string
 
 //go:embed testdata/default_with_chain_config.toml
 var DefaultCfgTextWithChainCfg string
+
+//go:embed testdata/chain_config_invalid_chain_type.toml
+var ChainCfgInvalidChainTypeText string

@@ -201,11 +201,12 @@ func (mr *MockChainProviderMockRecorder) SetMetrics(m any) *gomock.Call {
 }
 
 // ShowKey mocks base method.
-func (m *MockChainProvider) ShowKey(keyName string) string {
+func (m *MockChainProvider) ShowKey(keyName string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShowKey", keyName)
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ShowKey indicates an expected call of ShowKey.
@@ -325,11 +326,12 @@ func (mr *MockKeyProviderMockRecorder) LoadFreeSenders(homePath, passphrase any)
 }
 
 // ShowKey mocks base method.
-func (m *MockKeyProvider) ShowKey(keyName string) string {
+func (m *MockKeyProvider) ShowKey(keyName string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShowKey", keyName)
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ShowKey indicates an expected call of ShowKey.

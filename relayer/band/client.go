@@ -11,9 +11,8 @@ import (
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	"go.uber.org/zap"
 
-	bandtsstypes "github.com/bandprotocol/chain/v3/x/bandtss/types"
-	tunneltypes "github.com/bandprotocol/chain/v3/x/tunnel/types"
-
+	bandtsstypes "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
+	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
@@ -35,33 +34,16 @@ type Client interface {
 	GetTunnels(ctx context.Context) ([]types.Tunnel, error)
 }
 
-// QueryClient groups the gRPC clients for querying BandChain-specific data.
-type QueryClient struct {
-	TunnelQueryClient  tunneltypes.QueryClient
-	BandtssQueryClient bandtsstypes.QueryClient
-}
-
-// NewQueryClient creates a new QueryClient instance.
-func NewQueryClient(
-	tunnelQueryClient tunneltypes.QueryClient,
-	bandTssQueryClient bandtsstypes.QueryClient,
-) *QueryClient {
-	return &QueryClient{
-		TunnelQueryClient:  tunnelQueryClient,
-		BandtssQueryClient: bandTssQueryClient,
-	}
-}
-
 // client is the BandChain client struct.
 type client struct {
 	Context     cosmosclient.Context
-	QueryClient *QueryClient
+	QueryClient QueryClient
 	Log         *zap.Logger
 	Config      *Config
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(queryClient *QueryClient, log *zap.Logger, bandChainCfg *Config) Client {
+func NewClient(queryClient QueryClient, log *zap.Logger, bandChainCfg *Config) Client {
 	encodingConfig := MakeEncodingConfig()
 	ctx := cosmosclient.Context{}.
 		WithCodec(encodingConfig.Marshaler).
@@ -108,7 +90,7 @@ func (c *client) connect(timeout uint, onStartup bool) error {
 
 		c.Context.Client = client
 		c.Context.NodeURI = rpcEndpoint
-		c.QueryClient = NewQueryClient(tunneltypes.NewQueryClient(c.Context), bandtsstypes.NewQueryClient(c.Context))
+		c.QueryClient = NewBandQueryClient(c.Context)
 
 		c.Log.Info("Connected to BandChain", zap.String("endpoint", rpcEndpoint))
 
@@ -151,11 +133,15 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 		return nil, fmt.Errorf("cannot connect to bandchain")
 	}
 
-	res, err := c.QueryClient.TunnelQueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
+	res, err := c.QueryClient.Tunnel(ctx, &tunneltypes.QueryTunnelRequest{
 		TunnelId: tunnelID,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if res.Tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
+		return nil, fmt.Errorf("unsupported route type: %s", res.Tunnel.Route.TypeUrl)
 	}
 
 	// Extract route information
@@ -187,7 +173,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	}
 
 	// Get packet information by given tunnel ID and sequence
-	resPacket, err := c.QueryClient.TunnelQueryClient.Packet(ctx, &tunneltypes.QueryPacketRequest{
+	resPacket, err := c.QueryClient.Packet(ctx, &tunneltypes.QueryPacketRequest{
 		TunnelId: tunnelID,
 		Sequence: sequence,
 	})
@@ -218,7 +204,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 	signingID := uint64(tssPacketReceipt.SigningID)
 
 	// Get tss signing information by given signing ID
-	resSigning, err := c.QueryClient.BandtssQueryClient.Signing(ctx, &bandtsstypes.QuerySigningRequest{
+	resSigning, err := c.QueryClient.Signing(ctx, &bandtsstypes.QuerySigningRequest{
 		SigningId: signingID,
 	})
 	if err != nil {
@@ -248,7 +234,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	var nextKey []byte
 
 	for {
-		res, err := c.QueryClient.TunnelQueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{
+		res, err := c.QueryClient.Tunnels(ctx, &tunneltypes.QueryTunnelsRequest{
 			Pagination: &querytypes.PageRequest{
 				Key: nextKey,
 			},
@@ -258,7 +244,11 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 		}
 
 		for _, tunnel := range res.Tunnels {
-			// Extract route information
+			// Extract route information and filter out non-TSS tunnels
+			if tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
+				continue
+			}
+
 			var route tunneltypes.RouteI
 			if err := c.UnpackAny(tunnel.Route, &route); err != nil {
 				return nil, err

@@ -76,21 +76,23 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
 
-	// initialize and update metrics for tunnels, target chain contracts, and destination chains
-	s.Metrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
-	for _, tr := range s.TunnelRelayers {
-		t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
-		if err != nil {
-			continue
+	if s.Metrics != nil {
+		// initialize and update metrics for tunnels, target chain contracts, and destination chains
+		s.Metrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
+		for _, tr := range s.TunnelRelayers {
+			t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
+			if err != nil {
+				continue
+			}
+			tr.IsTargetChainActive = t.IsActive
+			status := targetContractActiveStatus
+			if !t.IsActive {
+				status = targetContractInActiveStatus
+			}
+			s.Metrics.IncTargetContractCount(status)
 		}
-		tr.IsTargetChainActive = t.IsActive
-		status := targetContractActiveStatus
-		if !t.IsActive {
-			status = targetContractInActiveStatus
-		}
-		s.Metrics.IncTargetContractCount(status)
+		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName)))
 	}
-	s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName)))
 
 	// execute once we start the scheduler.
 	s.Execute(ctx)
@@ -137,8 +139,10 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		task := NewTask(i, s.CheckingPacketInterval)
 		go s.TriggerTunnelRelayer(ctx, task)
 
-		// record metrics for the task execution for the current tunnel relayer
-		s.Metrics.IncTasksCount(tr.TunnelID)
+		if s.Metrics != nil {
+			// record metrics for the task execution for the current tunnel relayer
+			s.Metrics.IncTasksCount(tr.TunnelID)
+		}
 	}
 }
 
@@ -155,8 +159,8 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		return
 	}
 
-	startExecutionTaskTime := time.Now()
 	s.Log.Info("Executing task", zap.Uint64("tunnel_id", tr.TunnelID))
+	startExecutionTaskTime := time.Now()
 
 	// Check and relay the packet, if error occurs, set the error flag.
 	if err := tr.CheckAndRelay(ctx); err != nil {
@@ -175,11 +179,16 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		return
 	}
 
+	if s.Metrics != nil {
+		// record the execution time of successful task.
+		s.Metrics.ObserveTaskExecutionTime(
+			tr.TunnelID,
+			float64(time.Since(startExecutionTaskTime).Milliseconds()),
+		)
+	}
+
 	// If the task is successful, reset the error flag.
 	s.isErrorOnHolds[task.RelayerID] = false
-
-	// ...
-	s.Metrics.ObserveTaskExecutionTime(tr.TunnelID, float64(time.Since(startExecutionTaskTime).Milliseconds())/1000)
 
 	s.Log.Info(
 		"Tunnel relayer finished execution",
@@ -234,12 +243,15 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		tr.IsTargetChainActive = t.IsActive
-		status := targetContractActiveStatus
-		if !t.IsActive {
-			status = targetContractActiveStatus
+
+		if s.Metrics != nil {
+			tr.IsTargetChainActive = t.IsActive
+			status := targetContractActiveStatus
+			if !t.IsActive {
+				status = targetContractActiveStatus
+			}
+			s.Metrics.IncTargetContractCount(status)
 		}
-		s.Metrics.IncTargetContractCount(status)
 
 		if _, ok := s.ChainsName[tunnels[i].TargetChainID]; !ok {
 			s.ChainsName[tunnels[i].TargetChainID] = true
@@ -254,10 +266,11 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			zap.Uint64("tunnel_id", tunnels[i].ID),
 		)
 	}
-
-	// update metrics for the number of destination chains and tunnels after synchronization
-	s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName) - oldDestinationChainCount))
-	s.Metrics.AddTunnellCount(uint64(len(tunnels) - oldTunnelCount))
+	if s.Metrics != nil {
+		// update metrics for the number of destination chains and tunnels after synchronization
+		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName) - oldDestinationChainCount))
+		s.Metrics.AddTunnellCount(uint64(len(tunnels) - oldTunnelCount))
+	}
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit

@@ -3,7 +3,7 @@ package types
 import (
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 
-	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
+	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 )
 
 // EVMSignature defines a signature in the EVM format.
@@ -26,12 +26,12 @@ func NewEVMSignature(
 // Signing contains information of a requested message and group signature.
 type Signing struct {
 	ID           uint64           `json:"id"`
-	Message      cmbytes.HexBytes `json:"messsage"`
+	Message      cmbytes.HexBytes `json:"message"`
 	EVMSignature *EVMSignature    `json:"evm_signature"`
 	Status       string           `json:"signing_status"`
 }
 
-// ConvertSigning converts tsstypes.SigningResult and return .Signing
+// ConvertSigning converts tsstypes.SigningResult and return Signing type.
 func ConvertSigning(res *tsstypes.SigningResult) *Signing {
 	if res == nil {
 		return nil

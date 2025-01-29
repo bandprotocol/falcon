@@ -7,8 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	tsstypes "github.com/bandprotocol/chain/v3/x/tss/types"
-
+	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -82,7 +81,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		if !tunnelChainInfo.IsActive {
 			// decrease active status and increase inactive status if the tunnel was previously active
-			if t.IsTargetChainActive {
+			if t.IsTargetChainActive && t.Metrics != nil {
 				t.Metrics.DecTargetContractCount(targetContractActiveStatus)
 				t.Metrics.IncTargetContractCount(targetContractInActiveStatus)
 				t.IsTargetChainActive = false
@@ -92,14 +91,19 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 
 		// increase active status and decrease inactive status if the tunnel was previously inactive
-		if tunnelChainInfo.IsActive && !t.IsTargetChainActive {
+		if tunnelChainInfo.IsActive && !t.IsTargetChainActive && t.Metrics != nil {
 			t.Metrics.IncTargetContractCount(targetContractActiveStatus)
 			t.Metrics.DecTargetContractCount(targetContractInActiveStatus)
 			t.IsTargetChainActive = true
 		}
 
-		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
-		t.Metrics.SetUnrelayedPacket(t.TunnelID, tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence)
+		if t.Metrics != nil {
+			// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
+			t.Metrics.SetUnrelayedPacket(
+				t.TunnelID,
+				float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
+			)
+		}
 
 		// end process if current packet is already relayed
 		seq := tunnelChainInfo.LatestSequence + 1
@@ -142,9 +146,11 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
 		}
+		if t.Metrics != nil {
+			// increment the packet received metric
+			t.Metrics.IncPacketlReceived(t.TunnelID)
+		}
 
-		// increment the packet received metric
-		t.Metrics.IncPacketlReceived(t.TunnelID)
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}
 }

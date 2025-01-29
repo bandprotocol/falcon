@@ -38,20 +38,17 @@ type ConfirmTxResult struct {
 	TxHash  string
 	Status  TxStatus
 	GasUsed decimal.NullDecimal
-	GasType GasType
 }
 
 func NewConfirmTxResult(
 	txHash string,
 	status TxStatus,
 	gasUsed decimal.NullDecimal,
-	gasType GasType,
 ) *ConfirmTxResult {
 	return &ConfirmTxResult{
 		TxHash:  txHash,
 		Status:  status,
 		GasUsed: gasUsed,
-		GasType: gasType,
 	}
 }
 

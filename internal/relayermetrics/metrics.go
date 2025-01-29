@@ -35,8 +35,8 @@ func (m *PrometheusMetrics) IncPacketlReceived(tunnelID uint64) {
 	m.PacketReceived.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 }
 
-func (m *PrometheusMetrics) SetUnrelayedPacket(tunnelID uint64, unrelayedPacket uint64) {
-	m.UnrelayedPacket.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(float64(unrelayedPacket))
+func (m *PrometheusMetrics) SetUnrelayedPacket(tunnelID uint64, unrelayedPacket float64) {
+	m.UnrelayedPacket.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(unrelayedPacket)
 }
 
 func (m *PrometheusMetrics) IncTasksCount(tunnelID uint64) {

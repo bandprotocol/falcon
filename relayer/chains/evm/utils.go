@@ -20,17 +20,19 @@ func HexToAddress(s string) (gethcommon.Address, error) {
 	return gethcommon.HexToAddress(s), nil
 }
 
-// ConvertPrivateKeyStrToHex removes the "0x" prefix from the given private key string, if present.
-func ConvertPrivateKeyStrToHex(privateKey string) string {
+// StripPrivateKeyPrefix removes the "0x" prefix from the given private key string, if present.
+func StripPrivateKeyPrefix(privateKey string) string {
 	return strings.TrimPrefix(privateKey, privateKeyPrefix)
 }
 
 // MultiplyWithFloat64 multiplies a big.Int value with a float64 multiplier and convert back to big.Int.
 func MultiplyBigIntWithFloat64(value *big.Int, multiplier float64) *big.Int {
-	multiplierBig := big.NewFloat(multiplier)
-	valueBig := new(big.Float).SetInt(value)
-	valueBig.Mul(valueBig, multiplierBig)
+	// Define precision scale
+	scale := 1_000_000
 
-	valueBigInt, _ := valueBig.Int(nil)
-	return valueBigInt
+	multiplierScaled := int64(multiplier * float64(scale))
+	valueScaled := new(big.Int).Mul(value, big.NewInt(multiplierScaled))
+	result := new(big.Int).Div(valueScaled, big.NewInt(int64(scale)))
+
+	return result
 }
