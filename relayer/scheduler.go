@@ -34,7 +34,7 @@ type Scheduler struct {
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
 	Metrics        *relayermetrics.PrometheusMetrics
-	ChainsName     map[string]bool
+	ChainNames     map[string]bool
 }
 
 // NewScheduler creates a new Scheduler
@@ -49,7 +49,7 @@ func NewScheduler(
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 	metrics *relayermetrics.PrometheusMetrics,
-	chainsName map[string]bool,
+	chainNames map[string]bool,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
@@ -64,7 +64,7 @@ func NewScheduler(
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
 		Metrics:                          metrics,
-		ChainsName:                       chainsName,
+		ChainNames:                       chainNames,
 	}
 }
 
@@ -91,7 +91,7 @@ func (s *Scheduler) Start(ctx context.Context) error {
 			}
 			s.Metrics.IncTargetContractCount(status)
 		}
-		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName)))
+		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainNames)))
 	}
 
 	// execute once we start the scheduler.
@@ -215,7 +215,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		return
 	}
 
-	oldDestinationChainCount := len(s.ChainsName)
+	oldDestinationChainCount := len(s.ChainNames)
 
 	for i := oldTunnelCount; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
@@ -251,10 +251,10 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 				status = targetContractActiveStatus
 			}
 			s.Metrics.IncTargetContractCount(status)
-		}
 
-		if _, ok := s.ChainsName[tunnels[i].TargetChainID]; !ok {
-			s.ChainsName[tunnels[i].TargetChainID] = true
+			if _, ok := s.ChainNames[tunnels[i].TargetChainID]; !ok {
+				s.ChainNames[tunnels[i].TargetChainID] = true
+			}
 		}
 
 		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
@@ -268,7 +268,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 	}
 	if s.Metrics != nil {
 		// update metrics for the number of destination chains and tunnels after synchronization
-		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainsName) - oldDestinationChainCount))
+		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainNames) - oldDestinationChainCount))
 		s.Metrics.AddTunnellCount(uint64(len(tunnels) - oldTunnelCount))
 	}
 }

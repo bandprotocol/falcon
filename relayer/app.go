@@ -561,14 +561,12 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, enableMetricsServer
 			)
 			return err
 		}
-
-		chainProvider.SetMetrics(prometheusMetrics)
 	}
 
 	// initialize the tunnel relayer
 	tunnelRelayers := []*TunnelRelayer{}
 	// track destination chain names
-	chainsName := make(map[string]bool)
+	chainNames := make(map[string]bool)
 
 	for _, tunnel := range tunnels {
 		chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
@@ -576,7 +574,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, enableMetricsServer
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
 
-		chainsName[tunnel.TargetChainID] = true
+		chainNames[tunnel.TargetChainID] = true
 
 		tr := NewTunnelRelayer(
 			a.Log,
@@ -603,7 +601,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, enableMetricsServer
 		a.BandClient,
 		a.TargetChains,
 		prometheusMetrics,
-		chainsName,
+		chainNames,
 	)
 
 	return scheduler.Start(ctx)
@@ -689,6 +687,9 @@ func (a *App) setupMetricsServer(
 		log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
 		prometheusMetrics = relayermetrics.NewPrometheusMetrics()
 		relayermetrics.StartMetricsServer(ctx, log, ln, prometheusMetrics.Registry)
+		for _, chainProvider := range a.TargetChains {
+			chainProvider.SetMetrics(prometheusMetrics)
+		}
 	}
 	return prometheusMetrics, nil
 }
