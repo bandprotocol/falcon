@@ -523,7 +523,12 @@ func (a *App) ValidatePassphrase(envPassphrase string) error {
 }
 
 // Start starts the tunnel relayer program.
-func (a *App) Start(ctx context.Context, tunnelIDs []uint64, enableMetricsServer bool) error {
+func (a *App) Start(
+	ctx context.Context,
+	tunnelIDs []uint64,
+	enableMetricsServer bool,
+	metricsListenAddrFlag string,
+) error {
 	a.Log.Info("Starting tunnel relayer")
 
 	// query tunnels
@@ -538,7 +543,13 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, enableMetricsServer
 	}
 
 	// setup metrics server
+	if !enableMetricsServer {
+		enableMetricsServer = a.Config.Global.EnableMetricsServer
+	}
 	metricsListenAddr := a.Config.Global.MetricsListenAddr
+	if metricsListenAddrFlag != "" {
+		metricsListenAddr = metricsListenAddrFlag
+	}
 	prometheusMetrics, err := a.setupMetricsServer(ctx, metricsListenAddr, enableMetricsServer)
 	if err != nil {
 		return err

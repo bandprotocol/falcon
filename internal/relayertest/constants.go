@@ -26,6 +26,7 @@ var CustomCfg = falcon.Config{
 		MaxCheckingPacketPenaltyDuration: 1 * time.Hour,
 		PenaltyExponentialFactor:         1.1,
 		LogLevel:                         "info",
+		EnableMetricsServer:              false,
 		MetricsListenAddr:                "127.0.0.1:5184",
 	},
 	BandChain: band.Config{

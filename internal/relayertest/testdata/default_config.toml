@@ -4,6 +4,7 @@ checking_packet_interval = 60000000000
 sync_tunnels_interval = 300000000000
 max_checking_packet_penalty_duration = 3600000000000
 penalty_exponential_factor = 1.0
+enable_metrics_server = false
 metrics_listen_addr = '127.0.0.1:5184'
 
 [bandchain]
