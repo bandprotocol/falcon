@@ -199,7 +199,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			err: fmt.Errorf("failed to get packet"),
 		},
 		{
-			name: "current group is signing status fallen but incoming group success",
+			name: "fallen signing status of current group but incoming group success",
 			preprocess: func() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
@@ -221,7 +221,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 		},
 		{
-			name: "signing status fallen",
+			name: "incoming group signing status fallen",
 			preprocess: func() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
