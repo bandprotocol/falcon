@@ -83,7 +83,7 @@ func (s *Scheduler) Execute(ctx context.Context) {
 				"Skipping tunnel execution due to penalty from previous failure.",
 				zap.Uint64("tunnel_id", tr.TunnelID),
 				zap.Int("relayer_id", i),
-				zap.Uint("penalty_attempts_remaining", s.PenaltySkipRemaining[i]),
+				zap.Uint("penalty_skip_remaining", s.PenaltySkipRemaining[i]),
 			)
 			s.PenaltySkipRemaining[i] -= 1
 
