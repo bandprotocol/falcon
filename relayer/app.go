@@ -580,7 +580,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		tunnelRelayers,
 		a.Config.Global.CheckingPacketInterval,
 		a.Config.Global.SyncTunnelsInterval,
-		a.Config.Global.PenaltyAttempts,
+		a.Config.Global.PenaltySkipRounds,
 		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.TargetChains,

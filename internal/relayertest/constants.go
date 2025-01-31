@@ -23,7 +23,7 @@ var CustomCfg = falcon.Config{
 	Global: falcon.GlobalConfig{
 		CheckingPacketInterval: 1 * time.Minute,
 		SyncTunnelsInterval:    5 * time.Minute,
-		PenaltyAttempts:        3,
+		PenaltySkipRounds:      3,
 		LogLevel:               "info",
 	},
 	BandChain: band.Config{
