@@ -97,7 +97,8 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
 		// If it is not success (Failed or Undefined), return error.
 		signing := packet.CurrentGroupSigning
-		if signing == nil {
+		if signing == nil ||
+			tsstypes.SigningStatus(tsstypes.SigningStatus_value[signing.Status]) == tsstypes.SIGNING_STATUS_FALLEN {
 			signing = packet.IncomingGroupSigning
 		}
 

@@ -2,8 +2,7 @@
 log_level = 'info'
 checking_packet_interval = '1m'
 sync_tunnels_interval = '5m'
-max_checking_packet_penalty_duration = '1h'
-penalty_exponential_factor = 1.1
+penalty_attempts = 3
 
 [bandchain]
 rpc_endpoints = ['http://localhost:26657', 'http://localhost:26658']

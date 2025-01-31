@@ -84,7 +84,7 @@ func (s *TunnelRelayerTestSuite) mockQueryTunnelInfo(sequence uint64, isActive b
 }
 
 // Helper function to create a mock Packet.
-func createMockPacket(tunnelID, sequence uint64, status string) *bandtypes.Packet {
+func createMockPacket(tunnelID, sequence uint64, currentStatus string, incomingStatus string) *bandtypes.Packet {
 	signalPrices := []bandtypes.SignalPrice{
 		{SignalID: "signal1", Price: 100},
 		{SignalID: "signal2", Price: 200},
@@ -93,20 +93,33 @@ func createMockPacket(tunnelID, sequence uint64, status string) *bandtypes.Packe
 		cmbytes.HexBytes("0x1234"),
 		cmbytes.HexBytes("0xabcd"),
 	)
+	var currentGroupSigning *bandtypes.Signing
+	var incomingGroupSigning *bandtypes.Signing
 
-	signing := bandtypes.NewSigning(
-		1,
-		cmbytes.HexBytes("0xdeadbeef"),
-		evmSignature,
-		status,
-	)
+	if currentStatus != "" {
+		currentGroupSigning = bandtypes.NewSigning(
+			1,
+			cmbytes.HexBytes("0xdeadbeef"),
+			evmSignature,
+			currentStatus,
+		)
+	}
+
+	if incomingStatus != "" {
+		incomingGroupSigning = bandtypes.NewSigning(
+			1,
+			cmbytes.HexBytes("0xdeadbeef"),
+			evmSignature,
+			incomingStatus,
+		)
+	}
 
 	return bandtypes.NewPacket(
 		tunnelID,
 		sequence,
 		signalPrices,
-		signing,
-		nil,
+		currentGroupSigning,
+		incomingGroupSigning,
 	)
 }
 
@@ -126,6 +139,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
 					"SIGNING_STATUS_SUCCESS",
+					"",
 				)
 				s.client.EXPECT().
 					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
@@ -185,6 +199,28 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			err: fmt.Errorf("failed to get packet"),
 		},
 		{
+			name: "current group is signing status fallen but incoming group success",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true)
+
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					"SIGNING_STATUS_FALLEN",
+					"SIGNING_STATUS_SUCCESS",
+				)
+				s.client.EXPECT().
+					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
+				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
+
+				// Check and relay the packet for the second time
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true)
+			},
+		},
+		{
 			name: "signing status fallen",
 			preprocess: func() {
 				s.mockGetTunnel(defaultBandLatestSequence)
@@ -193,6 +229,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
+					"SIGNING_STATUS_FALLEN",
 					"SIGNING_STATUS_FALLEN",
 				)
 
@@ -212,6 +249,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
 					"SIGNING_STATUS_WAITING",
+					"",
 				)
 
 				s.client.EXPECT().
@@ -230,6 +268,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
 					"SIGNING_STATUS_SUCCESS",
+					"",
 				)
 
 				s.client.EXPECT().
