@@ -22,6 +22,7 @@ const (
 type Scheduler struct {
 	Log                              *zap.Logger
 	TunnelRelayers                   []*TunnelRelayer
+	BandLatestTunnel                 int
 	CheckingPacketInterval           time.Duration
 	SyncTunnelsInterval              time.Duration
 	MaxCheckingPacketPenaltyDuration time.Duration
@@ -41,6 +42,7 @@ type Scheduler struct {
 func NewScheduler(
 	log *zap.Logger,
 	tunnelRelayers []*TunnelRelayer,
+	bandLatestTunnel int,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
 	maxCheckingPacketPenaltyDuration time.Duration,
@@ -54,6 +56,7 @@ func NewScheduler(
 	return &Scheduler{
 		Log:                              log,
 		TunnelRelayers:                   tunnelRelayers,
+		BandLatestTunnel:                 bandLatestTunnel,
 		CheckingPacketInterval:           checkingPacketInterval,
 		SyncTunnelsInterval:              syncTunnelsInterval,
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
@@ -208,16 +211,15 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
 		return
 	}
-	oldTunnelCount := len(s.TunnelRelayers)
 
-	if oldTunnelCount == len(tunnels) {
+	if s.BandLatestTunnel == len(tunnels) {
 		s.Log.Info("No new tunnels to sync")
 		return
 	}
-
+	oldTunnelRelayerCount := len(s.TunnelRelayers)
 	oldDestinationChainCount := len(s.ChainNames)
 
-	for i := oldTunnelCount; i < len(tunnels); i++ {
+	for i := s.BandLatestTunnel; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
 			s.Log.Warn(
@@ -265,11 +267,13 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			zap.String("chain_name", tunnels[i].TargetChainID),
 			zap.Uint64("tunnel_id", tunnels[i].ID),
 		)
+		s.BandLatestTunnel = int(tunnels[i].ID)
 	}
+
 	if s.Metrics != nil {
 		// update metrics for the number of destination chains and tunnels after synchronization
 		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainNames) - oldDestinationChainCount))
-		s.Metrics.AddTunnellCount(uint64(len(tunnels) - oldTunnelCount))
+		s.Metrics.AddTunnellCount(uint64(len(s.TunnelRelayers) - oldTunnelRelayerCount))
 	}
 }
 

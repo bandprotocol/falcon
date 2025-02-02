@@ -604,6 +604,7 @@ func (a *App) Start(
 	scheduler := NewScheduler(
 		a.Log,
 		tunnelRelayers,
+		len(tunnels),
 		a.Config.Global.CheckingPacketInterval,
 		a.Config.Global.SyncTunnelsInterval,
 		a.Config.Global.MaxCheckingPacketPenaltyDuration,
