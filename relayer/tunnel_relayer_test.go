@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
@@ -84,7 +85,7 @@ func (s *TunnelRelayerTestSuite) mockQueryTunnelInfo(sequence uint64, isActive b
 }
 
 // Helper function to create a mock Packet.
-func createMockPacket(tunnelID, sequence uint64, status string) *bandtypes.Packet {
+func createMockPacket(tunnelID, sequence uint64, status tss.SigningStatus) *bandtypes.Packet {
 	signalPrices := []bandtypes.SignalPrice{
 		{SignalID: "signal1", Price: 100},
 		{SignalID: "signal2", Price: 200},
@@ -125,7 +126,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
-					"SIGNING_STATUS_SUCCESS",
+					tss.SIGNING_STATUS_SUCCESS,
 				)
 				s.client.EXPECT().
 					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
@@ -193,7 +194,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
-					"SIGNING_STATUS_FALLEN",
+					tss.SIGNING_STATUS_FALLEN,
 				)
 
 				s.client.EXPECT().
@@ -211,7 +212,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
-					"SIGNING_STATUS_WAITING",
+					tss.SIGNING_STATUS_WAITING,
 				)
 
 				s.client.EXPECT().
@@ -229,7 +230,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
-					"SIGNING_STATUS_SUCCESS",
+					tss.SIGNING_STATUS_SUCCESS,
 				)
 
 				s.client.EXPECT().
