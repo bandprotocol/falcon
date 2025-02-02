@@ -101,14 +101,13 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			signing = packet.IncomingGroupSigning
 		}
 
-		signingStatus := tsstypes.SigningStatus(tsstypes.SigningStatus_value[signing.Status])
-		if signingStatus == tsstypes.SIGNING_STATUS_WAITING {
+		if signing.SigningStatus == tsstypes.SIGNING_STATUS_WAITING {
 			t.Log.Info(
 				"The current packet must wait for the completion of the EVM signature",
 				zap.Uint64("sequence", seq),
 			)
 			return nil
-		} else if signingStatus != tsstypes.SIGNING_STATUS_SUCCESS {
+		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err

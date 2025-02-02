@@ -17,6 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -51,7 +52,7 @@ func mockPacket() bandtypes.Packet {
 		1,
 		relatedMsg,
 		evmSignature,
-		"SIGNING_STATUS_SUCCESS",
+		tss.SIGNING_STATUS_SUCCESS,
 	)
 
 	return bandtypes.Packet{
