@@ -14,7 +14,6 @@ import (
 	big "math/big"
 	reflect "reflect"
 
-	relayermetrics "github.com/bandprotocol/falcon/internal/relayermetrics"
 	types "github.com/bandprotocol/falcon/relayer/band/types"
 	types0 "github.com/bandprotocol/falcon/relayer/chains/types"
 	gomock "go.uber.org/mock/gomock"
@@ -186,18 +185,6 @@ func (m *MockChainProvider) RelayPacket(ctx context.Context, packet *types.Packe
 func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, packet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, packet)
-}
-
-// SetMetrics mocks base method.
-func (m_2 *MockChainProvider) SetMetrics(m *relayermetrics.PrometheusMetrics) {
-	m_2.ctrl.T.Helper()
-	m_2.ctrl.Call(m_2, "SetMetrics", m)
-}
-
-// SetMetrics indicates an expected call of SetMetrics.
-func (mr *MockChainProviderMockRecorder) SetMetrics(m any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMetrics", reflect.TypeOf((*MockChainProvider)(nil).SetMetrics), m)
 }
 
 // ShowKey mocks base method.
