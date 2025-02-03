@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	types "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
-	types0 "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
+	bandtss "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
+	tunnel "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 )
@@ -44,14 +44,14 @@ func (m *MockQueryClient) EXPECT() *MockQueryClientMockRecorder {
 }
 
 // Packet mocks base method.
-func (m *MockQueryClient) Packet(ctx context.Context, in *types0.QueryPacketRequest, opts ...grpc.CallOption) (*types0.QueryPacketResponse, error) {
+func (m *MockQueryClient) Packet(ctx context.Context, in *tunnel.QueryPacketRequest, opts ...grpc.CallOption) (*tunnel.QueryPacketResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Packet", varargs...)
-	ret0, _ := ret[0].(*types0.QueryPacketResponse)
+	ret0, _ := ret[0].(*tunnel.QueryPacketResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -64,14 +64,14 @@ func (mr *MockQueryClientMockRecorder) Packet(ctx, in any, opts ...any) *gomock.
 }
 
 // Signing mocks base method.
-func (m *MockQueryClient) Signing(ctx context.Context, in *types.QuerySigningRequest, opts ...grpc.CallOption) (*types.QuerySigningResponse, error) {
+func (m *MockQueryClient) Signing(ctx context.Context, in *bandtss.QuerySigningRequest, opts ...grpc.CallOption) (*bandtss.QuerySigningResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Signing", varargs...)
-	ret0, _ := ret[0].(*types.QuerySigningResponse)
+	ret0, _ := ret[0].(*bandtss.QuerySigningResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -84,14 +84,14 @@ func (mr *MockQueryClientMockRecorder) Signing(ctx, in any, opts ...any) *gomock
 }
 
 // Tunnel mocks base method.
-func (m *MockQueryClient) Tunnel(ctx context.Context, in *types0.QueryTunnelRequest, opts ...grpc.CallOption) (*types0.QueryTunnelResponse, error) {
+func (m *MockQueryClient) Tunnel(ctx context.Context, in *tunnel.QueryTunnelRequest, opts ...grpc.CallOption) (*tunnel.QueryTunnelResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Tunnel", varargs...)
-	ret0, _ := ret[0].(*types0.QueryTunnelResponse)
+	ret0, _ := ret[0].(*tunnel.QueryTunnelResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -104,14 +104,14 @@ func (mr *MockQueryClientMockRecorder) Tunnel(ctx, in any, opts ...any) *gomock.
 }
 
 // Tunnels mocks base method.
-func (m *MockQueryClient) Tunnels(ctx context.Context, in *types0.QueryTunnelsRequest, opts ...grpc.CallOption) (*types0.QueryTunnelsResponse, error) {
+func (m *MockQueryClient) Tunnels(ctx context.Context, in *tunnel.QueryTunnelsRequest, opts ...grpc.CallOption) (*tunnel.QueryTunnelsResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Tunnels", varargs...)
-	ret0, _ := ret[0].(*types0.QueryTunnelsResponse)
+	ret0, _ := ret[0].(*tunnel.QueryTunnelsResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

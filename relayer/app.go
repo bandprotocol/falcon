@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/big"
+	"net"
 	"os"
 	"path"
 
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal"
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -521,7 +523,12 @@ func (a *App) ValidatePassphrase(envPassphrase string) error {
 }
 
 // Start starts the tunnel relayer program.
-func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
+func (a *App) Start(
+	ctx context.Context,
+	tunnelIDs []uint64,
+	enableMetricsServer bool,
+	metricsListenAddrFlag string,
+) error {
 	a.Log.Info("Starting tunnel relayer")
 
 	// query tunnels
@@ -532,6 +539,18 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 	// validate passphrase
 	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
+		return err
+	}
+
+	// setup metrics server
+	if !enableMetricsServer {
+		enableMetricsServer = a.Config.Global.EnableMetricsServer
+	}
+	metricsListenAddr := a.Config.Global.MetricsListenAddr
+	if metricsListenAddrFlag != "" {
+		metricsListenAddr = metricsListenAddrFlag
+	}
+	if err := a.setupMetricsServer(ctx, metricsListenAddr, enableMetricsServer); err != nil {
 		return err
 	}
 
@@ -556,11 +575,16 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 	// initialize the tunnel relayer
 	tunnelRelayers := []*TunnelRelayer{}
+	// track destination chain names
+	chainNames := make(map[string]bool)
+
 	for _, tunnel := range tunnels {
 		chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
 		if !ok {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
+
+		chainNames[tunnel.TargetChainID] = true
 
 		tr := NewTunnelRelayer(
 			a.Log,
@@ -578,6 +602,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	scheduler := NewScheduler(
 		a.Log,
 		tunnelRelayers,
+		len(tunnels),
 		a.Config.Global.CheckingPacketInterval,
 		a.Config.Global.SyncTunnelsInterval,
 		a.Config.Global.MaxCheckingPacketPenaltyDuration,
@@ -585,6 +610,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.TargetChains,
+		chainNames,
 	)
 
 	return scheduler.Start(ctx)
@@ -645,4 +671,34 @@ func (a *App) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.T
 	}
 
 	return tunnels, nil
+}
+
+func (a *App) setupMetricsServer(
+	ctx context.Context,
+	metricsListenAddr string,
+	enableMetricsServer bool,
+) error {
+	if !enableMetricsServer {
+		a.Log.Info("Metrics server is disabled you can enable it using --enable-metrics-server flag")
+	} else if metricsListenAddr == "" {
+		a.Log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag")
+	} else {
+		a.Log.Info("Metrics server is enabled")
+		ln, err := net.Listen("tcp", metricsListenAddr)
+		if err != nil {
+			a.Log.Error("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag")
+
+			return fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
+		}
+		log := a.Log.With(zap.String("sys", "metricshttp"))
+		log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
+
+		// enable telemetry
+		relayermetrics.EnableTelemetry()
+
+		// start server
+		prometheusMetrics := relayermetrics.NewPrometheusMetrics()
+		relayermetrics.StartMetricsServer(ctx, log, ln, prometheusMetrics.Registry)
+	}
+	return nil
 }
