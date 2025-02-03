@@ -22,7 +22,6 @@ type TunnelRelayer struct {
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
-	Metrics                *relayermetrics.PrometheusMetrics
 
 	isExecuting bool
 }
@@ -79,7 +78,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		if !tunnelChainInfo.IsActive {
 			// decrease active status and increase inactive status if the tunnel was previously active
-			if t.IsTargetChainActive && t.Metrics != nil {
+			if t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
 				relayermetrics.DecTargetContractCount(targetContractActiveStatus)
 				relayermetrics.IncTargetContractCount(targetContractInActiveStatus)
 				t.IsTargetChainActive = false
@@ -89,13 +88,13 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 
 		// increase active status and decrease inactive status if the tunnel was previously inactive
-		if tunnelChainInfo.IsActive && !t.IsTargetChainActive && t.Metrics != nil {
+		if tunnelChainInfo.IsActive && !t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
 			relayermetrics.IncTargetContractCount(targetContractActiveStatus)
 			relayermetrics.DecTargetContractCount(targetContractInActiveStatus)
 			t.IsTargetChainActive = true
 		}
 
-		if t.Metrics != nil {
+		if relayermetrics.IsTelemetryEnabled() {
 			// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
 			relayermetrics.SetUnrelayedPacket(
 				t.TunnelID,
@@ -144,7 +143,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
 		}
-		if t.Metrics != nil {
+		if relayermetrics.IsTelemetryEnabled() {
 			// increment the packet received metric
 			relayermetrics.IncPacketlReceived(t.TunnelID)
 		}

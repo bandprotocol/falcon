@@ -6,7 +6,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
@@ -29,9 +28,6 @@ type ChainProvider interface {
 
 	// QueryBalance queries balance by given key name from the destination chain.
 	QueryBalance(ctx context.Context, keyName string) (*big.Int, error)
-
-	// Set Prometheus metrics in chain provider
-	SetMetrics(m *relayermetrics.PrometheusMetrics)
 }
 
 // KeyProvider defines the interface for the key interaction with destination chain

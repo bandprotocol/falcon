@@ -41,8 +41,6 @@ type EVMChainProvider struct {
 	Log *zap.Logger
 
 	KeyStore *keyStore.KeyStore
-
-	Metrics *relayermetrics.PrometheusMetrics
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -195,7 +193,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		createdAt := time.Now()
 
-		if cp.Metrics != nil {
+		if relayermetrics.IsTelemetryEnabled() {
 			// increment the transaction count metric for the current tunnel
 			relayermetrics.IncTxCount(packet.TunnelID)
 		}
@@ -229,7 +227,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			txStatus = result.Status
 			switch result.Status {
 			case TX_STATUS_SUCCESS:
-				if cp.Metrics != nil {
+				if relayermetrics.IsTelemetryEnabled() {
 					// track transaction processing time in seconds with millisecond precision
 					relayermetrics.ObserveTxProcessTime(cp.ChainName, float64(time.Since(createdAt).Milliseconds()))
 
@@ -597,11 +595,4 @@ func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, e
 	}
 
 	return output, nil
-}
-
-// QueryBalance queries balance of specific account address.
-func (cp *EVMChainProvider) SetMetrics(
-	m *relayermetrics.PrometheusMetrics,
-) {
-	cp.Metrics = m
 }
