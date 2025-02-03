@@ -17,18 +17,22 @@ import (
 	"go.uber.org/zap"
 
 	falcon "github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/store"
 )
 
 const (
 	appName         = "falcon"
 	defaultCoinType = 60
+
+	PassphraseEnvKey = "PASSPHRASE"
 )
 
 var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 
 // NewRootCmd returns the root command for falcon.
 func NewRootCmd(log *zap.Logger) *cobra.Command {
-	app := falcon.NewApp(log, defaultHome, false, nil)
+	passphrase := os.Getenv(PassphraseEnvKey)
+	app := falcon.NewApp(log, defaultHome, false, nil, passphrase, nil)
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
@@ -45,15 +49,29 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
-		// retrieve log level from viper
-		logLevelViper := viper.GetString("log-level")
-		if viper.GetBool("debug") {
-			logLevelViper = "debug"
+		// set up store
+		app.Store = store.NewFileSystem(app.HomePath, app.Passphrase)
+
+		// load configuration
+		var err error
+		app.Config, err = app.Store.GetConfig()
+		if err != nil {
+			return err
 		}
 
-		logFormat := viper.GetString("log-format")
+		// retrieve log level from config
+		configLogLevel := ""
+		if app.Config != nil {
+			configLogLevel = app.Config.Global.LogLevel
+		}
 
-		return app.Init(rootCmd.Context(), logLevelViper, logFormat)
+		// init log object
+		app.Log, err = initLogger(configLogLevel)
+		if err != nil {
+			return err
+		}
+
+		return app.Init(rootCmd.Context())
 	}
 
 	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {

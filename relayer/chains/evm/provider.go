@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"path"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	keyStore "github.com/ethereum/go-ethereum/accounts/keystore"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/shopspring/decimal"
@@ -19,6 +17,7 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 var _ chains.ChainProvider = (*EVMChainProvider)(nil)
@@ -31,7 +30,6 @@ type EVMChainProvider struct {
 	Client  Client
 	GasType GasType
 
-	KeyInfo     KeyInfo
 	FreeSenders chan *Sender
 
 	TunnelRouterAddress gethcommon.Address
@@ -39,7 +37,7 @@ type EVMChainProvider struct {
 
 	Log *zap.Logger
 
-	KeyStore *keyStore.KeyStore
+	Wallet wallet.Wallet
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -49,6 +47,7 @@ func NewEVMChainProvider(
 	cfg *EVMChainProviderConfig,
 	log *zap.Logger,
 	homePath string,
+	wallet wallet.Wallet,
 ) (*EVMChainProvider, error) {
 	// load abis here
 	abi, err := abi.JSON(strings.NewReader(gasPriceTunnelRouterABI))
@@ -69,24 +68,15 @@ func NewEVMChainProvider(
 		return nil, fmt.Errorf("[EVMProvider] incorrect address: %w", err)
 	}
 
-	keyStoreDir := path.Join(homePath, keyDir, chainName, privateKeyDir)
-	keyStore := keyStore.NewKeyStore(keyStoreDir, keyStore.StandardScryptN, keyStore.StandardScryptP)
-
-	keyInfo, err := LoadKeyInfo(homePath, chainName)
-	if err != nil {
-		return nil, err
-	}
-
 	return &EVMChainProvider{
 		Config:              cfg,
 		ChainName:           chainName,
 		Client:              client,
 		GasType:             cfg.GasType,
-		KeyInfo:             keyInfo,
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
 		Log:                 log.With(zap.String("chain_name", chainName)),
-		KeyStore:            keyStore,
+		Wallet:              wallet,
 	}, nil
 }
 
@@ -555,7 +545,13 @@ func (cp *EVMChainProvider) QueryBalance(
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
-	address, err := HexToAddress(cp.KeyInfo[keyName])
+	hexAddr, ok := cp.Wallet.GetAddress(keyName)
+	if !ok {
+		cp.Log.Error("Key name does not exist", zap.String("key_name", keyName))
+		return nil, fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	address, err := HexToAddress(hexAddr)
 	if err != nil {
 		return nil, err
 	}

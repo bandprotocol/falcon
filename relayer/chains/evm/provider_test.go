@@ -22,6 +22,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 var baseEVMCfg = &evm.EVMChainProviderConfig{
@@ -106,6 +107,7 @@ func TestProviderTestSuite(t *testing.T) {
 func (s *ProviderTestSuite) SetupTest() {
 	var err error
 	tmpDir := s.T().TempDir()
+	s.homePath = tmpDir
 
 	s.ctrl = gomock.NewController(s.T())
 	s.client = mocks.NewMockEVMClient(s.ctrl)
@@ -116,11 +118,13 @@ func (s *ProviderTestSuite) SetupTest() {
 	chainName := "testnet"
 	s.chainName = chainName
 
-	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, s.homePath)
+	wallet, err := wallet.NewGethKeyStoreWallet("", s.homePath, s.chainName)
+	s.Require().NoError(err)
+
+	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, s.homePath, wallet)
 	s.Require().NoError(err)
 
 	s.chainProvider.Client = s.client
-	s.homePath = tmpDir
 }
 
 func (s *ProviderTestSuite) TestQueryTunnelInfo() {

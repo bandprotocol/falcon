@@ -17,6 +17,7 @@ import (
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 type LegacyProviderTestSuite struct {
@@ -46,7 +47,11 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	evmConfig.GasType = evm.GasTypeLegacy
 	s.chainName = "testnet"
 	s.homePath = s.T().TempDir()
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), s.homePath)
+
+	wallet, err := wallet.NewGethKeyStoreWallet("", s.homePath, s.chainName)
+	s.Require().NoError(err)
+
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), s.homePath, wallet)
 	s.Require().NoError(err)
 
 	s.chainProvider = chainProvider

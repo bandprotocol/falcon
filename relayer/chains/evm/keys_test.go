@@ -11,6 +11,7 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 const (
@@ -39,7 +40,10 @@ func (s *KeysTestSuite) SetupTest() {
 	chainName := "testnet"
 	client := evm.NewClient(chainName, evmCfg, s.log)
 
-	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath)
+	wallet, err := wallet.NewGethKeyStoreWallet("", s.homePath, chainName)
+	s.Require().NoError(err)
+
+	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath, wallet)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider
 }
@@ -229,10 +233,6 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	// Ensure the key is no longer in the KeyInfo or KeyStore
 	s.Require().False(s.chainProvider.IsKeyNameExist(keyName))
 
-	addr, err := evm.HexToAddress(testAddress)
-	s.Require().NoError(err)
-	s.Require().False(s.chainProvider.KeyStore.HasAddress(addr))
-
 	// Delete the key again should return error
 	err = s.chainProvider.DeleteKey(s.homePath, keyName, "")
 	s.Require().ErrorContains(err, "key name does not exist")
@@ -327,7 +327,12 @@ func (s *KeysTestSuite) TestShowKey() {
 }
 
 func (s *KeysTestSuite) TestIsKeyNameExist() {
-	s.chainProvider.KeyInfo["testkey1"] = testAddress
+	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
+	s.Require().NoError(err)
+
+	_, err = s.chainProvider.Wallet.SavePrivateKey("testkey1", priv)
+	s.Require().NoError(err)
+
 	expected := s.chainProvider.IsKeyNameExist("testkey1")
 
 	s.Require().Equal(expected, true)
@@ -345,7 +350,7 @@ func (s *KeysTestSuite) TestGetKeyFromKeyName() {
 	s.Require().NoError(err)
 
 	// Retrieve the key using the key name
-	key, err := s.chainProvider.GetKeyFromKeyName(keyName, "")
+	key, err := s.chainProvider.GetKeyFromKeyName(keyName)
 	s.Require().NoError(err)
 	s.Require().NotNil(key)
 
@@ -353,6 +358,12 @@ func (s *KeysTestSuite) TestGetKeyFromKeyName() {
 	s.Require().Equal(testPrivateKey[2:], hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))) // Remove "0x"
 
 	// Retrieve the key using the invalid passphrase should return error
-	_, err = s.chainProvider.GetKeyFromKeyName(keyName, "invalid")
+	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
+	s.Require().NoError(err)
+
+	s.chainProvider.Wallet, err = wallet.NewGethKeyStoreWallet("invalid", s.homePath, s.chainProvider.ChainName)
+	s.Require().NoError(err)
+
+	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
 	s.Require().ErrorContains(err, "could not decrypt key with given password")
 }

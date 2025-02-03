@@ -1,4 +1,4 @@
-package relayer
+package config
 
 import (
 	"fmt"
@@ -14,6 +14,9 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 )
 
+// ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)
+type ChainProviderConfigs map[string]chains.ChainProviderConfig
+
 // GlobalConfig is the global configuration for the falcon tunnel relayer
 type GlobalConfig struct {
 	LogLevel                         string        `mapstructure:"log_level"                            toml:"log_level"`
@@ -25,9 +28,9 @@ type GlobalConfig struct {
 
 // Config defines the configuration for the falcon tunnel relayer.
 type Config struct {
-	Global       GlobalConfig                `mapstructure:"global"        toml:"global"`
-	BandChain    band.Config                 `mapstructure:"bandchain"     toml:"bandchain"`
-	TargetChains chains.ChainProviderConfigs `mapstructure:"target_chains" toml:"target_chains"`
+	Global       GlobalConfig         `mapstructure:"global"        toml:"global"`
+	BandChain    band.Config          `mapstructure:"bandchain"     toml:"bandchain"`
+	TargetChains ChainProviderConfigs `mapstructure:"target_chains" toml:"target_chains"`
 }
 
 // ChainProviderConfigWrapper is an intermediary type for parsing any object from config.toml file
@@ -106,9 +109,9 @@ func DecodeConfigInputWrapperTOML(data []byte, cw *ConfigInputWrapper) error {
 	return nil
 }
 
-// ParseConfig converts a ConfigInputWrapper object to a Config object.
-func ParseConfig(wrappedCfg *ConfigInputWrapper) (*Config, error) {
-	targetChains := make(chains.ChainProviderConfigs)
+// ParseConfigInputWrapper converts a ConfigInputWrapper object to a Config object.
+func ParseConfigInputWrapper(wrappedCfg *ConfigInputWrapper) (*Config, error) {
+	targetChains := make(ChainProviderConfigs)
 	for name, provCfg := range wrappedCfg.TargetChains {
 		newProvCfg, err := ParseChainProviderConfig(provCfg)
 		if err != nil {
@@ -143,20 +146,14 @@ func DefaultConfig() *Config {
 	}
 }
 
-// LoadConfig reads config file from given path and return config object
-func LoadConfig(cfgPath string) (*Config, error) {
-	b, err := os.ReadFile(cfgPath)
-	if err != nil {
-		return nil, err
-	}
-
+func ParseConfig(data []byte) (*Config, error) {
 	var cfgWrapper ConfigInputWrapper
-	if err := DecodeConfigInputWrapperTOML(b, &cfgWrapper); err != nil {
+	if err := DecodeConfigInputWrapperTOML(data, &cfgWrapper); err != nil {
 		return nil, err
 	}
 
 	// convert ConfigWrapperInput to Config
-	cfg, err := ParseConfig(&cfgWrapper)
+	cfg, err := ParseConfigInputWrapper(&cfgWrapper)
 	if err != nil {
 		return nil, err
 	}

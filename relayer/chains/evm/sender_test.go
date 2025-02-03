@@ -16,6 +16,7 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 const (
@@ -60,6 +61,7 @@ func TestSenderTestSuite(t *testing.T) {
 func (s *SenderTestSuite) SetupTest() {
 	var err error
 	tmpDir := s.T().TempDir()
+	s.homePath = tmpDir
 
 	log, err := zap.NewDevelopment()
 	s.Require().NoError(err)
@@ -71,11 +73,13 @@ func (s *SenderTestSuite) SetupTest() {
 
 	client := evm.NewClient(chainName, evmCfg, log)
 
-	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir)
+	wallet, err := wallet.NewGethKeyStoreWallet("", s.homePath, chainName)
+	s.Require().NoError(err)
+
+	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir, wallet)
 	s.Require().NoError(err)
 
 	s.ctx = context.Background()
-	s.homePath = tmpDir
 }
 
 func TestLoadKeyInfo(t *testing.T) {
@@ -125,7 +129,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 	s.Require().NoError(err)
 
 	// Validate the FreeSenders channel is populated correctly
-	count := len(s.chainProvider.KeyInfo)
+	count := len(s.chainProvider.Wallet.GetNames())
 	s.Require().
 		Equal(count, len(s.chainProvider.FreeSenders))
 

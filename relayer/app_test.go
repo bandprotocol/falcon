@@ -23,6 +23,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/config"
+	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
 )
 
@@ -46,7 +48,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 	s.client = mocks.NewMockClient(ctrl)
 
-	cfg := relayer.Config{
+	cfg := config.Config{
 		BandChain: band.Config{
 			RpcEndpoints:               []string{"http://localhost:26659"},
 			LivelinessCheckingInterval: 5 * time.Minute,
@@ -54,7 +56,7 @@ func (s *AppTestSuite) SetupTest() {
 		TargetChains: map[string]chains.ChainProviderConfig{
 			"testnet_evm": s.chainProviderConfig,
 		},
-		Global: relayer.GlobalConfig{},
+		Global: config.GlobalConfig{},
 	}
 
 	cfgFolder := path.Join(tmpDir, relayer.ConfigFolderName)
@@ -65,11 +67,12 @@ func (s *AppTestSuite) SetupTest() {
 		Log:      log,
 		HomePath: tmpDir,
 		Config:   &cfg,
+		Store:    store.NewFileSystem(tmpDir, "secret"),
 		TargetChains: map[string]chains.ChainProvider{
 			"testnet_evm": s.chainProvider,
 		},
-		BandClient:    s.client,
-		EnvPassphrase: "secret",
+		BandClient: s.client,
+		Passphrase: "secret",
 	}
 
 	// Call InitPassphrase
@@ -86,13 +89,13 @@ func (s *AppTestSuite) TestInitConfig() {
 		name       string
 		preprocess func()
 		in         string
-		out        *relayer.Config
+		out        *config.Config
 		err        error
 	}{
 		{
 			name: "success - default",
 			in:   "",
-			out:  relayer.DefaultConfig(),
+			out:  config.DefaultConfig(),
 		},
 		{
 			name: "config already exists",
@@ -101,7 +104,7 @@ func (s *AppTestSuite) TestInitConfig() {
 				s.Require().NoError(err)
 			},
 			in:  "",
-			err: fmt.Errorf("config already exists:"),
+			err: fmt.Errorf("config already exists"),
 		},
 		{
 			name: "init config from specific file",
@@ -122,13 +125,13 @@ func (s *AppTestSuite) TestInitConfig() {
 				s.Require().NoError(err)
 			},
 			in: path.Join(s.app.HomePath, "custom.toml"),
-			out: &relayer.Config{
+			out: &config.Config{
 				BandChain: band.Config{
 					RpcEndpoints: []string{"http://localhost:26659"},
 					Timeout:      50,
 				},
 				TargetChains: map[string]chains.ChainProviderConfig{},
-				Global: relayer.GlobalConfig{
+				Global: config.GlobalConfig{
 					CheckingPacketInterval: time.Minute,
 				},
 			},
@@ -175,7 +178,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 	type Input struct {
 		chainName   string
 		cfgPath     string
-		existingCfg *relayer.Config
+		existingCfg *config.Config
 	}
 	testcases := []struct {
 		name       string
@@ -215,7 +218,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 			in: Input{
 				chainName: "testnet",
 				cfgPath:   path.Join(newHomePath, "chain_config.toml"),
-				existingCfg: &relayer.Config{
+				existingCfg: &config.Config{
 					TargetChains: map[string]chains.ChainProviderConfig{
 						"testnet": &evm.EVMChainProviderConfig{},
 					},
@@ -237,15 +240,16 @@ func (s *AppTestSuite) TestAddChainConfig() {
 			}
 
 			// init app
-			app := relayer.NewApp(nil, newHomePath, false, tc.in.existingCfg)
+			fs := store.NewFileSystem(newHomePath, s.app.Passphrase)
+
+			app := relayer.NewApp(nil, newHomePath, false, tc.in.existingCfg, "", fs)
 			if app.Config == nil {
 				err := app.InitConfigFile(newHomePath, "")
 				s.Require().NoError(err)
 				s.Require().FileExists(path.Join(newHomePath, "config", "config.toml"))
 
-				err = app.LoadConfigFile()
+				app.Config, err = fs.GetConfig()
 				s.Require().NoError(err)
-				s.Require().NotNil(app.Config)
 			}
 
 			err = app.AddChainConfig(tc.in.chainName, tc.in.cfgPath)
@@ -298,12 +302,13 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			app := relayer.NewApp(nil, newHomePath, false, nil)
+			fs := store.NewFileSystem(newHomePath, s.app.Passphrase)
+			app := relayer.NewApp(nil, newHomePath, false, nil, "", fs)
 			err := app.InitConfigFile(newHomePath, customCfgPath)
 			s.Require().NoError(err)
 
 			// load config file
-			err = app.LoadConfigFile()
+			app.Config, err = fs.GetConfig()
 			s.Require().NoError(err)
 
 			err = app.DeleteChainConfig(tc.in)
@@ -487,7 +492,7 @@ func (s *AppTestSuite) TestInitPassphrase() {
 
 	// Verify file content
 	hasher := sha256.New()
-	hasher.Write([]byte(s.app.EnvPassphrase))
+	hasher.Write([]byte(s.app.Passphrase))
 	expectedHash := hasher.Sum(nil)
 
 	actualContent, err := os.ReadFile(passphrasePath)
@@ -526,7 +531,7 @@ func (s *AppTestSuite) TestAddKey() {
 						uint32(60),
 						uint(0),
 						uint(0),
-						s.app.EnvPassphrase,
+						s.app.Passphrase,
 					).
 					Return(chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""), nil)
 			},
@@ -547,7 +552,7 @@ func (s *AppTestSuite) TestAddKey() {
 						uint32(60),
 						uint(0),
 						uint(0),
-						s.app.EnvPassphrase,
+						s.app.Passphrase,
 					).
 					Return(nil, fmt.Errorf("add key error"))
 			},
@@ -603,7 +608,7 @@ func (s *AppTestSuite) TestDeleteKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					DeleteKey(s.app.HomePath, "testkey", s.app.EnvPassphrase).
+					DeleteKey(s.app.HomePath, "testkey", s.app.Passphrase).
 					Return(nil)
 			},
 		},
@@ -613,7 +618,7 @@ func (s *AppTestSuite) TestDeleteKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					DeleteKey(s.app.HomePath, "testkey", s.app.EnvPassphrase).
+					DeleteKey(s.app.HomePath, "testkey", s.app.Passphrase).
 					Return(fmt.Errorf("delete key error"))
 			},
 			err: fmt.Errorf("delete key error"),
@@ -658,7 +663,7 @@ func (s *AppTestSuite) TestExportKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					ExportPrivateKey("testkey", s.app.EnvPassphrase).
+					ExportPrivateKey("testkey", s.app.Passphrase).
 					Return("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", nil)
 			},
 			out: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -669,7 +674,7 @@ func (s *AppTestSuite) TestExportKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					ExportPrivateKey("testkey", s.app.EnvPassphrase).
+					ExportPrivateKey("testkey", s.app.Passphrase).
 					Return("", fmt.Errorf("export key error"))
 			},
 			err: fmt.Errorf("export key error"),

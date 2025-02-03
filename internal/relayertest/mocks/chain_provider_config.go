@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	chains "github.com/bandprotocol/falcon/relayer/chains"
+	wallet "github.com/bandprotocol/falcon/relayer/wallet"
 	gomock "go.uber.org/mock/gomock"
 	zap "go.uber.org/zap"
 )
@@ -41,19 +42,33 @@ func (m *MockChainProviderConfig) EXPECT() *MockChainProviderConfigMockRecorder 
 	return m.recorder
 }
 
-// NewChainProvider mocks base method.
-func (m *MockChainProviderConfig) NewChainProvider(chainName string, log *zap.Logger, homePath string, debug bool) (chains.ChainProvider, error) {
+// GetChainType mocks base method.
+func (m *MockChainProviderConfig) GetChainType() chains.ChainType {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, homePath, debug)
+	ret := m.ctrl.Call(m, "GetChainType")
+	ret0, _ := ret[0].(chains.ChainType)
+	return ret0
+}
+
+// GetChainType indicates an expected call of GetChainType.
+func (mr *MockChainProviderConfigMockRecorder) GetChainType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChainType", reflect.TypeOf((*MockChainProviderConfig)(nil).GetChainType))
+}
+
+// NewChainProvider mocks base method.
+func (m *MockChainProviderConfig) NewChainProvider(chainName string, log *zap.Logger, homePath string, debug bool, wallet wallet.Wallet) (chains.ChainProvider, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, homePath, debug, wallet)
 	ret0, _ := ret[0].(chains.ChainProvider)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewChainProvider indicates an expected call of NewChainProvider.
-func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, homePath, debug any) *gomock.Call {
+func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, homePath, debug, wallet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, homePath, debug)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, homePath, debug, wallet)
 }
 
 // Validate mocks base method.

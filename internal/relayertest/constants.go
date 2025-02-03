@@ -4,10 +4,10 @@ import (
 	_ "embed"
 	"time"
 
-	falcon "github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/config"
 )
 
 //go:embed testdata/default_config.toml
@@ -19,8 +19,8 @@ var CustomCfgText string
 //go:embed testdata/custom_config_with_time_str.toml
 var CustomCfgTextWithTimeStr string
 
-var CustomCfg = falcon.Config{
-	Global: falcon.GlobalConfig{
+var CustomCfg = config.Config{
+	Global: config.GlobalConfig{
 		CheckingPacketInterval:           1 * time.Minute,
 		SyncTunnelsInterval:              5 * time.Minute,
 		MaxCheckingPacketPenaltyDuration: 1 * time.Hour,
@@ -32,7 +32,7 @@ var CustomCfg = falcon.Config{
 		Timeout:                    3 * time.Second,
 		LivelinessCheckingInterval: 5 * time.Minute,
 	},
-	TargetChains: chains.ChainProviderConfigs{
+	TargetChains: config.ChainProviderConfigs{
 		"testnet": &evm.EVMChainProviderConfig{
 			BaseChainProviderConfig: chains.BaseChainProviderConfig{
 				Endpoints:           []string{"http://localhost:8545"},

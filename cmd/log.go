@@ -1,4 +1,4 @@
-package relayer
+package cmd
 
 import (
 	"fmt"
@@ -6,11 +6,13 @@ import (
 	"time"
 
 	zaplogfmt "github.com/jsternberg/zap-logfmt"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func newRootLogger(format string, logLevel string) (*zap.Logger, error) {
+// newLogger creates a new root logger with the given log format and log level.
+func newLogger(format string, logLevel string) (*zap.Logger, error) {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = func(ts time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
@@ -50,4 +52,29 @@ func newRootLogger(format string, logLevel string) (*zap.Logger, error) {
 	}
 
 	return logger, nil
+}
+
+// initLogger initializes the logger with the given default log level.
+func initLogger(defaultLogLevel string) (log *zap.Logger, err error) {
+	logFormat := viper.GetString("log-format")
+
+	logLevel := viper.GetString("log-level")
+	if viper.GetBool("debug") {
+		logLevel = "debug"
+	}
+	if logLevel == "" && defaultLogLevel != "" {
+		logLevel = defaultLogLevel
+	}
+
+	// initialize logger only if user run command "start" or log level is "debug"
+	if os.Args[1] == "start" || logLevel == "debug" {
+		log, err = newLogger(logFormat, logLevel)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		log = zap.NewNop()
+	}
+
+	return log, nil
 }

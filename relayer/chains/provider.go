@@ -10,6 +10,9 @@ import (
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
+// ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
+type ChainProviders map[string]ChainProvider
+
 // ChainProvider defines the interface for the chain interaction with the destination chain.
 type ChainProvider interface {
 	KeyProvider
