@@ -28,21 +28,32 @@ ldflags := $(strip $(ldflags))
 
 BUILD_FLAGS := -tags "$(build_tags_comma_sep)" -ldflags '$(ldflags)'
 
+PACKAGE_NAME         := github.com/bandprotocol/falcon
+GOLANG_CROSS_VERSION ?= latest
+
 all: install
 
 install: go.sum
 	@echo "installing falcon binary..."
 	@go build -mod=readonly $(BUILD_FLAGS) -o $(GOBIN)/falcon main.go
 
-release: go.sum
-	env GOOS=linux GOARCH=amd64 \
-		go build -mod=readonly -o ./build/falcon_linux_amd64 $(BUILD_FLAGS) main.go
-	env GOOS=linux GOARCH=arm64 \
-		go build -mod=readonly -o ./build/falcon_linux_arm64 $(BUILD_FLAGS) main.go
-	env GOOS=darwin GOARCH=amd64 \
-		go build -mod=readonly -o ./build/falcon_darwin_amd64 $(BUILD_FLAGS) main.go
-	env GOOS=darwin GOARCH=arm64 \
-		go build -mod=readonly -o ./build/falcon_darwin_arm64 $(BUILD_FLAGS) main.go
+.PHONY: release
+#? release: Run goreleaser to build and release cross-platform falcon binary version
+release:
+	@if [ ! -f ".release-env" ]; then \
+		echo "\033[91m.release-env is required for release\033[0m";\
+		exit 1;\
+	fi
+	docker run \
+		--rm \
+		-e CGO_ENABLED=1 \
+		--env-file .release-env \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v `pwd`:/go/src/$(PACKAGE_NAME) \
+		-v `pwd`/sysroot:/sysroot \
+		-w /go/src/$(PACKAGE_NAME) \
+		goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
+		release --clean
 
 mocks:
 	@go install go.uber.org/mock/mockgen@latest
