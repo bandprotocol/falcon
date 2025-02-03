@@ -197,7 +197,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		if cp.Metrics != nil {
 			// increment the transaction count metric for the current tunnel
-			cp.Metrics.IncTxCount(packet.TunnelID)
+			relayermetrics.IncTxCount(packet.TunnelID)
 		}
 
 		log.Info(
@@ -231,10 +231,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			case TX_STATUS_SUCCESS:
 				if cp.Metrics != nil {
 					// track transaction processing time in seconds with millisecond precision
-					cp.Metrics.ObserveTxProcessTime(cp.ChainName, float64(time.Since(createdAt).Milliseconds()))
+					relayermetrics.ObserveTxProcessTime(cp.ChainName, float64(time.Since(createdAt).Milliseconds()))
 
 					// track gas used for the relayed transaction
-					cp.Metrics.ObserveGasUsed(packet.TunnelID, result.GasUsed.Decimal.BigInt().Uint64())
+					relayermetrics.ObserveGasUsed(packet.TunnelID, result.GasUsed.Decimal.BigInt().Uint64())
 				}
 
 				log.Info(

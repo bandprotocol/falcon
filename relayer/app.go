@@ -550,8 +550,7 @@ func (a *App) Start(
 	if metricsListenAddrFlag != "" {
 		metricsListenAddr = metricsListenAddrFlag
 	}
-	prometheusMetrics, err := a.setupMetricsServer(ctx, metricsListenAddr, enableMetricsServer)
-	if err != nil {
+	if err := a.setupMetricsServer(ctx, metricsListenAddr, enableMetricsServer); err != nil {
 		return err
 	}
 
@@ -594,7 +593,6 @@ func (a *App) Start(
 			a.Config.Global.CheckingPacketInterval,
 			a.BandClient,
 			chainProvider,
-			prometheusMetrics,
 		)
 		tunnelRelayers = append(tunnelRelayers, &tr)
 	}
@@ -612,7 +610,6 @@ func (a *App) Start(
 		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.TargetChains,
-		prometheusMetrics,
 		chainNames,
 	)
 
@@ -651,7 +648,6 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		a.Config.Global.CheckingPacketInterval,
 		a.BandClient,
 		chainProvider,
-		nil,
 	)
 
 	return tr.CheckAndRelay(ctx)
@@ -681,8 +677,7 @@ func (a *App) setupMetricsServer(
 	ctx context.Context,
 	metricsListenAddr string,
 	enableMetricsServer bool,
-) (*relayermetrics.PrometheusMetrics, error) {
-	prometheusMetrics := &relayermetrics.PrometheusMetrics{}
+) error {
 	if !enableMetricsServer {
 		a.Log.Info("Metrics server is disabled you can enable it using --enable-metrics-server flag")
 	} else if metricsListenAddr == "" {
@@ -693,15 +688,17 @@ func (a *App) setupMetricsServer(
 		if err != nil {
 			a.Log.Error("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag")
 
-			return nil, fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
+			return fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
 		}
 		log := a.Log.With(zap.String("sys", "metricshttp"))
 		log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
-		prometheusMetrics = relayermetrics.NewPrometheusMetrics()
+
+		// enable telemetry
+		relayermetrics.EnableTelemetry()
+
+		// start server
+		prometheusMetrics := relayermetrics.NewPrometheusMetrics()
 		relayermetrics.StartMetricsServer(ctx, log, ln, prometheusMetrics.Registry)
-		for _, chainProvider := range a.TargetChains {
-			chainProvider.SetMetrics(prometheusMetrics)
-		}
 	}
-	return prometheusMetrics, nil
+	return nil
 }

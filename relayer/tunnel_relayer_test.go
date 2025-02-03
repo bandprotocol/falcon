@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
@@ -45,8 +44,6 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 	s.client = mocks.NewMockClient(ctrl)
 	s.ctx = context.Background()
 
-	var prometheusMetrics *relayermetrics.PrometheusMetrics
-
 	tunnelRelayer := relayer.NewTunnelRelayer(
 		zap.NewNop(),
 		defaultTunnelID,
@@ -54,7 +51,6 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 		defaultCheckingPacketInterval,
 		s.client,
 		s.chainProvider,
-		prometheusMetrics,
 	)
 	s.tunnelRelayer = &tunnelRelayer
 }

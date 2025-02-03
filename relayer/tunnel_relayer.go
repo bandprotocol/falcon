@@ -35,7 +35,6 @@ func NewTunnelRelayer(
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,
 	targetChainProvider chains.ChainProvider,
-	metrics *relayermetrics.PrometheusMetrics,
 ) TunnelRelayer {
 	return TunnelRelayer{
 		Log:                    log.With(zap.Uint64("tunnel_id", tunnelID)),
@@ -44,7 +43,6 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
-		Metrics:                metrics,
 		isExecuting:            false,
 	}
 }
@@ -82,8 +80,8 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		if !tunnelChainInfo.IsActive {
 			// decrease active status and increase inactive status if the tunnel was previously active
 			if t.IsTargetChainActive && t.Metrics != nil {
-				t.Metrics.DecTargetContractCount(targetContractActiveStatus)
-				t.Metrics.IncTargetContractCount(targetContractInActiveStatus)
+				relayermetrics.DecTargetContractCount(targetContractActiveStatus)
+				relayermetrics.IncTargetContractCount(targetContractInActiveStatus)
 				t.IsTargetChainActive = false
 			}
 			t.Log.Info("Tunnel is not active on target chain")
@@ -92,14 +90,14 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		// increase active status and decrease inactive status if the tunnel was previously inactive
 		if tunnelChainInfo.IsActive && !t.IsTargetChainActive && t.Metrics != nil {
-			t.Metrics.IncTargetContractCount(targetContractActiveStatus)
-			t.Metrics.DecTargetContractCount(targetContractInActiveStatus)
+			relayermetrics.IncTargetContractCount(targetContractActiveStatus)
+			relayermetrics.DecTargetContractCount(targetContractInActiveStatus)
 			t.IsTargetChainActive = true
 		}
 
 		if t.Metrics != nil {
 			// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
-			t.Metrics.SetUnrelayedPacket(
+			relayermetrics.SetUnrelayedPacket(
 				t.TunnelID,
 				float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
 			)
@@ -148,7 +146,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 		if t.Metrics != nil {
 			// increment the packet received metric
-			t.Metrics.IncPacketlReceived(t.TunnelID)
+			relayermetrics.IncPacketlReceived(t.TunnelID)
 		}
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))

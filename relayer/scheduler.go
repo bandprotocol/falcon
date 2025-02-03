@@ -34,7 +34,6 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
-	Metrics        *relayermetrics.PrometheusMetrics
 	ChainNames     map[string]bool
 }
 
@@ -50,7 +49,6 @@ func NewScheduler(
 	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
-	metrics *relayermetrics.PrometheusMetrics,
 	chainNames map[string]bool,
 ) *Scheduler {
 	return &Scheduler{
@@ -66,7 +64,6 @@ func NewScheduler(
 		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
-		Metrics:                          metrics,
 		ChainNames:                       chainNames,
 	}
 }
@@ -79,9 +76,9 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
 
-	if s.Metrics != nil {
+	if relayermetrics.IsTelemetryEnabled() {
 		// initialize and update metrics for tunnels, target chain contracts, and destination chains
-		s.Metrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
+		relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
 		for _, tr := range s.TunnelRelayers {
 			t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
 			if err != nil {
@@ -92,9 +89,9 @@ func (s *Scheduler) Start(ctx context.Context) error {
 			if !t.IsActive {
 				status = targetContractInActiveStatus
 			}
-			s.Metrics.IncTargetContractCount(status)
+			relayermetrics.IncTargetContractCount(status)
 		}
-		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainNames)))
+		relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames)))
 	}
 
 	// execute once we start the scheduler.
@@ -142,9 +139,9 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		task := NewTask(i, s.CheckingPacketInterval)
 		go s.TriggerTunnelRelayer(ctx, task)
 
-		if s.Metrics != nil {
+		if relayermetrics.IsTelemetryEnabled() {
 			// record metrics for the task execution for the current tunnel relayer
-			s.Metrics.IncTasksCount(tr.TunnelID)
+			relayermetrics.IncTasksCount(tr.TunnelID)
 		}
 	}
 }
@@ -182,9 +179,9 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		return
 	}
 
-	if s.Metrics != nil {
+	if relayermetrics.IsTelemetryEnabled() {
 		// record the execution time of successful task.
-		s.Metrics.ObserveTaskExecutionTime(
+		relayermetrics.ObserveTaskExecutionTime(
 			tr.TunnelID,
 			float64(time.Since(startExecutionTaskTime).Milliseconds()),
 		)
@@ -237,7 +234,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			s.CheckingPacketInterval,
 			s.BandClient,
 			chainProvider,
-			s.Metrics,
 		)
 
 		// update metrics for the new tunnel and its target chain status
@@ -246,13 +242,13 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			continue
 		}
 
-		if s.Metrics != nil {
+		if relayermetrics.IsTelemetryEnabled() {
 			tr.IsTargetChainActive = t.IsActive
 			status := targetContractActiveStatus
 			if !t.IsActive {
 				status = targetContractActiveStatus
 			}
-			s.Metrics.IncTargetContractCount(status)
+			relayermetrics.IncTargetContractCount(status)
 
 			if _, ok := s.ChainNames[tunnels[i].TargetChainID]; !ok {
 				s.ChainNames[tunnels[i].TargetChainID] = true
@@ -270,10 +266,10 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		s.BandLatestTunnel = int(tunnels[i].ID)
 	}
 
-	if s.Metrics != nil {
+	if relayermetrics.IsTelemetryEnabled() {
 		// update metrics for the number of destination chains and tunnels after synchronization
-		s.Metrics.AddDestinationChainCount(uint64(len(s.ChainNames) - oldDestinationChainCount))
-		s.Metrics.AddTunnellCount(uint64(len(s.TunnelRelayers) - oldTunnelRelayerCount))
+		relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames) - oldDestinationChainCount))
+		relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers) - oldTunnelRelayerCount))
 	}
 }
 

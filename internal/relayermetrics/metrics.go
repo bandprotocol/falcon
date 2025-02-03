@@ -13,6 +13,22 @@ import (
 	"go.uber.org/zap"
 )
 
+var metrics *PrometheusMetrics
+
+// globalTelemetryEnabled is a private variable that stores the telemetry enabled state.
+// It is set on initialization and does not change for the lifetime of the program.
+var globalTelemetryEnabled bool
+
+// IsTelemetryEnabled provides controlled access to check if telemetry is enabled.
+func IsTelemetryEnabled() bool {
+	return globalTelemetryEnabled
+}
+
+// EnableTelemetry allows for the global telemetry enabled state to be set.
+func EnableTelemetry() {
+	globalTelemetryEnabled = true
+}
+
 type PrometheusMetrics struct {
 	Registry              *prometheus.Registry
 	TunnelCount           prometheus.Counter
@@ -27,48 +43,48 @@ type PrometheusMetrics struct {
 	GasUsed               *prometheus.SummaryVec
 }
 
-func (m *PrometheusMetrics) AddTunnellCount(count uint64) {
-	m.TunnelCount.Add(float64(count))
+func AddTunnellCount(count uint64) {
+	metrics.TunnelCount.Add(float64(count))
 }
 
-func (m *PrometheusMetrics) IncPacketlReceived(tunnelID uint64) {
-	m.PacketReceived.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+func IncPacketlReceived(tunnelID uint64) {
+	metrics.PacketReceived.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 }
 
-func (m *PrometheusMetrics) SetUnrelayedPacket(tunnelID uint64, unrelayedPacket float64) {
-	m.UnrelayedPacket.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(unrelayedPacket)
+func SetUnrelayedPacket(tunnelID uint64, unrelayedPacket float64) {
+	metrics.UnrelayedPacket.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(unrelayedPacket)
 }
 
-func (m *PrometheusMetrics) IncTasksCount(tunnelID uint64) {
-	m.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+func IncTasksCount(tunnelID uint64) {
+	metrics.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 }
 
-func (m *PrometheusMetrics) ObserveTaskExecutionTime(tunnelID uint64, taskExecutionTime float64) {
-	m.TaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(taskExecutionTime)
+func ObserveTaskExecutionTime(tunnelID uint64, taskExecutionTime float64) {
+	metrics.TaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(taskExecutionTime)
 }
 
-func (m *PrometheusMetrics) AddDestinationChainCount(count uint64) {
-	m.DestinationChainCount.Add(float64(count))
+func AddDestinationChainCount(count uint64) {
+	metrics.DestinationChainCount.Add(float64(count))
 }
 
-func (m *PrometheusMetrics) IncTargetContractCount(status string) {
-	m.TargetContract.WithLabelValues(status).Inc()
+func IncTargetContractCount(status string) {
+	metrics.TargetContract.WithLabelValues(status).Inc()
 }
 
-func (m *PrometheusMetrics) DecTargetContractCount(status string) {
-	m.TargetContract.WithLabelValues(status).Dec()
+func DecTargetContractCount(status string) {
+	metrics.TargetContract.WithLabelValues(status).Dec()
 }
 
-func (m *PrometheusMetrics) IncTxCount(tunnelID uint64) {
-	m.TxCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+func IncTxCount(tunnelID uint64) {
+	metrics.TxCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 }
 
-func (m *PrometheusMetrics) ObserveTxProcessTime(chainName string, taskExecutionTime float64) {
-	m.TxProcessTime.WithLabelValues(chainName).Observe(taskExecutionTime)
+func ObserveTxProcessTime(chainName string, taskExecutionTime float64) {
+	metrics.TxProcessTime.WithLabelValues(chainName).Observe(taskExecutionTime)
 }
 
-func (m *PrometheusMetrics) ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
-	m.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(float64(gasUsed))
+func ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
+	metrics.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(float64(gasUsed))
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
@@ -80,7 +96,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
-	return &PrometheusMetrics{
+	metrics = &PrometheusMetrics{
 		Registry: registry,
 		TunnelCount: registerer.NewCounter(prometheus.CounterOpts{
 			Name: "falcon_tunnel_count_total",
@@ -138,6 +154,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			},
 		}, gasUsedLabels),
 	}
+	return metrics
 }
 
 // StartMetricsServer starts a metrics server in a background goroutine,
