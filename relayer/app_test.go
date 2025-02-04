@@ -63,11 +63,14 @@ func (s *AppTestSuite) SetupTest() {
 	err := os.Mkdir(cfgFolder, os.ModePerm)
 	s.Require().NoError(err)
 
+	store, err := store.NewFileSystem(tmpDir)
+	s.Require().NoError(err)
+
 	s.app = &relayer.App{
 		Log:      log,
 		HomePath: tmpDir,
 		Config:   &cfg,
-		Store:    store.NewFileSystem(tmpDir, "secret"),
+		Store:    store,
 		TargetChains: map[string]chains.ChainProvider{
 			"testnet_evm": s.chainProvider,
 		},
@@ -240,7 +243,8 @@ func (s *AppTestSuite) TestAddChainConfig() {
 			}
 
 			// init app
-			fs := store.NewFileSystem(newHomePath, s.app.Passphrase)
+			fs, err := store.NewFileSystem(newHomePath)
+			s.Require().NoError(err)
 
 			app := relayer.NewApp(nil, newHomePath, false, tc.in.existingCfg, "", fs)
 			if app.Config == nil {
@@ -302,9 +306,11 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			fs := store.NewFileSystem(newHomePath, s.app.Passphrase)
+			fs, err := store.NewFileSystem(newHomePath)
+			s.Require().NoError(err)
+
 			app := relayer.NewApp(nil, newHomePath, false, nil, "", fs)
-			err := app.InitConfigFile(newHomePath, customCfgPath)
+			err = app.InitConfigFile(newHomePath, customCfgPath)
 			s.Require().NoError(err)
 
 			// load config file

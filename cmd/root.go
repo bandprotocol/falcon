@@ -48,12 +48,14 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
          (i.e. 'falcon tx', 'falcon q', etc...)`),
 	}
 
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) (err error) {
 		// set up store
-		app.Store = store.NewFileSystem(app.HomePath, app.Passphrase)
+		app.Store, err = store.NewFileSystem(app.HomePath)
+		if err != nil {
+			return err
+		}
 
 		// load configuration
-		var err error
 		app.Config, err = app.Store.GetConfig()
 		if err != nil {
 			return err

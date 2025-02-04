@@ -96,7 +96,7 @@ func (a *App) initTargetChains() error {
 	a.TargetChains = make(chains.ChainProviders)
 
 	for chainName, chainConfig := range a.Config.TargetChains {
-		wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName)
+		wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
 		if err != nil {
 			a.Log.Error("Wallet registry not found",
 				zap.Error(err),
@@ -154,9 +154,9 @@ func (a *App) InitPassphrase() error {
 	// Load and hash the passphrase
 	h := sha256.New()
 	h.Write([]byte(a.Passphrase))
-	passphrase := h.Sum(nil)
+	hashedPassphrase := h.Sum(nil)
 
-	return a.Store.SavePassphrase(passphrase)
+	return a.Store.SaveHashedPassphrase(hashedPassphrase)
 }
 
 // QueryTunnelInfo queries tunnel information by given tunnel ID
@@ -380,7 +380,7 @@ func (a *App) ValidatePassphrase(envPassphrase string) error {
 	envb := h.Sum(nil)
 
 	// load passphrase from local disk
-	storedPassphrase, err := a.Store.GetPassphrase()
+	storedPassphrase, err := a.Store.GetHashedPassphrase()
 	if err != nil {
 		return err
 	}

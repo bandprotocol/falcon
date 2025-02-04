@@ -32,9 +32,12 @@ func TestParseConfig(t *testing.T) {
 		{
 			name: "read default config",
 			preProcess: func(t *testing.T) {
-				fs := store.NewFileSystem(tmpDir, "")
+				fs, err := store.NewFileSystem(tmpDir)
+				require.NoError(t, err)
+
 				app := relayer.NewApp(nil, tmpDir, false, nil, "", fs)
-				err := app.InitConfigFile(tmpDir, "")
+
+				err = app.InitConfigFile(tmpDir, "")
 				require.NoError(t, err)
 			},
 			out: config.DefaultConfig(),
