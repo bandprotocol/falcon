@@ -377,16 +377,16 @@ func (a *App) ValidatePassphrase(envPassphrase string) error {
 	// prepare bytes slices of hashed env passphrase
 	h := sha256.New()
 	h.Write([]byte(envPassphrase))
-	envb := h.Sum(nil)
+	hashedPassphrase := h.Sum(nil)
 
 	// load passphrase from local disk
-	storedPassphrase, err := a.Store.GetHashedPassphrase()
+	storedHashedPassphrase, err := a.Store.GetHashedPassphrase()
 	if err != nil {
 		return err
 	}
 
-	if !bytes.Equal(envb, storedPassphrase) {
-		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored passphrase")
+	if !bytes.Equal(hashedPassphrase, storedHashedPassphrase) {
+		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored hashed passphrase")
 	}
 
 	return nil
