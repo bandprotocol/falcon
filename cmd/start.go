@@ -31,31 +31,20 @@ $ %s start 1 12      # start relaying data from specific tunnelIDs.`, appName, a
 				tunnelIDs = append(tunnelIDs, tunnelID)
 			}
 
-			enableMetricsServerFlag, err := cmd.Flags().GetBool(flagEnableMetricsServer)
-			if err != nil {
-				return err
-			}
-
 			metricsListenAddrFlag, err := cmd.Flags().GetString(flagMetricsListenAddr)
 			if err != nil {
 				return err
 			}
 
-			return app.Start(cmd.Context(), tunnelIDs, enableMetricsServerFlag, metricsListenAddrFlag)
+			return app.Start(cmd.Context(), tunnelIDs, metricsListenAddrFlag)
 		},
 	}
-	cmd.Flags().Bool(
-		flagEnableMetricsServer,
-		false,
-		"Enables the metrics server. By default, this is determined by the enable-metrics-server parameter in the global config. "+
-			"Use this flag to override the config setting.",
-	)
+
 	cmd.Flags().String(
 		flagMetricsListenAddr,
 		"",
 		"address to use for metrics server. By default, "+
-			"will be the metrics-listen-addr parameter in the global config. "+
-			"Make sure to enable metrics server using --enable-metrics-server flag.",
+			"will be the metrics-listen-addr parameter in the global config. ",
 	)
 	return cmd
 }

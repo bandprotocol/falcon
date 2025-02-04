@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/big"
-	"net"
 	"os"
 	"path"
 
@@ -526,7 +525,6 @@ func (a *App) ValidatePassphrase(envPassphrase string) error {
 func (a *App) Start(
 	ctx context.Context,
 	tunnelIDs []uint64,
-	enableMetricsServer bool,
 	metricsListenAddrFlag string,
 ) error {
 	a.Log.Info("Starting tunnel relayer")
@@ -543,14 +541,11 @@ func (a *App) Start(
 	}
 
 	// setup metrics server
-	if !enableMetricsServer {
-		enableMetricsServer = a.Config.Global.EnableMetricsServer
-	}
 	metricsListenAddr := a.Config.Global.MetricsListenAddr
 	if metricsListenAddrFlag != "" {
 		metricsListenAddr = metricsListenAddrFlag
 	}
-	if err := a.setupMetricsServer(ctx, metricsListenAddr, enableMetricsServer); err != nil {
+	if err := a.setupMetricsServer(ctx, metricsListenAddr); err != nil {
 		return err
 	}
 
@@ -673,32 +668,18 @@ func (a *App) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.T
 	return tunnels, nil
 }
 
+// setupMetricsServer starts the metrics server if enabled.
 func (a *App) setupMetricsServer(
 	ctx context.Context,
 	metricsListenAddr string,
-	enableMetricsServer bool,
 ) error {
-	if !enableMetricsServer {
-		a.Log.Info("Metrics server is disabled you can enable it using --enable-metrics-server flag")
-	} else if metricsListenAddr == "" {
-		a.Log.Warn("Disabled metrics server due to missing metrics-listen-addr setting in config file or --metrics-listen-addr flag")
-	} else {
-		a.Log.Info("Metrics server is enabled")
-		ln, err := net.Listen("tcp", metricsListenAddr)
-		if err != nil {
-			a.Log.Error("Failed to start metrics server you can change the address and port using metrics-listen-addr config settingh or --metrics-listen-flag")
-
-			return fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
-		}
-		log := a.Log.With(zap.String("sys", "metricshttp"))
-		log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
-
-		// enable telemetry
-		relayermetrics.EnableTelemetry()
-
-		// start server
-		prometheusMetrics := relayermetrics.NewPrometheusMetrics()
-		relayermetrics.StartMetricsServer(ctx, log, ln, prometheusMetrics.Registry)
+	if metricsListenAddr == "" {
+		a.Log.Warn(
+			"Metrics server is disabled. It is controlled by the global config, and setting --metrics-listen-addr will override it and enable the server.",
+		)
+		return nil
 	}
-	return nil
+
+	// start server
+	return relayermetrics.StartMetricsServer(ctx, a.Log, metricsListenAddr)
 }

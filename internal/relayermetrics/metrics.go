@@ -13,6 +13,13 @@ import (
 	"go.uber.org/zap"
 )
 
+// the statuses of a target contract
+const (
+	TargetContractActiveStatus   = "active"
+	TargetContractInActiveStatus = "inactive"
+)
+
+// metrics is variable to store Prometheus metrics instance.
 var metrics *PrometheusMetrics
 
 // globalTelemetryEnabled is a private variable that stores the telemetry enabled state.
@@ -25,7 +32,7 @@ func IsTelemetryEnabled() bool {
 }
 
 // EnableTelemetry allows for the global telemetry enabled state to be set.
-func EnableTelemetry() {
+func enableTelemetry() {
 	globalTelemetryEnabled = true
 }
 
@@ -43,46 +50,57 @@ type PrometheusMetrics struct {
 	GasUsed               *prometheus.SummaryVec
 }
 
+// AddTunnellCount increments the total tunnel count metric.
 func AddTunnellCount(count uint64) {
 	metrics.TunnelCount.Add(float64(count))
 }
 
+// IncPacketlReceived increments the count of successfully relayed packets for a specific tunnel.
 func IncPacketlReceived(tunnelID uint64) {
 	metrics.PacketReceived.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 }
 
+// SetUnrelayedPacket sets the number of unrelayed packets for a specific tunnel.
 func SetUnrelayedPacket(tunnelID uint64, unrelayedPacket float64) {
 	metrics.UnrelayedPacket.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(unrelayedPacket)
 }
 
+// IncTasksCount increments the total task count for a specific tunnel.
 func IncTasksCount(tunnelID uint64) {
 	metrics.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 }
 
+// ObserveTaskExecutionTime records the execution time of a task for a specific tunnel.
 func ObserveTaskExecutionTime(tunnelID uint64, taskExecutionTime float64) {
 	metrics.TaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(taskExecutionTime)
 }
 
+// AddDestinationChainCount increments the total number of destination chains observed.
 func AddDestinationChainCount(count uint64) {
 	metrics.DestinationChainCount.Add(float64(count))
 }
 
+// IncTargetContractCount increases the count of active or inactive target contracts.
 func IncTargetContractCount(status string) {
 	metrics.TargetContract.WithLabelValues(status).Inc()
 }
 
+// DecTargetContractCount decreases the count of active or inactive target contracts.
 func DecTargetContractCount(status string) {
 	metrics.TargetContract.WithLabelValues(status).Dec()
 }
 
+// IncTxCount increments the transaction count metric for the current tunnel
 func IncTxCount(tunnelID uint64) {
 	metrics.TxCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 }
 
+// ObserveTxProcessTime tracks transaction processing time in seconds with millisecond precision.
 func ObserveTxProcessTime(chainName string, taskExecutionTime float64) {
 	metrics.TxProcessTime.WithLabelValues(chainName).Observe(taskExecutionTime)
 }
 
+// ObserveGasUsed tracks gas used for the each relayed transaction.
 func ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
 	metrics.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(float64(gasUsed))
 }
@@ -161,7 +179,23 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 // accepting connections on the given listener.
 // Any HTTP logging will be written at info level to the given logger.
 // The server will be forcefully shut down when ctx finishes.
-func StartMetricsServer(ctx context.Context, log *zap.Logger, ln net.Listener, registry *prometheus.Registry) {
+func StartMetricsServer(ctx context.Context, log *zap.Logger, metricsListenAddr string) error {
+	ln, err := net.Listen("tcp", metricsListenAddr)
+	if err != nil {
+		log.Error(
+			"Failed to start metrics server you can change the address and port using metrics-listen-addr config setting or --metrics-listen-flag",
+		)
+
+		return fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
+	}
+	log = log.With(zap.String("sys", "metricshttp"))
+	log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
+
+	// enable telemetry
+	enableTelemetry()
+
+	prometheusMetrics := NewPrometheusMetrics()
+
 	// Set up new mux identical to the default mux configuration in net/http/pprof.
 	mux := http.NewServeMux()
 
@@ -169,7 +203,7 @@ func StartMetricsServer(ctx context.Context, log *zap.Logger, ln net.Listener, r
 	mux.Handle("/metrics", promhttp.Handler())
 
 	// Serve relayer metrics
-	mux.Handle("/relayer/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	mux.Handle("/relayer/metrics", promhttp.HandlerFor(prometheusMetrics.Registry, promhttp.HandlerOpts{}))
 
 	srv := &http.Server{
 		Handler:  mux,
@@ -188,4 +222,6 @@ func StartMetricsServer(ctx context.Context, log *zap.Logger, ln net.Listener, r
 		<-ctx.Done()
 		srv.Close()
 	}()
+
+	return nil
 }

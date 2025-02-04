@@ -13,11 +13,6 @@ import (
 
 const penaltyTaskChSize = 1000
 
-const (
-	targetContractActiveStatus   = "active"
-	targetContractInActiveStatus = "inactive"
-)
-
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
 	Log                              *zap.Logger
@@ -85,9 +80,9 @@ func (s *Scheduler) Start(ctx context.Context) error {
 				continue
 			}
 			tr.IsTargetChainActive = t.IsActive
-			status := targetContractActiveStatus
+			status := relayermetrics.TargetContractActiveStatus
 			if !t.IsActive {
-				status = targetContractInActiveStatus
+				status = relayermetrics.TargetContractInActiveStatus
 			}
 			relayermetrics.IncTargetContractCount(status)
 		}
@@ -244,15 +239,13 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 				continue
 			}
 			tr.IsTargetChainActive = t.IsActive
-			status := targetContractActiveStatus
+			status := relayermetrics.TargetContractActiveStatus
 			if !t.IsActive {
-				status = targetContractActiveStatus
+				status = relayermetrics.TargetContractInActiveStatus
 			}
 			relayermetrics.IncTargetContractCount(status)
 
-			if _, ok := s.ChainNames[tunnels[i].TargetChainID]; !ok {
-				s.ChainNames[tunnels[i].TargetChainID] = true
-			}
+			s.ChainNames[tunnels[i].TargetChainID] = true
 		}
 
 		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
