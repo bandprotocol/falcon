@@ -213,10 +213,13 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		s.Log.Info("No new tunnels to sync")
 		return
 	}
+
+	bandLatestTunnel := s.BandLatestTunnel
+
 	oldTunnelRelayerCount := len(s.TunnelRelayers)
 	oldDestinationChainCount := len(s.ChainNames)
 
-	for i := s.BandLatestTunnel; i < len(tunnels); i++ {
+	for i := bandLatestTunnel; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
 			s.Log.Warn(
@@ -236,13 +239,12 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			chainProvider,
 		)
 
-		// update metrics for the new tunnel and its target chain status
-		t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
-		if err != nil {
-			continue
-		}
-
 		if relayermetrics.IsTelemetryEnabled() {
+			// update metrics for the new tunnel and its target chain status
+			t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
+			if err != nil {
+				continue
+			}
 			tr.IsTargetChainActive = t.IsActive
 			status := targetContractActiveStatus
 			if !t.IsActive {
