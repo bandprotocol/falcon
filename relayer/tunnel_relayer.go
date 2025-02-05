@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ type TunnelRelayer struct {
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
 
-	isExecuting bool
+	mu *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -40,15 +41,17 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
-		isExecuting:            false,
+		mu:                     &sync.Mutex{},
 	}
 }
 
 // CheckAndRelay checks the tunnel and relays the packet
 func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
-	t.isExecuting = true
+	if !t.mu.TryLock() {
+		return nil
+	}
 	defer func() {
-		t.isExecuting = false
+		t.mu.Unlock()
 
 		// Recover from panic
 		if r := recover(); r != nil {
@@ -126,5 +129,9 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 }
 
 func (t *TunnelRelayer) IsExecuting() bool {
-	return t.isExecuting
+	if t.mu.TryLock() {
+		defer t.mu.Unlock()
+		return false
+	}
+	return true
 }
