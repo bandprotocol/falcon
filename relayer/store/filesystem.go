@@ -86,7 +86,7 @@ func (fs *FileSystem) SaveHashedPassphrase(hashedPassphrase []byte) error {
 func (fs *FileSystem) NewWallet(chainType chains.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
 	switch chainType {
 	case chains.ChainTypeEVM:
-		return wallet.NewGethKeyStoreWallet(passphrase, fs.HomePath, chainName)
+		return wallet.NewGethWallet(passphrase, fs.HomePath, chainName)
 	default:
 		return nil, fmt.Errorf("unsupported chain type: %s", chainType)
 	}

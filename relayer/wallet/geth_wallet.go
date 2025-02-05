@@ -12,9 +12,9 @@ import (
 	"github.com/bandprotocol/falcon/internal"
 )
 
-var _ Wallet = &GethKeyStoreWallet{}
+var _ Wallet = &GethWallet{}
 
-type GethKeyStoreWallet struct {
+type GethWallet struct {
 	Passphrase  string
 	Store       *keystore.KeyStore
 	KeyNameInfo map[string]string
@@ -22,8 +22,8 @@ type GethKeyStoreWallet struct {
 	ChainName   string
 }
 
-// NewGethKeyStoreWallet creates a new GethKeyStoreWallet instance
-func NewGethKeyStoreWallet(passphrase, homePath, chainName string) (*GethKeyStoreWallet, error) {
+// NewGethWallet creates a new GethWallet instance
+func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) {
 	// create keystore
 	keyStoreDir := path.Join(getKeyStoreDir(homePath, chainName)...)
 	store := keystore.NewKeyStore(keyStoreDir, keystore.StandardScryptN, keystore.StandardScryptP)
@@ -42,7 +42,7 @@ func NewGethKeyStoreWallet(passphrase, homePath, chainName string) (*GethKeyStor
 		return nil, err
 	}
 
-	return &GethKeyStoreWallet{
+	return &GethWallet{
 		Passphrase:  passphrase,
 		Store:       store,
 		HomePath:    homePath,
@@ -52,7 +52,7 @@ func NewGethKeyStoreWallet(passphrase, homePath, chainName string) (*GethKeyStor
 }
 
 // SavePrivateKey saves the private key to the keystore and returns the account and update the keyNameToHexAddress map
-func (w *GethKeyStoreWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (string, error) {
+func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (string, error) {
 	acc, err := w.Store.ImportECDSA(privKey, w.Passphrase)
 	if err != nil {
 		return "", err
@@ -68,7 +68,7 @@ func (w *GethKeyStoreWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateK
 }
 
 // DeletePrivateKey deletes the private key from the keystore and returns the address
-func (w *GethKeyStoreWallet) DeletePrivateKey(name string) error {
+func (w *GethWallet) DeletePrivateKey(name string) error {
 	hexAddr, ok := w.KeyNameInfo[name]
 	if !ok {
 		return fmt.Errorf("key name does not exist: %s", name)
@@ -89,13 +89,13 @@ func (w *GethKeyStoreWallet) DeletePrivateKey(name string) error {
 }
 
 // GetAddress returns the address of the given key name
-func (w *GethKeyStoreWallet) GetAddress(name string) (string, bool) {
+func (w *GethWallet) GetAddress(name string) (string, bool) {
 	addr, ok := w.KeyNameInfo[name]
 	return addr, ok
 }
 
 // GetNames returns the list of key names
-func (w *GethKeyStoreWallet) GetNames() []string {
+func (w *GethWallet) GetNames() []string {
 	names := make([]string, 0, len(w.KeyNameInfo))
 	for name := range w.KeyNameInfo {
 		names = append(names, name)
@@ -105,7 +105,7 @@ func (w *GethKeyStoreWallet) GetNames() []string {
 }
 
 // GetKey returns the private key and address of the given key name
-func (w *GethKeyStoreWallet) GetKey(name string) (*Key, error) {
+func (w *GethWallet) GetKey(name string) (*Key, error) {
 	hexAddr, ok := w.KeyNameInfo[name]
 	if !ok {
 		return nil, fmt.Errorf("key name does not exist: %s", name)
@@ -139,7 +139,7 @@ func (w *GethKeyStoreWallet) GetKey(name string) (*Key, error) {
 }
 
 // SaveKeyNameInfo writes the keyNameInfo map to the file
-func (w *GethKeyStoreWallet) SaveKeyNameInfo() error {
+func (w *GethWallet) SaveKeyNameInfo() error {
 	b, err := toml.Marshal(w.KeyNameInfo)
 	if err != nil {
 		return err

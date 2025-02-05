@@ -73,7 +73,7 @@ func (s *SenderTestSuite) SetupTest() {
 
 	client := evm.NewClient(chainName, evmCfg, log)
 
-	wallet, err := wallet.NewGethKeyStoreWallet("", s.homePath, chainName)
+	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
 	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir, wallet)

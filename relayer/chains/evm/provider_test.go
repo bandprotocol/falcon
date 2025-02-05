@@ -118,7 +118,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	chainName := "testnet"
 	s.chainName = chainName
 
-	wallet, err := wallet.NewGethKeyStoreWallet("", s.homePath, s.chainName)
+	wallet, err := wallet.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, s.homePath, wallet)

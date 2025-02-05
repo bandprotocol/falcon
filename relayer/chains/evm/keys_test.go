@@ -40,7 +40,7 @@ func (s *KeysTestSuite) SetupTest() {
 	chainName := "testnet"
 	client := evm.NewClient(chainName, evmCfg, s.log)
 
-	wallet, err := wallet.NewGethKeyStoreWallet("", s.homePath, chainName)
+	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
 	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath, wallet)
@@ -361,7 +361,7 @@ func (s *KeysTestSuite) TestGetKeyFromKeyName() {
 	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
 	s.Require().NoError(err)
 
-	s.chainProvider.Wallet, err = wallet.NewGethKeyStoreWallet("invalid", s.homePath, s.chainProvider.ChainName)
+	s.chainProvider.Wallet, err = wallet.NewGethWallet("invalid", s.homePath, s.chainProvider.ChainName)
 	s.Require().NoError(err)
 
 	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
