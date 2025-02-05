@@ -18,3 +18,7 @@ coverage.out
 
 # Configuration files
 .env
+.release-env 
+
+# Added by goreleaser init:
+dist/
