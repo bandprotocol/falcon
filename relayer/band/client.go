@@ -60,18 +60,18 @@ func NewClient(queryClient QueryClient, log *zap.Logger, bandChainCfg *Config) C
 // Init initializes the BandChain client by connecting to the chain and starting
 // periodic liveliness checks.
 func (c *client) Init(ctx context.Context) error {
-	timeout := uint(c.Config.Timeout)
-	if err := c.connect(timeout, true); err != nil {
+	if err := c.connect(true); err != nil {
 		c.Log.Error("Failed to connect to BandChain", zap.Error(err))
 		return err
 	}
 
-	go c.startLivelinessCheck(ctx, timeout, c.Config.LivelinessCheckingInterval)
+	go c.startLivelinessCheck(ctx)
 	return nil
 }
 
 // connect connects to the BandChain using the provided RPC endpoints.
-func (c *client) connect(timeout uint, onStartup bool) error {
+func (c *client) connect(onStartup bool) error {
+	timeout := uint(c.Config.Timeout)
 	for _, rpcEndpoint := range c.Config.RpcEndpoints {
 		// Create a new HTTP client for the specified node URI
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
@@ -101,8 +101,8 @@ func (c *client) connect(timeout uint, onStartup bool) error {
 }
 
 // startLivelinessCheck starts the liveliness check for the BandChain.
-func (c *client) startLivelinessCheck(ctx context.Context, timeout uint, interval time.Duration) {
-	ticker := time.NewTicker(interval)
+func (c *client) startLivelinessCheck(ctx context.Context) {
+	ticker := time.NewTicker(c.Config.LivelinessCheckingInterval)
 	for {
 		select {
 		case <-ctx.Done():
@@ -118,7 +118,7 @@ func (c *client) startLivelinessCheck(ctx context.Context, timeout uint, interva
 					zap.String("rpcEndpoint", c.Context.NodeURI),
 					zap.Error(err),
 				)
-				if err := c.connect(timeout, false); err != nil {
+				if err := c.connect(false); err != nil {
 					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
 				}
 			}
