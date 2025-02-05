@@ -10,7 +10,6 @@ import (
 	"time"
 
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
-	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
@@ -24,7 +23,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
-	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
 )
 
@@ -35,6 +33,10 @@ type AppTestSuite struct {
 	chainProviderConfig *mocks.MockChainProviderConfig
 	chainProvider       *mocks.MockChainProvider
 	client              *mocks.MockClient
+	mockStore           *mocks.MockStore
+
+	passphrase       string
+	hashedPassphrase []byte
 }
 
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
@@ -47,6 +49,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 	s.client = mocks.NewMockClient(ctrl)
+	s.mockStore = mocks.NewMockStore(ctrl)
 
 	cfg := config.Config{
 		BandChain: band.Config{
@@ -59,28 +62,24 @@ func (s *AppTestSuite) SetupTest() {
 		Global: config.GlobalConfig{},
 	}
 
-	cfgFolder := path.Join(tmpDir, relayer.ConfigFolderName)
-	err := os.Mkdir(cfgFolder, os.ModePerm)
-	s.Require().NoError(err)
+	s.passphrase = "secret"
 
-	store, err := store.NewFileSystem(tmpDir)
-	s.Require().NoError(err)
+	h := sha256.New()
+	h.Write([]byte(s.passphrase))
+	s.hashedPassphrase = h.Sum(nil)
+	s.mockStore.EXPECT().GetHashedPassphrase().Return(s.hashedPassphrase, nil).AnyTimes()
 
 	s.app = &relayer.App{
 		Log:      log,
 		HomePath: tmpDir,
 		Config:   &cfg,
-		Store:    store,
+		Store:    s.mockStore,
 		TargetChains: map[string]chains.ChainProvider{
 			"testnet_evm": s.chainProvider,
 		},
 		BandClient: s.client,
-		Passphrase: "secret",
+		Passphrase: s.passphrase,
 	}
-
-	// Call InitPassphrase
-	err = s.app.InitPassphrase()
-	s.Require().NoError(err)
 }
 
 func TestAppTestSuite(t *testing.T) {
@@ -98,13 +97,15 @@ func (s *AppTestSuite) TestInitConfig() {
 		{
 			name: "success - default",
 			in:   "",
-			out:  config.DefaultConfig(),
+			preprocess: func() {
+				s.mockStore.EXPECT().HasConfig().Return(false, nil)
+				s.mockStore.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
+			},
 		},
 		{
 			name: "config already exists",
 			preprocess: func() {
-				err := s.app.InitConfigFile(s.app.HomePath, "")
-				s.Require().NoError(err)
+				s.mockStore.EXPECT().HasConfig().Return(true, nil)
 			},
 			in:  "",
 			err: fmt.Errorf("config already exists"),
@@ -115,10 +116,10 @@ func (s *AppTestSuite) TestInitConfig() {
 				customCfgPath := path.Join(s.app.HomePath, "custom.toml")
 				cfg := `
 					[target_chains]
-			
+
 					[global]
 					checking_packet_interval = 60000000000
-				
+
 					[bandchain]
 					rpc_endpoints = ['http://localhost:26659']
 					timeout = 50
@@ -126,18 +127,22 @@ func (s *AppTestSuite) TestInitConfig() {
 
 				err := os.WriteFile(customCfgPath, []byte(cfg), 0o600)
 				s.Require().NoError(err)
+
+				expectCfg := &config.Config{
+					BandChain: band.Config{
+						RpcEndpoints: []string{"http://localhost:26659"},
+						Timeout:      50,
+					},
+					TargetChains: map[string]chains.ChainProviderConfig{},
+					Global: config.GlobalConfig{
+						CheckingPacketInterval: time.Minute,
+					},
+				}
+
+				s.mockStore.EXPECT().HasConfig().Return(false, nil)
+				s.mockStore.EXPECT().SaveConfig(expectCfg).Return(nil)
 			},
 			in: path.Join(s.app.HomePath, "custom.toml"),
-			out: &config.Config{
-				BandChain: band.Config{
-					RpcEndpoints: []string{"http://localhost:26659"},
-					Timeout:      50,
-				},
-				TargetChains: map[string]chains.ChainProviderConfig{},
-				Global: config.GlobalConfig{
-					CheckingPacketInterval: time.Minute,
-				},
-			},
 		},
 	}
 
@@ -148,27 +153,12 @@ func (s *AppTestSuite) TestInitConfig() {
 			}
 
 			err := s.app.InitConfigFile(s.app.HomePath, tc.in)
-			cfgFolder := path.Join(s.app.HomePath, relayer.ConfigFolderName)
-			cfgPath := path.Join(cfgFolder, relayer.ConfigFileName)
 
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
 			} else {
 				s.Require().NoError(err)
-				actualByte, err := os.ReadFile(cfgPath)
-				s.Require().NoError(err)
-
-				// marshal default config
-				expect := tc.out
-				expectBytes, err := toml.Marshal(expect)
-				s.Require().NoError(err)
-
-				s.Require().Equal(string(expectBytes), string(actualByte))
 			}
-
-			// clear config folder
-			err = os.RemoveAll(cfgFolder)
-			s.Require().NoError(err)
 		})
 	}
 }
@@ -188,26 +178,31 @@ func (s *AppTestSuite) TestAddChainConfig() {
 		preprocess func()
 		in         Input
 		err        error
-		out        string
 	}{
 		{
 			name: "success",
 			in: Input{
-				chainName: "testnet",
-				cfgPath:   path.Join(newHomePath, "chain_config.toml"),
+				chainName:   "testnet",
+				cfgPath:     path.Join(newHomePath, "chain_config.toml"),
+				existingCfg: config.DefaultConfig(),
 			},
 			preprocess: func() {
 				chainCfgPath := path.Join(newHomePath, "chain_config.toml")
 				err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
 				s.Require().NoError(err)
+
+				cfg, err := config.ParseConfig([]byte(relayertest.DefaultCfgTextWithChainCfg))
+				s.Require().NoError(err)
+
+				s.mockStore.EXPECT().SaveConfig(cfg).Return(nil)
 			},
-			out: relayertest.DefaultCfgTextWithChainCfg,
 		},
 		{
 			name: "invalid chain type",
 			in: Input{
-				chainName: "testnet",
-				cfgPath:   path.Join(newHomePath, "chain_config.toml"),
+				chainName:   "testnet",
+				cfgPath:     path.Join(newHomePath, "chain_config.toml"),
+				existingCfg: config.DefaultConfig(),
 			},
 			preprocess: func() {
 				chainCfgPath := path.Join(newHomePath, "chain_config.toml")
@@ -238,64 +233,44 @@ func (s *AppTestSuite) TestAddChainConfig() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
+			if tc.in.existingCfg != nil {
+				s.app.Config = tc.in.existingCfg
+			}
+
 			if tc.preprocess != nil {
 				tc.preprocess()
 			}
 
-			// init app
-			fs, err := store.NewFileSystem(newHomePath)
-			s.Require().NoError(err)
+			err = s.app.AddChainConfig(tc.in.chainName, tc.in.cfgPath)
 
-			app := relayer.NewApp(nil, newHomePath, false, tc.in.existingCfg, "", fs)
-			if app.Config == nil {
-				err := app.InitConfigFile(newHomePath, "")
-				s.Require().NoError(err)
-				s.Require().FileExists(path.Join(newHomePath, "config", "config.toml"))
-
-				app.Config, err = fs.GetConfig()
-				s.Require().NoError(err)
-			}
-
-			err = app.AddChainConfig(tc.in.chainName, tc.in.cfgPath)
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
 			} else {
 				s.Require().NoError(err)
-
-				actualBytes, err := os.ReadFile(path.Join(newHomePath, "config", "config.toml"))
-
-				s.Require().NoError(err)
-				s.Require().Equal(tc.out, string(actualBytes))
 			}
-
-			// clear config folder
-			cfgFolder := path.Join(newHomePath, relayer.ConfigFolderName)
-			err = os.RemoveAll(cfgFolder)
-			s.Require().NoError(err)
 		})
 	}
 }
 
 func (s *AppTestSuite) TestDeleteChainConfig() {
-	newHomePath := path.Join(s.app.HomePath, "new_folder")
-	err := os.Mkdir(newHomePath, os.ModePerm)
-	s.Require().NoError(err)
-
-	// write file
-	customCfgPath := path.Join(s.app.HomePath, "custom.toml")
-	err = os.WriteFile(customCfgPath, []byte(relayertest.DefaultCfgTextWithChainCfg), 0o600)
+	var err error
+	s.app.Config, err = config.ParseConfig([]byte(relayertest.DefaultCfgTextWithChainCfg))
 	s.Require().NoError(err)
 
 	testcases := []struct {
-		name string
-		in   string
-		out  string
-		err  error
+		name       string
+		in         string
+		preprocess func()
+		out        string
+		err        error
 	}{
 		{
 			name: "success",
 			in:   "testnet",
-			out:  relayertest.DefaultCfgText,
+			preprocess: func() {
+				s.mockStore.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
+			},
+			out: relayertest.DefaultCfgText,
 		},
 		{
 			name: "not existing chain name",
@@ -306,32 +281,16 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 
 	for _, tc := range testcases {
 		s.Run(tc.name, func() {
-			fs, err := store.NewFileSystem(newHomePath)
-			s.Require().NoError(err)
+			if tc.preprocess != nil {
+				tc.preprocess()
+			}
 
-			app := relayer.NewApp(nil, newHomePath, false, nil, "", fs)
-			err = app.InitConfigFile(newHomePath, customCfgPath)
-			s.Require().NoError(err)
-
-			// load config file
-			app.Config, err = fs.GetConfig()
-			s.Require().NoError(err)
-
-			err = app.DeleteChainConfig(tc.in)
+			err = s.app.DeleteChainConfig(tc.in)
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
 			} else {
 				s.Require().NoError(err)
-
-				actualBytes, err := os.ReadFile(path.Join(newHomePath, "config", "config.toml"))
-				s.Require().NoError(err)
-				s.Require().Equal(tc.out, string(actualBytes))
 			}
-
-			// clear config folder
-			cfgFolder := path.Join(newHomePath, relayer.ConfigFolderName)
-			err = os.RemoveAll(cfgFolder)
-			s.Require().NoError(err)
 		})
 	}
 }
@@ -483,27 +442,23 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 }
 
 func (s *AppTestSuite) TestInitPassphrase() {
-	// reset passphrase file.
-	err := os.Remove(path.Join(s.app.HomePath, "config", "passphrase.hash"))
-	s.Require().NoError(err)
+	ctrl := gomock.NewController(s.T())
+	newStoreMock := mocks.NewMockStore(ctrl)
+
+	s.app.Passphrase = "new_passphrase"
+	s.app.Store = newStoreMock
+
+	newStoreMock.EXPECT().
+		SaveHashedPassphrase([]byte{
+			194, 83, 183, 41, 238, 49, 98, 232, 230, 229, 194,
+			192, 115, 133, 235, 215, 215, 206, 160, 68, 116,
+			34, 59, 169, 179, 24, 231, 151, 191, 178, 90, 202,
+		}).
+		Return(nil)
 
 	// Call InitPassphrase
-	err = s.app.InitPassphrase()
+	err := s.app.InitPassphrase()
 	s.Require().NoError(err)
-
-	// Verify the file exists
-	passphrasePath := path.Join(s.app.HomePath, "config", "passphrase.hash")
-	_, err = os.Stat(passphrasePath)
-	s.Require().NoError(err)
-
-	// Verify file content
-	hasher := sha256.New()
-	hasher.Write([]byte(s.app.Passphrase))
-	expectedHash := hasher.Sum(nil)
-
-	actualContent, err := os.ReadFile(passphrasePath)
-	s.Require().NoError(err)
-	s.Require().Equal(expectedHash, actualContent)
 }
 
 func (s *AppTestSuite) TestAddKey() {

@@ -10,20 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bandprotocol/falcon/internal/relayertest"
-	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	"github.com/bandprotocol/falcon/relayer/config"
-	"github.com/bandprotocol/falcon/relayer/store"
 )
 
 func TestParseConfig(t *testing.T) {
-	tmpDir := t.TempDir()
-	cfgPath := path.Join(tmpDir, "config", "config.toml")
-
 	testcases := []struct {
 		name        string
+		in          []byte
 		preProcess  func(t *testing.T)
 		postProcess func(t *testing.T)
 		out         *config.Config
@@ -31,54 +27,21 @@ func TestParseConfig(t *testing.T) {
 	}{
 		{
 			name: "read default config",
-			preProcess: func(t *testing.T) {
-				fs, err := store.NewFileSystem(tmpDir)
-				require.NoError(t, err)
-
-				app := relayer.NewApp(nil, tmpDir, false, nil, "", fs)
-
-				err = app.InitConfigFile(tmpDir, "")
-				require.NoError(t, err)
-			},
-			out: config.DefaultConfig(),
-			postProcess: func(t *testing.T) {
-				err := os.Remove(cfgPath)
-				require.NoError(t, err)
-			},
+			in:   []byte(relayertest.DefaultCfgText),
+			out:  config.DefaultConfig(),
 		},
 		{
 			name: "invalid config file; invalid chain type",
-			preProcess: func(t *testing.T) {
-				// create new toml config file
-				cfgText := `[target_chains.testnet]
+			in: []byte(`[target_chains.testnet]
 			chain_type = 'evms'
-			`
-
-				err := os.WriteFile(cfgPath, []byte(cfgText), 0o600)
-				require.NoError(t, err)
-			},
+			`),
 			err: fmt.Errorf("unsupported chain type: evms"),
-			postProcess: func(t *testing.T) {
-				err := os.Remove(cfgPath)
-				require.NoError(t, err)
-			},
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.preProcess != nil {
-				tc.preProcess(t)
-			}
-
-			if tc.postProcess != nil {
-				defer tc.postProcess(t)
-			}
-
-			data, err := os.ReadFile(cfgPath)
-			require.NoError(t, err)
-
-			actual, err := config.ParseConfig(data)
+			actual, err := config.ParseConfig(tc.in)
 			if tc.err != nil {
 				require.ErrorContains(t, err, tc.err.Error())
 			} else {
