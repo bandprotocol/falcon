@@ -141,7 +141,7 @@ func (s *ClientTestSuite) TestGetTunnel() {
 		{
 			name: "unsupported route type",
 			in:   2,
-			err:  fmt.Errorf("unsupported route type"),
+			err:  band.ErrUnsupportedRouteType(""),
 			preprocess: func(c context.Context) {
 				s.bandQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
 					TunnelId: uint64(2),
@@ -286,7 +286,7 @@ func (s *ClientTestSuite) TestGetOtherTunnelPacket() {
 
 	// actual result
 	_, err = s.client.GetTunnelPacket(s.ctx, uint64(1), uint64(100))
-	s.Require().ErrorContains(err, "unsupported packet content type")
+	s.Require().ErrorContains(err, band.ErrUnsupportedPacketContentType(msg).Error())
 }
 
 func (s *ClientTestSuite) TestGetTunnels() {

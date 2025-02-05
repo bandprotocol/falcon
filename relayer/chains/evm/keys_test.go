@@ -235,7 +235,7 @@ func (s *KeysTestSuite) TestDeleteKey() {
 
 	// Delete the key again should return error
 	err = s.chainProvider.DeleteKey(s.homePath, keyName, "")
-	s.Require().ErrorContains(err, "key name does not exist")
+	s.Require().ErrorContains(err, evm.ErrKeyNameNotExist(keyName).Error())
 }
 
 func (s *KeysTestSuite) TestExportPrivateKey() {

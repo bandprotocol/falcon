@@ -150,7 +150,7 @@ func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) erro
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
 	if !cp.IsKeyNameExist(keyName) {
-		return "", fmt.Errorf("key name does not exist: %s", keyName)
+		return "", ErrKeyNameNotExist(keyName)
 	}
 
 	key, err := cp.GetKeyFromKeyName(keyName, passphrase)
@@ -173,7 +173,7 @@ func (cp *EVMChainProvider) ListKeys() []*chainstypes.Key {
 // ShowKey shows key by the given name.
 func (cp *EVMChainProvider) ShowKey(keyName string) (string, error) {
 	if !cp.IsKeyNameExist(keyName) {
-		return "", fmt.Errorf("key name does not exist: %s", keyName)
+		return "", ErrKeyNameNotExist(keyName)
 	}
 
 	return cp.KeyInfo[keyName], nil

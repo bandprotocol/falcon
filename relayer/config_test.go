@@ -55,7 +55,7 @@ func TestLoadConfig(t *testing.T) {
 				err := os.WriteFile(cfgPath, []byte(cfgText), 0o600)
 				require.NoError(t, err)
 			},
-			err: fmt.Errorf("unsupported chain type: evms"),
+			err: relayer.ErrUnsupportedChainType("evms"),
 			postProcess: func(t *testing.T) {
 				err := os.Remove(cfgPath)
 				require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestParseChainProviderConfig(t *testing.T) {
 				"chain_type": "evms",
 				"endpoints":  []string{"http://localhost:8545"},
 			},
-			err: fmt.Errorf("unsupported chain type: evms"),
+			err: relayer.ErrUnsupportedChainType("evms"),
 		},
 		{
 			name: "missing chain type",
@@ -157,7 +157,7 @@ func TestParseConfigInvalidChainProviderConfig(t *testing.T) {
 	}
 
 	_, err := relayer.ParseConfig(w)
-	require.ErrorContains(t, err, "unsupported chain type: evms")
+	require.Error(t, err, relayer.ErrUnsupportedChainType("evms"))
 }
 
 func TestUnmarshalConfig(t *testing.T) {
