@@ -85,20 +85,18 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 
 		if !tunnelChainInfo.IsActive {
-			// decrease active status and increase inactive status if the tunnel was previously active
+			// decrease active status if the tunnel was previously active
 			if t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
-				relayermetrics.DecTargetContractCount(relayermetrics.TargetContractActiveStatus)
-				relayermetrics.IncTargetContractCount(relayermetrics.TargetContractInActiveStatus)
+				relayermetrics.DecActiveTargetContractCount()
 				t.IsTargetChainActive = false
 			}
 			t.Log.Info("Tunnel is not active on target chain")
 			return nil
 		}
 
-		// increase active status and decrease inactive status if the tunnel was previously inactive
+		// increase active status if the tunnel was previously inactive
 		if tunnelChainInfo.IsActive && !t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
-			relayermetrics.IncTargetContractCount(relayermetrics.TargetContractActiveStatus)
-			relayermetrics.DecTargetContractCount(relayermetrics.TargetContractInActiveStatus)
+			relayermetrics.IncActiveTargetContractCount()
 			t.IsTargetChainActive = true
 		}
 

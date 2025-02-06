@@ -80,11 +80,9 @@ func (s *Scheduler) Start(ctx context.Context) error {
 				continue
 			}
 			tr.IsTargetChainActive = t.IsActive
-			status := relayermetrics.TargetContractActiveStatus
-			if !t.IsActive {
-				status = relayermetrics.TargetContractInActiveStatus
+			if t.IsActive {
+				relayermetrics.IncActiveTargetContractCount()
 			}
-			relayermetrics.IncTargetContractCount(status)
 		}
 		relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames)))
 	}
@@ -239,11 +237,9 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 				continue
 			}
 			tr.IsTargetChainActive = t.IsActive
-			status := relayermetrics.TargetContractActiveStatus
-			if !t.IsActive {
-				status = relayermetrics.TargetContractInActiveStatus
+			if t.IsActive {
+				relayermetrics.IncActiveTargetContractCount()
 			}
-			relayermetrics.IncTargetContractCount(status)
 
 			s.ChainNames[tunnels[i].TargetChainID] = true
 		}
