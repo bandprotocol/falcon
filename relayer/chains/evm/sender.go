@@ -36,15 +36,17 @@ func (cp *EVMChainProvider) LoadFreeSenders(
 		return nil
 	}
 
-	freeSenders := make(chan *Sender, len(cp.KeyInfo))
+	keyNames := cp.Wallet.GetNames()
+	freeSenders := make(chan *Sender, len(keyNames))
 
-	for keyName := range cp.KeyInfo {
-		key, err := cp.GetKeyFromKeyName(keyName, passphrase)
+	for _, keyName := range keyNames {
+		key, err := cp.GetKeyFromKeyName(keyName)
 		if err != nil {
 			return err
 		}
 
-		freeSenders <- NewSender(key.PrivateKey, key.Address)
+		addr := gethcommon.HexToAddress(key.Address)
+		freeSenders <- NewSender(key.PrivateKey, addr)
 	}
 
 	cp.FreeSenders = freeSenders
