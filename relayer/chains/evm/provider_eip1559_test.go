@@ -51,7 +51,7 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	wallet, err := wallet.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), s.homePath, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), wallet)
 	s.Require().NoError(err)
 
 	s.chainProvider = chainProvider

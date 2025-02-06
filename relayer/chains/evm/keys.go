@@ -31,18 +31,16 @@ func (cp *EVMChainProvider) AddKey(
 	keyName string,
 	mnemonic string,
 	privateKey string,
-	homePath string,
 	coinType uint32,
 	account uint,
 	index uint,
-	passphrase string,
 ) (*chainstypes.Key, error) {
 	if cp.IsKeyNameExist(keyName) {
 		return nil, fmt.Errorf("duplicate key name")
 	}
 
 	if privateKey != "" {
-		return cp.AddKeyWithPrivateKey(keyName, privateKey, homePath, passphrase)
+		return cp.AddKeyWithPrivateKey(keyName, privateKey)
 	}
 
 	var err error
@@ -53,18 +51,16 @@ func (cp *EVMChainProvider) AddKey(
 			return nil, err
 		}
 	}
-	return cp.AddKeyWithMnemonic(keyName, mnemonic, homePath, coinType, account, index, passphrase)
+	return cp.AddKeyWithMnemonic(keyName, mnemonic, coinType, account, index)
 }
 
 // AddKeyWithMnemonic adds a key using a mnemonic phrase.
 func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	keyName string,
 	mnemonic string,
-	homePath string,
 	coinType uint32,
 	account uint,
 	index uint,
-	passphrase string,
 ) (*chainstypes.Key, error) {
 	// Generate private key using mnemonic
 	priv, err := cp.generatePrivateKey(mnemonic, coinType, account, index)
@@ -76,12 +72,7 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 }
 
 // AddKeyWithPrivateKey adds a key using a raw private key.
-func (cp *EVMChainProvider) AddKeyWithPrivateKey(
-	keyName,
-	privateKey,
-	homePath,
-	passphrase string,
-) (*chainstypes.Key, error) {
+func (cp *EVMChainProvider) AddKeyWithPrivateKey(keyName, privateKey string) (*chainstypes.Key, error) {
 	// Convert private key from hex
 	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(privateKey))
 	if err != nil {
@@ -107,12 +98,12 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 }
 
 // DeleteKey deletes the given key name from the key store and removes its information.
-func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) error {
+func (cp *EVMChainProvider) DeleteKey(keyName string) error {
 	return cp.Wallet.DeletePrivateKey(keyName)
 }
 
 // ExportPrivateKey exports private key of given key name.
-func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
+func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
 	if !cp.IsKeyNameExist(keyName) {
 		return "", fmt.Errorf("key name does not exist: %s", keyName)
 	}

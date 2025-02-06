@@ -43,7 +43,7 @@ func (s *KeysTestSuite) SetupTest() {
 	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider
 }
@@ -91,11 +91,9 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 				tc.input.keyName,
 				"",
 				tc.input.privKey,
-				s.homePath,
 				0,
 				0,
 				0,
-				"",
 			)
 
 			if tc.err != nil {
@@ -191,11 +189,9 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				tc.input.keyName,
 				tc.input.mnemonic,
 				"",
-				s.homePath,
 				tc.input.coinType,
 				tc.input.account,
 				tc.input.index,
-				"",
 			)
 
 			if tc.err != nil {
@@ -223,18 +219,18 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to delete
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Delete the key
-	err = s.chainProvider.DeleteKey(s.homePath, keyName, "")
+	err = s.chainProvider.DeleteKey(keyName)
 	s.Require().NoError(err)
 
 	// Ensure the key is no longer in the KeyInfo or KeyStore
 	s.Require().False(s.chainProvider.IsKeyNameExist(keyName))
 
 	// Delete the key again should return error
-	err = s.chainProvider.DeleteKey(s.homePath, keyName, "")
+	err = s.chainProvider.DeleteKey(keyName)
 	s.Require().ErrorContains(err, "key name does not exist")
 }
 
@@ -243,11 +239,11 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to export
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Export the private key
-	exportedKey, err := s.chainProvider.ExportPrivateKey(keyName, "")
+	exportedKey, err := s.chainProvider.ExportPrivateKey(keyName)
 	s.Require().NoError(err)
 
 	s.Require().Equal(evm.StripPrivateKeyPrefix(privatekeyHex), evm.StripPrivateKeyPrefix(exportedKey))
@@ -262,17 +258,14 @@ func (s *KeysTestSuite) TestListKeys() {
 	coinType := 60
 	account := 0
 	index := 0
-	passphrase := ""
 
 	key1, err := s.chainProvider.AddKey(
 		keyName1,
 		mnemonic,
 		privateKey,
-		s.homePath,
 		uint32(coinType),
 		uint(account),
 		uint(index),
-		passphrase,
 	)
 	s.Require().NoError(err)
 
@@ -280,11 +273,9 @@ func (s *KeysTestSuite) TestListKeys() {
 		keyName2,
 		mnemonic,
 		privateKey,
-		s.homePath,
 		uint32(coinType),
 		uint(account),
 		uint(index),
-		passphrase,
 	)
 	s.Require().NoError(err)
 
@@ -317,7 +308,7 @@ func (s *KeysTestSuite) TestShowKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to show
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Show the key
@@ -346,7 +337,7 @@ func (s *KeysTestSuite) TestGetKeyFromKeyName() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to test retrieval
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Retrieve the key using the key name

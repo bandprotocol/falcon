@@ -27,11 +27,10 @@ const (
 
 // App is the main application struct.
 type App struct {
-	Log      *zap.Logger
-	HomePath string
-	Debug    bool
-	Config   *config.Config
-	Store    store.Store
+	Log    *zap.Logger
+	Debug  bool
+	Config *config.Config
+	Store  store.Store
 
 	TargetChains chains.ChainProviders
 	BandClient   band.Client
@@ -41,7 +40,6 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp(
 	log *zap.Logger,
-	homePath string,
 	debug bool,
 	config *config.Config,
 	passphrase string,
@@ -49,7 +47,6 @@ func NewApp(
 ) *App {
 	app := App{
 		Log:        log,
-		HomePath:   homePath,
 		Debug:      debug,
 		Config:     config,
 		Store:      store,
@@ -105,7 +102,7 @@ func (a *App) initTargetChains() error {
 			return err
 		}
 
-		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug, wallet)
+		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.Debug, wallet)
 		if err != nil {
 			a.Log.Error("Cannot create chain provider",
 				zap.Error(err),
@@ -207,7 +204,7 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 // AddChainConfig adds a new chain configuration to the config file.
 func (a *App) AddChainConfig(chainName string, filePath string) error {
 	if a.Config == nil {
-		return fmt.Errorf("config does not exist: %s", a.HomePath)
+		return fmt.Errorf("config is not initialized")
 	}
 
 	if _, ok := a.Config.TargetChains[chainName]; ok {
@@ -226,7 +223,7 @@ func (a *App) AddChainConfig(chainName string, filePath string) error {
 // DeleteChainConfig deletes the chain configuration from the config file.
 func (a *App) DeleteChainConfig(chainName string) error {
 	if a.Config == nil {
-		return fmt.Errorf("config does not exist: %s", a.HomePath)
+		return fmt.Errorf("config is not initialized")
 	}
 
 	if _, ok := a.Config.TargetChains[chainName]; !ok {
@@ -240,7 +237,7 @@ func (a *App) DeleteChainConfig(chainName string) error {
 // GetChainConfig retrieves the chain configuration by given chain name.
 func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, error) {
 	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+		return nil, fmt.Errorf("config is not initialized")
 	}
 
 	chainProviders := a.Config.TargetChains
@@ -263,7 +260,7 @@ func (a *App) AddKey(
 	index uint,
 ) (*chainstypes.Key, error) {
 	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+		return nil, fmt.Errorf("config is not initialized")
 	}
 
 	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
@@ -275,7 +272,7 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
-	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, a.HomePath, coinType, account, index, a.Passphrase)
+	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +283,7 @@ func (a *App) AddKey(
 // DeleteKey deletes the key from the chain provider.
 func (a *App) DeleteKey(chainName string, keyName string) error {
 	if a.Config == nil {
-		return fmt.Errorf("config does not exist: %s", a.HomePath)
+		return fmt.Errorf("config is not initialized")
 	}
 
 	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
@@ -298,13 +295,13 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
-	return cp.DeleteKey(a.HomePath, keyName, a.Passphrase)
+	return cp.DeleteKey(keyName)
 }
 
 // ExportKey exports the private key from the chain provider.
 func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 	if a.Config == nil {
-		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
+		return "", fmt.Errorf("config is not initialized")
 	}
 
 	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
@@ -316,7 +313,7 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 		return "", fmt.Errorf("chain name does not exist: %s", chainName)
 	}
 
-	privateKey, err := cp.ExportPrivateKey(keyName, a.Passphrase)
+	privateKey, err := cp.ExportPrivateKey(keyName)
 	if err != nil {
 		return "", err
 	}
@@ -327,7 +324,7 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 // ListKeys retrieves the list of keys from the chain provider.
 func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+		return nil, fmt.Errorf("config is not initialized")
 	}
 
 	cp, exist := a.TargetChains[chainName]
@@ -341,7 +338,7 @@ func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 // ShowKey retrieves the key information from the chain provider.
 func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 	if a.Config == nil {
-		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
+		return "", fmt.Errorf("config is not initialized")
 	}
 
 	cp, exist := a.TargetChains[chainName]
@@ -355,7 +352,7 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 // QueryBalance retrieves the balance of the key from the chain provider.
 func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
 	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+		return nil, fmt.Errorf("config is not initialized")
 	}
 
 	cp, exist := a.TargetChains[chainName]
@@ -409,7 +406,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 	// initialize target chain providers
 	for chainName, chainProvider := range a.TargetChains {
-		if err := chainProvider.LoadFreeSenders(a.HomePath, a.Passphrase); err != nil {
+		if err := chainProvider.LoadFreeSenders(); err != nil {
 			a.Log.Error("Cannot load keys in target chain",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
@@ -479,7 +476,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 	}
 
-	if err := chainProvider.LoadFreeSenders(a.HomePath, a.Passphrase); err != nil {
+	if err := chainProvider.LoadFreeSenders(); err != nil {
 		a.Log.Error("Cannot load keys in target chain",
 			zap.Error(err),
 			zap.String("chain_name", tunnel.TargetChainID),

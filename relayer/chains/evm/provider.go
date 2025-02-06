@@ -46,7 +46,6 @@ func NewEVMChainProvider(
 	client Client,
 	cfg *EVMChainProviderConfig,
 	log *zap.Logger,
-	homePath string,
 	wallet wallet.Wallet,
 ) (*EVMChainProvider, error) {
 	// load abis here

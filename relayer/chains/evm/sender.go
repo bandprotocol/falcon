@@ -28,10 +28,7 @@ func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender
 
 // LoadFreeSenders loads the FreeSenders channel with sender instances.
 // derived from the keys stored in the keystore located at the specified homePath.
-func (cp *EVMChainProvider) LoadFreeSenders(
-	homePath string,
-	passphrase string,
-) error {
+func (cp *EVMChainProvider) LoadFreeSenders() error {
 	if cp.FreeSenders != nil {
 		return nil
 	}
