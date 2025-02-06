@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/big"
-	"os"
 
 	"go.uber.org/zap"
 
@@ -117,8 +116,8 @@ func (a *App) initTargetChains() error {
 	return nil
 }
 
-// InitConfigFile initializes the configuration to the given path.
-func (a *App) InitConfigFile(homePath string, customFilePath string) error {
+// SaveConfig saves the configuration into the application's store.
+func (a *App) SaveConfig(cfg *config.Config) error {
 	// Check if config already exists
 	if ok, err := a.Store.HasConfig(); err != nil {
 		return err
@@ -126,31 +125,21 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 		return fmt.Errorf("config already exists")
 	}
 
-	// Load config from given custom file path if exists
-	var cfg *config.Config
-	switch {
-	case customFilePath != "":
-		b, err := os.ReadFile(customFilePath)
-		if err != nil {
-			return fmt.Errorf("cannot read a config file %s: %w", customFilePath, err)
-		}
-
-		cfg, err = config.ParseConfig(b)
-		if err != nil {
-			return fmt.Errorf("parsing config error %w", err)
-		}
-	default:
+	if cfg == nil {
 		cfg = config.DefaultConfig() // Initialize with DefaultConfig if no file is provided
 	}
+	a.Config = cfg
 
 	return a.Store.SaveConfig(cfg)
 }
 
-// InitPassphrase hashes the provided passphrase and saves it to the given path.
-func (a *App) InitPassphrase() error {
-	// Load and hash the passphrase
+// SavePassphrase hash the provided passphrase and save it into the application's store.
+func (a *App) SavePassphrase(passphrase string) error {
+	a.Passphrase = passphrase
+
+	//  hash the passphrase
 	h := sha256.New()
-	h.Write([]byte(a.Passphrase))
+	h.Write([]byte(passphrase))
 	hashedPassphrase := h.Sum(nil)
 
 	return a.Store.SaveHashedPassphrase(hashedPassphrase)

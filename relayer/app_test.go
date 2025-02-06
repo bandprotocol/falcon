@@ -85,17 +85,26 @@ func TestAppTestSuite(t *testing.T) {
 }
 
 func (s *AppTestSuite) TestInitConfig() {
-	tmpDir := s.T().TempDir()
+	customCfg := &config.Config{
+		BandChain: band.Config{
+			RpcEndpoints: []string{"http://localhost:26659"},
+			Timeout:      50,
+		},
+		TargetChains: map[string]chains.ChainProviderConfig{},
+		Global: config.GlobalConfig{
+			CheckingPacketInterval: time.Minute,
+		},
+	}
+
 	testcases := []struct {
 		name       string
 		preprocess func()
-		in         string
-		out        *config.Config
+		in         *config.Config
 		err        error
 	}{
 		{
 			name: "success - default",
-			in:   "",
+			in:   nil,
 			preprocess: func() {
 				s.mockStore.EXPECT().HasConfig().Return(false, nil)
 				s.mockStore.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
@@ -106,42 +115,16 @@ func (s *AppTestSuite) TestInitConfig() {
 			preprocess: func() {
 				s.mockStore.EXPECT().HasConfig().Return(true, nil)
 			},
-			in:  "",
+			in:  nil,
 			err: fmt.Errorf("config already exists"),
 		},
 		{
 			name: "init config from specific file",
 			preprocess: func() {
-				customCfgPath := path.Join(tmpDir, "custom.toml")
-				cfg := `
-					[target_chains]
-
-					[global]
-					checking_packet_interval = 60000000000
-
-					[bandchain]
-					rpc_endpoints = ['http://localhost:26659']
-					timeout = 50
-				`
-
-				err := os.WriteFile(customCfgPath, []byte(cfg), 0o600)
-				s.Require().NoError(err)
-
-				expectCfg := &config.Config{
-					BandChain: band.Config{
-						RpcEndpoints: []string{"http://localhost:26659"},
-						Timeout:      50,
-					},
-					TargetChains: map[string]chains.ChainProviderConfig{},
-					Global: config.GlobalConfig{
-						CheckingPacketInterval: time.Minute,
-					},
-				}
-
 				s.mockStore.EXPECT().HasConfig().Return(false, nil)
-				s.mockStore.EXPECT().SaveConfig(expectCfg).Return(nil)
+				s.mockStore.EXPECT().SaveConfig(customCfg).Return(nil)
 			},
-			in: path.Join(tmpDir, "custom.toml"),
+			in: customCfg,
 		},
 	}
 
@@ -151,7 +134,7 @@ func (s *AppTestSuite) TestInitConfig() {
 				tc.preprocess()
 			}
 
-			err := s.app.InitConfigFile(tmpDir, tc.in)
+			err := s.app.SaveConfig(tc.in)
 
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
@@ -445,7 +428,6 @@ func (s *AppTestSuite) TestInitPassphrase() {
 	ctrl := gomock.NewController(s.T())
 	newStoreMock := mocks.NewMockStore(ctrl)
 
-	s.app.Passphrase = "new_passphrase"
 	s.app.Store = newStoreMock
 
 	newStoreMock.EXPECT().
@@ -457,8 +439,9 @@ func (s *AppTestSuite) TestInitPassphrase() {
 		Return(nil)
 
 	// Call InitPassphrase
-	err := s.app.InitPassphrase()
+	err := s.app.SavePassphrase("new_passphrase")
 	s.Require().NoError(err)
+	s.Require().Equal("new_passphrase", s.app.Passphrase)
 }
 
 func (s *AppTestSuite) TestAddKey() {
