@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
@@ -17,6 +18,7 @@ type TunnelRelayer struct {
 	Log                    *zap.Logger
 	TunnelID               uint64
 	ContractAddress        string
+	IsTargetChainActive    bool
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
@@ -73,9 +75,29 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
+
+		if relayermetrics.IsTelemetryEnabled() {
+			// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
+			relayermetrics.SetUnrelayedPacket(
+				t.TunnelID,
+				float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
+			)
+		}
+
 		if !tunnelChainInfo.IsActive {
+			// decrease active status if the tunnel was previously active
+			if t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
+				relayermetrics.DecActiveTargetContractCount()
+				t.IsTargetChainActive = false
+			}
 			t.Log.Info("Tunnel is not active on target chain")
 			return nil
+		}
+
+		// increase active status if the tunnel was previously inactive
+		if tunnelChainInfo.IsActive && !t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
+			relayermetrics.IncActiveTargetContractCount()
+			t.IsTargetChainActive = true
 		}
 
 		// end process if current packet is already relayed
@@ -118,6 +140,16 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
+		}
+		if relayermetrics.IsTelemetryEnabled() {
+			// increment the packet received metric
+			relayermetrics.IncPacketlReceived(t.TunnelID)
+
+			// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
+			relayermetrics.SetUnrelayedPacket(
+				t.TunnelID,
+				float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
+			)
 		}
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
