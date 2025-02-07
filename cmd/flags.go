@@ -1,6 +1,7 @@
 package cmd
 
 const (
-	flagHome = "home"
-	flagFile = "file"
+	flagHome              = "home"
+	flagFile              = "file"
+	flagMetricsListenAddr = "metrics-listen-addr"
 )
