@@ -76,17 +76,15 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			return err
 		}
 
-		if relayermetrics.IsTelemetryEnabled() {
-			// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
-			relayermetrics.SetUnrelayedPacket(
-				t.TunnelID,
-				float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
-			)
-		}
+		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
+		relayermetrics.SetUnrelayedPacket(
+			t.TunnelID,
+			float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
+		)
 
 		if !tunnelChainInfo.IsActive {
 			// decrease active status if the tunnel was previously active
-			if t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
+			if t.IsTargetChainActive {
 				relayermetrics.DecActiveTargetContractCount()
 				t.IsTargetChainActive = false
 			}
@@ -95,7 +93,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 
 		// increase active status if the tunnel was previously inactive
-		if tunnelChainInfo.IsActive && !t.IsTargetChainActive && relayermetrics.IsTelemetryEnabled() {
+		if tunnelChainInfo.IsActive && !t.IsTargetChainActive {
 			relayermetrics.IncActiveTargetContractCount()
 			t.IsTargetChainActive = true
 		}
@@ -141,16 +139,15 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return err
 		}
-		if relayermetrics.IsTelemetryEnabled() {
-			// increment the packet received metric
-			relayermetrics.IncPacketlReceived(t.TunnelID)
 
-			// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
-			relayermetrics.SetUnrelayedPacket(
-				t.TunnelID,
-				float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
-			)
-		}
+		// increment the packet received metric
+		relayermetrics.IncPacketlReceived(t.TunnelID)
+
+		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
+		relayermetrics.SetUnrelayedPacket(
+			t.TunnelID,
+			float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
+		)
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}

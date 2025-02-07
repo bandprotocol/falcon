@@ -71,21 +71,8 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
 
-	if relayermetrics.IsTelemetryEnabled() {
-		// initialize and update metrics for tunnels, target chain contracts, and destination chains
-		relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
-		for _, tr := range s.TunnelRelayers {
-			t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
-			if err != nil {
-				continue
-			}
-			tr.IsTargetChainActive = t.IsActive
-			if t.IsActive {
-				relayermetrics.IncActiveTargetContractCount()
-			}
-		}
-		relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames)))
-	}
+	relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
+	relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames)))
 
 	// execute once we start the scheduler.
 	s.Execute(ctx)
@@ -132,10 +119,9 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		task := NewTask(i, s.CheckingPacketInterval)
 		go s.TriggerTunnelRelayer(ctx, task)
 
-		if relayermetrics.IsTelemetryEnabled() {
-			// record metrics for the task execution for the current tunnel relayer
-			relayermetrics.IncTasksCount(tr.TunnelID)
-		}
+		// record metrics for the task execution for the current tunnel relayer
+		relayermetrics.IncTasksCount(tr.TunnelID)
+
 	}
 }
 
@@ -172,13 +158,11 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		return
 	}
 
-	if relayermetrics.IsTelemetryEnabled() {
-		// record the execution time of successful task.
-		relayermetrics.ObserveTaskExecutionTime(
-			tr.TunnelID,
-			float64(time.Since(startExecutionTaskTime).Milliseconds()),
-		)
-	}
+	// record the execution time of successful task.
+	relayermetrics.ObserveTaskExecutionTime(
+		tr.TunnelID,
+		float64(time.Since(startExecutionTaskTime).Milliseconds()),
+	)
 
 	// If the task is successful, reset the error flag.
 	s.isErrorOnHolds[task.RelayerID] = false
@@ -230,19 +214,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			chainProvider,
 		)
 
-		if relayermetrics.IsTelemetryEnabled() {
-			// update metrics for the new tunnel and its target chain status
-			t, err := tr.TargetChainProvider.QueryTunnelInfo(ctx, tr.TunnelID, tr.ContractAddress)
-			if err != nil {
-				continue
-			}
-			tr.IsTargetChainActive = t.IsActive
-			if t.IsActive {
-				relayermetrics.IncActiveTargetContractCount()
-			}
-
-			s.ChainNames[tunnels[i].TargetChainID] = true
-		}
+		s.ChainNames[tunnels[i].TargetChainID] = true
 
 		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
 		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
@@ -256,11 +228,9 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 
 	s.BandLatestTunnel = len(tunnels)
 
-	if relayermetrics.IsTelemetryEnabled() {
-		// update metrics for the number of destination chains and tunnels after synchronization
-		relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames) - oldDestinationChainCount))
-		relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers) - oldTunnelRelayerCount))
-	}
+	// update metrics for the number of destination chains and tunnels after synchronization
+	relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames) - oldDestinationChainCount))
+	relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers) - oldTunnelRelayerCount))
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit

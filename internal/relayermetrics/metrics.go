@@ -20,16 +20,6 @@ var metrics *PrometheusMetrics
 // It is set on initialization and does not change for the lifetime of the program.
 var globalTelemetryEnabled bool
 
-// IsTelemetryEnabled provides controlled access to check if telemetry is enabled.
-func IsTelemetryEnabled() bool {
-	return globalTelemetryEnabled
-}
-
-// EnableTelemetry allows for the global telemetry enabled state to be set.
-func enableTelemetry() {
-	globalTelemetryEnabled = true
-}
-
 type PrometheusMetrics struct {
 	Registry              *prometheus.Registry
 	TunnelCount           prometheus.Counter
@@ -44,59 +34,87 @@ type PrometheusMetrics struct {
 	GasUsed               *prometheus.SummaryVec
 }
 
+func updateMetrics(updateFn func()) {
+	if globalTelemetryEnabled {
+		updateFn()
+	}
+}
+
 // AddTunnellCount increments the total tunnel count metric.
 func AddTunnellCount(count uint64) {
-	metrics.TunnelCount.Add(float64(count))
+	updateMetrics(func() {
+		metrics.TunnelCount.Add(float64(count))
+	})
 }
 
 // IncPacketlReceived increments the count of successfully relayed packets for a specific tunnel.
 func IncPacketlReceived(tunnelID uint64) {
-	metrics.PacketReceived.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+	updateMetrics(func() {
+		metrics.PacketReceived.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+	})
 }
 
 // SetUnrelayedPacket sets the number of unrelayed packets for a specific tunnel.
 func SetUnrelayedPacket(tunnelID uint64, unrelayedPacket float64) {
-	metrics.UnrelayedPacket.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(unrelayedPacket)
+	updateMetrics(func() {
+		metrics.UnrelayedPacket.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(unrelayedPacket)
+	})
 }
 
 // IncTasksCount increments the total task count for a specific tunnel.
 func IncTasksCount(tunnelID uint64) {
-	metrics.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+	updateMetrics(func() {
+		metrics.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+	})
 }
 
 // ObserveTaskExecutionTime records the execution time of a task for a specific tunnel.
 func ObserveTaskExecutionTime(tunnelID uint64, taskExecutionTime float64) {
-	metrics.TaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(taskExecutionTime)
+	updateMetrics(func() {
+		metrics.TaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(taskExecutionTime)
+	})
 }
 
 // AddDestinationChainCount increments the total number of destination chains observed.
 func AddDestinationChainCount(count uint64) {
-	metrics.DestinationChainCount.Add(float64(count))
+	updateMetrics(func() {
+		metrics.DestinationChainCount.Add(float64(count))
+	})
 }
 
 // IncTargetContractCount increases the count of active target contracts.
 func IncActiveTargetContractCount() {
-	metrics.TargetContract.Inc()
+	updateMetrics(func() {
+		metrics.TargetContract.Inc()
+	})
 }
 
 // DecTargetContractCount decreases the count of active target contracts.
 func DecActiveTargetContractCount() {
-	metrics.TargetContract.Dec()
+	updateMetrics(func() {
+		metrics.TargetContract.Dec()
+	})
 }
 
-// IncTxCount increments the transaction count metric for the current tunnel
+// IncTxCount increments the transaction count metric for the current tunnel.
 func IncTxCount(tunnelID uint64) {
-	metrics.TxCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+	updateMetrics(func() {
+		metrics.TxCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+	})
 }
 
 // ObserveTxProcessTime tracks transaction processing time in seconds with millisecond precision.
 func ObserveTxProcessTime(chainName string, taskExecutionTime float64) {
-	metrics.TxProcessTime.WithLabelValues(chainName).Observe(taskExecutionTime)
+	updateMetrics(func() {
+		metrics.TxProcessTime.WithLabelValues(chainName).Observe(taskExecutionTime)
+	})
 }
 
 // ObserveGasUsed tracks gas used for the each relayed transaction.
 func ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
-	metrics.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(float64(gasUsed))
+	updateMetrics(func() {
+		metrics.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(float64(gasUsed))
+	})
 }
 
 func NewPrometheusMetrics() *PrometheusMetrics {
@@ -184,8 +202,8 @@ func StartMetricsServer(ctx context.Context, log *zap.Logger, metricsListenAddr 
 	log = log.With(zap.String("sys", "metricshttp"))
 	log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
 
-	// enable telemetry
-	enableTelemetry()
+	// Allow for the global telemetry enabled state to be set.
+	globalTelemetryEnabled = true
 
 	prometheusMetrics := NewPrometheusMetrics()
 
