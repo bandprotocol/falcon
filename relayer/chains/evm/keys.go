@@ -9,7 +9,6 @@ import (
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
-	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 const (
@@ -63,7 +62,7 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	index uint,
 ) (*chainstypes.Key, error) {
 	// Generate private key using mnemonic
-	priv, err := cp.generatePrivateKey(mnemonic, coinType, account, index)
+	priv, err := generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +107,7 @@ func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
 		return "", fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
-	key, err := cp.GetKeyFromKeyName(keyName)
+	key, err := cp.Wallet.GetKey(keyName)
 	if err != nil {
 		return "", err
 	}
@@ -146,7 +145,7 @@ func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
 }
 
 // generatePrivateKey generates private key from given mnemonic.
-func (cp *EVMChainProvider) generatePrivateKey(
+func generatePrivateKey(
 	mnemonic string,
 	coinType uint32,
 	account uint,
@@ -156,20 +155,18 @@ func (cp *EVMChainProvider) generatePrivateKey(
 	if err != nil {
 		return nil, err
 	}
+
 	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
 	path := hdwallet.MustParseDerivationPath(hdPath)
-
 	accs, err := wallet.Derive(path, true)
 	if err != nil {
 		return nil, err
 	}
+
 	privatekey, err := wallet.PrivateKey(accs)
 	if err != nil {
 		return nil, err
 	}
-	return privatekey, nil
-}
 
-func (cp *EVMChainProvider) GetKeyFromKeyName(keyName string) (*wallet.Key, error) {
-	return cp.Wallet.GetKey(keyName)
+	return privatekey, nil
 }

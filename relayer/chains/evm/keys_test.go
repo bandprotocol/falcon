@@ -1,7 +1,6 @@
 package evm_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -26,6 +25,7 @@ type KeysTestSuite struct {
 	chainProvider *evm.EVMChainProvider
 	log           *zap.Logger
 	homePath      string
+	wallet        wallet.Wallet
 }
 
 func TestKeysTestSuite(t *testing.T) {
@@ -45,7 +45,9 @@ func (s *KeysTestSuite) SetupTest() {
 
 	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet)
 	s.Require().NoError(err)
+
 	s.chainProvider = chainProvider
+	s.wallet = wallet
 }
 
 func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
@@ -103,11 +105,8 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 				s.Require().Equal(tc.out, key)
 
 				// check that key info actually stored in local disk
-				keyInfo, err := evm.LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-				s.Require().NoError(err)
-
-				_, exist := keyInfo[tc.input.keyName]
-				s.Require().True(exist)
+				_, ok := s.wallet.GetAddress(tc.input.keyName)
+				s.Require().True(ok)
 			}
 		})
 	}
@@ -204,11 +203,8 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				}
 
 				// check that key info actually stored in local disk
-				keyInfo, err := evm.LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-				s.Require().NoError(err)
-
-				_, exist := keyInfo[tc.input.keyName]
-				s.Require().True(exist)
+				_, ok := s.wallet.GetAddress(tc.input.keyName)
+				s.Require().True(ok)
 			}
 		})
 	}
@@ -330,31 +326,4 @@ func (s *KeysTestSuite) TestIsKeyNameExist() {
 
 	expected = s.chainProvider.IsKeyNameExist("testkey2")
 	s.Require().Equal(expected, false)
-}
-
-func (s *KeysTestSuite) TestGetKeyFromKeyName() {
-	keyName := "testkeyname"
-	privatekeyHex := testPrivateKey
-
-	// Add a key to test retrieval
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
-	s.Require().NoError(err)
-
-	// Retrieve the key using the key name
-	key, err := s.chainProvider.GetKeyFromKeyName(keyName)
-	s.Require().NoError(err)
-	s.Require().NotNil(key)
-
-	// Verify that the retrieved private key matches the original private key
-	s.Require().Equal(testPrivateKey[2:], hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))) // Remove "0x"
-
-	// Retrieve the key using the invalid passphrase should return error
-	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
-	s.Require().NoError(err)
-
-	s.chainProvider.Wallet, err = wallet.NewGethWallet("invalid", s.homePath, s.chainProvider.ChainName)
-	s.Require().NoError(err)
-
-	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
-	s.Require().ErrorContains(err, "could not decrypt key with given password")
 }
