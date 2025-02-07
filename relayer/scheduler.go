@@ -121,7 +121,6 @@ func (s *Scheduler) Execute(ctx context.Context) {
 
 		// record metrics for the task execution for the current tunnel relayer
 		relayermetrics.IncTasksCount(tr.TunnelID)
-
 	}
 }
 
