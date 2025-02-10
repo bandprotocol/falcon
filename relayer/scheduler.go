@@ -110,19 +110,8 @@ func (s *Scheduler) Execute(ctx context.Context) {
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	tr := s.TunnelRelayers[task.RelayerID]
 
-	// if the tunnel relayer is executing, skip the round
-	if tr.IsExecuting() {
-		s.Log.Debug(
-			"Skipping this tunnel: tunnel relayer is executing on another process",
-			zap.Uint64("tunnel_id", tr.TunnelID),
-		)
-		return
-	}
-
-	s.Log.Info("Executing task", zap.Uint64("tunnel_id", tr.TunnelID))
-
 	// Check and relay the packet, if error occurs, set the error flag.
-	if err := tr.CheckAndRelay(ctx); err != nil {
+	if err, isExecuting := tr.CheckAndRelay(ctx); err != nil && !isExecuting {
 		s.PenaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
 
 		s.Log.Error(

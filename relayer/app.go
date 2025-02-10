@@ -623,7 +623,9 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		chainProvider,
 	)
 
-	return tr.CheckAndRelay(ctx)
+	err, _ = tr.CheckAndRelay(ctx)
+
+	return err
 }
 
 // GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
