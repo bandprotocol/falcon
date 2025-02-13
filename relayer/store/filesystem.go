@@ -6,7 +6,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/bandprotocol/falcon/internal"
+	"github.com/bandprotocol/falcon/internal/os"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/wallet"
@@ -29,7 +29,7 @@ type FileSystem struct {
 // NewFileSystem creates a new filesystem store.
 func NewFileSystem(homePath string) (*FileSystem, error) {
 	passphrasePath := path.Join(getPassphrasePath(homePath)...)
-	hashedPassphrase, err := internal.ReadFileIfExist(passphrasePath)
+	hashedPassphrase, err := os.ReadFileIfExist(passphrasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -43,13 +43,13 @@ func NewFileSystem(homePath string) (*FileSystem, error) {
 // HasConfig checks if the config file exists in the filesystem.
 func (fs *FileSystem) HasConfig() (bool, error) {
 	cfgPath := path.Join(getConfigPath(fs.HomePath)...)
-	return internal.IsPathExist(cfgPath)
+	return os.IsPathExist(cfgPath)
 }
 
 // GetConfig reads the config file from the filesystem and returns the config object.
 func (fs *FileSystem) GetConfig() (*config.Config, error) {
 	cfgPath := path.Join(getConfigPath(fs.HomePath)...)
-	b, err := internal.ReadFileIfExist(cfgPath)
+	b, err := os.ReadFileIfExist(cfgPath)
 	if err != nil {
 		return nil, err
 	} else if b == nil {
@@ -67,7 +67,7 @@ func (fs *FileSystem) SaveConfig(cfg *config.Config) error {
 		return err
 	}
 
-	return internal.Write(b, getConfigPath(fs.HomePath))
+	return os.Write(b, getConfigPath(fs.HomePath))
 }
 
 // GetHashedPassphrase reads the passphrase from the filesystem and returns it.
@@ -79,7 +79,7 @@ func (fs *FileSystem) GetHashedPassphrase() ([]byte, error) {
 func (fs *FileSystem) SaveHashedPassphrase(hashedPassphrase []byte) error {
 	fs.hashedPassphrase = hashedPassphrase
 
-	return internal.Write(hashedPassphrase, getPassphrasePath(fs.HomePath))
+	return os.Write(hashedPassphrase, getPassphrasePath(fs.HomePath))
 }
 
 // NewWallet creates a new wallet object based on the chain type and chain name.

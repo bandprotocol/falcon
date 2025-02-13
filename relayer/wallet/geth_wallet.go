@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/bandprotocol/falcon/internal"
+	"github.com/bandprotocol/falcon/internal/os"
 )
 
 var _ Wallet = &GethWallet{}
@@ -25,12 +25,12 @@ type GethWallet struct {
 // NewGethWallet creates a new GethWallet instance
 func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) {
 	// create keystore
-	keyStoreDir := path.Join(getKeyStoreDir(homePath, chainName)...)
+	keyStoreDir := path.Join(getEVMKeyStoreDir(homePath, chainName)...)
 	store := keystore.NewKeyStore(keyStoreDir, keystore.StandardScryptN, keystore.StandardScryptP)
 
 	// load keyNameToHexAddress map
-	keyNameInfoPath := path.Join(getKeyNameInfoPath(homePath, chainName)...)
-	b, err := internal.ReadFileIfExist(keyNameInfoPath)
+	keyNameInfoPath := path.Join(getEVMKeyNameInfoPath(homePath, chainName)...)
+	b, err := os.ReadFileIfExist(keyNameInfoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (w *GethWallet) DeletePrivateKey(name string) error {
 		return fmt.Errorf("key name does not exist: %s", name)
 	}
 
-	addr, err := HexToAddress(hexAddr)
+	addr, err := HexToETHAddress(hexAddr)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (w *GethWallet) GetKey(name string) (*Key, error) {
 		return nil, fmt.Errorf("key name does not exist: %s", name)
 	}
 
-	gethAddr, err := HexToAddress(hexAddr)
+	gethAddr, err := HexToETHAddress(hexAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -145,14 +145,5 @@ func (w *GethWallet) SaveKeyNameInfo() error {
 		return err
 	}
 
-	return internal.Write(b, getKeyNameInfoPath(w.HomePath, w.ChainName))
-}
-
-// getKeyStoreDir returns the key store directory
-func getKeyStoreDir(homePath, chainName string) []string {
-	return []string{homePath, "keys", chainName, "priv"}
-}
-
-func getKeyNameInfoPath(homePath, chainName string) []string {
-	return []string{homePath, "keys", chainName, "info", "info.toml"}
+	return os.Write(b, getEVMKeyNameInfoPath(w.HomePath, w.ChainName))
 }
