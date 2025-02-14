@@ -40,18 +40,16 @@ type KeyProvider interface {
 		keyName string,
 		mnemonic string,
 		privateKeyHex string,
-		homePath string,
 		coinType uint32,
 		account uint,
 		index uint,
-		passphrase string,
 	) (*chainstypes.Key, error)
 
 	// DeleteKey deletes the key information and private key
-	DeleteKey(homePath, keyName, passphrase string) error
+	DeleteKey(keyName string) error
 
 	// ExportPrivateKey exports private key of specified key name.
-	ExportPrivateKey(keyName string, passphrase string) (string, error)
+	ExportPrivateKey(keyName string) (string, error)
 
 	// ListKeys lists all keys
 	ListKeys() []*chainstypes.Key
@@ -63,7 +61,7 @@ type KeyProvider interface {
 	IsKeyNameExist(keyName string) bool
 
 	// LoadFreeSenders loads key info to prepare to relay the packet
-	LoadFreeSenders(homePath, passphrase string) error
+	LoadFreeSenders() error
 }
 
 // BaseChainProvider is a base object for connecting with the chain network.

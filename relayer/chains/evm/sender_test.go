@@ -116,14 +116,14 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 	keyName2 := "key2"
 
 	// Add two mock keys to the chain provider
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName1, privateKey1, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName1, privateKey1)
 	s.Require().NoError(err)
 
-	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName2, privateKey2, s.homePath, "")
+	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName2, privateKey2)
 	s.Require().NoError(err)
 
 	// Load free senders
-	err = s.chainProvider.LoadFreeSenders(s.homePath, "")
+	err = s.chainProvider.LoadFreeSenders()
 	s.Require().NoError(err)
 
 	// Validate the FreeSenders channel is populated correctly

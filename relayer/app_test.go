@@ -488,11 +488,9 @@ func (s *AppTestSuite) TestAddKey() {
 						"testkey",
 						"",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-						s.app.HomePath,
 						uint32(60),
 						uint(0),
 						uint(0),
-						s.app.Passphrase,
 					).
 					Return(chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""), nil)
 			},
@@ -509,11 +507,9 @@ func (s *AppTestSuite) TestAddKey() {
 						"testkey",
 						"",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-						s.app.HomePath,
 						uint32(60),
 						uint(0),
 						uint(0),
-						s.app.Passphrase,
 					).
 					Return(nil, fmt.Errorf("add key error"))
 			},
@@ -569,7 +565,7 @@ func (s *AppTestSuite) TestDeleteKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					DeleteKey(s.app.HomePath, "testkey", s.app.Passphrase).
+					DeleteKey("testkey").
 					Return(nil)
 			},
 		},
@@ -579,7 +575,7 @@ func (s *AppTestSuite) TestDeleteKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					DeleteKey(s.app.HomePath, "testkey", s.app.Passphrase).
+					DeleteKey("testkey").
 					Return(fmt.Errorf("delete key error"))
 			},
 			err: fmt.Errorf("delete key error"),
@@ -624,7 +620,7 @@ func (s *AppTestSuite) TestExportKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					ExportPrivateKey("testkey", s.app.Passphrase).
+					ExportPrivateKey("testkey").
 					Return("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", nil)
 			},
 			out: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -635,7 +631,7 @@ func (s *AppTestSuite) TestExportKey() {
 			keyName:   "testkey",
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					ExportPrivateKey("testkey", s.app.Passphrase).
+					ExportPrivateKey("testkey").
 					Return("", fmt.Errorf("export key error"))
 			},
 			err: fmt.Errorf("export key error"),

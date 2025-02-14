@@ -27,11 +27,8 @@ func NewSender(name string, address gethcommon.Address) *Sender {
 }
 
 // LoadFreeSenders loads the FreeSenders channel with sender instances.
-// derived from the keys stored in the keystore located at the specified homePath.
-func (cp *EVMChainProvider) LoadFreeSenders(
-	homePath string,
-	passphrase string,
-) error {
+// derived from the keys stored in the keystore located.
+func (cp *EVMChainProvider) LoadFreeSenders() error {
 	if cp.FreeSenders != nil {
 		return nil
 	}
