@@ -13,10 +13,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// metrics is variable to store Prometheus metrics instance.
+// metrics stores the Prometheus metrics instance.
 var metrics *PrometheusMetrics
 
-// globalTelemetryEnabled is a private variable that stores the telemetry enabled state.
+// globalTelemetryEnabled indicates whether telemetry is enabled globally.
 // It is set on initialization and does not change for the lifetime of the program.
 var globalTelemetryEnabled bool
 
@@ -28,7 +28,7 @@ type PrometheusMetrics struct {
 	TasksCount            *prometheus.CounterVec
 	TaskExecutionTime     *prometheus.SummaryVec
 	DestinationChainCount prometheus.Counter
-	TargetContract        prometheus.Gauge
+	ActiveTargetContract  prometheus.Gauge
 	TxCount               *prometheus.CounterVec
 	TxProcessTime         *prometheus.SummaryVec
 	GasUsed               *prometheus.SummaryVec
@@ -82,21 +82,21 @@ func AddDestinationChainCount(count uint64) {
 	})
 }
 
-// IncTargetContractCount increases the count of active target contracts.
+// IncActiveTargetContractCount increases the count of active target contracts.
 func IncActiveTargetContractCount() {
 	updateMetrics(func() {
-		metrics.TargetContract.Inc()
+		metrics.ActiveTargetContract.Inc()
 	})
 }
 
-// DecTargetContractCount decreases the count of active target contracts.
+// DecActiveTargetContractCount decreases the count of active target contracts.
 func DecActiveTargetContractCount() {
 	updateMetrics(func() {
-		metrics.TargetContract.Dec()
+		metrics.ActiveTargetContract.Dec()
 	})
 }
 
-// IncTxCount increments the transaction count metric for the current tunnel.
+// IncTxCount increments the transaction count metric for a specific tunnel.
 func IncTxCount(tunnelID uint64) {
 	updateMetrics(func() {
 		metrics.TxCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
@@ -156,9 +156,9 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "falcon_destination_chain_count_total",
 			Help: "Total number of destination chains",
 		}),
-		TargetContract: registerer.NewGauge(prometheus.GaugeOpts{
+		ActiveTargetContract: registerer.NewGauge(prometheus.GaugeOpts{
 			Name: "falcon_active_target_chain_contract_count",
-			Help: "Number of target chain contracts",
+			Help: "Number of active target chain contracts",
 		}),
 		TxCount: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_tx_count_total",
