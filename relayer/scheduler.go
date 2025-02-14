@@ -8,6 +8,7 @@ import (
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
@@ -23,9 +24,8 @@ type Scheduler struct {
 	MaxCheckingPacketPenaltyDuration time.Duration
 	ExponentialFactor                float64
 
-	isErrorOnHolds       []bool
-	isSyncTunnelsAllowed bool
-	penaltyTaskCh        chan Task
+	isErrorOnHolds []bool
+	penaltyTaskCh  chan Task
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
@@ -34,26 +34,21 @@ type Scheduler struct {
 // NewScheduler creates a new Scheduler
 func NewScheduler(
 	log *zap.Logger,
-	tunnelRelayers []*TunnelRelayer,
-	bandLatestTunnel int,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
 	maxCheckingPacketPenaltyDuration time.Duration,
 	exponentialFactor float64,
-	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
-		TunnelRelayers:                   tunnelRelayers,
-		BandLatestTunnel:                 bandLatestTunnel,
+		TunnelRelayers:                   []*TunnelRelayer{},
 		CheckingPacketInterval:           checkingPacketInterval,
 		SyncTunnelsInterval:              syncTunnelsInterval,
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
 		ExponentialFactor:                exponentialFactor,
-		isErrorOnHolds:                   make([]bool, len(tunnelRelayers)),
-		isSyncTunnelsAllowed:             isSyncTunnelsAllowed,
+		isErrorOnHolds:                   []bool{},
 		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
@@ -61,7 +56,9 @@ func NewScheduler(
 }
 
 // Start starts all tunnel relayers
-func (s *Scheduler) Start(ctx context.Context) error {
+func (s *Scheduler) Start(ctx context.Context, tunnelIds []uint64) error {
+	s.SyncTunnels(ctx, tunnelIds)
+
 	ticker := time.NewTicker(s.CheckingPacketInterval)
 	defer ticker.Stop()
 
@@ -78,7 +75,9 @@ func (s *Scheduler) Start(ctx context.Context) error {
 
 			return nil
 		case <-syncTunnelTicker.C:
-			s.SyncTunnels(ctx)
+			if len(tunnelIds) == 0 {
+				s.SyncTunnels(ctx, tunnelIds)
+			}
 		case <-ticker.C:
 			s.Execute(ctx)
 		case task := <-s.penaltyTaskCh:
@@ -167,13 +166,9 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 }
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
-func (s *Scheduler) SyncTunnels(ctx context.Context) {
-	if !s.isSyncTunnelsAllowed {
-		return
-	}
-
-	s.Log.Info("Start syncing new tunnels")
-	tunnels, err := s.BandClient.GetTunnels(ctx)
+func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
+	s.Log.Info("Start syncing tunnels from Bandchain")
+	tunnels, err := s.getTunnels(ctx, tunnelIds)
 	if err != nil {
 		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
 		return
@@ -227,6 +222,26 @@ func (s *Scheduler) calculatePenaltyInterval(interval time.Duration) time.Durati
 		newInterval = s.MaxCheckingPacketPenaltyDuration
 	}
 	return newInterval
+}
+
+// GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
+// get all tunnels
+func (s *Scheduler) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
+	if len(tunnelIDs) == 0 {
+		return s.BandClient.GetTunnels(ctx)
+	}
+
+	tunnels := make([]bandtypes.Tunnel, 0, len(tunnelIDs))
+	for _, tunnelID := range tunnelIDs {
+		tunnel, err := s.BandClient.GetTunnel(ctx, tunnelID)
+		if err != nil {
+			return nil, err
+		}
+
+		tunnels = append(tunnels, *tunnel)
+	}
+
+	return tunnels, nil
 }
 
 // Task is a struct to manage the task for the tunnel relayer

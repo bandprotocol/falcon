@@ -529,12 +529,6 @@ func (a *App) Start(
 ) error {
 	a.Log.Info("Starting tunnel relayer")
 
-	// query tunnels
-	tunnels, err := a.getTunnels(ctx, tunnelIDs)
-	if err != nil {
-		a.Log.Error("Cannot get tunnels", zap.Error(err))
-	}
-
 	// validate passphrase
 	if err := a.ValidatePassphrase(a.EnvPassphrase); err != nil {
 		return err
@@ -568,45 +562,18 @@ func (a *App) Start(
 		}
 	}
 
-	// initialize the tunnel relayer
-	tunnelRelayers := []*TunnelRelayer{}
-
-	for _, tunnel := range tunnels {
-		chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
-		if !ok {
-			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
-		}
-
-		tr := NewTunnelRelayer(
-			a.Log,
-			tunnel.ID,
-			tunnel.TargetAddress,
-			a.Config.Global.CheckingPacketInterval,
-			a.BandClient,
-			chainProvider,
-		)
-		tunnelRelayers = append(tunnelRelayers, &tr)
-
-		// update the metric for the number of tunnels per destination chain
-		relayermetrics.IncTunnelPerDestinationChain(tunnel.TargetChainID)
-	}
-
 	// start the tunnel relayers
-	isSyncTunnelsAllowed := (len(tunnelIDs) == 0)
 	scheduler := NewScheduler(
 		a.Log,
-		tunnelRelayers,
-		len(tunnels),
 		a.Config.Global.CheckingPacketInterval,
 		a.Config.Global.SyncTunnelsInterval,
 		a.Config.Global.MaxCheckingPacketPenaltyDuration,
 		a.Config.Global.PenaltyExponentialFactor,
-		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.TargetChains,
 	)
 
-	return scheduler.Start(ctx)
+	return scheduler.Start(ctx, tunnelIDs)
 }
 
 // Relay relays the packet from the source chain to the destination chain.
@@ -644,26 +611,6 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	)
 
 	return tr.CheckAndRelay(ctx)
-}
-
-// GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
-// get all tunnels
-func (a *App) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
-	if len(tunnelIDs) == 0 {
-		return a.BandClient.GetTunnels(ctx)
-	}
-
-	tunnels := make([]bandtypes.Tunnel, 0, len(tunnelIDs))
-	for _, tunnelID := range tunnelIDs {
-		tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
-		if err != nil {
-			return nil, err
-		}
-
-		tunnels = append(tunnels, *tunnel)
-	}
-
-	return tunnels, nil
 }
 
 // setupMetricsServer starts the metrics server if enabled.
