@@ -2,11 +2,13 @@ package wallet
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"path"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/bandprotocol/falcon/internal/os"
@@ -104,8 +106,37 @@ func (w *GethWallet) GetNames() []string {
 	return names
 }
 
-// GetKey returns the private key and address of the given key name
-func (w *GethWallet) GetKey(name string) (*Key, error) {
+// SaveKeyNameInfo writes the keyNameInfo map to the file
+func (w *GethWallet) SaveKeyNameInfo() error {
+	b, err := toml.Marshal(w.KeyNameInfo)
+	if err != nil {
+		return err
+	}
+
+	return os.Write(b, getEVMKeyNameInfoPath(w.HomePath, w.ChainName))
+}
+
+// ExportPrivateKey exports the private key of the given key name
+func (w *GethWallet) ExportPrivateKey(name string) (string, error) {
+	privKey, err := w.getPrivateKey(name)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(crypto.FromECDSA(privKey)), nil
+}
+
+// Sign signs the data with the private key of the given key name
+func (w *GethWallet) Sign(name string, data []byte) ([]byte, error) {
+	privKey, err := w.getPrivateKey(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return crypto.Sign(data, privKey)
+}
+
+// GetPrivateKey returns the private key of the given key name
+func (w *GethWallet) getPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 	hexAddr, ok := w.KeyNameInfo[name]
 	if !ok {
 		return nil, fmt.Errorf("key name does not exist: %s", name)
@@ -132,18 +163,5 @@ func (w *GethWallet) GetKey(name string) (*Key, error) {
 		return nil, err
 	}
 
-	return &Key{
-		Address:    gethAddr.Hex(),
-		PrivateKey: gethKey.PrivateKey,
-	}, nil
-}
-
-// SaveKeyNameInfo writes the keyNameInfo map to the file
-func (w *GethWallet) SaveKeyNameInfo() error {
-	b, err := toml.Marshal(w.KeyNameInfo)
-	if err != nil {
-		return err
-	}
-
-	return os.Write(b, getEVMKeyNameInfoPath(w.HomePath, w.ChainName))
+	return gethKey.PrivateKey, nil
 }

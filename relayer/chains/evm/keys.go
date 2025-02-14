@@ -2,14 +2,12 @@ package evm
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
-	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 const (
@@ -113,15 +111,7 @@ func (cp *EVMChainProvider) DeleteKey(homePath, keyName, passphrase string) erro
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
-	if !cp.IsKeyNameExist(keyName) {
-		return "", fmt.Errorf("key name does not exist: %s", keyName)
-	}
-
-	key, err := cp.GetKeyFromKeyName(keyName)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(crypto.FromECDSA(key.PrivateKey)), nil
+	return cp.Wallet.ExportPrivateKey(keyName)
 }
 
 // ListKeys lists all keys.
@@ -177,8 +167,4 @@ func (cp *EVMChainProvider) generatePrivateKey(
 		return nil, err
 	}
 	return privatekey, nil
-}
-
-func (cp *EVMChainProvider) GetKeyFromKeyName(keyName string) (*wallet.Key, error) {
-	return cp.Wallet.GetKey(keyName)
 }

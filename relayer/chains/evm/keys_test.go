@@ -1,7 +1,6 @@
 package evm_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -339,31 +338,4 @@ func (s *KeysTestSuite) TestIsKeyNameExist() {
 
 	expected = s.chainProvider.IsKeyNameExist("testkey2")
 	s.Require().Equal(expected, false)
-}
-
-func (s *KeysTestSuite) TestGetKeyFromKeyName() {
-	keyName := "testkeyname"
-	privatekeyHex := testPrivateKey
-
-	// Add a key to test retrieval
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
-	s.Require().NoError(err)
-
-	// Retrieve the key using the key name
-	key, err := s.chainProvider.GetKeyFromKeyName(keyName)
-	s.Require().NoError(err)
-	s.Require().NotNil(key)
-
-	// Verify that the retrieved private key matches the original private key
-	s.Require().Equal(testPrivateKey[2:], hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))) // Remove "0x"
-
-	// Retrieve the key using the invalid passphrase should return error
-	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
-	s.Require().NoError(err)
-
-	s.chainProvider.Wallet, err = wallet.NewGethWallet("invalid", s.homePath, s.chainProvider.ChainName)
-	s.Require().NoError(err)
-
-	_, err = s.chainProvider.GetKeyFromKeyName(keyName)
-	s.Require().ErrorContains(err, "could not decrypt key with given password")
 }

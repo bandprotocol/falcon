@@ -11,7 +11,6 @@ import (
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -73,14 +72,9 @@ func mockSender() (evm.Sender, error) {
 		return evm.Sender{}, err
 	}
 
-	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
-	if err != nil {
-		return evm.Sender{}, err
-	}
-
 	return evm.Sender{
-		Address:    addr,
-		PrivateKey: priv,
+		Address: addr,
+		Name:    "tester1",
 	}, nil
 }
 
