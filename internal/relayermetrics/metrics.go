@@ -21,30 +21,22 @@ var metrics *PrometheusMetrics
 var globalTelemetryEnabled bool
 
 type PrometheusMetrics struct {
-	Registry              *prometheus.Registry
-	TunnelCount           prometheus.Counter
-	PacketReceived        *prometheus.CounterVec
-	UnrelayedPacket       *prometheus.GaugeVec
-	TasksCount            *prometheus.CounterVec
-	TaskExecutionTime     *prometheus.SummaryVec
-	DestinationChainCount prometheus.Counter
-	ActiveTargetContract  prometheus.Gauge
-	TxCount               *prometheus.CounterVec
-	TxProcessTime         *prometheus.SummaryVec
-	GasUsed               *prometheus.SummaryVec
+	Registry                  *prometheus.Registry
+	PacketReceived            *prometheus.CounterVec
+	UnrelayedPacket           *prometheus.GaugeVec
+	TaskCount                 *prometheus.CounterVec
+	TaskExecutionTime         *prometheus.SummaryVec
+	TunnelPerDestinationChain *prometheus.CounterVec
+	ActiveTargetContract      prometheus.Gauge
+	TxCount                   *prometheus.CounterVec
+	TxProcessTime             *prometheus.SummaryVec
+	GasUsed                   *prometheus.SummaryVec
 }
 
 func updateMetrics(updateFn func()) {
 	if globalTelemetryEnabled {
 		updateFn()
 	}
-}
-
-// AddTunnellCount increments the total tunnel count metric.
-func AddTunnellCount(count uint64) {
-	updateMetrics(func() {
-		metrics.TunnelCount.Add(float64(count))
-	})
 }
 
 // IncPacketlReceived increments the count of successfully relayed packets for a specific tunnel.
@@ -61,10 +53,10 @@ func SetUnrelayedPacket(tunnelID uint64, unrelayedPacket float64) {
 	})
 }
 
-// IncTasksCount increments the total task count for a specific tunnel.
-func IncTasksCount(tunnelID uint64) {
+// IncTaskCount increments the total task count for a specific tunnel.
+func IncTaskCount(tunnelID uint64) {
 	updateMetrics(func() {
-		metrics.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+		metrics.TaskCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 	})
 }
 
@@ -75,10 +67,10 @@ func ObserveTaskExecutionTime(tunnelID uint64, taskExecutionTime float64) {
 	})
 }
 
-// AddDestinationChainCount increments the total number of destination chains observed.
-func AddDestinationChainCount(count uint64) {
+// IncTunnelPerDestinationChain increments the total number of tunnels per specify destination chain.
+func IncTunnelPerDestinationChain(destinationChain string) {
 	updateMetrics(func() {
-		metrics.DestinationChainCount.Add(float64(count))
+		metrics.TunnelPerDestinationChain.WithLabelValues(destinationChain).Inc()
 	})
 }
 
@@ -104,9 +96,9 @@ func IncTxCount(tunnelID uint64) {
 }
 
 // ObserveTxProcessTime tracks transaction processing time in seconds with millisecond precision.
-func ObserveTxProcessTime(chainName string, taskExecutionTime float64) {
+func ObserveTxProcessTime(chainName string, txProcessTime float64) {
 	updateMetrics(func() {
-		metrics.TxProcessTime.WithLabelValues(chainName).Observe(taskExecutionTime)
+		metrics.TxProcessTime.WithLabelValues(chainName).Observe(txProcessTime)
 	})
 }
 
@@ -119,18 +111,12 @@ func ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
 
 func NewPrometheusMetrics() *PrometheusMetrics {
 	tunnelLabels := []string{"tunnel_id"}
-	txCountLabels := []string{"tunnel_id"}
-	txProcessTimeLabels := []string{"chain_name"}
-	gasUsedLabels := []string{"tunnel_id"}
+	chainNameLabels := []string{"chain_name"}
 
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
 	metrics = &PrometheusMetrics{
 		Registry: registry,
-		TunnelCount: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "falcon_tunnel_count_total",
-			Help: "Total number of observed tunnels",
-		}),
 		PacketReceived: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_packet_received_total",
 			Help: "Total number of packets received",
@@ -139,7 +125,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 			Name: "falcon_unrelayed_packet_count",
 			Help: "Number of unrelayed packets",
 		}, tunnelLabels),
-		TasksCount: registerer.NewCounterVec(prometheus.CounterOpts{
+		TaskCount: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_task_count_total",
 			Help: "Total number of observed tasks",
 		}, tunnelLabels),
@@ -152,10 +138,10 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 				0.99: 0.001,
 			},
 		}, tunnelLabels),
-		DestinationChainCount: registerer.NewCounter(prometheus.CounterOpts{
-			Name: "falcon_destination_chain_count_total",
+		TunnelPerDestinationChain: registerer.NewCounterVec(prometheus.CounterOpts{
+			Name: "falcon_tunnel_per_destination_chain",
 			Help: "Total number of destination chains",
-		}),
+		}, chainNameLabels),
 		ActiveTargetContract: registerer.NewGauge(prometheus.GaugeOpts{
 			Name: "falcon_active_target_chain_contract_count",
 			Help: "Number of active target chain contracts",
@@ -163,7 +149,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		TxCount: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_tx_count_total",
 			Help: "Total number of transactions per tunnel",
-		}, txCountLabels),
+		}, tunnelLabels),
 		TxProcessTime: registerer.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_tx_process_time",
 			Help: "Transaction processing time in milliseconds",
@@ -172,7 +158,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, txProcessTimeLabels),
+		}, chainNameLabels),
 		GasUsed: registerer.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_gas_used_per_tx",
 			Help: "Gas used per transaction",
@@ -181,7 +167,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, gasUsedLabels),
+		}, tunnelLabels),
 	}
 	return metrics
 }

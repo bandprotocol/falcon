@@ -29,7 +29,6 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
-	ChainNames     map[string]bool
 }
 
 // NewScheduler creates a new Scheduler
@@ -44,7 +43,6 @@ func NewScheduler(
 	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
-	chainNames map[string]bool,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                              log,
@@ -59,7 +57,6 @@ func NewScheduler(
 		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
 		BandClient:                       bandClient,
 		ChainProviders:                   chainProviders,
-		ChainNames:                       chainNames,
 	}
 }
 
@@ -70,9 +67,6 @@ func (s *Scheduler) Start(ctx context.Context) error {
 
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
-
-	relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers)))
-	relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames)))
 
 	// execute once we start the scheduler.
 	s.Execute(ctx)
@@ -120,7 +114,7 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		go s.TriggerTunnelRelayer(ctx, task)
 
 		// record metrics for the task execution for the current tunnel relayer
-		relayermetrics.IncTasksCount(tr.TunnelID)
+		relayermetrics.IncTaskCount(tr.TunnelID)
 	}
 }
 
@@ -190,9 +184,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		return
 	}
 
-	oldTunnelRelayerCount := len(s.TunnelRelayers)
-	oldDestinationChainCount := len(s.ChainNames)
-
 	for i := s.BandLatestTunnel; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
@@ -213,10 +204,11 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			chainProvider,
 		)
 
-		s.ChainNames[tunnels[i].TargetChainID] = true
-
 		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
 		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
+
+		// update the metric for the number of tunnels per destination chain
+		relayermetrics.IncTunnelPerDestinationChain(tunnels[i].TargetChainID)
 
 		s.Log.Info(
 			"New tunnel synchronized successfully",
@@ -226,10 +218,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 	}
 
 	s.BandLatestTunnel = len(tunnels)
-
-	// update metrics for the number of destination chains and tunnels after synchronization
-	relayermetrics.AddDestinationChainCount(uint64(len(s.ChainNames) - oldDestinationChainCount))
-	relayermetrics.AddTunnellCount(uint64(len(s.TunnelRelayers) - oldTunnelRelayerCount))
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit

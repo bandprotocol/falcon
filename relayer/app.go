@@ -570,16 +570,12 @@ func (a *App) Start(
 
 	// initialize the tunnel relayer
 	tunnelRelayers := []*TunnelRelayer{}
-	// track destination chain names
-	chainNames := make(map[string]bool)
 
 	for _, tunnel := range tunnels {
 		chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
 		if !ok {
 			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 		}
-
-		chainNames[tunnel.TargetChainID] = true
 
 		tr := NewTunnelRelayer(
 			a.Log,
@@ -590,6 +586,9 @@ func (a *App) Start(
 			chainProvider,
 		)
 		tunnelRelayers = append(tunnelRelayers, &tr)
+
+		// update the metric for the number of tunnels per destination chain
+		relayermetrics.IncTunnelPerDestinationChain(tunnel.TargetChainID)
 	}
 
 	// start the tunnel relayers
@@ -605,7 +604,6 @@ func (a *App) Start(
 		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.TargetChains,
-		chainNames,
 	)
 
 	return scheduler.Start(ctx)
