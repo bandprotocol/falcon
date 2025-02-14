@@ -96,9 +96,9 @@ func IncTxCount(tunnelID uint64) {
 }
 
 // ObserveTxProcessTime tracks transaction processing time in seconds with millisecond precision.
-func ObserveTxProcessTime(chainName string, txProcessTime float64) {
+func ObserveTxProcessTime(destinationChain string, txProcessTime float64) {
 	updateMetrics(func() {
-		metrics.TxProcessTime.WithLabelValues(chainName).Observe(txProcessTime)
+		metrics.TxProcessTime.WithLabelValues(destinationChain).Observe(txProcessTime)
 	})
 }
 
@@ -111,7 +111,7 @@ func ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
 
 func NewPrometheusMetrics() *PrometheusMetrics {
 	tunnelLabels := []string{"tunnel_id"}
-	chainNameLabels := []string{"chain_name"}
+	destinationChainLabels := []string{"destination_chain"}
 
 	registry := prometheus.NewRegistry()
 	registerer := promauto.With(registry)
@@ -141,7 +141,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 		TunnelPerDestinationChain: registerer.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_tunnel_per_destination_chain",
 			Help: "Total number of destination chains",
-		}, chainNameLabels),
+		}, destinationChainLabels),
 		ActiveTargetContract: registerer.NewGauge(prometheus.GaugeOpts{
 			Name: "falcon_active_target_chain_contract_count",
 			Help: "Number of active target chain contracts",
@@ -158,7 +158,7 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, chainNameLabels),
+		}, destinationChainLabels),
 		GasUsed: registerer.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_gas_used_per_tx",
 			Help: "Gas used per transaction",
