@@ -77,7 +77,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 
 		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
-		relayermetrics.SetUnrelayedPacket(
+		relayermetrics.SetUnrelayedPackets(
 			t.TunnelID,
 			float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
 		)
@@ -85,7 +85,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		if !tunnelChainInfo.IsActive {
 			// decrease active status if the tunnel was previously active
 			if t.IsTargetChainActive {
-				relayermetrics.DecActiveTargetContractCount()
+				relayermetrics.DecActiveTargetContractsCount()
 				t.IsTargetChainActive = false
 			}
 			t.Log.Info("Tunnel is not active on target chain")
@@ -94,7 +94,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		// increase active status if the tunnel was previously inactive
 		if tunnelChainInfo.IsActive && !t.IsTargetChainActive {
-			relayermetrics.IncActiveTargetContractCount()
+			relayermetrics.IncActiveTargetContractsCount()
 			t.IsTargetChainActive = true
 		}
 
@@ -140,11 +140,11 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 			return err
 		}
 
-		// increment the packet received metric
-		relayermetrics.IncPacketlReceived(t.TunnelID)
+		// increment the packets received metric
+		relayermetrics.IncPacketsReceived(t.TunnelID)
 
 		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
-		relayermetrics.SetUnrelayedPacket(
+		relayermetrics.SetUnrelayedPackets(
 			t.TunnelID,
 			float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
 		)

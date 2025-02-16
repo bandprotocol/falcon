@@ -113,7 +113,7 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		go s.TriggerTunnelRelayer(ctx, task)
 
 		// record metrics for the task execution for the current tunnel relayer
-		relayermetrics.IncTaskCount(tr.TunnelID)
+		relayermetrics.IncTasksCount(tr.TunnelID)
 	}
 }
 
@@ -203,7 +203,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
 
 		// update the metric for the number of tunnels per destination chain
-		relayermetrics.IncTunnelPerDestinationChain(tunnels[i].TargetChainID)
+		relayermetrics.IncTunnelsPerDestinationChain(tunnels[i].TargetChainID)
 
 		s.Log.Info(
 			"New tunnel synchronized successfully",
