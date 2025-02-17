@@ -111,7 +111,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	tr := s.TunnelRelayers[task.RelayerID]
 
 	// Check and relay the packet, if error occurs, set the error flag.
-	if err, isExecuting := tr.CheckAndRelay(ctx); err != nil && !isExecuting {
+	if isExecuting, err := tr.CheckAndRelay(ctx); err != nil && !isExecuting {
 		s.PenaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
 
 		s.Log.Error(

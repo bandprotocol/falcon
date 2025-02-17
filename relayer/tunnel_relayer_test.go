@@ -286,7 +286,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				tc.preprocess()
 			}
 
-			err, isExecuting := s.tunnelRelayer.CheckAndRelay(s.ctx)
+			isExecuting, err := s.tunnelRelayer.CheckAndRelay(s.ctx)
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
 				s.Require().False(isExecuting)

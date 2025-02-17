@@ -623,7 +623,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		chainProvider,
 	)
 
-	err, _ = tr.CheckAndRelay(ctx)
+	_, err = tr.CheckAndRelay(ctx)
 
 	return err
 }

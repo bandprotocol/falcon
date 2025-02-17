@@ -46,14 +46,14 @@ func NewTunnelRelayer(
 }
 
 // CheckAndRelay checks the tunnel and relays the packet
-func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error, isExecuting bool) {
+func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, err error) {
 	if !t.mu.TryLock() {
 		// if the tunnel relayer is executing, skip the round
 		t.Log.Debug(
 			"Skipping this tunnel: tunnel relayer is executing on another process",
 			zap.Uint64("tunnel_id", t.TunnelID),
 		)
-		return nil, true
+		return true, nil
 	}
 	defer func() {
 		t.mu.Unlock()
@@ -75,24 +75,24 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error, isExecuti
 		tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 		if err != nil {
 			t.Log.Error("Failed to get tunnel", zap.Error(err))
-			return err, false
+			return false, err
 		}
 
 		// Query tunnel info from TargetChain
 		tunnelChainInfo, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, t.ContractAddress)
 		if err != nil {
-			return err, false
+			return false, err
 		}
 		if !tunnelChainInfo.IsActive {
 			t.Log.Info("Tunnel is not active on target chain")
-			return nil, false
+			return false, nil
 		}
 
 		// end process if current packet is already relayed
 		seq := tunnelChainInfo.LatestSequence + 1
 		if tunnelBandInfo.LatestSequence < seq {
 			t.Log.Info("No new packet to relay", zap.Uint64("sequence", tunnelChainInfo.LatestSequence))
-			return nil, false
+			return false, nil
 		}
 
 		t.Log.Info("Relaying packet", zap.Uint64("sequence", seq))
@@ -101,7 +101,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error, isExecuti
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
 			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
-			return err, false
+			return false, err
 		}
 
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
@@ -118,17 +118,17 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error, isExecuti
 				"The current packet must wait for the completion of the EVM signature",
 				zap.Uint64("sequence", seq),
 			)
-			return nil, false
+			return false, nil
 		} else if signingStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
-			return err, false
+			return false, err
 		}
 
 		// Relay the packet to the target chain
 		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
-			return err, false
+			return false, err
 		}
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
