@@ -15,6 +15,7 @@ linters:
     - gosec
     - gosimple
     - govet
+    - aligncheck
     - ineffassign
     - misspell
     - nolintlint
@@ -50,12 +51,8 @@ linters-settings:
       - regexpMust
       - appendAssign
       - ifElseChain
-  maligned:
-    # print struct with more effective memory layout or not, false by default
-    suggest-new: true
   nolintlint:
     allow-unused: false
-    allow-leading-space: true
     require-explanation: false
     require-specific: false
   revive:
