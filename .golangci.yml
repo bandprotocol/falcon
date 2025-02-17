@@ -15,7 +15,6 @@ linters:
     - gosec
     - gosimple
     - govet
-    - aligncheck
     - ineffassign
     - misspell
     - nolintlint
