@@ -15,6 +15,7 @@ linters:
     - gosec
     - gosimple
     - govet
+    - aligncheck
     - ineffassign
     - misspell
     - nolintlint
@@ -55,7 +56,6 @@ linters-settings:
     suggest-new: true
   nolintlint:
     allow-unused: false
-    allow-leading-space: true
     require-explanation: false
     require-specific: false
   revive:
