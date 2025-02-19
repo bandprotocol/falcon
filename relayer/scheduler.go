@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -58,14 +57,8 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
 
-	// Mutex to prevent overlapping executions
-	var executionMutex sync.Mutex
-
-	// Execute once at the start
-	executionMutex.Lock()
 	// execute once we start the scheduler.
 	s.Execute(ctx)
-	executionMutex.Unlock()
 
 	for {
 		select {
@@ -76,10 +69,7 @@ func (s *Scheduler) Start(ctx context.Context) error {
 		case <-syncTunnelTicker.C:
 			s.SyncTunnels(ctx)
 		case <-ticker.C:
-			if executionMutex.TryLock() {
-				s.Execute(ctx)
-				executionMutex.Unlock()
-			}
+			s.Execute(ctx)
 		}
 	}
 }
