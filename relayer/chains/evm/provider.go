@@ -193,8 +193,8 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		createdAt := time.Now()
 
-		// increment the transaction count metric for the current tunnel
-		relayermetrics.IncTxCount(packet.TunnelID)
+		// increment the transactions count metric for the current tunnel
+		relayermetrics.IncTxsCount(packet.TunnelID)
 
 		log.Info(
 			"Submitted a message; checking transaction status",

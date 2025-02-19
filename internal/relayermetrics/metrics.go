@@ -21,14 +21,13 @@ var metrics *PrometheusMetrics
 var globalTelemetryEnabled bool
 
 type PrometheusMetrics struct {
-	Registry                   *prometheus.Registry
 	PacketsReceived            *prometheus.CounterVec
 	UnrelayedPackets           *prometheus.GaugeVec
 	TasksCount                 *prometheus.CounterVec
 	TaskExecutionTime          *prometheus.SummaryVec
 	TunnelsPerDestinationChain *prometheus.CounterVec
-	ActiveTargetContracts      prometheus.Gauge
-	TxCount                    *prometheus.CounterVec
+	ActiveTargetContractsCount prometheus.Gauge
+	TxsCount                   *prometheus.CounterVec
 	TxProcessTime              *prometheus.SummaryVec
 	GasUsed                    *prometheus.SummaryVec
 }
@@ -77,21 +76,21 @@ func IncTunnelsPerDestinationChain(destinationChain string) {
 // IncActiveTargetContractsCount increases the count of active target contracts.
 func IncActiveTargetContractsCount() {
 	updateMetrics(func() {
-		metrics.ActiveTargetContracts.Inc()
+		metrics.ActiveTargetContractsCount.Inc()
 	})
 }
 
 // DecActiveTargetContractsCount decreases the count of active target contracts.
 func DecActiveTargetContractsCount() {
 	updateMetrics(func() {
-		metrics.ActiveTargetContracts.Dec()
+		metrics.ActiveTargetContractsCount.Dec()
 	})
 }
 
-// IncTxCount increments the transactions count metric for a specific tunnel.
-func IncTxCount(tunnelID uint64) {
+// IncTxsCount increments the transactions count metric for a specific tunnel.
+func IncTxsCount(tunnelID uint64) {
 	updateMetrics(func() {
-		metrics.TxCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+		metrics.TxsCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 	})
 }
 
@@ -109,27 +108,27 @@ func ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
 	})
 }
 
-func NewPrometheusMetrics() *PrometheusMetrics {
-	tunnelLabels := []string{"tunnel_id"}
-	destinationChainLabels := []string{"destination_chain"}
+func InitPrometheusMetrics() {
+	packetLabels := []string{"tunnel_id"}
+	taskLabels := []string{"tunnel_id"}
+	tunnelPerDestinationChainLabels := []string{"destination_chain"}
+	txLabels := []string{"tunnel_id"}
+	gasUsedLabels := []string{"tunnel_id"}
 
-	registry := prometheus.NewRegistry()
-	registerer := promauto.With(registry)
 	metrics = &PrometheusMetrics{
-		Registry: registry,
-		PacketsReceived: registerer.NewCounterVec(prometheus.CounterOpts{
+		PacketsReceived: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_packets_received",
 			Help: "Total number of packets received from BandChain",
-		}, tunnelLabels),
-		UnrelayedPackets: registerer.NewGaugeVec(prometheus.GaugeOpts{
+		}, packetLabels),
+		UnrelayedPackets: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "falcon_unrelayed_packets",
 			Help: "Number of unrelayed packets (the difference between total packets from BandChain and received packets from the target chain)",
-		}, tunnelLabels),
-		TasksCount: registerer.NewCounterVec(prometheus.CounterOpts{
+		}, packetLabels),
+		TasksCount: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_tasks_count",
 			Help: "Total number of successfully executed tasks",
-		}, tunnelLabels),
-		TaskExecutionTime: registerer.NewSummaryVec(prometheus.SummaryOpts{
+		}, taskLabels),
+		TaskExecutionTime: promauto.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_task_execution_time",
 			Help: "Task execution time in milliseconds",
 			Objectives: map[float64]float64{
@@ -137,20 +136,20 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, tunnelLabels),
-		TunnelsPerDestinationChain: registerer.NewCounterVec(prometheus.CounterOpts{
+		}, taskLabels),
+		TunnelsPerDestinationChain: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_tunnels_per_destination_chain",
 			Help: "Total number of destination chains",
-		}, destinationChainLabels),
-		ActiveTargetContracts: registerer.NewGauge(prometheus.GaugeOpts{
-			Name: "falcon_active_target_contracts",
+		}, tunnelPerDestinationChainLabels),
+		ActiveTargetContractsCount: promauto.NewGauge(prometheus.GaugeOpts{
+			Name: "falcon_active_target_contracts_count",
 			Help: "Number of active target chain contracts",
 		}),
-		TxCount: registerer.NewCounterVec(prometheus.CounterOpts{
-			Name: "falcon_tx_count",
+		TxsCount: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "falcon_txs_count",
 			Help: "Total number of transactions per tunnel",
-		}, tunnelLabels),
-		TxProcessTime: registerer.NewSummaryVec(prometheus.SummaryOpts{
+		}, txLabels),
+		TxProcessTime: promauto.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_tx_process_time",
 			Help: "Transaction processing time in milliseconds",
 			Objectives: map[float64]float64{
@@ -158,8 +157,8 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, destinationChainLabels),
-		GasUsed: registerer.NewSummaryVec(prometheus.SummaryOpts{
+		}, txLabels),
+		GasUsed: promauto.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_gas_used",
 			Help: "Amount of gas used per transaction",
 			Objectives: map[float64]float64{
@@ -167,9 +166,8 @@ func NewPrometheusMetrics() *PrometheusMetrics {
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, tunnelLabels),
+		}, gasUsedLabels),
 	}
-	return metrics
 }
 
 // StartMetricsServer starts a metrics server in a background goroutine,
@@ -188,19 +186,17 @@ func StartMetricsServer(ctx context.Context, log *zap.Logger, metricsListenAddr 
 	log = log.With(zap.String("sys", "metricshttp"))
 	log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
 
-	// Allow for the global telemetry enabled state to be set.
+	// allow for the global telemetry enabled state to be set.
 	globalTelemetryEnabled = true
 
-	prometheusMetrics := NewPrometheusMetrics()
+	// initialize Prometheus metrics
+	InitPrometheusMetrics()
 
-	// Set up new mux identical to the default mux configuration in net/http/pprof.
+	// set up new mux identical to the default mux configuration in net/http/pprof.
 	mux := http.NewServeMux()
 
-	// Serve default prometheus metrics
+	// serve prometheus metrics
 	mux.Handle("/metrics", promhttp.Handler())
-
-	// Serve relayer metrics
-	mux.Handle("/relayer/metrics", promhttp.HandlerFor(prometheusMetrics.Registry, promhttp.HandlerOpts{}))
 
 	srv := &http.Server{
 		Handler:  mux,

@@ -18,7 +18,7 @@ const penaltyTaskChSize = 1000
 type Scheduler struct {
 	Log                              *zap.Logger
 	TunnelRelayers                   []*TunnelRelayer
-	BandLatestTunnel                 int
+	bandLatestTunnel                 int
 	CheckingPacketInterval           time.Duration
 	SyncTunnelsInterval              time.Duration
 	MaxCheckingPacketPenaltyDuration time.Duration
@@ -44,6 +44,7 @@ func NewScheduler(
 	return &Scheduler{
 		Log:                              log,
 		TunnelRelayers:                   []*TunnelRelayer{},
+		bandLatestTunnel:                 0,
 		CheckingPacketInterval:           checkingPacketInterval,
 		SyncTunnelsInterval:              syncTunnelsInterval,
 		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
@@ -174,12 +175,12 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 		return
 	}
 
-	if s.BandLatestTunnel == len(tunnels) {
+	if s.bandLatestTunnel == len(tunnels) {
 		s.Log.Info("No new tunnels to sync")
 		return
 	}
 
-	for i := s.BandLatestTunnel; i < len(tunnels); i++ {
+	for i := s.bandLatestTunnel; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
 			s.Log.Warn(
@@ -212,7 +213,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 		)
 	}
 
-	s.BandLatestTunnel = len(tunnels)
+	s.bandLatestTunnel = len(tunnels)
 }
 
 // calculatePenaltyInterval applies exponential backoff with a max limit
