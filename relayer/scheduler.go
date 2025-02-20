@@ -10,20 +10,16 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
-const penaltyTaskChSize = 1000
-
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
-	Log                              *zap.Logger
-	TunnelRelayers                   []*TunnelRelayer
-	CheckingPacketInterval           time.Duration
-	SyncTunnelsInterval              time.Duration
-	MaxCheckingPacketPenaltyDuration time.Duration
-	ExponentialFactor                float64
+	Log                    *zap.Logger
+	TunnelRelayers         []*TunnelRelayer
+	CheckingPacketInterval time.Duration
+	SyncTunnelsInterval    time.Duration
+	PenaltySkipRounds      uint
 
-	isErrorOnHolds       []bool
+	PenaltySkipRemaining []uint
 	isSyncTunnelsAllowed bool
-	penaltyTaskCh        chan Task
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
@@ -35,24 +31,21 @@ func NewScheduler(
 	tunnelRelayers []*TunnelRelayer,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
-	maxCheckingPacketPenaltyDuration time.Duration,
-	exponentialFactor float64,
+	penaltyAttempts uint,
 	isSyncTunnelsAllowed bool,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	return &Scheduler{
-		Log:                              log,
-		TunnelRelayers:                   tunnelRelayers,
-		CheckingPacketInterval:           checkingPacketInterval,
-		SyncTunnelsInterval:              syncTunnelsInterval,
-		MaxCheckingPacketPenaltyDuration: maxCheckingPacketPenaltyDuration,
-		ExponentialFactor:                exponentialFactor,
-		isErrorOnHolds:                   make([]bool, len(tunnelRelayers)),
-		isSyncTunnelsAllowed:             isSyncTunnelsAllowed,
-		penaltyTaskCh:                    make(chan Task, penaltyTaskChSize),
-		BandClient:                       bandClient,
-		ChainProviders:                   chainProviders,
+		Log:                    log,
+		TunnelRelayers:         tunnelRelayers,
+		CheckingPacketInterval: checkingPacketInterval,
+		SyncTunnelsInterval:    syncTunnelsInterval,
+		PenaltySkipRounds:      penaltyAttempts,
+		PenaltySkipRemaining:   make([]uint, len(tunnelRelayers)),
+		isSyncTunnelsAllowed:   isSyncTunnelsAllowed,
+		BandClient:             bandClient,
+		ChainProviders:         chainProviders,
 	}
 }
 
@@ -77,16 +70,6 @@ func (s *Scheduler) Start(ctx context.Context) error {
 			s.SyncTunnels(ctx)
 		case <-ticker.C:
 			s.Execute(ctx)
-		case task := <-s.penaltyTaskCh:
-			// Execute the task with penalty waiting period
-			go func(task Task) {
-				executeFn := func(ctx context.Context, t Task) {
-					s.isErrorOnHolds[task.RelayerID] = false
-					s.TriggerTunnelRelayer(ctx, task)
-				}
-
-				task.Wait(ctx, executeFn)
-			}(task)
 		}
 	}
 }
@@ -95,12 +78,14 @@ func (s *Scheduler) Start(ctx context.Context) error {
 func (s *Scheduler) Execute(ctx context.Context) {
 	// Execute the task for each tunnel relayer
 	for i, tr := range s.TunnelRelayers {
-		if s.isErrorOnHolds[i] {
+		if s.PenaltySkipRemaining[i] > 0 {
 			s.Log.Debug(
-				"Skipping this tunnel: the operation is on hold due to error on last round.",
+				"Skipping tunnel execution due to penalty from previous failure.",
 				zap.Uint64("tunnel_id", tr.TunnelID),
 				zap.Int("relayer_id", i),
+				zap.Uint("penalty_skip_remaining", s.PenaltySkipRemaining[i]),
 			)
+			s.PenaltySkipRemaining[i] -= 1
 
 			continue
 		}
@@ -115,21 +100,9 @@ func (s *Scheduler) Execute(ctx context.Context) {
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	tr := s.TunnelRelayers[task.RelayerID]
 
-	// if the tunnel relayer is executing, skip the round
-	if tr.IsExecuting() {
-		s.Log.Debug(
-			"Skipping this tunnel: tunnel relayer is executing on another process",
-			zap.Uint64("tunnel_id", tr.TunnelID),
-		)
-		return
-	}
-
-	s.Log.Info("Executing task", zap.Uint64("tunnel_id", tr.TunnelID))
-
 	// Check and relay the packet, if error occurs, set the error flag.
-	if err := tr.CheckAndRelay(ctx); err != nil {
-		s.isErrorOnHolds[task.RelayerID] = true
-		newInterval := s.calculatePenaltyInterval(task.WaitingInterval)
+	if isExecuting, err := tr.CheckAndRelay(ctx); err != nil && !isExecuting {
+		s.PenaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
 
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
@@ -137,14 +110,9 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 			zap.Uint64("tunnel_id", tr.TunnelID),
 		)
 
-		newTask := NewTask(task.RelayerID, newInterval)
-
-		s.penaltyTaskCh <- newTask
 		return
 	}
 
-	// If the task is successful, reset the error flag.
-	s.isErrorOnHolds[task.RelayerID] = false
 	s.Log.Info(
 		"Tunnel relayer finished execution",
 		zap.Uint64("tunnel_id", tr.TunnelID),
@@ -191,22 +159,13 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 		)
 
 		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
-		s.isErrorOnHolds = append(s.isErrorOnHolds, false)
+		s.PenaltySkipRemaining = append(s.PenaltySkipRemaining, 0)
 		s.Log.Info(
 			"New tunnel synchronized successfully",
 			zap.String("chain_name", tunnels[i].TargetChainID),
 			zap.Uint64("tunnel_id", tunnels[i].ID),
 		)
 	}
-}
-
-// calculatePenaltyInterval applies exponential backoff with a max limit
-func (s *Scheduler) calculatePenaltyInterval(interval time.Duration) time.Duration {
-	newInterval := time.Duration(float64(interval) * s.ExponentialFactor)
-	if newInterval > s.MaxCheckingPacketPenaltyDuration {
-		newInterval = s.MaxCheckingPacketPenaltyDuration
-	}
-	return newInterval
 }
 
 // Task is a struct to manage the task for the tunnel relayer
@@ -220,15 +179,5 @@ func NewTask(relayerID int, waitingInterval time.Duration) Task {
 	return Task{
 		RelayerID:       relayerID,
 		WaitingInterval: waitingInterval,
-	}
-}
-
-// Wait waits for the task to be executed
-func (t Task) Wait(ctx context.Context, executeFn func(ctx context.Context, t Task)) {
-	select {
-	case <-ctx.Done():
-		// Do nothing
-	case <-time.After(t.WaitingInterval):
-		executeFn(ctx, t)
 	}
 }
