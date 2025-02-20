@@ -567,8 +567,7 @@ func (a *App) Start(
 		a.Log,
 		a.Config.Global.CheckingPacketInterval,
 		a.Config.Global.SyncTunnelsInterval,
-		a.Config.Global.MaxCheckingPacketPenaltyDuration,
-		a.Config.Global.PenaltyExponentialFactor,
+		a.Config.Global.PenaltySkipRounds,
 		a.BandClient,
 		a.TargetChains,
 	)
@@ -610,7 +609,9 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		chainProvider,
 	)
 
-	return tr.CheckAndRelay(ctx)
+	_, err = tr.CheckAndRelay(ctx)
+
+	return err
 }
 
 // setupMetricsServer starts the metrics server if enabled.

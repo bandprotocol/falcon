@@ -3,6 +3,7 @@ package relayer
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -23,7 +24,7 @@ type TunnelRelayer struct {
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
 
-	isExecuting bool
+	mu *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -42,15 +43,22 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
-		isExecuting:            false,
+		mu:                     &sync.Mutex{},
 	}
 }
 
 // CheckAndRelay checks the tunnel and relays the packet
-func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
-	t.isExecuting = true
+func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, err error) {
+	if !t.mu.TryLock() {
+		// if the tunnel relayer is executing, skip the round
+		t.Log.Debug(
+			"Skipping this tunnel: tunnel relayer is executing on another process",
+			zap.Uint64("tunnel_id", t.TunnelID),
+		)
+		return true, nil
+	}
 	defer func() {
-		t.isExecuting = false
+		t.mu.Unlock()
 
 		// Recover from panic
 		if r := recover(); r != nil {
@@ -62,18 +70,20 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		}
 	}()
 
+	t.Log.Info("Executing task", zap.Uint64("tunnel_id", t.TunnelID))
+
 	for {
 		// Query tunnel info from BandChain
 		tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 		if err != nil {
 			t.Log.Error("Failed to get tunnel", zap.Error(err))
-			return err
+			return false, err
 		}
 
 		// Query tunnel info from TargetChain
 		tunnelChainInfo, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, t.ContractAddress)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
@@ -89,7 +99,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 				t.IsTargetChainActive = false
 			}
 			t.Log.Info("Tunnel is not active on target chain")
-			return nil
+			return false, nil
 		}
 
 		// increase active status if the tunnel was previously inactive
@@ -102,7 +112,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		seq := tunnelChainInfo.LatestSequence + 1
 		if tunnelBandInfo.LatestSequence < seq {
 			t.Log.Info("No new packet to relay", zap.Uint64("sequence", tunnelChainInfo.LatestSequence))
-			return nil
+			return false, nil
 		}
 
 		t.Log.Info("Relaying packet", zap.Uint64("sequence", seq))
@@ -111,33 +121,33 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
 			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
-			return err
+			return false, err
 		}
 
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
 		// If it is not success (Failed or Undefined), return error.
 		signing := packet.CurrentGroupSigning
-		if signing == nil {
+		if signing == nil ||
+			signing.SigningStatus == tsstypes.SIGNING_STATUS_FALLEN {
 			signing = packet.IncomingGroupSigning
 		}
 
-		signingStatus := tsstypes.SigningStatus(tsstypes.SigningStatus_value[signing.Status])
-		if signingStatus == tsstypes.SIGNING_STATUS_WAITING {
+		if signing.SigningStatus == tsstypes.SIGNING_STATUS_WAITING {
 			t.Log.Info(
 				"The current packet must wait for the completion of the EVM signature",
 				zap.Uint64("sequence", seq),
 			)
-			return nil
-		} else if signingStatus != tsstypes.SIGNING_STATUS_SUCCESS {
+			return false, nil
+		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
-			return err
+			return false, err
 		}
 
 		// Relay the packet to the target chain
 		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
-			return err
+			return false, err
 		}
 
 		// increment the packets received metric
@@ -151,8 +161,4 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (err error) {
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}
-}
-
-func (t *TunnelRelayer) IsExecuting() bool {
-	return t.isExecuting
 }

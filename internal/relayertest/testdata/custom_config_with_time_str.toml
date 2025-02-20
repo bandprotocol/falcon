@@ -2,8 +2,7 @@
 log_level = 'info'
 checking_packet_interval = '1m'
 sync_tunnels_interval = '5m'
-max_checking_packet_penalty_duration = '1h'
-penalty_exponential_factor = 1.1
+penalty_skip_rounds = 3
 metrics_listen_addr = ''
 
 [bandchain]
