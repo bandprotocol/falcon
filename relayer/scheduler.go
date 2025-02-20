@@ -15,16 +15,16 @@ import (
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
 	Log                    *zap.Logger
-	TunnelRelayers         []*TunnelRelayer
-	bandLatestTunnel       int
 	CheckingPacketInterval time.Duration
 	SyncTunnelsInterval    time.Duration
 	PenaltySkipRounds      uint
 
-	PenaltySkipRemaining []uint
-
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
+
+	tunnelRelayers       []*TunnelRelayer
+	bandLatestTunnel     int
+	penaltySkipRemaining []uint
 }
 
 // NewScheduler creates a new Scheduler
@@ -32,19 +32,20 @@ func NewScheduler(
 	log *zap.Logger,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
-	penaltyAttempts uint,
+	penaltySkipRounds uint,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                    log,
-		TunnelRelayers:         []*TunnelRelayer{},
 		CheckingPacketInterval: checkingPacketInterval,
 		SyncTunnelsInterval:    syncTunnelsInterval,
-		PenaltySkipRemaining:   []uint{},
-		PenaltySkipRounds:      penaltyAttempts,
+		PenaltySkipRounds:      penaltySkipRounds,
 		BandClient:             bandClient,
 		ChainProviders:         chainProviders,
+		tunnelRelayers:         []*TunnelRelayer{},
+		bandLatestTunnel:       0,
+		penaltySkipRemaining:   []uint{},
 	}
 }
 
@@ -80,15 +81,15 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIds []uint64) error {
 // Execute executes the task for the tunnel relayer
 func (s *Scheduler) Execute(ctx context.Context) {
 	// Execute the task for each tunnel relayer
-	for i, tr := range s.TunnelRelayers {
-		if s.PenaltySkipRemaining[i] > 0 {
+	for i, tr := range s.tunnelRelayers {
+		if s.penaltySkipRemaining[i] > 0 {
 			s.Log.Debug(
 				"Skipping tunnel execution due to penalty from previous failure.",
 				zap.Uint64("tunnel_id", tr.TunnelID),
 				zap.Int("relayer_id", i),
-				zap.Uint("penalty_skip_remaining", s.PenaltySkipRemaining[i]),
+				zap.Uint("penalty_skip_remaining", s.penaltySkipRemaining[i]),
 			)
-			s.PenaltySkipRemaining[i] -= 1
+			s.penaltySkipRemaining[i] -= 1
 
 			continue
 		}
@@ -104,13 +105,13 @@ func (s *Scheduler) Execute(ctx context.Context) {
 
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
-	tr := s.TunnelRelayers[task.RelayerID]
+	tr := s.tunnelRelayers[task.RelayerID]
 
 	startExecutionTaskTime := time.Now()
 
 	// Check and relay the packet, if error occurs, set the error flag.
 	if isExecuting, err := tr.CheckAndRelay(ctx); err != nil && !isExecuting {
-		s.PenaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
+		s.penaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
 
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
@@ -167,8 +168,12 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 			chainProvider,
 		)
 
-		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
-		s.PenaltySkipRemaining = append(s.PenaltySkipRemaining, 0)
+		s.tunnelRelayers = append(s.tunnelRelayers, &tr)
+		s.penaltySkipRemaining = append(s.penaltySkipRemaining, 0)
+
+		// update the metric for the number of tunnels per destination chain
+		relayermetrics.IncTunnelsPerDestinationChain(tunnels[i].TargetChainID)
+
 		s.Log.Info(
 			"New tunnel synchronized successfully",
 			zap.String("chain_name", tunnels[i].TargetChainID),
@@ -179,7 +184,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 	s.bandLatestTunnel = len(tunnels)
 }
 
-// GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
+// getTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
 // get all tunnels
 func (s *Scheduler) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
 	if len(tunnelIDs) == 0 {

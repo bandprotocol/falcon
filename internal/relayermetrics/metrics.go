@@ -21,15 +21,15 @@ var metrics *PrometheusMetrics
 var globalTelemetryEnabled bool
 
 type PrometheusMetrics struct {
-	PacketsReceived            *prometheus.CounterVec
-	UnrelayedPackets           *prometheus.GaugeVec
-	TasksCount                 *prometheus.CounterVec
+	PacketsReceived            *prometheus.CounterVec //
+	UnrelayedPackets           *prometheus.GaugeVec   //
+	TasksCount                 *prometheus.CounterVec //
 	TaskExecutionTime          *prometheus.SummaryVec
-	TunnelsPerDestinationChain *prometheus.CounterVec
-	ActiveTargetContractsCount prometheus.Gauge
-	TxsCount                   *prometheus.CounterVec
-	TxProcessTime              *prometheus.SummaryVec
-	GasUsed                    *prometheus.SummaryVec
+	TunnelsPerDestinationChain *prometheus.CounterVec //
+	ActiveTargetContractsCount prometheus.Gauge       //
+	TxsCount                   *prometheus.CounterVec //
+	TxProcessTime              *prometheus.SummaryVec //
+	GasUsed                    *prometheus.SummaryVec //
 }
 
 func updateMetrics(updateFn func()) {

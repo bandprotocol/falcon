@@ -19,12 +19,12 @@ type TunnelRelayer struct {
 	Log                    *zap.Logger
 	TunnelID               uint64
 	ContractAddress        string
-	IsTargetChainActive    bool
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
 
-	mu *sync.Mutex
+	isTargetChainActive bool
+	mu                  *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -43,6 +43,7 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
+		isTargetChainActive:    false,
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -94,18 +95,18 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 
 		if !tunnelChainInfo.IsActive {
 			// decrease active status if the tunnel was previously active
-			if t.IsTargetChainActive {
+			if t.isTargetChainActive {
 				relayermetrics.DecActiveTargetContractsCount()
-				t.IsTargetChainActive = false
+				t.isTargetChainActive = false
 			}
 			t.Log.Info("Tunnel is not active on target chain")
 			return false, nil
 		}
 
 		// increase active status if the tunnel was previously inactive
-		if tunnelChainInfo.IsActive && !t.IsTargetChainActive {
+		if tunnelChainInfo.IsActive && !t.isTargetChainActive {
 			relayermetrics.IncActiveTargetContractsCount()
-			t.IsTargetChainActive = true
+			t.isTargetChainActive = true
 		}
 
 		// end process if current packet is already relayed
