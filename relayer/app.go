@@ -1,7 +1,6 @@
 package relayer
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -252,7 +251,7 @@ func (a *App) AddKey(
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
 
@@ -275,7 +274,7 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return fmt.Errorf("config is not initialized")
 	}
 
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return err
 	}
 
@@ -293,7 +292,7 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 		return "", fmt.Errorf("config is not initialized")
 	}
 
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return "", err
 	}
 
@@ -357,27 +356,6 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 	return cp.QueryBalance(ctx, keyName)
 }
 
-// ValidatePassphrase checks if the provided passphrase (from the environment)
-// matches the hashed passphrase stored on disk.
-func (a *App) ValidatePassphrase(envPassphrase string) error {
-	// prepare bytes slices of hashed env passphrase
-	h := sha256.New()
-	h.Write([]byte(envPassphrase))
-	hashedPassphrase := h.Sum(nil)
-
-	// load passphrase from local disk
-	storedHashedPassphrase, err := a.Store.GetHashedPassphrase()
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(hashedPassphrase, storedHashedPassphrase) {
-		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored hashed passphrase")
-	}
-
-	return nil
-}
-
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("Starting tunnel relayer")
@@ -389,7 +367,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	}
 
 	// validate passphrase
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return err
 	}
 
@@ -455,7 +433,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return err
 	}
 
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return err
 	}
 

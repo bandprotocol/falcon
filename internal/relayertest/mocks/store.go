@@ -129,3 +129,17 @@ func (mr *MockStoreMockRecorder) SaveHashedPassphrase(hashedPassphrase any) *gom
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveHashedPassphrase", reflect.TypeOf((*MockStore)(nil).SaveHashedPassphrase), hashedPassphrase)
 }
+
+// ValidatePassphrase mocks base method.
+func (m *MockStore) ValidatePassphrase(passphrase string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidatePassphrase", passphrase)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidatePassphrase indicates an expected call of ValidatePassphrase.
+func (mr *MockStoreMockRecorder) ValidatePassphrase(passphrase any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidatePassphrase", reflect.TypeOf((*MockStore)(nil).ValidatePassphrase), passphrase)
+}

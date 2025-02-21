@@ -1,6 +1,8 @@
 package store
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"path"
 
@@ -80,6 +82,26 @@ func (fs *FileSystem) SaveHashedPassphrase(hashedPassphrase []byte) error {
 	fs.hashedPassphrase = hashedPassphrase
 
 	return os.Write(hashedPassphrase, getPassphrasePath(fs.HomePath))
+}
+
+// ValidatePassphrase validates the given passphrase with the stored hashed passphrase.
+func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
+	// prepare bytes slices of hashed env passphrase
+	h := sha256.New()
+	h.Write([]byte(passphrase))
+	hashedPassphrase := h.Sum(nil)
+
+	// load passphrase from local disk
+	storedHashedPassphrase, err := fs.GetHashedPassphrase()
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(hashedPassphrase, storedHashedPassphrase) {
+		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored hashed passphrase")
+	}
+
+	return nil
 }
 
 // NewWallet creates a new wallet object based on the chain type and chain name.

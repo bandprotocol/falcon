@@ -1,6 +1,8 @@
 package store_test
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -74,4 +76,34 @@ func (s *FileSystemTestSuite) TestGetHashedPassphrase() {
 	hashedPassphrase, err := newStore.GetHashedPassphrase()
 	s.NoError(err)
 	s.Require().Equal([]byte("new passphrase"), hashedPassphrase)
+}
+
+func (s *FileSystemTestSuite) TestValidatePassphraseInvalidPassphrase() {
+	// prepare bytes slices of hashed env passphrase
+	h := sha256.New()
+	h.Write([]byte("secret"))
+	hashedPassphrase := h.Sum(nil)
+
+	err := s.store.SaveHashedPassphrase(hashedPassphrase)
+	s.NoError(err)
+
+	testcases := []struct {
+		name          string
+		envPassphrase string
+		err           error
+	}{
+		{name: "valid", envPassphrase: "secret", err: nil},
+		{name: "invalid", envPassphrase: "invalid", err: fmt.Errorf("invalid passphrase")},
+	}
+
+	for _, tc := range testcases {
+		s.Run(tc.name, func() {
+			err := s.store.ValidatePassphrase(tc.envPassphrase)
+			if tc.err != nil {
+				s.Require().ErrorContains(err, tc.err.Error())
+			} else {
+				s.Require().NoError(err)
+			}
+		})
+	}
 }

@@ -34,7 +34,7 @@ type AppTestSuite struct {
 	chainProviderConfig *mocks.MockChainProviderConfig
 	chainProvider       *mocks.MockChainProvider
 	client              *mocks.MockClient
-	mockStore           *mocks.MockStore
+	store               *mocks.MockStore
 
 	passphrase       string
 	hashedPassphrase []byte
@@ -49,7 +49,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 	s.client = mocks.NewMockClient(ctrl)
-	s.mockStore = mocks.NewMockStore(ctrl)
+	s.store = mocks.NewMockStore(ctrl)
 
 	cfg := config.Config{
 		BandChain: band.Config{
@@ -67,12 +67,12 @@ func (s *AppTestSuite) SetupTest() {
 	h := sha256.New()
 	h.Write([]byte(s.passphrase))
 	s.hashedPassphrase = h.Sum(nil)
-	s.mockStore.EXPECT().GetHashedPassphrase().Return(s.hashedPassphrase, nil).AnyTimes()
+	s.store.EXPECT().GetHashedPassphrase().Return(s.hashedPassphrase, nil).AnyTimes()
 
 	s.app = &relayer.App{
 		Log:    log,
 		Config: &cfg,
-		Store:  s.mockStore,
+		Store:  s.store,
 		TargetChains: map[string]chains.ChainProvider{
 			"testnet_evm": s.chainProvider,
 		},
@@ -107,14 +107,14 @@ func (s *AppTestSuite) TestInitConfig() {
 			name: "success - default",
 			in:   nil,
 			preprocess: func() {
-				s.mockStore.EXPECT().HasConfig().Return(false, nil)
-				s.mockStore.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
+				s.store.EXPECT().HasConfig().Return(false, nil)
+				s.store.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
 			},
 		},
 		{
 			name: "config already exists",
 			preprocess: func() {
-				s.mockStore.EXPECT().HasConfig().Return(true, nil)
+				s.store.EXPECT().HasConfig().Return(true, nil)
 			},
 			in:  nil,
 			err: fmt.Errorf("config already exists"),
@@ -122,8 +122,8 @@ func (s *AppTestSuite) TestInitConfig() {
 		{
 			name: "init config from specific file",
 			preprocess: func() {
-				s.mockStore.EXPECT().HasConfig().Return(false, nil)
-				s.mockStore.EXPECT().SaveConfig(customCfg).Return(nil)
+				s.store.EXPECT().HasConfig().Return(false, nil)
+				s.store.EXPECT().SaveConfig(customCfg).Return(nil)
 			},
 			in: customCfg,
 		},
@@ -178,7 +178,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 				cfg, err := config.ParseConfig([]byte(relayertest.DefaultCfgTextWithChainCfg))
 				s.Require().NoError(err)
 
-				s.mockStore.EXPECT().SaveConfig(cfg).Return(nil)
+				s.store.EXPECT().SaveConfig(cfg).Return(nil)
 			},
 		},
 		{
@@ -252,7 +252,7 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 			name: "success",
 			in:   "testnet",
 			preprocess: func() {
-				s.mockStore.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
+				s.store.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
 			},
 			out: relayertest.DefaultCfgText,
 		},
@@ -446,6 +446,8 @@ func (s *AppTestSuite) TestInitPassphrase() {
 }
 
 func (s *AppTestSuite) TestAddKey() {
+	s.store.EXPECT().ValidatePassphrase(s.passphrase).Return(nil).AnyTimes()
+
 	testcases := []struct {
 		name       string
 		chainName  string
@@ -536,6 +538,8 @@ func (s *AppTestSuite) TestAddKey() {
 }
 
 func (s *AppTestSuite) TestDeleteKey() {
+	s.store.EXPECT().ValidatePassphrase(s.passphrase).Return(nil).AnyTimes()
+
 	testcases := []struct {
 		name       string
 		chainName  string
@@ -590,6 +594,8 @@ func (s *AppTestSuite) TestDeleteKey() {
 }
 
 func (s *AppTestSuite) TestExportKey() {
+	s.store.EXPECT().ValidatePassphrase(s.passphrase).Return(nil).AnyTimes()
+
 	testcases := []struct {
 		name       string
 		chainName  string
@@ -745,28 +751,6 @@ func (s *AppTestSuite) TestShowKey() {
 			} else {
 				s.Require().NoError(err)
 				s.Require().Equal(actual, tc.out)
-			}
-		})
-	}
-}
-
-func (s *AppTestSuite) TestValidatePassphraseInvalidPassphrase() {
-	testcases := []struct {
-		name          string
-		envPassphrase string
-		err           error
-	}{
-		{name: "valid", envPassphrase: "secret", err: nil},
-		{name: "invalid", envPassphrase: "invalid", err: fmt.Errorf("invalid passphrase")},
-	}
-
-	for _, tc := range testcases {
-		s.Run(tc.name, func() {
-			err := s.app.ValidatePassphrase(tc.envPassphrase)
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
 			}
 		})
 	}
