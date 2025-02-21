@@ -431,13 +431,7 @@ func (s *AppTestSuite) TestInitPassphrase() {
 
 	s.app.Store = newStoreMock
 
-	newStoreMock.EXPECT().
-		SaveHashedPassphrase([]byte{
-			194, 83, 183, 41, 238, 49, 98, 232, 230, 229, 194,
-			192, 115, 133, 235, 215, 215, 206, 160, 68, 116,
-			34, 59, 169, 179, 24, 231, 151, 191, 178, 90, 202,
-		}).
-		Return(nil)
+	newStoreMock.EXPECT().SavePassphrase("new_passphrase").Return(nil)
 
 	// Call InitPassphrase
 	err := s.app.SavePassphrase("new_passphrase")

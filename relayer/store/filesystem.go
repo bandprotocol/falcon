@@ -77,27 +77,22 @@ func (fs *FileSystem) GetHashedPassphrase() ([]byte, error) {
 	return fs.hashedPassphrase, nil
 }
 
-// SaveHashedPassphrase saves the hashedPassphrase to the filesystem.
-func (fs *FileSystem) SaveHashedPassphrase(hashedPassphrase []byte) error {
-	fs.hashedPassphrase = hashedPassphrase
+// SavePassphrase hashes and saves the hashedPassphrase to the filesystem.
+func (fs *FileSystem) SavePassphrase(passphrase string) error {
+	fs.hashedPassphrase = hashPassphrase(passphrase)
 
-	return os.Write(hashedPassphrase, getPassphrasePath(fs.HomePath))
+	return os.Write(fs.hashedPassphrase, getPassphrasePath(fs.HomePath))
 }
 
-// ValidatePassphrase validates the given passphrase with the stored hashed passphrase.
+// ValidatePassphrase validates the given
 func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
-	// prepare bytes slices of hashed env passphrase
-	h := sha256.New()
-	h.Write([]byte(passphrase))
-	hashedPassphrase := h.Sum(nil)
-
 	// load passphrase from local disk
 	storedHashedPassphrase, err := fs.GetHashedPassphrase()
 	if err != nil {
 		return err
 	}
 
-	if !bytes.Equal(hashedPassphrase, storedHashedPassphrase) {
+	if !bytes.Equal(hashPassphrase(passphrase), storedHashedPassphrase) {
 		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored hashed passphrase")
 	}
 
@@ -122,4 +117,11 @@ func getConfigPath(homePath string) []string {
 // getPassphrasePath returns the directories of the passphrase file and passphrase file name.
 func getPassphrasePath(homePath string) []string {
 	return []string{homePath, cfgDir, passphraseFileName}
+}
+
+// hashPassphrase hashes the given passphrase and returns the hashed bytes.
+func hashPassphrase(passphrase string) []byte {
+	h := sha256.New()
+	h.Write([]byte(passphrase))
+	return h.Sum(nil)
 }

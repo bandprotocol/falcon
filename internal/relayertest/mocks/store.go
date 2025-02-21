@@ -116,18 +116,18 @@ func (mr *MockStoreMockRecorder) SaveConfig(cfg any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveConfig", reflect.TypeOf((*MockStore)(nil).SaveConfig), cfg)
 }
 
-// SaveHashedPassphrase mocks base method.
-func (m *MockStore) SaveHashedPassphrase(hashedPassphrase []byte) error {
+// SavePassphrase mocks base method.
+func (m *MockStore) SavePassphrase(passphrase string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveHashedPassphrase", hashedPassphrase)
+	ret := m.ctrl.Call(m, "SavePassphrase", passphrase)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SaveHashedPassphrase indicates an expected call of SaveHashedPassphrase.
-func (mr *MockStoreMockRecorder) SaveHashedPassphrase(hashedPassphrase any) *gomock.Call {
+// SavePassphrase indicates an expected call of SavePassphrase.
+func (mr *MockStoreMockRecorder) SavePassphrase(passphrase any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveHashedPassphrase", reflect.TypeOf((*MockStore)(nil).SaveHashedPassphrase), hashedPassphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePassphrase", reflect.TypeOf((*MockStore)(nil).SavePassphrase), passphrase)
 }
 
 // ValidatePassphrase mocks base method.

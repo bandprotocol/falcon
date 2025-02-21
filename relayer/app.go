@@ -2,7 +2,6 @@ package relayer
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"math/big"
 
@@ -135,13 +134,7 @@ func (a *App) SaveConfig(cfg *config.Config) error {
 // SavePassphrase hash the provided passphrase and save it into the application's store.
 func (a *App) SavePassphrase(passphrase string) error {
 	a.Passphrase = passphrase
-
-	//  hash the passphrase
-	h := sha256.New()
-	h.Write([]byte(passphrase))
-	hashedPassphrase := h.Sum(nil)
-
-	return a.Store.SaveHashedPassphrase(hashedPassphrase)
+	return a.Store.SavePassphrase(passphrase)
 }
 
 // QueryTunnelInfo queries tunnel information by given tunnel ID
@@ -247,40 +240,27 @@ func (a *App) AddKey(
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config is not initialized")
-	}
-
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
 
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, coinType, account, index)
+	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return keyOutput, nil
+	return cp.AddKey(keyName, mnemonic, privateKey, coinType, account, index)
 }
 
 // DeleteKey deletes the key from the chain provider.
 func (a *App) DeleteKey(chainName string, keyName string) error {
-	if a.Config == nil {
-		return fmt.Errorf("config is not initialized")
-	}
-
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return err
 	}
 
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return err
 	}
 
 	return cp.DeleteKey(keyName)
@@ -288,36 +268,23 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 
 // ExportKey exports the private key from the chain provider.
 func (a *App) ExportKey(chainName string, keyName string) (string, error) {
-	if a.Config == nil {
-		return "", fmt.Errorf("config is not initialized")
-	}
-
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return "", err
 	}
 
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return "", fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	privateKey, err := cp.ExportPrivateKey(keyName)
+	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return "", err
 	}
 
-	return privateKey, nil
+	return cp.ExportPrivateKey(keyName)
 }
 
 // ListKeys retrieves the list of keys from the chain provider.
 func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config is not initialized")
-	}
-
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return nil, err
 	}
 
 	return cp.ListKeys(), nil
@@ -325,13 +292,9 @@ func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 
 // ShowKey retrieves the key information from the chain provider.
 func (a *App) ShowKey(chainName string, keyName string) (string, error) {
-	if a.Config == nil {
-		return "", fmt.Errorf("config is not initialized")
-	}
-
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return "", fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return "", err
 	}
 
 	return cp.ShowKey(keyName)
@@ -339,14 +302,9 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 
 // QueryBalance retrieves the balance of the key from the chain provider.
 func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config is not initialized")
-	}
-
-	cp, exist := a.TargetChains[chainName]
-
-	if !exist {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return nil, err
 	}
 
 	if !cp.IsKeyNameExist(keyName) {
@@ -482,4 +440,18 @@ func (a *App) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.T
 	}
 
 	return tunnels, nil
+}
+
+// getChainProvider retrieves the chain provider by given chain name.
+func (a *App) getChainProvider(chainName string) (chains.ChainProvider, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	cp, exist := a.TargetChains[chainName]
+	if !exist {
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	return cp, nil
 }
