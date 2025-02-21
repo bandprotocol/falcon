@@ -452,8 +452,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		tunnelRelayers,
 		a.Config.Global.CheckingPacketInterval,
 		a.Config.Global.SyncTunnelsInterval,
-		a.Config.Global.MaxCheckingPacketPenaltyDuration,
-		a.Config.Global.PenaltyExponentialFactor,
+		a.Config.Global.PenaltySkipRounds,
 		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.TargetChains,
@@ -496,7 +495,9 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		chainProvider,
 	)
 
-	return tr.CheckAndRelay(ctx)
+	_, err = tr.CheckAndRelay(ctx)
+
+	return err
 }
 
 // GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,

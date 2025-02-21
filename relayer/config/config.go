@@ -19,11 +19,10 @@ type ChainProviderConfigs map[string]chains.ChainProviderConfig
 
 // GlobalConfig is the global configuration for the falcon tunnel relayer
 type GlobalConfig struct {
-	LogLevel                         string        `mapstructure:"log_level"                            toml:"log_level"`
-	CheckingPacketInterval           time.Duration `mapstructure:"checking_packet_interval"             toml:"checking_packet_interval"`
-	SyncTunnelsInterval              time.Duration `mapstructure:"sync_tunnels_interval"                toml:"sync_tunnels_interval"`
-	MaxCheckingPacketPenaltyDuration time.Duration `mapstructure:"max_checking_packet_penalty_duration" toml:"max_checking_packet_penalty_duration"`
-	PenaltyExponentialFactor         float64       `mapstructure:"penalty_exponential_factor"           toml:"penalty_exponential_factor"`
+	LogLevel               string        `mapstructure:"log_level"                toml:"log_level"`
+	CheckingPacketInterval time.Duration `mapstructure:"checking_packet_interval" toml:"checking_packet_interval"`
+	SyncTunnelsInterval    time.Duration `mapstructure:"sync_tunnels_interval"    toml:"sync_tunnels_interval"`
+	PenaltySkipRounds      uint          `mapstructure:"penalty_skip_rounds"      toml:"penalty_skip_rounds"`
 }
 
 // Config defines the configuration for the falcon tunnel relayer.
@@ -137,11 +136,10 @@ func DefaultConfig() *Config {
 		},
 		TargetChains: make(map[string]chains.ChainProviderConfig),
 		Global: GlobalConfig{
-			LogLevel:                         "info",
-			CheckingPacketInterval:           time.Minute,
-			SyncTunnelsInterval:              5 * time.Minute,
-			MaxCheckingPacketPenaltyDuration: time.Hour,
-			PenaltyExponentialFactor:         1.0,
+			LogLevel:               "info",
+			CheckingPacketInterval: time.Minute,
+			PenaltySkipRounds:      3,
+			SyncTunnelsInterval:    5 * time.Minute,
 		},
 	}
 }

@@ -232,8 +232,9 @@ func (s *ClientTestSuite) TestGetTSSTunnelPacket() {
 			cmbytes.HexBytes("0x1234"),
 			cmbytes.HexBytes("0xabcd"),
 		),
-		"SIGNING_STATUS_SUCCESS",
+		tsstypes.SIGNING_STATUS_SUCCESS,
 	)
+	expectedCurrentGroupSigning.SigningStatusString = tsstypes.SigningStatus_name[int32(tsstypes.SIGNING_STATUS_SUCCESS)]
 
 	// Define the expected Packet result
 	expected := bandclienttypes.NewPacket(

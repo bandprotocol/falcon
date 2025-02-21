@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 
+	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayertest"
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer"
@@ -413,7 +414,7 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 		1,
 		cmbytes.HexBytes("0xdeadbeef"),
 		evmSignature,
-		"SIGNING_STATUS_SUCCESS",
+		tsstypes.SIGNING_STATUS_SUCCESS,
 	)
 
 	// Create the expected Packet object
