@@ -61,7 +61,7 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	index uint,
 ) (*chainstypes.Key, error) {
 	// Generate private key using mnemonic
-	priv, err := cp.generatePrivateKey(mnemonic, coinType, account, index)
+	priv, err := generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
 }
 
 // generatePrivateKey generates private key from given mnemonic.
-func (cp *EVMChainProvider) generatePrivateKey(
+func generatePrivateKey(
 	mnemonic string,
 	coinType uint32,
 	account uint,
@@ -146,16 +146,18 @@ func (cp *EVMChainProvider) generatePrivateKey(
 	if err != nil {
 		return nil, err
 	}
+
 	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
 	path := hdwallet.MustParseDerivationPath(hdPath)
-
 	accs, err := wallet.Derive(path, true)
 	if err != nil {
 		return nil, err
 	}
+
 	privatekey, err := wallet.PrivateKey(accs)
 	if err != nil {
 		return nil, err
 	}
+
 	return privatekey, nil
 }

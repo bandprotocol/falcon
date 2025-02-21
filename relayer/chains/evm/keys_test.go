@@ -25,6 +25,7 @@ type KeysTestSuite struct {
 	chainProvider *evm.EVMChainProvider
 	log           *zap.Logger
 	homePath      string
+	wallet        wallet.Wallet
 }
 
 func TestKeysTestSuite(t *testing.T) {
@@ -42,9 +43,11 @@ func (s *KeysTestSuite) SetupTest() {
 	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet)
 	s.Require().NoError(err)
+
 	s.chainProvider = chainProvider
+	s.wallet = wallet
 }
 
 func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
@@ -102,11 +105,8 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 				s.Require().Equal(tc.out, key)
 
 				// check that key info actually stored in local disk
-				keyInfo, err := evm.LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-				s.Require().NoError(err)
-
-				_, exist := keyInfo[tc.input.keyName]
-				s.Require().True(exist)
+				_, ok := s.wallet.GetAddress(tc.input.keyName)
+				s.Require().True(ok)
 			}
 		})
 	}
@@ -203,11 +203,8 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				}
 
 				// check that key info actually stored in local disk
-				keyInfo, err := evm.LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-				s.Require().NoError(err)
-
-				_, exist := keyInfo[tc.input.keyName]
-				s.Require().True(exist)
+				_, ok := s.wallet.GetAddress(tc.input.keyName)
+				s.Require().True(ok)
 			}
 		})
 	}

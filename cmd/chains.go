@@ -84,7 +84,7 @@ $ %s chains list
 $ %s ch l`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app.Config == nil {
-				return fmt.Errorf("config does not exist: %s", app.HomePath)
+				return fmt.Errorf("config is not initialized")
 			}
 
 			i := 1

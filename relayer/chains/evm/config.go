@@ -33,13 +33,12 @@ type EVMChainProviderConfig struct {
 func (cpc *EVMChainProviderConfig) NewChainProvider(
 	chainName string,
 	log *zap.Logger,
-	homePath string,
 	debug bool,
 	wallet wallet.Wallet,
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)
 
-	return NewEVMChainProvider(chainName, client, cpc, log, homePath, wallet)
+	return NewEVMChainProvider(chainName, client, cpc, log, wallet)
 }
 
 // Validate validates the EVM chain provider configuration.

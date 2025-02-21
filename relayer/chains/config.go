@@ -28,7 +28,6 @@ type ChainProviderConfig interface {
 	NewChainProvider(
 		chainName string,
 		log *zap.Logger,
-		homePath string,
 		debug bool,
 		wallet wallet.Wallet,
 	) (ChainProvider, error)

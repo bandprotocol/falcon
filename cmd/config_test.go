@@ -27,7 +27,7 @@ func TestConfigShowNotInit(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
 	res := sys.RunWithInput(t, "config", "show")
-	require.ErrorContains(t, res.Err, "config does not exist:")
+	require.ErrorContains(t, res.Err, "config is not initialized")
 }
 
 func TestConfigInitDefault(t *testing.T) {
