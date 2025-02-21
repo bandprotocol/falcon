@@ -7,7 +7,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -15,12 +14,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
-)
-
-const (
-	ConfigFolderName   = "config"
-	ConfigFileName     = "config.toml"
-	PassphraseFileName = "passphrase.hash"
 )
 
 // App is the main application struct.
@@ -319,21 +312,11 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 func (a *App) Start(
 	ctx context.Context,
 	tunnelIDs []uint64,
-	metricsListenAddrFlag string,
 ) error {
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
-		return err
-	}
-
-	// setup metrics server
-	metricsListenAddr := a.Config.Global.MetricsListenAddr
-	if metricsListenAddrFlag != "" {
-		metricsListenAddr = metricsListenAddrFlag
-	}
-	if err := a.setupMetricsServer(ctx, metricsListenAddr); err != nil {
 		return err
 	}
 
@@ -406,22 +389,6 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	_, err = tr.CheckAndRelay(ctx)
 
 	return err
-}
-
-// setupMetricsServer starts the metrics server if enabled.
-func (a *App) setupMetricsServer(
-	ctx context.Context,
-	metricsListenAddr string,
-) error {
-	if metricsListenAddr == "" {
-		a.Log.Warn(
-			"Metrics server is disabled. It is controlled by the global config, and setting --metrics-listen-addr will override it and enable the server.",
-		)
-		return nil
-	}
-
-	// start server
-	return relayermetrics.StartMetricsServer(ctx, a.Log, metricsListenAddr)
 }
 
 // getChainProvider retrieves the chain provider by given chain name.

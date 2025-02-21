@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer"
 )
 
@@ -31,12 +32,22 @@ $ %s start 1 12      # start relaying data from specific tunnelIDs.`, appName, a
 				tunnelIDs = append(tunnelIDs, tunnelID)
 			}
 
-			metricsListenAddrFlag, err := cmd.Flags().GetString(flagMetricsListenAddr)
+			metricsListenAddr, err := cmd.Flags().GetString(flagMetricsListenAddr)
 			if err != nil {
 				return err
 			}
 
-			return app.Start(cmd.Context(), tunnelIDs, metricsListenAddrFlag)
+			// setup metrics server
+			if metricsListenAddr == "" {
+				metricsListenAddr = app.Config.Global.MetricsListenAddr
+			}
+			if metricsListenAddr != "" {
+				if err := relayermetrics.StartMetricsServer(cmd.Context(), app.Log, metricsListenAddr); err != nil {
+					return err
+				}
+			}
+
+			return app.Start(cmd.Context(), tunnelIDs)
 		},
 	}
 
