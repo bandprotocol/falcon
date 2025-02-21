@@ -13,7 +13,6 @@ import (
 	ecdsa "crypto/ecdsa"
 	reflect "reflect"
 
-	wallet "github.com/bandprotocol/falcon/relayer/wallet"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -55,6 +54,21 @@ func (mr *MockWalletMockRecorder) DeletePrivateKey(name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePrivateKey", reflect.TypeOf((*MockWallet)(nil).DeletePrivateKey), name)
 }
 
+// ExportPrivateKey mocks base method.
+func (m *MockWallet) ExportPrivateKey(name string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportPrivateKey", name)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExportPrivateKey indicates an expected call of ExportPrivateKey.
+func (mr *MockWalletMockRecorder) ExportPrivateKey(name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockWallet)(nil).ExportPrivateKey), name)
+}
+
 // GetAddress mocks base method.
 func (m *MockWallet) GetAddress(name string) (string, bool) {
 	m.ctrl.T.Helper()
@@ -68,21 +82,6 @@ func (m *MockWallet) GetAddress(name string) (string, bool) {
 func (mr *MockWalletMockRecorder) GetAddress(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockWallet)(nil).GetAddress), name)
-}
-
-// GetKey mocks base method.
-func (m *MockWallet) GetKey(name string) (*wallet.Key, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetKey", name)
-	ret0, _ := ret[0].(*wallet.Key)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetKey indicates an expected call of GetKey.
-func (mr *MockWalletMockRecorder) GetKey(name any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKey", reflect.TypeOf((*MockWallet)(nil).GetKey), name)
 }
 
 // GetNames mocks base method.
@@ -112,4 +111,19 @@ func (m *MockWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (str
 func (mr *MockWalletMockRecorder) SavePrivateKey(name, privKey any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePrivateKey", reflect.TypeOf((*MockWallet)(nil).SavePrivateKey), name, privKey)
+}
+
+// Sign mocks base method.
+func (m *MockWallet) Sign(name string, data []byte) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Sign", name, data)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Sign indicates an expected call of Sign.
+func (mr *MockWalletMockRecorder) Sign(name, data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockWallet)(nil).Sign), name, data)
 }

@@ -2,7 +2,6 @@ package evm
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -103,15 +102,7 @@ func (cp *EVMChainProvider) DeleteKey(keyName string) error {
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
-	if !cp.IsKeyNameExist(keyName) {
-		return "", fmt.Errorf("key name does not exist: %s", keyName)
-	}
-
-	key, err := cp.Wallet.GetKey(keyName)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(crypto.FromECDSA(key.PrivateKey)), nil
+	return cp.Wallet.ExportPrivateKey(keyName)
 }
 
 // ListKeys lists all keys.

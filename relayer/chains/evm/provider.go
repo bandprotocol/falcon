@@ -527,7 +527,13 @@ func (cp *EVMChainProvider) signTx(
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
-	return gethtypes.SignTx(tx, signer, sender.PrivateKey)
+	h := signer.Hash(tx)
+	signature, err := cp.Wallet.Sign(sender.Name, h.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.WithSignature(signer, signature)
 }
 
 // QueryBalance queries balance of specific account address.

@@ -2,14 +2,16 @@ package wallet
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"path"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml/v2"
 
-	"github.com/bandprotocol/falcon/internal"
+	"github.com/bandprotocol/falcon/internal/os"
 )
 
 var _ Wallet = &GethWallet{}
@@ -25,12 +27,12 @@ type GethWallet struct {
 // NewGethWallet creates a new GethWallet instance
 func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) {
 	// create keystore
-	keyStoreDir := path.Join(getKeyStoreDir(homePath, chainName)...)
+	keyStoreDir := path.Join(getEVMKeyStoreDir(homePath, chainName)...)
 	store := keystore.NewKeyStore(keyStoreDir, keystore.StandardScryptN, keystore.StandardScryptP)
 
 	// load keyNameToHexAddress map
-	keyNameInfoPath := path.Join(getKeyNameInfoPath(homePath, chainName)...)
-	b, err := internal.ReadFileIfExist(keyNameInfoPath)
+	keyNameInfoPath := path.Join(getEVMKeyNameInfoPath(homePath, chainName)...)
+	b, err := os.ReadFileIfExist(keyNameInfoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +76,7 @@ func (w *GethWallet) DeletePrivateKey(name string) error {
 		return fmt.Errorf("key name does not exist: %s", name)
 	}
 
-	addr, err := HexToAddress(hexAddr)
+	addr, err := HexToETHAddress(hexAddr)
 	if err != nil {
 		return err
 	}
@@ -104,14 +106,43 @@ func (w *GethWallet) GetNames() []string {
 	return names
 }
 
-// GetKey returns the private key and address of the given key name
-func (w *GethWallet) GetKey(name string) (*Key, error) {
+// SaveKeyNameInfo writes the keyNameInfo map to the file
+func (w *GethWallet) SaveKeyNameInfo() error {
+	b, err := toml.Marshal(w.KeyNameInfo)
+	if err != nil {
+		return err
+	}
+
+	return os.Write(b, getEVMKeyNameInfoPath(w.HomePath, w.ChainName))
+}
+
+// ExportPrivateKey exports the private key of the given key name
+func (w *GethWallet) ExportPrivateKey(name string) (string, error) {
+	privKey, err := w.getPrivateKey(name)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(crypto.FromECDSA(privKey)), nil
+}
+
+// Sign signs the data with the private key of the given key name
+func (w *GethWallet) Sign(name string, data []byte) ([]byte, error) {
+	privKey, err := w.getPrivateKey(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return crypto.Sign(data, privKey)
+}
+
+// GetPrivateKey returns the private key of the given key name
+func (w *GethWallet) getPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 	hexAddr, ok := w.KeyNameInfo[name]
 	if !ok {
 		return nil, fmt.Errorf("key name does not exist: %s", name)
 	}
 
-	gethAddr, err := HexToAddress(hexAddr)
+	gethAddr, err := HexToETHAddress(hexAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -132,27 +163,5 @@ func (w *GethWallet) GetKey(name string) (*Key, error) {
 		return nil, err
 	}
 
-	return &Key{
-		Address:    gethAddr.Hex(),
-		PrivateKey: gethKey.PrivateKey,
-	}, nil
-}
-
-// SaveKeyNameInfo writes the keyNameInfo map to the file
-func (w *GethWallet) SaveKeyNameInfo() error {
-	b, err := toml.Marshal(w.KeyNameInfo)
-	if err != nil {
-		return err
-	}
-
-	return internal.Write(b, getKeyNameInfoPath(w.HomePath, w.ChainName))
-}
-
-// getKeyStoreDir returns the key store directory
-func getKeyStoreDir(homePath, chainName string) []string {
-	return []string{homePath, "keys", chainName, "priv"}
-}
-
-func getKeyNameInfoPath(homePath, chainName string) []string {
-	return []string{homePath, "keys", chainName, "info", "info.toml"}
+	return gethKey.PrivateKey, nil
 }

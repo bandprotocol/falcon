@@ -2,11 +2,9 @@ package evm_test
 
 import (
 	"context"
-	"encoding/hex"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
@@ -110,16 +108,15 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 		s.Require().NotNil(sender)
 
 		actualAddress := sender.Address.Hex()
-		actualPrivateKey := evm.StripPrivateKeyPrefix(
-			hex.EncodeToString(crypto.FromECDSA(sender.PrivateKey)),
-		)
 
-		expectedPrivateKey, exists := expectedSenders[actualAddress]
+		privKey, exists := expectedSenders[actualAddress]
 		s.Require().True(exists, "Unexpected sender address: %s", actualAddress)
 
-		// Validate the private key matches
-		s.Require().
-			Equal(evm.StripPrivateKeyPrefix(expectedPrivateKey), evm.StripPrivateKeyPrefix(actualPrivateKey))
+		expectPrivKey := privateKey1
+		if actualAddress == address2 {
+			expectPrivKey = privateKey2
+		}
+		s.Require().Equal(expectPrivKey, privKey)
 
 		// Remove the validated sender from the map
 		delete(expectedSenders, actualAddress)

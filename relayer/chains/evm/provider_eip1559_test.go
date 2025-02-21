@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -54,12 +55,19 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), wallet)
 	s.Require().NoError(err)
 
-	s.chainProvider = chainProvider
-	s.chainProvider.FreeSenders = make(chan *evm.Sender, 1)
-	s.chainProvider.FreeSenders <- &s.mockSender
+	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
+	s.Require().NoError(err)
 
 	s.mockSender, err = mockSender()
 	s.Require().NoError(err)
+
+	addr, err := wallet.SavePrivateKey(s.mockSender.Name, priv)
+	s.Require().NoError(err)
+	s.Require().Equal(s.mockSender.Address.String(), addr)
+
+	s.chainProvider = chainProvider
+	s.chainProvider.FreeSenders = make(chan *evm.Sender, 1)
+	s.chainProvider.FreeSenders <- &s.mockSender
 
 	s.relayingPacket = mockPacket()
 	s.relayingCalldata, err = s.chainProvider.CreateCalldata(&s.relayingPacket)

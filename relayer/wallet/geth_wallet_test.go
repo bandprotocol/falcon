@@ -39,9 +39,9 @@ func TestAppTestSuite(t *testing.T) {
 	suite.Run(t, new(GethWalletTestSuite))
 }
 
-func (s *GethWalletTestSuite) TestGetKey() {
+func (s *GethWalletTestSuite) TestExportKey() {
 	// query key before adding
-	_, err := s.wallet.GetKey("key1")
+	_, err := s.wallet.ExportPrivateKey("key1")
 	s.Require().ErrorContains(err, "key name does not exist")
 
 	_, ok := s.wallet.GetAddress("key1")
@@ -59,10 +59,9 @@ func (s *GethWalletTestSuite) TestGetKey() {
 	s.Require().Equal(expectedAddr, addr)
 
 	// query key after adding
-	key, err := s.wallet.GetKey("key1")
+	gotPrivKey, err := s.wallet.ExportPrivateKey("key1")
 	s.Require().NoError(err)
-	s.Require().Equal(expectedAddr, key.Address)
-	s.Require().Equal(privKey, key.PrivateKey)
+	s.Require().Equal(privKeyHex[2:], gotPrivKey)
 
 	addr, ok = s.wallet.GetAddress("key1")
 	s.Require().True(ok)
@@ -75,10 +74,9 @@ func (s *GethWalletTestSuite) TestGetKey() {
 	anotherWallet, err := wallet.NewGethWallet(s.passphrase, s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	key, err = anotherWallet.GetKey("key1")
+	newGotPrivKey, err := anotherWallet.ExportPrivateKey("key1")
 	s.Require().NoError(err)
-	s.Require().Equal(expectedAddr, key.Address)
-	s.Require().Equal(privKey, key.PrivateKey)
+	s.Require().Equal(privKeyHex[2:], newGotPrivKey)
 
 	addr, ok = anotherWallet.GetAddress("key1")
 	s.Require().True(ok)
@@ -126,8 +124,8 @@ func (s *GethWalletTestSuite) TestDeleteExistingKey() {
 	err = anotherWallet.DeletePrivateKey("key1")
 	s.Require().NoError(err)
 
-	_, err = anotherWallet.GetKey("key1")
-	s.Require().ErrorContains(err, "key name does not exist")
+	_, ok := anotherWallet.GetAddress("key1")
+	s.Require().False(ok)
 }
 
 func (s *GethWalletTestSuite) TestCreateDuplicatedKey() {

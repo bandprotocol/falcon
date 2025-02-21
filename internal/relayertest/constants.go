@@ -21,11 +21,10 @@ var CustomCfgTextWithTimeStr string
 
 var CustomCfg = config.Config{
 	Global: config.GlobalConfig{
-		CheckingPacketInterval:           1 * time.Minute,
-		SyncTunnelsInterval:              5 * time.Minute,
-		MaxCheckingPacketPenaltyDuration: 1 * time.Hour,
-		PenaltyExponentialFactor:         1.1,
-		LogLevel:                         "info",
+		CheckingPacketInterval: 1 * time.Minute,
+		SyncTunnelsInterval:    5 * time.Minute,
+		PenaltySkipRounds:      3,
+		LogLevel:               "info",
 	},
 	BandChain: band.Config{
 		RpcEndpoints:               []string{"http://localhost:26657", "http://localhost:26658"},
