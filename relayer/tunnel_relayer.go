@@ -151,14 +151,8 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 			return false, err
 		}
 
-		// increment the packets received metric
-		relayermetrics.IncPacketsReceived(t.TunnelID)
-
-		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
-		relayermetrics.SetUnrelayedPackets(
-			t.TunnelID,
-			float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
-		)
+		// Increment the metric for successfully relayed packets
+		relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}

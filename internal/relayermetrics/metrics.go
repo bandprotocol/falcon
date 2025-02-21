@@ -21,15 +21,15 @@ var metrics *PrometheusMetrics
 var globalTelemetryEnabled bool
 
 type PrometheusMetrics struct {
-	PacketsReceived            *prometheus.CounterVec //
-	UnrelayedPackets           *prometheus.GaugeVec   //
-	TasksCount                 *prometheus.CounterVec //
+	PacketsRelayedSuccess      *prometheus.CounterVec
+	UnrelayedPackets           *prometheus.GaugeVec
+	TasksCount                 *prometheus.CounterVec
 	TaskExecutionTime          *prometheus.SummaryVec
-	TunnelsPerDestinationChain *prometheus.CounterVec //
-	ActiveTargetContractsCount prometheus.Gauge       //
-	TxsCount                   *prometheus.CounterVec //
-	TxProcessTime              *prometheus.SummaryVec //
-	GasUsed                    *prometheus.SummaryVec //
+	TunnelsPerDestinationChain *prometheus.CounterVec
+	ActiveTargetContractsCount prometheus.Gauge
+	TxsCount                   *prometheus.CounterVec
+	TxProcessTime              *prometheus.SummaryVec
+	GasUsed                    *prometheus.SummaryVec
 }
 
 func updateMetrics(updateFn func()) {
@@ -38,10 +38,10 @@ func updateMetrics(updateFn func()) {
 	}
 }
 
-// IncPacketsReceived increments the count of successfully relayed packets for a specific tunnel.
-func IncPacketsReceived(tunnelID uint64) {
+// IncPacketsRelayedSuccess increments the count of successfully relayed packets for a specific tunnel.
+func IncPacketsRelayedSuccess(tunnelID uint64) {
 	updateMetrics(func() {
-		metrics.PacketsReceived.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+		metrics.PacketsRelayedSuccess.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 	})
 }
 
@@ -116,9 +116,9 @@ func InitPrometheusMetrics() {
 	gasUsedLabels := []string{"tunnel_id"}
 
 	metrics = &PrometheusMetrics{
-		PacketsReceived: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "falcon_packets_received",
-			Help: "Total number of packets received from BandChain",
+		PacketsRelayedSuccess: promauto.NewCounterVec(prometheus.CounterOpts{
+			Name: "falcon_packets_relayed_success",
+			Help: "Total number of packets successfully relayed from BandChain",
 		}, packetLabels),
 		UnrelayedPackets: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "falcon_unrelayed_packets",
