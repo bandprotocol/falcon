@@ -3,6 +3,7 @@ log_level = 'info'
 checking_packet_interval = '1m'
 sync_tunnels_interval = '5m'
 penalty_skip_rounds = 3
+metrics_listen_addr = ''
 
 [bandchain]
 rpc_endpoints = ['http://localhost:26657', 'http://localhost:26658']
