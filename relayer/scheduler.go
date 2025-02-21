@@ -6,51 +6,53 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
+	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
 	Log                    *zap.Logger
-	TunnelRelayers         []*TunnelRelayer
 	CheckingPacketInterval time.Duration
 	SyncTunnelsInterval    time.Duration
 	PenaltySkipRounds      uint
 
-	PenaltySkipRemaining []uint
-	isSyncTunnelsAllowed bool
-
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
+
+	tunnelRelayers       []*TunnelRelayer
+	bandLatestTunnel     int
+	penaltySkipRemaining []uint
 }
 
 // NewScheduler creates a new Scheduler
 func NewScheduler(
 	log *zap.Logger,
-	tunnelRelayers []*TunnelRelayer,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
-	penaltyAttempts uint,
-	isSyncTunnelsAllowed bool,
+	penaltySkipRounds uint,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	return &Scheduler{
 		Log:                    log,
-		TunnelRelayers:         tunnelRelayers,
 		CheckingPacketInterval: checkingPacketInterval,
 		SyncTunnelsInterval:    syncTunnelsInterval,
-		PenaltySkipRounds:      penaltyAttempts,
-		PenaltySkipRemaining:   make([]uint, len(tunnelRelayers)),
-		isSyncTunnelsAllowed:   isSyncTunnelsAllowed,
+		PenaltySkipRounds:      penaltySkipRounds,
 		BandClient:             bandClient,
 		ChainProviders:         chainProviders,
+		tunnelRelayers:         []*TunnelRelayer{},
+		bandLatestTunnel:       0,
+		penaltySkipRemaining:   []uint{},
 	}
 }
 
 // Start starts all tunnel relayers
-func (s *Scheduler) Start(ctx context.Context) error {
+func (s *Scheduler) Start(ctx context.Context, tunnelIds []uint64) error {
+	s.SyncTunnels(ctx, tunnelIds)
+
 	ticker := time.NewTicker(s.CheckingPacketInterval)
 	defer ticker.Stop()
 
@@ -67,7 +69,9 @@ func (s *Scheduler) Start(ctx context.Context) error {
 
 			return nil
 		case <-syncTunnelTicker.C:
-			s.SyncTunnels(ctx)
+			if len(tunnelIds) == 0 {
+				s.SyncTunnels(ctx, tunnelIds)
+			}
 		case <-ticker.C:
 			s.Execute(ctx)
 		}
@@ -77,15 +81,15 @@ func (s *Scheduler) Start(ctx context.Context) error {
 // Execute executes the task for the tunnel relayer
 func (s *Scheduler) Execute(ctx context.Context) {
 	// Execute the task for each tunnel relayer
-	for i, tr := range s.TunnelRelayers {
-		if s.PenaltySkipRemaining[i] > 0 {
+	for i, tr := range s.tunnelRelayers {
+		if s.penaltySkipRemaining[i] > 0 {
 			s.Log.Debug(
 				"Skipping tunnel execution due to penalty from previous failure.",
 				zap.Uint64("tunnel_id", tr.TunnelID),
 				zap.Int("relayer_id", i),
-				zap.Uint("penalty_skip_remaining", s.PenaltySkipRemaining[i]),
+				zap.Uint("penalty_skip_remaining", s.penaltySkipRemaining[i]),
 			)
-			s.PenaltySkipRemaining[i] -= 1
+			s.penaltySkipRemaining[i] -= 1
 
 			continue
 		}
@@ -93,16 +97,21 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		// Execute the task, if error occurs, wait for the next round.
 		task := NewTask(i, s.CheckingPacketInterval)
 		go s.TriggerTunnelRelayer(ctx, task)
+
+		// record metrics for the task execution for the current tunnel relayer
+		relayermetrics.IncTasksCount(tr.TunnelID)
 	}
 }
 
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
-	tr := s.TunnelRelayers[task.RelayerID]
+	tr := s.tunnelRelayers[task.RelayerID]
+
+	startExecutionTaskTime := time.Now()
 
 	// Check and relay the packet, if error occurs, set the error flag.
 	if isExecuting, err := tr.CheckAndRelay(ctx); err != nil && !isExecuting {
-		s.PenaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
+		s.penaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
 
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
@@ -113,6 +122,12 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		return
 	}
 
+	// record the execution time of successful task.
+	relayermetrics.ObserveTaskExecutionTime(
+		tr.TunnelID,
+		float64(time.Since(startExecutionTaskTime).Milliseconds()),
+	)
+
 	s.Log.Info(
 		"Tunnel relayer finished execution",
 		zap.Uint64("tunnel_id", tr.TunnelID),
@@ -120,25 +135,20 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 }
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
-func (s *Scheduler) SyncTunnels(ctx context.Context) {
-	if !s.isSyncTunnelsAllowed {
-		return
-	}
-
-	s.Log.Info("Start syncing new tunnels")
-	tunnels, err := s.BandClient.GetTunnels(ctx)
+func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
+	s.Log.Info("Start syncing tunnels from Bandchain")
+	tunnels, err := s.getTunnels(ctx, tunnelIds)
 	if err != nil {
 		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
 		return
 	}
-	oldTunnelCount := len(s.TunnelRelayers)
 
-	if oldTunnelCount == len(tunnels) {
+	if s.bandLatestTunnel == len(tunnels) {
 		s.Log.Info("No new tunnels to sync")
 		return
 	}
 
-	for i := oldTunnelCount; i < len(tunnels); i++ {
+	for i := s.bandLatestTunnel; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
 			s.Log.Warn(
@@ -158,14 +168,40 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 			chainProvider,
 		)
 
-		s.TunnelRelayers = append(s.TunnelRelayers, &tr)
-		s.PenaltySkipRemaining = append(s.PenaltySkipRemaining, 0)
+		s.tunnelRelayers = append(s.tunnelRelayers, &tr)
+		s.penaltySkipRemaining = append(s.penaltySkipRemaining, 0)
+
+		// update the metric for the number of tunnels per destination chain
+		relayermetrics.IncTunnelsPerDestinationChain(tunnels[i].TargetChainID)
+
 		s.Log.Info(
 			"New tunnel synchronized successfully",
 			zap.String("chain_name", tunnels[i].TargetChainID),
 			zap.Uint64("tunnel_id", tunnels[i].ID),
 		)
 	}
+
+	s.bandLatestTunnel = len(tunnels)
+}
+
+// getTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
+// get all tunnels
+func (s *Scheduler) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
+	if len(tunnelIDs) == 0 {
+		return s.BandClient.GetTunnels(ctx)
+	}
+
+	tunnels := make([]bandtypes.Tunnel, 0, len(tunnelIDs))
+	for _, tunnelID := range tunnelIDs {
+		tunnel, err := s.BandClient.GetTunnel(ctx, tunnelID)
+		if err != nil {
+			return nil, err
+		}
+
+		tunnels = append(tunnels, *tunnel)
+	}
+
+	return tunnels, nil
 }
 
 // Task is a struct to manage the task for the tunnel relayer

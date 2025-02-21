@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
@@ -22,7 +23,8 @@ type TunnelRelayer struct {
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
 
-	mu *sync.Mutex
+	isTargetChainActive bool
+	mu                  *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -41,6 +43,7 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
+		isTargetChainActive:    false,
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -83,9 +86,27 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 		if err != nil {
 			return false, err
 		}
+
+		// update the metric for unrelayed packets based on the difference between the latest sequences on BandChain and the target chain
+		relayermetrics.SetUnrelayedPackets(
+			t.TunnelID,
+			float64(tunnelBandInfo.LatestSequence-tunnelChainInfo.LatestSequence),
+		)
+
 		if !tunnelChainInfo.IsActive {
+			// decrease active status if the tunnel was previously active
+			if t.isTargetChainActive {
+				relayermetrics.DecActiveTargetContractsCount()
+				t.isTargetChainActive = false
+			}
 			t.Log.Info("Tunnel is not active on target chain")
 			return false, nil
+		}
+
+		// increase active status if the tunnel was previously inactive
+		if tunnelChainInfo.IsActive && !t.isTargetChainActive {
+			relayermetrics.IncActiveTargetContractsCount()
+			t.isTargetChainActive = true
 		}
 
 		// end process if current packet is already relayed
@@ -129,6 +150,9 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return false, err
 		}
+
+		// Increment the metric for successfully relayed packets
+		relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
 	}
