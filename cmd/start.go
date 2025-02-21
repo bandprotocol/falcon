@@ -31,9 +31,20 @@ $ %s start 1 12      # start relaying data from specific tunnelIDs.`, appName, a
 				tunnelIDs = append(tunnelIDs, tunnelID)
 			}
 
-			return app.Start(cmd.Context(), tunnelIDs)
+			metricsListenAddrFlag, err := cmd.Flags().GetString(flagMetricsListenAddr)
+			if err != nil {
+				return err
+			}
+
+			return app.Start(cmd.Context(), tunnelIDs, metricsListenAddrFlag)
 		},
 	}
 
+	cmd.Flags().String(
+		flagMetricsListenAddr,
+		"",
+		"address to use for metrics server. By default, "+
+			"will be the metrics-listen-addr parameter in the global config. ",
+	)
 	return cmd
 }

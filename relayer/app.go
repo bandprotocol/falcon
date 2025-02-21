@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -393,17 +394,24 @@ func (a *App) ValidatePassphrase(envPassphrase string) error {
 }
 
 // Start starts the tunnel relayer program.
-func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
+func (a *App) Start(
+	ctx context.Context,
+	tunnelIDs []uint64,
+	metricsListenAddrFlag string,
+) error {
 	a.Log.Info("Starting tunnel relayer")
-
-	// query tunnels
-	tunnels, err := a.getTunnels(ctx, tunnelIDs)
-	if err != nil {
-		a.Log.Error("Cannot get tunnels", zap.Error(err))
-	}
 
 	// validate passphrase
 	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+		return err
+	}
+
+	// setup metrics server
+	metricsListenAddr := a.Config.Global.MetricsListenAddr
+	if metricsListenAddrFlag != "" {
+		metricsListenAddr = metricsListenAddrFlag
+	}
+	if err := a.setupMetricsServer(ctx, metricsListenAddr); err != nil {
 		return err
 	}
 
@@ -426,39 +434,17 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		}
 	}
 
-	// initialize the tunnel relayer
-	tunnelRelayers := []*TunnelRelayer{}
-	for _, tunnel := range tunnels {
-		chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
-		if !ok {
-			return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
-		}
-
-		tr := NewTunnelRelayer(
-			a.Log,
-			tunnel.ID,
-			tunnel.TargetAddress,
-			a.Config.Global.CheckingPacketInterval,
-			a.BandClient,
-			chainProvider,
-		)
-		tunnelRelayers = append(tunnelRelayers, &tr)
-	}
-
 	// start the tunnel relayers
-	isSyncTunnelsAllowed := (len(tunnelIDs) == 0)
 	scheduler := NewScheduler(
 		a.Log,
-		tunnelRelayers,
 		a.Config.Global.CheckingPacketInterval,
 		a.Config.Global.SyncTunnelsInterval,
 		a.Config.Global.PenaltySkipRounds,
-		isSyncTunnelsAllowed,
 		a.BandClient,
 		a.TargetChains,
 	)
 
-	return scheduler.Start(ctx)
+	return scheduler.Start(ctx, tunnelIDs)
 }
 
 // Relay relays the packet from the source chain to the destination chain.
@@ -500,22 +486,18 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	return err
 }
 
-// GetTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
-// get all tunnels
-func (a *App) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
-	if len(tunnelIDs) == 0 {
-		return a.BandClient.GetTunnels(ctx)
+// setupMetricsServer starts the metrics server if enabled.
+func (a *App) setupMetricsServer(
+	ctx context.Context,
+	metricsListenAddr string,
+) error {
+	if metricsListenAddr == "" {
+		a.Log.Warn(
+			"Metrics server is disabled. It is controlled by the global config, and setting --metrics-listen-addr will override it and enable the server.",
+		)
+		return nil
 	}
 
-	tunnels := make([]bandtypes.Tunnel, 0, len(tunnelIDs))
-	for _, tunnelID := range tunnelIDs {
-		tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
-		if err != nil {
-			return nil, err
-		}
-
-		tunnels = append(tunnels, *tunnel)
-	}
-
-	return tunnels, nil
+	// start server
+	return relayermetrics.StartMetricsServer(ctx, a.Log, metricsListenAddr)
 }
