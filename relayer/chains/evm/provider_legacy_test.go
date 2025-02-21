@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -17,6 +18,7 @@ import (
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 type LegacyProviderTestSuite struct {
@@ -46,15 +48,26 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	evmConfig.GasType = evm.GasTypeLegacy
 	s.chainName = "testnet"
 	s.homePath = s.T().TempDir()
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), s.homePath)
+
+	wallet, err := wallet.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
+
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), s.homePath, wallet)
+	s.Require().NoError(err)
+
+	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
+	s.Require().NoError(err)
+
+	s.mockSender, err = mockSender()
+	s.Require().NoError(err)
+
+	addr, err := wallet.SavePrivateKey(s.mockSender.Name, priv)
+	s.Require().NoError(err)
+	s.Require().Equal(s.mockSender.Address.String(), addr)
 
 	s.chainProvider = chainProvider
 	s.chainProvider.FreeSenders = make(chan *evm.Sender, 1)
 	s.chainProvider.FreeSenders <- &s.mockSender
-
-	s.mockSender, err = mockSender()
-	s.Require().NoError(err)
 
 	s.relayingPacket = mockPacket()
 	s.relayingCalldata, err = s.chainProvider.CreateCalldata(&s.relayingPacket)

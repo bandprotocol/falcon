@@ -44,47 +44,47 @@ func (m *MockChainProvider) EXPECT() *MockChainProviderMockRecorder {
 }
 
 // AddKey mocks base method.
-func (m *MockChainProvider) AddKey(keyName, mnemonic, privateKeyHex, homePath string, coinType uint32, account, index uint, passphrase string) (*types0.Key, error) {
+func (m *MockChainProvider) AddKey(keyName, mnemonic, privateKeyHex string, coinType uint32, account, index uint) (*types0.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKey", keyName, mnemonic, privateKeyHex, homePath, coinType, account, index, passphrase)
+	ret := m.ctrl.Call(m, "AddKey", keyName, mnemonic, privateKeyHex, coinType, account, index)
 	ret0, _ := ret[0].(*types0.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddKey indicates an expected call of AddKey.
-func (mr *MockChainProviderMockRecorder) AddKey(keyName, mnemonic, privateKeyHex, homePath, coinType, account, index, passphrase any) *gomock.Call {
+func (mr *MockChainProviderMockRecorder) AddKey(keyName, mnemonic, privateKeyHex, coinType, account, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKey", reflect.TypeOf((*MockChainProvider)(nil).AddKey), keyName, mnemonic, privateKeyHex, homePath, coinType, account, index, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKey", reflect.TypeOf((*MockChainProvider)(nil).AddKey), keyName, mnemonic, privateKeyHex, coinType, account, index)
 }
 
 // DeleteKey mocks base method.
-func (m *MockChainProvider) DeleteKey(homePath, keyName, passphrase string) error {
+func (m *MockChainProvider) DeleteKey(keyName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteKey", homePath, keyName, passphrase)
+	ret := m.ctrl.Call(m, "DeleteKey", keyName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteKey indicates an expected call of DeleteKey.
-func (mr *MockChainProviderMockRecorder) DeleteKey(homePath, keyName, passphrase any) *gomock.Call {
+func (mr *MockChainProviderMockRecorder) DeleteKey(keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKey", reflect.TypeOf((*MockChainProvider)(nil).DeleteKey), homePath, keyName, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKey", reflect.TypeOf((*MockChainProvider)(nil).DeleteKey), keyName)
 }
 
 // ExportPrivateKey mocks base method.
-func (m *MockChainProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
+func (m *MockChainProvider) ExportPrivateKey(keyName string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportPrivateKey", keyName, passphrase)
+	ret := m.ctrl.Call(m, "ExportPrivateKey", keyName)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExportPrivateKey indicates an expected call of ExportPrivateKey.
-func (mr *MockChainProviderMockRecorder) ExportPrivateKey(keyName, passphrase any) *gomock.Call {
+func (mr *MockChainProviderMockRecorder) ExportPrivateKey(keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockChainProvider)(nil).ExportPrivateKey), keyName, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockChainProvider)(nil).ExportPrivateKey), keyName)
 }
 
 // Init mocks base method.
@@ -130,17 +130,17 @@ func (mr *MockChainProviderMockRecorder) ListKeys() *gomock.Call {
 }
 
 // LoadFreeSenders mocks base method.
-func (m *MockChainProvider) LoadFreeSenders(homePath, passphrase string) error {
+func (m *MockChainProvider) LoadFreeSenders() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadFreeSenders", homePath, passphrase)
+	ret := m.ctrl.Call(m, "LoadFreeSenders")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LoadFreeSenders indicates an expected call of LoadFreeSenders.
-func (mr *MockChainProviderMockRecorder) LoadFreeSenders(homePath, passphrase any) *gomock.Call {
+func (mr *MockChainProviderMockRecorder) LoadFreeSenders() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockChainProvider)(nil).LoadFreeSenders), homePath, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockChainProvider)(nil).LoadFreeSenders))
 }
 
 // QueryBalance mocks base method.
@@ -227,47 +227,47 @@ func (m *MockKeyProvider) EXPECT() *MockKeyProviderMockRecorder {
 }
 
 // AddKey mocks base method.
-func (m *MockKeyProvider) AddKey(keyName, mnemonic, privateKeyHex, homePath string, coinType uint32, account, index uint, passphrase string) (*types0.Key, error) {
+func (m *MockKeyProvider) AddKey(keyName, mnemonic, privateKeyHex string, coinType uint32, account, index uint) (*types0.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKey", keyName, mnemonic, privateKeyHex, homePath, coinType, account, index, passphrase)
+	ret := m.ctrl.Call(m, "AddKey", keyName, mnemonic, privateKeyHex, coinType, account, index)
 	ret0, _ := ret[0].(*types0.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddKey indicates an expected call of AddKey.
-func (mr *MockKeyProviderMockRecorder) AddKey(keyName, mnemonic, privateKeyHex, homePath, coinType, account, index, passphrase any) *gomock.Call {
+func (mr *MockKeyProviderMockRecorder) AddKey(keyName, mnemonic, privateKeyHex, coinType, account, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKey", reflect.TypeOf((*MockKeyProvider)(nil).AddKey), keyName, mnemonic, privateKeyHex, homePath, coinType, account, index, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKey", reflect.TypeOf((*MockKeyProvider)(nil).AddKey), keyName, mnemonic, privateKeyHex, coinType, account, index)
 }
 
 // DeleteKey mocks base method.
-func (m *MockKeyProvider) DeleteKey(homePath, keyName, passphrase string) error {
+func (m *MockKeyProvider) DeleteKey(keyName string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteKey", homePath, keyName, passphrase)
+	ret := m.ctrl.Call(m, "DeleteKey", keyName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteKey indicates an expected call of DeleteKey.
-func (mr *MockKeyProviderMockRecorder) DeleteKey(homePath, keyName, passphrase any) *gomock.Call {
+func (mr *MockKeyProviderMockRecorder) DeleteKey(keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKey", reflect.TypeOf((*MockKeyProvider)(nil).DeleteKey), homePath, keyName, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKey", reflect.TypeOf((*MockKeyProvider)(nil).DeleteKey), keyName)
 }
 
 // ExportPrivateKey mocks base method.
-func (m *MockKeyProvider) ExportPrivateKey(keyName, passphrase string) (string, error) {
+func (m *MockKeyProvider) ExportPrivateKey(keyName string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportPrivateKey", keyName, passphrase)
+	ret := m.ctrl.Call(m, "ExportPrivateKey", keyName)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExportPrivateKey indicates an expected call of ExportPrivateKey.
-func (mr *MockKeyProviderMockRecorder) ExportPrivateKey(keyName, passphrase any) *gomock.Call {
+func (mr *MockKeyProviderMockRecorder) ExportPrivateKey(keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockKeyProvider)(nil).ExportPrivateKey), keyName, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockKeyProvider)(nil).ExportPrivateKey), keyName)
 }
 
 // IsKeyNameExist mocks base method.
@@ -299,17 +299,17 @@ func (mr *MockKeyProviderMockRecorder) ListKeys() *gomock.Call {
 }
 
 // LoadFreeSenders mocks base method.
-func (m *MockKeyProvider) LoadFreeSenders(homePath, passphrase string) error {
+func (m *MockKeyProvider) LoadFreeSenders() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadFreeSenders", homePath, passphrase)
+	ret := m.ctrl.Call(m, "LoadFreeSenders")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LoadFreeSenders indicates an expected call of LoadFreeSenders.
-func (mr *MockKeyProviderMockRecorder) LoadFreeSenders(homePath, passphrase any) *gomock.Call {
+func (mr *MockKeyProviderMockRecorder) LoadFreeSenders() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockKeyProvider)(nil).LoadFreeSenders), homePath, passphrase)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockKeyProvider)(nil).LoadFreeSenders))
 }
 
 // ShowKey mocks base method.
