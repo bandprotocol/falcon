@@ -89,14 +89,7 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddKey(
-				tc.input.keyName,
-				"",
-				tc.input.privKey,
-				0,
-				0,
-				0,
-			)
+			key, err := s.chainProvider.AddKeyByPrivateKey(tc.input.keyName, tc.input.privKey)
 
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
@@ -184,10 +177,9 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddKey(
+			key, err := s.chainProvider.AddKeyByMnemonic(
 				tc.input.keyName,
 				tc.input.mnemonic,
-				"",
 				tc.input.coinType,
 				tc.input.account,
 				tc.input.index,
@@ -215,7 +207,7 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to delete
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
+	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Delete the key
@@ -235,7 +227,7 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to export
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
+	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Export the private key
@@ -250,25 +242,22 @@ func (s *KeysTestSuite) TestListKeys() {
 	keyName1 := "key1"
 	keyName2 := "key2"
 	mnemonic := ""
-	privateKey := ""
 	coinType := 60
 	account := 0
 	index := 0
 
-	key1, err := s.chainProvider.AddKey(
+	key1, err := s.chainProvider.AddKeyByMnemonic(
 		keyName1,
 		mnemonic,
-		privateKey,
 		uint32(coinType),
 		uint(account),
 		uint(index),
 	)
 	s.Require().NoError(err)
 
-	key2, err := s.chainProvider.AddKey(
+	key2, err := s.chainProvider.AddKeyByMnemonic(
 		keyName2,
 		mnemonic,
-		privateKey,
 		uint32(coinType),
 		uint(account),
 		uint(index),
@@ -304,7 +293,7 @@ func (s *KeysTestSuite) TestShowKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to show
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
+	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Show the key

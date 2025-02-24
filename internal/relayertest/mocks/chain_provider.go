@@ -43,19 +43,34 @@ func (m *MockChainProvider) EXPECT() *MockChainProviderMockRecorder {
 	return m.recorder
 }
 
-// AddKey mocks base method.
-func (m *MockChainProvider) AddKey(keyName, mnemonic, privateKeyHex string, coinType uint32, account, index uint) (*types0.Key, error) {
+// AddKeyByMnemonic mocks base method.
+func (m *MockChainProvider) AddKeyByMnemonic(keyName, mnemonic string, coinType uint32, account, index uint) (*types0.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKey", keyName, mnemonic, privateKeyHex, coinType, account, index)
+	ret := m.ctrl.Call(m, "AddKeyByMnemonic", keyName, mnemonic, coinType, account, index)
 	ret0, _ := ret[0].(*types0.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AddKey indicates an expected call of AddKey.
-func (mr *MockChainProviderMockRecorder) AddKey(keyName, mnemonic, privateKeyHex, coinType, account, index any) *gomock.Call {
+// AddKeyByMnemonic indicates an expected call of AddKeyByMnemonic.
+func (mr *MockChainProviderMockRecorder) AddKeyByMnemonic(keyName, mnemonic, coinType, account, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKey", reflect.TypeOf((*MockChainProvider)(nil).AddKey), keyName, mnemonic, privateKeyHex, coinType, account, index)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByMnemonic", reflect.TypeOf((*MockChainProvider)(nil).AddKeyByMnemonic), keyName, mnemonic, coinType, account, index)
+}
+
+// AddKeyByPrivateKey mocks base method.
+func (m *MockChainProvider) AddKeyByPrivateKey(keyName, privateKeyHex string) (*types0.Key, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddKeyByPrivateKey", keyName, privateKeyHex)
+	ret0, _ := ret[0].(*types0.Key)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddKeyByPrivateKey indicates an expected call of AddKeyByPrivateKey.
+func (mr *MockChainProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyHex any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByPrivateKey", reflect.TypeOf((*MockChainProvider)(nil).AddKeyByPrivateKey), keyName, privateKeyHex)
 }
 
 // DeleteKey mocks base method.
@@ -226,19 +241,34 @@ func (m *MockKeyProvider) EXPECT() *MockKeyProviderMockRecorder {
 	return m.recorder
 }
 
-// AddKey mocks base method.
-func (m *MockKeyProvider) AddKey(keyName, mnemonic, privateKeyHex string, coinType uint32, account, index uint) (*types0.Key, error) {
+// AddKeyByMnemonic mocks base method.
+func (m *MockKeyProvider) AddKeyByMnemonic(keyName, mnemonic string, coinType uint32, account, index uint) (*types0.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKey", keyName, mnemonic, privateKeyHex, coinType, account, index)
+	ret := m.ctrl.Call(m, "AddKeyByMnemonic", keyName, mnemonic, coinType, account, index)
 	ret0, _ := ret[0].(*types0.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AddKey indicates an expected call of AddKey.
-func (mr *MockKeyProviderMockRecorder) AddKey(keyName, mnemonic, privateKeyHex, coinType, account, index any) *gomock.Call {
+// AddKeyByMnemonic indicates an expected call of AddKeyByMnemonic.
+func (mr *MockKeyProviderMockRecorder) AddKeyByMnemonic(keyName, mnemonic, coinType, account, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKey", reflect.TypeOf((*MockKeyProvider)(nil).AddKey), keyName, mnemonic, privateKeyHex, coinType, account, index)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByMnemonic", reflect.TypeOf((*MockKeyProvider)(nil).AddKeyByMnemonic), keyName, mnemonic, coinType, account, index)
+}
+
+// AddKeyByPrivateKey mocks base method.
+func (m *MockKeyProvider) AddKeyByPrivateKey(keyName, privateKeyHex string) (*types0.Key, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddKeyByPrivateKey", keyName, privateKeyHex)
+	ret0, _ := ret[0].(*types0.Key)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddKeyByPrivateKey indicates an expected call of AddKeyByPrivateKey.
+func (mr *MockKeyProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyHex any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByPrivateKey", reflect.TypeOf((*MockKeyProvider)(nil).AddKeyByPrivateKey), keyName, privateKeyHex)
 }
 
 // DeleteKey mocks base method.

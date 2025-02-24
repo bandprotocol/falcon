@@ -25,10 +25,10 @@ const (
 	infoFileName  = "info.toml"
 )
 
-func (cp *EVMChainProvider) AddKey(
+// AddKeyByMnemonic adds a key using a mnemonic phrase.
+func (cp *EVMChainProvider) AddKeyByMnemonic(
 	keyName string,
 	mnemonic string,
-	privateKey string,
 	coinType uint32,
 	account uint,
 	index uint,
@@ -37,29 +37,14 @@ func (cp *EVMChainProvider) AddKey(
 		return nil, fmt.Errorf("duplicate key name")
 	}
 
-	if privateKey != "" {
-		return cp.AddKeyWithPrivateKey(keyName, privateKey)
-	}
-
 	var err error
-	// Generate mnemonic if not provided
 	if mnemonic == "" {
 		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return cp.AddKeyWithMnemonic(keyName, mnemonic, coinType, account, index)
-}
 
-// AddKeyWithMnemonic adds a key using a mnemonic phrase.
-func (cp *EVMChainProvider) AddKeyWithMnemonic(
-	keyName string,
-	mnemonic string,
-	coinType uint32,
-	account uint,
-	index uint,
-) (*chainstypes.Key, error) {
 	// Generate private key using mnemonic
 	priv, err := generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
@@ -69,8 +54,12 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	return cp.finalizeKeyAddition(keyName, priv, mnemonic)
 }
 
-// AddKeyWithPrivateKey adds a key using a raw private key.
-func (cp *EVMChainProvider) AddKeyWithPrivateKey(keyName, privateKey string) (*chainstypes.Key, error) {
+// AddKeyByPrivateKey adds a key using a raw private key.
+func (cp *EVMChainProvider) AddKeyByPrivateKey(keyName, privateKey string) (*chainstypes.Key, error) {
+	if cp.IsKeyNameExist(keyName) {
+		return nil, fmt.Errorf("duplicate key name")
+	}
+
 	// Convert private key from hex
 	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(privateKey))
 	if err != nil {

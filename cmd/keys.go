@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 const (
@@ -53,7 +54,7 @@ func keysAddCmd(app *relayer.App) *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys add eth test-key
 $ %s k a eth test-key`, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			chainName := args[0]
 			keyName := args[1]
 			mnemonic := ""
@@ -141,6 +142,7 @@ $ %s k a eth test-key`, appName, appName)),
 			)
 
 			// Handle the selected option
+			var keyOutput *types.Key
 			switch selection {
 			case privateKeyResult:
 				privateKeyPrompt := huh.NewGroup(huh.NewInput().
@@ -149,6 +151,15 @@ $ %s k a eth test-key`, appName, appName)),
 
 				form := huh.NewForm(privateKeyPrompt)
 				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+					return err
+				}
+
+				keyOutput, err = app.AddKeyByPrivateKey(
+					chainName,
+					keyName,
+					privateKey,
+				)
+				if err != nil {
 					return err
 				}
 
@@ -165,26 +176,36 @@ $ %s k a eth test-key`, appName, appName)),
 				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
 					return err
 				}
+
+				keyOutput, err = app.AddKeyByMnemonic(
+					chainName,
+					keyName,
+					mnemonic,
+					uint32(coinType),
+					uint(account),
+					uint(index),
+				)
+				if err != nil {
+					return err
+				}
 			case defaultResult:
 				defaultPrompt := huh.NewGroup(coinTypeInput, accountInput, indexInput)
 				form := huh.NewForm(defaultPrompt)
 				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
 					return err
 				}
-			}
 
-			// Add the key to the app
-			keyOutput, err := app.AddKey(
-				chainName,
-				keyName,
-				mnemonic,
-				privateKey,
-				uint32(coinType),
-				uint(account),
-				uint(index),
-			)
-			if err != nil {
-				return err
+				keyOutput, err = app.AddKeyByMnemonic(
+					chainName,
+					keyName,
+					mnemonic,
+					uint32(coinType),
+					uint(account),
+					uint(index),
+				)
+				if err != nil {
+					return err
+				}
 			}
 
 			out, err := json.MarshalIndent(keyOutput, "", "  ")

@@ -224,12 +224,25 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 	return chainProviders[chainName], nil
 }
 
-// AddKey adds a new key to the chain provider.
-func (a *App) AddKey(
+// AddKeyByPrivateKey adds a new key to the chain provider using a private key.
+func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*chainstypes.Key, error) {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
+		return nil, err
+	}
+
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return nil, err
+	}
+
+	return cp.AddKeyByPrivateKey(keyName, privateKey)
+}
+
+// AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
+func (a *App) AddKeyByMnemonic(
 	chainName string,
 	keyName string,
 	mnemonic string,
-	privateKey string,
 	coinType uint32,
 	account uint,
 	index uint,
@@ -243,7 +256,7 @@ func (a *App) AddKey(
 		return nil, err
 	}
 
-	return cp.AddKey(keyName, mnemonic, privateKey, coinType, account, index)
+	return cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
 }
 
 // DeleteKey deletes the key from the chain provider.
@@ -309,10 +322,7 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 }
 
 // Start starts the tunnel relayer program.
-func (a *App) Start(
-	ctx context.Context,
-	tunnelIDs []uint64,
-) error {
+func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase

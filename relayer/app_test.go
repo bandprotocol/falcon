@@ -464,13 +464,9 @@ func (s *AppTestSuite) TestAddKey() {
 			out:        chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""),
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					AddKey(
+					AddKeyByPrivateKey(
 						"testkey",
-						"",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-						uint32(60),
-						uint(0),
-						uint(0),
 					).
 					Return(chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""), nil)
 			},
@@ -483,13 +479,9 @@ func (s *AppTestSuite) TestAddKey() {
 			coinType:   60,
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					AddKey(
+					AddKeyByPrivateKey(
 						"testkey",
-						"",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-						uint32(60),
-						uint(0),
-						uint(0),
 					).
 					Return(nil, fmt.Errorf("add key error"))
 			},
@@ -511,14 +503,10 @@ func (s *AppTestSuite) TestAddKey() {
 				tc.preprocess()
 			}
 
-			actual, err := s.app.AddKey(
+			actual, err := s.app.AddKeyByPrivateKey(
 				tc.chainName,
 				tc.keyName,
-				tc.mnemonic,
 				tc.privateKey,
-				tc.coinType,
-				tc.account,
-				tc.index,
 			)
 
 			if tc.err != nil {
