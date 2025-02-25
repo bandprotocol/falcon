@@ -24,6 +24,15 @@ const (
 	defaultResult
 )
 
+// AddKeyInput is the input for adding a key to the keychain.
+type AddKeyInput struct {
+	PrivateKey string
+	Mnemonic   string
+	CoinType   uint64
+	Account    uint64
+	Index      uint64
+}
+
 // keysCmd represents the keys command
 func keysCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
@@ -53,122 +62,39 @@ func keysAddCmd(app *relayer.App) *cobra.Command {
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys add eth test-key
 $ %s k a eth test-key`, appName, appName)),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			chainName := args[0]
 			keyName := args[1]
-			mnemonic := ""
-			privateKey := ""
 
-			var (
-				coinType, account, index          uint64
-				coinTypeStr, accountStr, indexStr string
-			)
-
-			// Use huh to create a form for user input
-			selection := 0
-			selectionPrompt := huh.NewGroup(huh.NewSelect[int]().
-				Title("Choose how to add a key").
-				Options(
-					huh.NewOption(privateKeyLabel, privateKeyResult),
-					huh.NewOption(mnemonicLabel, mnemonicResult),
-					huh.NewOption(defaultLabel, defaultResult),
-				).
-				Value(&selection))
-
-			form := huh.NewForm(selectionPrompt)
-			if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+			input := &AddKeyInput{}
+			input.Mnemonic, err = cmd.Flags().GetString(flagMnemonic)
+			if err != nil {
 				return err
 			}
 
-			// Coin type input
-			coinTypeInput := huh.NewInput().
-				Title("Enter a coin type").
-				Description("Coin type number for HD derivation (default: 60; leave empty to use default)").
-				Value(&coinTypeStr).Validate(
-				func(s string) error {
-					if s == "" {
-						coinType = defaultCoinType
-						return nil
-					}
-					var err error
-					coinType, err = strconv.ParseUint(s, 10, 32)
-					if err != nil {
-						return fmt.Errorf("invalid coin type input (should be uint32)")
-					}
+			input.PrivateKey, err = cmd.Flags().GetString(flagPrivateKey)
+			if err != nil {
+				return err
+			}
 
-					return nil
-				},
-			)
+			input.CoinType, err = cmd.Flags().GetUint64(flagCoinType)
+			if err != nil {
+				return err
+			}
 
-			// Account type input
-			accountInput := huh.NewInput().
-				Title("Enter an account").
-				Description("Account number in the HD derivation path (default: 0; leave empty to use default)").
-				Value(&accountStr).Validate(
-				func(s string) error {
-					if s == "" {
-						account = 0
-						return nil
-					}
-					var err error
-					account, err = strconv.ParseUint(s, 10, 32)
-					if err != nil {
-						return fmt.Errorf("invalid account input (should be uint32)")
-					}
+			input.Account, err = cmd.Flags().GetUint64(flagWalletAccount)
+			if err != nil {
+				return err
+			}
 
-					return nil
-				},
-			)
+			input.Index, err = cmd.Flags().GetUint64(flagWalletIndex)
+			if err != nil {
+				return err
+			}
 
-			// Index type input
-			indexInput := huh.NewInput().
-				Title("Enter an index").
-				Description("Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)").
-				Value(&indexStr).Validate(
-				func(s string) error {
-					if s == "" {
-						index = 0
-						return nil
-					}
-					var err error
-					index, err = strconv.ParseUint(s, 10, 32)
-					if err != nil {
-						return fmt.Errorf("invalid index input (should be uint32)")
-					}
-
-					return nil
-				},
-			)
-
-			// Handle the selected option
-			switch selection {
-			case privateKeyResult:
-				privateKeyPrompt := huh.NewGroup(huh.NewInput().
-					Title("Enter your private key").
-					Value(&privateKey))
-
-				form := huh.NewForm(privateKeyPrompt)
-				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
-					return err
-				}
-
-			case mnemonicResult:
-				mnemonicPrompt := huh.NewGroup(huh.NewInput().
-					Title("Enter your mnemonic").
-					Value(&mnemonic),
-					coinTypeInput,
-					accountInput,
-					indexInput,
-				)
-
-				form := huh.NewForm(mnemonicPrompt)
-				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
-					return err
-				}
-			case defaultResult:
-				defaultPrompt := huh.NewGroup(coinTypeInput, accountInput, indexInput)
-				form := huh.NewForm(defaultPrompt)
-				if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+			if input.PrivateKey == "" && input.Mnemonic == "" {
+				input, err = showHuhPrompt()
+				if err != nil {
 					return err
 				}
 			}
@@ -177,11 +103,11 @@ $ %s k a eth test-key`, appName, appName)),
 			keyOutput, err := app.AddKey(
 				chainName,
 				keyName,
-				mnemonic,
-				privateKey,
-				uint32(coinType),
-				uint(account),
-				uint(index),
+				input.Mnemonic,
+				input.PrivateKey,
+				uint32(input.CoinType),
+				uint(input.Account),
+				uint(input.Index),
 			)
 			if err != nil {
 				return err
@@ -196,6 +122,13 @@ $ %s k a eth test-key`, appName, appName)),
 			return nil
 		},
 	}
+
+	cmd.Flags().String(flagPrivateKey, "", "add key with the given private key")
+	cmd.Flags().String(flagMnemonic, "", "add key with the given mnemonic")
+	cmd.Flags().Uint64(flagCoinType, defaultCoinType, "coin type number for HD derivation")
+	cmd.Flags().Uint64(flagWalletAccount, 0, "account number in the HD derivation path")
+	cmd.Flags().
+		Uint64(flagWalletIndex, 0, "index number for the specific address within an account in the HD derivation path")
 
 	return cmd
 }
@@ -303,4 +236,122 @@ $ %s k s eth test-key`, appName, appName)),
 	}
 
 	return cmd
+}
+
+// showHuhPrompt shows a prompt to the user to input a private key, mnemonic for generating or
+// inserting a user's key.
+func showHuhPrompt() (input *AddKeyInput, err error) {
+	input = &AddKeyInput{}
+	var coinTypeStr, accountStr, indexStr string
+
+	// Use huh to create a form for user input
+	selection := 0
+	selectionPrompt := huh.NewGroup(huh.NewSelect[int]().
+		Title("Choose how to add a key").
+		Options(
+			huh.NewOption(privateKeyLabel, privateKeyResult),
+			huh.NewOption(mnemonicLabel, mnemonicResult),
+			huh.NewOption(defaultLabel, defaultResult),
+		).
+		Value(&selection))
+
+	form := huh.NewForm(selectionPrompt)
+	if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+		return nil, err
+	}
+
+	// Coin type input
+	coinTypeInput := huh.NewInput().
+		Title("Enter a coin type").
+		Description("Coin type number for HD derivation (default: 60; leave empty to use default)").
+		Value(&coinTypeStr).Validate(
+		func(s string) (err error) {
+			if s == "" {
+				input.CoinType = defaultCoinType
+				return nil
+			}
+
+			input.CoinType, err = strconv.ParseUint(s, 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid coin type input (should be uint32)")
+			}
+
+			return nil
+		},
+	)
+
+	// Account type input
+	accountInput := huh.NewInput().
+		Title("Enter an account").
+		Description("Account number in the HD derivation path (default: 0; leave empty to use default)").
+		Value(&accountStr).Validate(
+		func(s string) (err error) {
+			if s == "" {
+				input.Account = 0
+				return nil
+			}
+
+			input.Account, err = strconv.ParseUint(s, 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid account input (should be uint32)")
+			}
+
+			return nil
+		},
+	)
+
+	// Index type input
+	indexInput := huh.NewInput().
+		Title("Enter an index").
+		Description("Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)").
+		Value(&indexStr).Validate(
+		func(s string) (err error) {
+			if s == "" {
+				input.Index = 0
+				return nil
+			}
+
+			input.Index, err = strconv.ParseUint(s, 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid index input (should be uint32)")
+			}
+
+			return nil
+		},
+	)
+
+	// Handle the selected option
+	switch selection {
+	case privateKeyResult:
+		privateKeyPrompt := huh.NewGroup(huh.NewInput().
+			Title("Enter your private key").
+			Value(&input.PrivateKey))
+
+		form := huh.NewForm(privateKeyPrompt)
+		if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+			return nil, err
+		}
+
+	case mnemonicResult:
+		mnemonicPrompt := huh.NewGroup(huh.NewInput().
+			Title("Enter your mnemonic").
+			Value(&input.Mnemonic),
+			coinTypeInput,
+			accountInput,
+			indexInput,
+		)
+
+		form := huh.NewForm(mnemonicPrompt)
+		if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+			return nil, err
+		}
+	case defaultResult:
+		defaultPrompt := huh.NewGroup(coinTypeInput, accountInput, indexInput)
+		form := huh.NewForm(defaultPrompt)
+		if err := form.WithTheme(huh.ThemeBase()).Run(); err != nil {
+			return nil, err
+		}
+	}
+
+	return input, nil
 }
