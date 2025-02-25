@@ -135,7 +135,7 @@ func (w *GethWallet) Sign(name string, data []byte) ([]byte, error) {
 	return crypto.Sign(data, privKey)
 }
 
-// GetPrivateKey returns the private key of the given key name
+// getPrivateKey returns the private key of the given key name
 func (w *GethWallet) getPrivateKey(name string) (*ecdsa.PrivateKey, error) {
 	hexAddr, ok := w.KeyNameInfo[name]
 	if !ok {
