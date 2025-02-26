@@ -83,7 +83,6 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	priv *ecdsa.PrivateKey,
 	mnemonic string,
 ) (*chainstypes.Key, error) {
-
 	addr, err := cp.Wallet.SavePrivateKey(keyName, priv)
 	if err != nil {
 		return nil, err
