@@ -33,10 +33,6 @@ func (cp *EVMChainProvider) AddKeyByMnemonic(
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
-	if cp.IsKeyNameExist(keyName) {
-		return nil, fmt.Errorf("duplicate key name")
-	}
-
 	var err error
 	if mnemonic == "" {
 		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)

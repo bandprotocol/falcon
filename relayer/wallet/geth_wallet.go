@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pelletier/go-toml/v2"
+	toml "github.com/pelletier/go-toml/v2"
 
 	"github.com/bandprotocol/falcon/internal/os"
 )
@@ -55,6 +55,10 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 
 // SavePrivateKey saves the private key to the keystore and returns the account and update the keyNameToHexAddress map
 func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (string, error) {
+	if _, ok := w.GetAddress(name); ok {
+		return "", fmt.Errorf("key name exists: %s", name)
+	}
+
 	acc, err := w.Store.ImportECDSA(privKey, w.Passphrase)
 	if err != nil {
 		return "", err
@@ -71,7 +75,7 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (str
 
 // DeletePrivateKey deletes the private key from the keystore and returns the address
 func (w *GethWallet) DeletePrivateKey(name string) error {
-	hexAddr, ok := w.KeyNameInfo[name]
+	hexAddr, ok := w.GetAddress(name)
 	if !ok {
 		return fmt.Errorf("key name does not exist: %s", name)
 	}
@@ -135,9 +139,9 @@ func (w *GethWallet) Sign(name string, data []byte) ([]byte, error) {
 	return crypto.Sign(data, privKey)
 }
 
-// GetPrivateKey returns the private key of the given key name
+// getPrivateKey returns the private key of the given key name
 func (w *GethWallet) getPrivateKey(name string) (*ecdsa.PrivateKey, error) {
-	hexAddr, ok := w.KeyNameInfo[name]
+	hexAddr, ok := w.GetAddress(name)
 	if !ok {
 		return nil, fmt.Errorf("key name does not exist: %s", name)
 	}

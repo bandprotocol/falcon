@@ -160,7 +160,7 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				account:  0,
 				index:    0,
 			},
-			err: fmt.Errorf("duplicate key name"),
+			err: fmt.Errorf("key name exists"),
 		},
 		{
 			name: "invalid mnemonic",

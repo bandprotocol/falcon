@@ -314,10 +314,6 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 		return nil, err
 	}
 
-	if !cp.IsKeyNameExist(keyName) {
-		return nil, fmt.Errorf("key name does not exist: %s", chainName)
-	}
-
 	return cp.QueryBalance(ctx, keyName)
 }
 
