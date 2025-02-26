@@ -2,13 +2,11 @@ package evm_test
 
 import (
 	"context"
-	"encoding/hex"
 	"os"
 	"path"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 const (
@@ -60,6 +59,7 @@ func TestSenderTestSuite(t *testing.T) {
 func (s *SenderTestSuite) SetupTest() {
 	var err error
 	tmpDir := s.T().TempDir()
+	s.homePath = tmpDir
 
 	log, err := zap.NewDevelopment()
 	s.Require().NoError(err)
@@ -71,11 +71,13 @@ func (s *SenderTestSuite) SetupTest() {
 
 	client := evm.NewClient(chainName, evmCfg, log)
 
-	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir)
+	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
+	s.Require().NoError(err)
+
+	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir, wallet)
 	s.Require().NoError(err)
 
 	s.ctx = context.Background()
-	s.homePath = tmpDir
 }
 
 func TestLoadKeyInfo(t *testing.T) {
@@ -114,18 +116,18 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 	keyName2 := "key2"
 
 	// Add two mock keys to the chain provider
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName1, privateKey1, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName1, privateKey1)
 	s.Require().NoError(err)
 
-	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName2, privateKey2, s.homePath, "")
+	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName2, privateKey2)
 	s.Require().NoError(err)
 
 	// Load free senders
-	err = s.chainProvider.LoadFreeSenders(s.homePath, "")
+	err = s.chainProvider.LoadFreeSenders()
 	s.Require().NoError(err)
 
 	// Validate the FreeSenders channel is populated correctly
-	count := len(s.chainProvider.KeyInfo)
+	count := len(s.chainProvider.Wallet.GetNames())
 	s.Require().
 		Equal(count, len(s.chainProvider.FreeSenders))
 
@@ -141,16 +143,15 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 		s.Require().NotNil(sender)
 
 		actualAddress := sender.Address.Hex()
-		actualPrivateKey := evm.StripPrivateKeyPrefix(
-			hex.EncodeToString(crypto.FromECDSA(sender.PrivateKey)),
-		)
 
-		expectedPrivateKey, exists := expectedSenders[actualAddress]
+		privKey, exists := expectedSenders[actualAddress]
 		s.Require().True(exists, "Unexpected sender address: %s", actualAddress)
 
-		// Validate the private key matches
-		s.Require().
-			Equal(evm.StripPrivateKeyPrefix(expectedPrivateKey), evm.StripPrivateKeyPrefix(actualPrivateKey))
+		expectPrivKey := privateKey1
+		if actualAddress == address2 {
+			expectPrivKey = privateKey2
+		}
+		s.Require().Equal(expectPrivKey, privKey)
 
 		// Remove the validated sender from the map
 		delete(expectedSenders, actualAddress)

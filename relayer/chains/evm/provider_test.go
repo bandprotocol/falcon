@@ -11,7 +11,6 @@ import (
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -23,6 +22,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 var baseEVMCfg = &evm.EVMChainProviderConfig{
@@ -73,14 +73,9 @@ func mockSender() (evm.Sender, error) {
 		return evm.Sender{}, err
 	}
 
-	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
-	if err != nil {
-		return evm.Sender{}, err
-	}
-
 	return evm.Sender{
-		Address:    addr,
-		PrivateKey: priv,
+		Address: addr,
+		Name:    "tester1",
 	}, nil
 }
 
@@ -107,6 +102,7 @@ func TestProviderTestSuite(t *testing.T) {
 func (s *ProviderTestSuite) SetupTest() {
 	var err error
 	tmpDir := s.T().TempDir()
+	s.homePath = tmpDir
 
 	s.ctrl = gomock.NewController(s.T())
 	s.client = mocks.NewMockEVMClient(s.ctrl)
@@ -117,11 +113,13 @@ func (s *ProviderTestSuite) SetupTest() {
 	chainName := "testnet"
 	s.chainName = chainName
 
-	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, s.homePath)
+	wallet, err := wallet.NewGethWallet("", s.homePath, s.chainName)
+	s.Require().NoError(err)
+
+	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, s.homePath, wallet)
 	s.Require().NoError(err)
 
 	s.chainProvider.Client = s.client
-	s.homePath = tmpDir
 }
 
 func (s *ProviderTestSuite) TestQueryTunnelInfo() {

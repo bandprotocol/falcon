@@ -6,4 +6,6 @@ $mockgen_cmd -source=relayer/chains/config.go -package mocks -destination intern
 $mockgen_cmd -source=relayer/chains/provider.go -package mocks -destination internal/relayertest/mocks/chain_provider.go
 $mockgen_cmd -source=relayer/chains/evm/client.go -mock_names Client=MockEVMClient -package mocks -destination internal/relayertest/mocks/chain_evm_client.go
 $mockgen_cmd -source=relayer/band/client.go -package mocks -destination internal/relayertest/mocks/band_client.go
+$mockgen_cmd -source=relayer/wallet/wallet.go -package mocks -destination internal/relayertest/mocks/wallet.go
+$mockgen_cmd -source=relayer/store/store.go -package mocks -destination internal/relayertest/mocks/store.go
 

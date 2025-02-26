@@ -1,7 +1,7 @@
 package evm
 
 import (
-	"crypto/ecdsa"
+	"fmt"
 	"os"
 	"path"
 
@@ -14,37 +14,36 @@ type KeyInfo map[string]string
 
 // Sender is the struct that represents the sender of the transaction.
 type Sender struct {
-	PrivateKey *ecdsa.PrivateKey
-	Address    gethcommon.Address
+	Name    string
+	Address gethcommon.Address
 }
 
 // NewSender creates a new sender object.
-func NewSender(privateKey *ecdsa.PrivateKey, address gethcommon.Address) *Sender {
+func NewSender(name string, address gethcommon.Address) *Sender {
 	return &Sender{
-		PrivateKey: privateKey,
-		Address:    address,
+		Name:    name,
+		Address: address,
 	}
 }
 
 // LoadFreeSenders loads the FreeSenders channel with sender instances.
-// derived from the keys stored in the keystore located at the specified homePath.
-func (cp *EVMChainProvider) LoadFreeSenders(
-	homePath string,
-	passphrase string,
-) error {
+// derived from the keys stored in the keystore located.
+func (cp *EVMChainProvider) LoadFreeSenders() error {
 	if cp.FreeSenders != nil {
 		return nil
 	}
 
-	freeSenders := make(chan *Sender, len(cp.KeyInfo))
+	keyNames := cp.Wallet.GetNames()
+	freeSenders := make(chan *Sender, len(keyNames))
 
-	for keyName := range cp.KeyInfo {
-		key, err := cp.GetKeyFromKeyName(keyName, passphrase)
-		if err != nil {
-			return err
+	for _, keyName := range keyNames {
+		addrHex, ok := cp.Wallet.GetAddress(keyName)
+		if !ok {
+			return fmt.Errorf("key name does not exist: %s", keyName)
 		}
 
-		freeSenders <- NewSender(key.PrivateKey, key.Address)
+		addr := gethcommon.HexToAddress(addrHex)
+		freeSenders <- NewSender(keyName, addr)
 	}
 
 	cp.FreeSenders = freeSenders

@@ -1,7 +1,6 @@
 package evm_test
 
 import (
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -11,6 +10,7 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 const (
@@ -39,7 +39,10 @@ func (s *KeysTestSuite) SetupTest() {
 	chainName := "testnet"
 	client := evm.NewClient(chainName, evmCfg, s.log)
 
-	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath)
+	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
+	s.Require().NoError(err)
+
+	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath, wallet)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider
 }
@@ -87,11 +90,9 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 				tc.input.keyName,
 				"",
 				tc.input.privKey,
-				s.homePath,
 				0,
 				0,
 				0,
-				"",
 			)
 
 			if tc.err != nil {
@@ -166,7 +167,7 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				account:  0,
 				index:    0,
 			},
-			err: fmt.Errorf("duplicate key name"),
+			err: fmt.Errorf("key name exists"),
 		},
 		{
 			name: "invalid mnemonic",
@@ -187,11 +188,9 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				tc.input.keyName,
 				tc.input.mnemonic,
 				"",
-				s.homePath,
 				tc.input.coinType,
 				tc.input.account,
 				tc.input.index,
-				"",
 			)
 
 			if tc.err != nil {
@@ -219,22 +218,18 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to delete
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Delete the key
-	err = s.chainProvider.DeleteKey(s.homePath, keyName, "")
+	err = s.chainProvider.DeleteKey(keyName)
 	s.Require().NoError(err)
 
 	// Ensure the key is no longer in the KeyInfo or KeyStore
 	s.Require().False(s.chainProvider.IsKeyNameExist(keyName))
 
-	addr, err := evm.HexToAddress(testAddress)
-	s.Require().NoError(err)
-	s.Require().False(s.chainProvider.KeyStore.HasAddress(addr))
-
 	// Delete the key again should return error
-	err = s.chainProvider.DeleteKey(s.homePath, keyName, "")
+	err = s.chainProvider.DeleteKey(keyName)
 	s.Require().ErrorContains(err, "key name does not exist")
 }
 
@@ -243,11 +238,11 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to export
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Export the private key
-	exportedKey, err := s.chainProvider.ExportPrivateKey(keyName, "")
+	exportedKey, err := s.chainProvider.ExportPrivateKey(keyName)
 	s.Require().NoError(err)
 
 	s.Require().Equal(evm.StripPrivateKeyPrefix(privatekeyHex), evm.StripPrivateKeyPrefix(exportedKey))
@@ -262,17 +257,14 @@ func (s *KeysTestSuite) TestListKeys() {
 	coinType := 60
 	account := 0
 	index := 0
-	passphrase := ""
 
 	key1, err := s.chainProvider.AddKey(
 		keyName1,
 		mnemonic,
 		privateKey,
-		s.homePath,
 		uint32(coinType),
 		uint(account),
 		uint(index),
-		passphrase,
 	)
 	s.Require().NoError(err)
 
@@ -280,11 +272,9 @@ func (s *KeysTestSuite) TestListKeys() {
 		keyName2,
 		mnemonic,
 		privateKey,
-		s.homePath,
 		uint32(coinType),
 		uint(account),
 		uint(index),
-		passphrase,
 	)
 	s.Require().NoError(err)
 
@@ -317,7 +307,7 @@ func (s *KeysTestSuite) TestShowKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to show
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
+	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Show the key
@@ -327,32 +317,16 @@ func (s *KeysTestSuite) TestShowKey() {
 }
 
 func (s *KeysTestSuite) TestIsKeyNameExist() {
-	s.chainProvider.KeyInfo["testkey1"] = testAddress
+	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
+	s.Require().NoError(err)
+
+	_, err = s.chainProvider.Wallet.SavePrivateKey("testkey1", priv)
+	s.Require().NoError(err)
+
 	expected := s.chainProvider.IsKeyNameExist("testkey1")
 
 	s.Require().Equal(expected, true)
 
 	expected = s.chainProvider.IsKeyNameExist("testkey2")
 	s.Require().Equal(expected, false)
-}
-
-func (s *KeysTestSuite) TestGetKeyFromKeyName() {
-	keyName := "testkeyname"
-	privatekeyHex := testPrivateKey
-
-	// Add a key to test retrieval
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex, s.homePath, "")
-	s.Require().NoError(err)
-
-	// Retrieve the key using the key name
-	key, err := s.chainProvider.GetKeyFromKeyName(keyName, "")
-	s.Require().NoError(err)
-	s.Require().NotNil(key)
-
-	// Verify that the retrieved private key matches the original private key
-	s.Require().Equal(testPrivateKey[2:], hex.EncodeToString(crypto.FromECDSA(key.PrivateKey))) // Remove "0x"
-
-	// Retrieve the key using the invalid passphrase should return error
-	_, err = s.chainProvider.GetKeyFromKeyName(keyName, "invalid")
-	s.Require().ErrorContains(err, "could not decrypt key with given password")
 }
