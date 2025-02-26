@@ -52,10 +52,6 @@ func (cp *EVMChainProvider) AddKeyByMnemonic(
 
 // AddKeyByPrivateKey adds a key using a raw private key.
 func (cp *EVMChainProvider) AddKeyByPrivateKey(keyName, privateKey string) (*chainstypes.Key, error) {
-	if cp.IsKeyNameExist(keyName) {
-		return nil, fmt.Errorf("duplicate key name")
-	}
-
 	// Convert private key from hex
 	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(privateKey))
 	if err != nil {
@@ -112,12 +108,6 @@ func (cp *EVMChainProvider) ShowKey(keyName string) (string, error) {
 	}
 
 	return address, nil
-}
-
-// IsKeyNameExist checks whether the given key name is already in use.
-func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
-	_, ok := cp.Wallet.GetAddress(keyName)
-	return ok
 }
 
 // generatePrivateKey generates private key from given mnemonic.

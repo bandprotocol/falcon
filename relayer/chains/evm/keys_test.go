@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
@@ -215,7 +214,8 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	s.Require().NoError(err)
 
 	// Ensure the key is no longer in the KeyInfo or KeyStore
-	s.Require().False(s.chainProvider.IsKeyNameExist(keyName))
+	_, ok := s.chainProvider.Wallet.GetAddress(keyName)
+	s.Require().False(ok)
 
 	// Delete the key again should return error
 	err = s.chainProvider.DeleteKey(keyName)
@@ -300,19 +300,4 @@ func (s *KeysTestSuite) TestShowKey() {
 	address, err := s.chainProvider.ShowKey(keyName)
 	s.Require().Equal(address, address)
 	s.Require().NoError(err)
-}
-
-func (s *KeysTestSuite) TestIsKeyNameExist() {
-	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
-	s.Require().NoError(err)
-
-	_, err = s.chainProvider.Wallet.SavePrivateKey("testkey1", priv)
-	s.Require().NoError(err)
-
-	expected := s.chainProvider.IsKeyNameExist("testkey1")
-
-	s.Require().Equal(expected, true)
-
-	expected = s.chainProvider.IsKeyNameExist("testkey2")
-	s.Require().Equal(expected, false)
 }

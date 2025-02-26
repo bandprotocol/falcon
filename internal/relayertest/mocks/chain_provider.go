@@ -116,20 +116,6 @@ func (mr *MockChainProviderMockRecorder) Init(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockChainProvider)(nil).Init), ctx)
 }
 
-// IsKeyNameExist mocks base method.
-func (m *MockChainProvider) IsKeyNameExist(keyName string) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsKeyNameExist", keyName)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsKeyNameExist indicates an expected call of IsKeyNameExist.
-func (mr *MockChainProviderMockRecorder) IsKeyNameExist(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsKeyNameExist", reflect.TypeOf((*MockChainProvider)(nil).IsKeyNameExist), keyName)
-}
-
 // ListKeys mocks base method.
 func (m *MockChainProvider) ListKeys() []*types0.Key {
 	m.ctrl.T.Helper()
@@ -298,20 +284,6 @@ func (m *MockKeyProvider) ExportPrivateKey(keyName string) (string, error) {
 func (mr *MockKeyProviderMockRecorder) ExportPrivateKey(keyName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockKeyProvider)(nil).ExportPrivateKey), keyName)
-}
-
-// IsKeyNameExist mocks base method.
-func (m *MockKeyProvider) IsKeyNameExist(keyName string) bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsKeyNameExist", keyName)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsKeyNameExist indicates an expected call of IsKeyNameExist.
-func (mr *MockKeyProviderMockRecorder) IsKeyNameExist(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsKeyNameExist", reflect.TypeOf((*MockKeyProvider)(nil).IsKeyNameExist), keyName)
 }
 
 // ListKeys mocks base method.

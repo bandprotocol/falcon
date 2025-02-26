@@ -59,9 +59,6 @@ type KeyProvider interface {
 	// ShowKey shows the address of the given key
 	ShowKey(keyName string) (string, error)
 
-	// IsKeyNameExist checks whether a key with the specified keyName already exists in storage.
-	IsKeyNameExist(keyName string) bool
-
 	// LoadFreeSenders loads key info to prepare to relay the packet
 	LoadFreeSenders() error
 }
