@@ -33,10 +33,6 @@ func (cp *EVMChainProvider) AddKey(
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
-	if cp.IsKeyNameExist(keyName) {
-		return nil, fmt.Errorf("duplicate key name")
-	}
-
 	if privateKey != "" {
 		return cp.AddKeyWithPrivateKey(keyName, privateKey)
 	}
@@ -87,6 +83,10 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	priv *ecdsa.PrivateKey,
 	mnemonic string,
 ) (*chainstypes.Key, error) {
+	if _, ok := cp.Wallet.GetAddress(keyName); ok {
+		return nil, fmt.Errorf("key name exists: %s", keyName)
+	}
+
 	addr, err := cp.Wallet.SavePrivateKey(keyName, priv)
 	if err != nil {
 		return nil, err
