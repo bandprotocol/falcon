@@ -55,6 +55,10 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 
 // SavePrivateKey saves the private key to the keystore and returns the account and update the keyNameToHexAddress map
 func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (string, error) {
+	if _, ok := w.GetAddress(name); ok {
+		return "", fmt.Errorf("key name exists: %s", name)
+	}
+
 	acc, err := w.Store.ImportECDSA(privKey, w.Passphrase)
 	if err != nil {
 		return "", err
@@ -71,7 +75,7 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (str
 
 // DeletePrivateKey deletes the private key from the keystore and returns the address
 func (w *GethWallet) DeletePrivateKey(name string) error {
-	hexAddr, ok := w.KeyNameInfo[name]
+	hexAddr, ok := w.GetAddress(name)
 	if !ok {
 		return fmt.Errorf("key name does not exist: %s", name)
 	}

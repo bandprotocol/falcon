@@ -139,7 +139,7 @@ func (s *GethWalletTestSuite) TestCreateDuplicatedKey() {
 
 	// add key with the same name
 	_, err = s.wallet.SavePrivateKey("key1", privKey)
-	s.Require().ErrorContains(err, "account already exists")
+	s.Require().ErrorContains(err, "key name exists")
 
 	// add key with the same address
 	_, err = s.wallet.SavePrivateKey("key2", privKey)
