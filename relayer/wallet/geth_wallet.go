@@ -141,7 +141,7 @@ func (w *GethWallet) Sign(name string, data []byte) ([]byte, error) {
 
 // getPrivateKey returns the private key of the given key name
 func (w *GethWallet) getPrivateKey(name string) (*ecdsa.PrivateKey, error) {
-	hexAddr, ok := w.KeyNameInfo[name]
+	hexAddr, ok := w.GetAddress(name)
 	if !ok {
 		return nil, fmt.Errorf("key name does not exist: %s", name)
 	}
