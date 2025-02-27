@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 const (
@@ -99,21 +100,26 @@ $ %s k a eth test-key`, appName, appName)),
 				}
 			}
 
-			// Add the key to the app
-			keyOutput, err := app.AddKey(
-				chainName,
-				keyName,
-				input.Mnemonic,
-				input.PrivateKey,
-				uint32(input.CoinType),
-				uint(input.Account),
-				uint(input.Index),
-			)
-			if err != nil {
-				return err
+			var key *chainstypes.Key
+			if input.PrivateKey != "" {
+				key, err = app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
+				if err != nil {
+					return err
+				}
+			} else {
+				key, err = app.AddKeyByMnemonic(
+					chainName, keyName,
+					input.Mnemonic,
+					uint32(input.CoinType),
+					uint(input.Account),
+					uint(input.Index),
+				)
+				if err != nil {
+					return err
+				}
 			}
 
-			out, err := json.MarshalIndent(keyOutput, "", "  ")
+			out, err := json.MarshalIndent(key, "", "  ")
 			if err != nil {
 				return err
 			}

@@ -25,39 +25,24 @@ const (
 	infoFileName  = "info.toml"
 )
 
-func (cp *EVMChainProvider) AddKey(
+// AddKeyByMnemonic adds a key using a mnemonic phrase.
+func (cp *EVMChainProvider) AddKeyByMnemonic(
 	keyName string,
 	mnemonic string,
-	privateKey string,
 	coinType uint32,
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
-	if privateKey != "" {
-		return cp.AddKeyWithPrivateKey(keyName, privateKey)
-	}
-
 	var err error
-	// Generate mnemonic if not provided
 	if mnemonic == "" {
 		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return cp.AddKeyWithMnemonic(keyName, mnemonic, coinType, account, index)
-}
 
-// AddKeyWithMnemonic adds a key using a mnemonic phrase.
-func (cp *EVMChainProvider) AddKeyWithMnemonic(
-	keyName string,
-	mnemonic string,
-	coinType uint32,
-	account uint,
-	index uint,
-) (*chainstypes.Key, error) {
 	// Generate private key using mnemonic
-	priv, err := cp.generatePrivateKey(mnemonic, coinType, account, index)
+	priv, err := generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +50,8 @@ func (cp *EVMChainProvider) AddKeyWithMnemonic(
 	return cp.finalizeKeyAddition(keyName, priv, mnemonic)
 }
 
-// AddKeyWithPrivateKey adds a key using a raw private key.
-func (cp *EVMChainProvider) AddKeyWithPrivateKey(keyName, privateKey string) (*chainstypes.Key, error) {
+// AddKeyByPrivateKey adds a key using a raw private key.
+func (cp *EVMChainProvider) AddKeyByPrivateKey(keyName, privateKey string) (*chainstypes.Key, error) {
 	// Convert private key from hex
 	priv, err := crypto.HexToECDSA(StripPrivateKeyPrefix(privateKey))
 	if err != nil {
@@ -125,14 +110,8 @@ func (cp *EVMChainProvider) ShowKey(keyName string) (string, error) {
 	return address, nil
 }
 
-// IsKeyNameExist checks whether the given key name is already in use.
-func (cp *EVMChainProvider) IsKeyNameExist(keyName string) bool {
-	_, ok := cp.Wallet.GetAddress(keyName)
-	return ok
-}
-
 // generatePrivateKey generates private key from given mnemonic.
-func (cp *EVMChainProvider) generatePrivateKey(
+func generatePrivateKey(
 	mnemonic string,
 	coinType uint32,
 	account uint,
@@ -142,16 +121,18 @@ func (cp *EVMChainProvider) generatePrivateKey(
 	if err != nil {
 		return nil, err
 	}
+
 	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
 	path := hdwallet.MustParseDerivationPath(hdPath)
-
 	accs, err := wallet.Derive(path, true)
 	if err != nil {
 		return nil, err
 	}
+
 	privatekey, err := wallet.PrivateKey(accs)
 	if err != nil {
 		return nil, err
 	}
+
 	return privatekey, nil
 }

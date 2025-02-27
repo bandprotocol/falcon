@@ -1,16 +1,12 @@
 package relayer
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"math/big"
-	"os"
 
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -20,19 +16,12 @@ import (
 	"github.com/bandprotocol/falcon/relayer/types"
 )
 
-const (
-	ConfigFolderName   = "config"
-	ConfigFileName     = "config.toml"
-	PassphraseFileName = "passphrase.hash"
-)
-
 // App is the main application struct.
 type App struct {
-	Log      *zap.Logger
-	HomePath string
-	Debug    bool
-	Config   *config.Config
-	Store    store.Store
+	Log    *zap.Logger
+	Debug  bool
+	Config *config.Config
+	Store  store.Store
 
 	TargetChains chains.ChainProviders
 	BandClient   band.Client
@@ -42,7 +31,6 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp(
 	log *zap.Logger,
-	homePath string,
 	debug bool,
 	config *config.Config,
 	passphrase string,
@@ -50,7 +38,6 @@ func NewApp(
 ) *App {
 	app := App{
 		Log:        log,
-		HomePath:   homePath,
 		Debug:      debug,
 		Config:     config,
 		Store:      store,
@@ -106,7 +93,7 @@ func (a *App) initTargetChains() error {
 			return err
 		}
 
-		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.HomePath, a.Debug, wallet)
+		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.Debug, wallet)
 		if err != nil {
 			a.Log.Error("Cannot create chain provider",
 				zap.Error(err),
@@ -121,8 +108,8 @@ func (a *App) initTargetChains() error {
 	return nil
 }
 
-// InitConfigFile initializes the configuration to the given path.
-func (a *App) InitConfigFile(homePath string, customFilePath string) error {
+// SaveConfig saves the configuration into the application's store.
+func (a *App) SaveConfig(cfg *config.Config) error {
 	// Check if config already exists
 	if ok, err := a.Store.HasConfig(); err != nil {
 		return err
@@ -130,34 +117,18 @@ func (a *App) InitConfigFile(homePath string, customFilePath string) error {
 		return fmt.Errorf("config already exists")
 	}
 
-	// Load config from given custom file path if exists
-	var cfg *config.Config
-	switch {
-	case customFilePath != "":
-		b, err := os.ReadFile(customFilePath)
-		if err != nil {
-			return fmt.Errorf("cannot read a config file %s: %w", customFilePath, err)
-		}
-
-		cfg, err = config.ParseConfig(b)
-		if err != nil {
-			return fmt.Errorf("parsing config error %w", err)
-		}
-	default:
+	if cfg == nil {
 		cfg = config.DefaultConfig() // Initialize with DefaultConfig if no file is provided
 	}
+	a.Config = cfg
 
 	return a.Store.SaveConfig(cfg)
 }
 
-// InitPassphrase hashes the provided passphrase and saves it to the given path.
-func (a *App) InitPassphrase() error {
-	// Load and hash the passphrase
-	h := sha256.New()
-	h.Write([]byte(a.Passphrase))
-	hashedPassphrase := h.Sum(nil)
-
-	return a.Store.SaveHashedPassphrase(hashedPassphrase)
+// SavePassphrase hash the provided passphrase and save it into the application's store.
+func (a *App) SavePassphrase(passphrase string) error {
+	a.Passphrase = passphrase
+	return a.Store.SavePassphrase(passphrase)
 }
 
 // QueryTunnelInfo queries tunnel information by given tunnel ID
@@ -208,7 +179,7 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 // AddChainConfig adds a new chain configuration to the config file.
 func (a *App) AddChainConfig(chainName string, filePath string) error {
 	if a.Config == nil {
-		return fmt.Errorf("config does not exist: %s", a.HomePath)
+		return fmt.Errorf("config is not initialized")
 	}
 
 	if _, ok := a.Config.TargetChains[chainName]; ok {
@@ -227,7 +198,7 @@ func (a *App) AddChainConfig(chainName string, filePath string) error {
 // DeleteChainConfig deletes the chain configuration from the config file.
 func (a *App) DeleteChainConfig(chainName string) error {
 	if a.Config == nil {
-		return fmt.Errorf("config does not exist: %s", a.HomePath)
+		return fmt.Errorf("config is not initialized")
 	}
 
 	if _, ok := a.Config.TargetChains[chainName]; !ok {
@@ -241,7 +212,7 @@ func (a *App) DeleteChainConfig(chainName string) error {
 // GetChainConfig retrieves the chain configuration by given chain name.
 func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, error) {
 	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
+		return nil, fmt.Errorf("config is not initialized")
 	}
 
 	chainProviders := a.Config.TargetChains
@@ -253,50 +224,50 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 	return chainProviders[chainName], nil
 }
 
-// AddKey adds a new key to the chain provider.
-func (a *App) AddKey(
-	chainName string,
-	keyName string,
-	mnemonic string,
-	privateKey string,
-	coinType uint32,
-	account uint,
-	index uint,
-) (*chainstypes.Key, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
-	}
-
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+// AddKeyByPrivateKey adds a new key to the chain provider using a private key.
+func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*chainstypes.Key, error) {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
 
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	keyOutput, err := cp.AddKey(keyName, mnemonic, privateKey, coinType, account, index)
+	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return keyOutput, nil
+	return cp.AddKeyByPrivateKey(keyName, privateKey)
+}
+
+// AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
+func (a *App) AddKeyByMnemonic(
+	chainName string,
+	keyName string,
+	mnemonic string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (*chainstypes.Key, error) {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
+		return nil, err
+	}
+
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return nil, err
+	}
+
+	return cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
 }
 
 // DeleteKey deletes the key from the chain provider.
 func (a *App) DeleteKey(chainName string, keyName string) error {
-	if a.Config == nil {
-		return fmt.Errorf("config does not exist: %s", a.HomePath)
-	}
-
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return err
 	}
 
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return err
 	}
 
 	return cp.DeleteKey(keyName)
@@ -304,36 +275,23 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 
 // ExportKey exports the private key from the chain provider.
 func (a *App) ExportKey(chainName string, keyName string) (string, error) {
-	if a.Config == nil {
-		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
-	}
-
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return "", err
 	}
 
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return "", fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	privateKey, err := cp.ExportPrivateKey(keyName)
+	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return "", err
 	}
 
-	return privateKey, nil
+	return cp.ExportPrivateKey(keyName)
 }
 
 // ListKeys retrieves the list of keys from the chain provider.
 func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
-	}
-
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return nil, err
 	}
 
 	return cp.ListKeys(), nil
@@ -341,13 +299,9 @@ func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
 
 // ShowKey retrieves the key information from the chain provider.
 func (a *App) ShowKey(chainName string, keyName string) (string, error) {
-	if a.Config == nil {
-		return "", fmt.Errorf("config does not exist: %s", a.HomePath)
-	}
-
-	cp, exist := a.TargetChains[chainName]
-	if !exist {
-		return "", fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return "", err
 	}
 
 	return cp.ShowKey(keyName)
@@ -355,59 +309,20 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 
 // QueryBalance retrieves the balance of the key from the chain provider.
 func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string) (*big.Int, error) {
-	if a.Config == nil {
-		return nil, fmt.Errorf("config does not exist: %s", a.HomePath)
-	}
-
-	cp, exist := a.TargetChains[chainName]
-
-	if !exist {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return nil, err
 	}
 
 	return cp.QueryBalance(ctx, keyName)
 }
 
-// ValidatePassphrase checks if the provided passphrase (from the environment)
-// matches the hashed passphrase stored on disk.
-func (a *App) ValidatePassphrase(envPassphrase string) error {
-	// prepare bytes slices of hashed env passphrase
-	h := sha256.New()
-	h.Write([]byte(envPassphrase))
-	hashedPassphrase := h.Sum(nil)
-
-	// load passphrase from local disk
-	storedHashedPassphrase, err := a.Store.GetHashedPassphrase()
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(hashedPassphrase, storedHashedPassphrase) {
-		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored hashed passphrase")
-	}
-
-	return nil
-}
-
 // Start starts the tunnel relayer program.
-func (a *App) Start(
-	ctx context.Context,
-	tunnelIDs []uint64,
-	metricsListenAddrFlag string,
-) error {
+func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
-		return err
-	}
-
-	// setup metrics server
-	metricsListenAddr := a.Config.Global.MetricsListenAddr
-	if metricsListenAddrFlag != "" {
-		metricsListenAddr = metricsListenAddrFlag
-	}
-	if err := a.setupMetricsServer(ctx, metricsListenAddr); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return err
 	}
 
@@ -451,7 +366,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return err
 	}
 
-	if err := a.ValidatePassphrase(a.Passphrase); err != nil {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return err
 	}
 
@@ -482,18 +397,16 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	return err
 }
 
-// setupMetricsServer starts the metrics server if enabled.
-func (a *App) setupMetricsServer(
-	ctx context.Context,
-	metricsListenAddr string,
-) error {
-	if metricsListenAddr == "" {
-		a.Log.Warn(
-			"Metrics server is disabled. It is controlled by the global config, and setting --metrics-listen-addr will override it and enable the server.",
-		)
-		return nil
+// getChainProvider retrieves the chain provider by given chain name.
+func (a *App) getChainProvider(chainName string) (chains.ChainProvider, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
 	}
 
-	// start server
-	return relayermetrics.StartMetricsServer(ctx, a.Log, metricsListenAddr)
+	cp, exist := a.TargetChains[chainName]
+	if !exist {
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	return cp, nil
 }

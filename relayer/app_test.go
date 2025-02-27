@@ -34,7 +34,7 @@ type AppTestSuite struct {
 	chainProviderConfig *mocks.MockChainProviderConfig
 	chainProvider       *mocks.MockChainProvider
 	client              *mocks.MockClient
-	mockStore           *mocks.MockStore
+	store               *mocks.MockStore
 
 	passphrase       string
 	hashedPassphrase []byte
@@ -42,7 +42,6 @@ type AppTestSuite struct {
 
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
 func (s *AppTestSuite) SetupTest() {
-	tmpDir := s.T().TempDir()
 	ctrl := gomock.NewController(s.T())
 	log := zap.NewNop()
 
@@ -50,7 +49,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 	s.client = mocks.NewMockClient(ctrl)
-	s.mockStore = mocks.NewMockStore(ctrl)
+	s.store = mocks.NewMockStore(ctrl)
 
 	cfg := config.Config{
 		BandChain: band.Config{
@@ -68,13 +67,12 @@ func (s *AppTestSuite) SetupTest() {
 	h := sha256.New()
 	h.Write([]byte(s.passphrase))
 	s.hashedPassphrase = h.Sum(nil)
-	s.mockStore.EXPECT().GetHashedPassphrase().Return(s.hashedPassphrase, nil).AnyTimes()
+	s.store.EXPECT().GetHashedPassphrase().Return(s.hashedPassphrase, nil).AnyTimes()
 
 	s.app = &relayer.App{
-		Log:      log,
-		HomePath: tmpDir,
-		Config:   &cfg,
-		Store:    s.mockStore,
+		Log:    log,
+		Config: &cfg,
+		Store:  s.store,
 		TargetChains: map[string]chains.ChainProvider{
 			"testnet_evm": s.chainProvider,
 		},
@@ -88,62 +86,46 @@ func TestAppTestSuite(t *testing.T) {
 }
 
 func (s *AppTestSuite) TestInitConfig() {
+	customCfg := &config.Config{
+		BandChain: band.Config{
+			RpcEndpoints: []string{"http://localhost:26659"},
+			Timeout:      50,
+		},
+		TargetChains: map[string]chains.ChainProviderConfig{},
+		Global: config.GlobalConfig{
+			CheckingPacketInterval: time.Minute,
+		},
+	}
+
 	testcases := []struct {
 		name       string
 		preprocess func()
-		in         string
-		out        *config.Config
+		in         *config.Config
 		err        error
 	}{
 		{
 			name: "success - default",
-			in:   "",
+			in:   nil,
 			preprocess: func() {
-				s.mockStore.EXPECT().HasConfig().Return(false, nil)
-				s.mockStore.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
+				s.store.EXPECT().HasConfig().Return(false, nil)
+				s.store.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
 			},
 		},
 		{
 			name: "config already exists",
 			preprocess: func() {
-				s.mockStore.EXPECT().HasConfig().Return(true, nil)
+				s.store.EXPECT().HasConfig().Return(true, nil)
 			},
-			in:  "",
+			in:  nil,
 			err: fmt.Errorf("config already exists"),
 		},
 		{
 			name: "init config from specific file",
 			preprocess: func() {
-				customCfgPath := path.Join(s.app.HomePath, "custom.toml")
-				cfg := `
-					[target_chains]
-
-					[global]
-					checking_packet_interval = 60000000000
-
-					[bandchain]
-					rpc_endpoints = ['http://localhost:26659']
-					timeout = 50
-				`
-
-				err := os.WriteFile(customCfgPath, []byte(cfg), 0o600)
-				s.Require().NoError(err)
-
-				expectCfg := &config.Config{
-					BandChain: band.Config{
-						RpcEndpoints: []string{"http://localhost:26659"},
-						Timeout:      50,
-					},
-					TargetChains: map[string]chains.ChainProviderConfig{},
-					Global: config.GlobalConfig{
-						CheckingPacketInterval: time.Minute,
-					},
-				}
-
-				s.mockStore.EXPECT().HasConfig().Return(false, nil)
-				s.mockStore.EXPECT().SaveConfig(expectCfg).Return(nil)
+				s.store.EXPECT().HasConfig().Return(false, nil)
+				s.store.EXPECT().SaveConfig(customCfg).Return(nil)
 			},
-			in: path.Join(s.app.HomePath, "custom.toml"),
+			in: customCfg,
 		},
 	}
 
@@ -153,7 +135,7 @@ func (s *AppTestSuite) TestInitConfig() {
 				tc.preprocess()
 			}
 
-			err := s.app.InitConfigFile(s.app.HomePath, tc.in)
+			err := s.app.SaveConfig(tc.in)
 
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
@@ -165,7 +147,8 @@ func (s *AppTestSuite) TestInitConfig() {
 }
 
 func (s *AppTestSuite) TestAddChainConfig() {
-	newHomePath := path.Join(s.app.HomePath, "new_folder")
+	tmpDir := s.T().TempDir()
+	newHomePath := path.Join(tmpDir, "new_folder")
 	err := os.Mkdir(newHomePath, os.ModePerm)
 	s.Require().NoError(err)
 
@@ -195,7 +178,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 				cfg, err := config.ParseConfig([]byte(relayertest.DefaultCfgTextWithChainCfg))
 				s.Require().NoError(err)
 
-				s.mockStore.EXPECT().SaveConfig(cfg).Return(nil)
+				s.store.EXPECT().SaveConfig(cfg).Return(nil)
 			},
 		},
 		{
@@ -269,7 +252,7 @@ func (s *AppTestSuite) TestDeleteChainConfig() {
 			name: "success",
 			in:   "testnet",
 			preprocess: func() {
-				s.mockStore.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
+				s.store.EXPECT().SaveConfig(config.DefaultConfig()).Return(nil)
 			},
 			out: relayertest.DefaultCfgText,
 		},
@@ -446,23 +429,19 @@ func (s *AppTestSuite) TestInitPassphrase() {
 	ctrl := gomock.NewController(s.T())
 	newStoreMock := mocks.NewMockStore(ctrl)
 
-	s.app.Passphrase = "new_passphrase"
 	s.app.Store = newStoreMock
 
-	newStoreMock.EXPECT().
-		SaveHashedPassphrase([]byte{
-			194, 83, 183, 41, 238, 49, 98, 232, 230, 229, 194,
-			192, 115, 133, 235, 215, 215, 206, 160, 68, 116,
-			34, 59, 169, 179, 24, 231, 151, 191, 178, 90, 202,
-		}).
-		Return(nil)
+	newStoreMock.EXPECT().SavePassphrase("new_passphrase").Return(nil)
 
 	// Call InitPassphrase
-	err := s.app.InitPassphrase()
+	err := s.app.SavePassphrase("new_passphrase")
 	s.Require().NoError(err)
+	s.Require().Equal("new_passphrase", s.app.Passphrase)
 }
 
 func (s *AppTestSuite) TestAddKey() {
+	s.store.EXPECT().ValidatePassphrase(s.passphrase).Return(nil).AnyTimes()
+
 	testcases := []struct {
 		name       string
 		chainName  string
@@ -485,13 +464,9 @@ func (s *AppTestSuite) TestAddKey() {
 			out:        chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""),
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					AddKey(
+					AddKeyByPrivateKey(
 						"testkey",
-						"",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-						uint32(60),
-						uint(0),
-						uint(0),
 					).
 					Return(chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""), nil)
 			},
@@ -504,13 +479,9 @@ func (s *AppTestSuite) TestAddKey() {
 			coinType:   60,
 			preprocess: func() {
 				s.chainProvider.EXPECT().
-					AddKey(
+					AddKeyByPrivateKey(
 						"testkey",
-						"",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-						uint32(60),
-						uint(0),
-						uint(0),
 					).
 					Return(nil, fmt.Errorf("add key error"))
 			},
@@ -532,14 +503,10 @@ func (s *AppTestSuite) TestAddKey() {
 				tc.preprocess()
 			}
 
-			actual, err := s.app.AddKey(
+			actual, err := s.app.AddKeyByPrivateKey(
 				tc.chainName,
 				tc.keyName,
-				tc.mnemonic,
 				tc.privateKey,
-				tc.coinType,
-				tc.account,
-				tc.index,
 			)
 
 			if tc.err != nil {
@@ -553,6 +520,8 @@ func (s *AppTestSuite) TestAddKey() {
 }
 
 func (s *AppTestSuite) TestDeleteKey() {
+	s.store.EXPECT().ValidatePassphrase(s.passphrase).Return(nil).AnyTimes()
+
 	testcases := []struct {
 		name       string
 		chainName  string
@@ -607,6 +576,8 @@ func (s *AppTestSuite) TestDeleteKey() {
 }
 
 func (s *AppTestSuite) TestExportKey() {
+	s.store.EXPECT().ValidatePassphrase(s.passphrase).Return(nil).AnyTimes()
+
 	testcases := []struct {
 		name       string
 		chainName  string
@@ -762,28 +733,6 @@ func (s *AppTestSuite) TestShowKey() {
 			} else {
 				s.Require().NoError(err)
 				s.Require().Equal(actual, tc.out)
-			}
-		})
-	}
-}
-
-func (s *AppTestSuite) TestValidatePassphraseInvalidPassphrase() {
-	testcases := []struct {
-		name          string
-		envPassphrase string
-		err           error
-	}{
-		{name: "valid", envPassphrase: "secret", err: nil},
-		{name: "invalid", envPassphrase: "invalid", err: fmt.Errorf("invalid passphrase")},
-	}
-
-	for _, tc := range testcases {
-		s.Run(tc.name, func() {
-			err := s.app.ValidatePassphrase(tc.envPassphrase)
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
 			}
 		})
 	}

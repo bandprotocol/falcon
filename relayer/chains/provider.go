@@ -35,15 +35,17 @@ type ChainProvider interface {
 
 // KeyProvider defines the interface for the key interaction with destination chain
 type KeyProvider interface {
-	// AddKey stores the private key with a given mnemonic and key name on the user's local disk.
-	AddKey(
+	// AddKeyByMnemonic adds a key using a mnemonic phrase.
+	AddKeyByMnemonic(
 		keyName string,
 		mnemonic string,
-		privateKeyHex string,
 		coinType uint32,
 		account uint,
 		index uint,
 	) (*chainstypes.Key, error)
+
+	// AddKeyByPrivateKey adds a key using a private key.
+	AddKeyByPrivateKey(keyName string, privateKeyHex string) (*chainstypes.Key, error)
 
 	// DeleteKey deletes the key information and private key
 	DeleteKey(keyName string) error
@@ -56,9 +58,6 @@ type KeyProvider interface {
 
 	// ShowKey shows the address of the given key
 	ShowKey(keyName string) (string, error)
-
-	// IsKeyNameExist checks whether a key with the specified keyName already exists in storage.
-	IsKeyNameExist(keyName string) bool
 
 	// LoadFreeSenders loads key info to prepare to relay the packet
 	LoadFreeSenders() error

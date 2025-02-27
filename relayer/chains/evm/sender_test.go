@@ -2,13 +2,9 @@ package evm_test
 
 import (
 	"context"
-	"os"
-	"path"
 	"testing"
 	"time"
 
-	"github.com/pelletier/go-toml/v2"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
@@ -74,41 +70,10 @@ func (s *SenderTestSuite) SetupTest() {
 	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
-	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, tmpDir, wallet)
+	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, wallet)
 	s.Require().NoError(err)
 
 	s.ctx = context.Background()
-}
-
-func TestLoadKeyInfo(t *testing.T) {
-	tmpDir := t.TempDir()
-	chainName := "testnet"
-
-	// write mock keyInfo at keyInfo's path
-	keyInfo := make(evm.KeyInfo)
-	keyInfo["key1"] = ""
-	keyInfo["key2"] = ""
-	b, err := toml.Marshal(&keyInfo)
-	require.NoError(t, err)
-
-	keyInfoDir := path.Join(tmpDir, "keys", chainName, "info")
-	keyInfoPath := path.Join(keyInfoDir, "info.toml")
-	// Create the info folder if doesn't exist
-	err = os.MkdirAll(keyInfoDir, os.ModePerm)
-	require.NoError(t, err)
-	// Create the file and write the default config to the given location.
-	f, err := os.Create(keyInfoPath)
-	require.NoError(t, err)
-	defer f.Close()
-
-	_, err = f.Write(b)
-	require.NoError(t, err)
-
-	// load keyInfo
-	actual, err := evm.LoadKeyInfo(tmpDir, chainName)
-	require.NoError(t, err)
-
-	require.Equal(t, keyInfo, actual)
 }
 
 func (s *SenderTestSuite) TestLoadFreeSenders() {
@@ -116,10 +81,10 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 	keyName2 := "key2"
 
 	// Add two mock keys to the chain provider
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName1, privateKey1)
+	_, err := s.chainProvider.AddKeyByPrivateKey(keyName1, privateKey1)
 	s.Require().NoError(err)
 
-	_, err = s.chainProvider.AddKeyWithPrivateKey(keyName2, privateKey2)
+	_, err = s.chainProvider.AddKeyByPrivateKey(keyName2, privateKey2)
 	s.Require().NoError(err)
 
 	// Load free senders

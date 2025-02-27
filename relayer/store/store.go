@@ -11,6 +11,7 @@ type Store interface {
 	GetConfig() (*config.Config, error)
 	SaveConfig(cfg *config.Config) error
 	GetHashedPassphrase() ([]byte, error)
-	SaveHashedPassphrase(hashedPassphrase []byte) error
+	SavePassphrase(passphrase string) error
+	ValidatePassphrase(passphrase string) error
 	NewWallet(chainType chains.ChainType, chainName, passphrase string) (wallet.Wallet, error)
 }

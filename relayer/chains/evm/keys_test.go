@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
@@ -25,6 +24,7 @@ type KeysTestSuite struct {
 	chainProvider *evm.EVMChainProvider
 	log           *zap.Logger
 	homePath      string
+	wallet        wallet.Wallet
 }
 
 func TestKeysTestSuite(t *testing.T) {
@@ -42,9 +42,11 @@ func (s *KeysTestSuite) SetupTest() {
 	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, s.homePath, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet)
 	s.Require().NoError(err)
+
 	s.chainProvider = chainProvider
+	s.wallet = wallet
 }
 
 func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
@@ -86,14 +88,7 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddKey(
-				tc.input.keyName,
-				"",
-				tc.input.privKey,
-				0,
-				0,
-				0,
-			)
+			key, err := s.chainProvider.AddKeyByPrivateKey(tc.input.keyName, tc.input.privKey)
 
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
@@ -102,11 +97,8 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 				s.Require().Equal(tc.out, key)
 
 				// check that key info actually stored in local disk
-				keyInfo, err := evm.LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-				s.Require().NoError(err)
-
-				_, exist := keyInfo[tc.input.keyName]
-				s.Require().True(exist)
+				_, ok := s.wallet.GetAddress(tc.input.keyName)
+				s.Require().True(ok)
 			}
 		})
 	}
@@ -184,10 +176,9 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddKey(
+			key, err := s.chainProvider.AddKeyByMnemonic(
 				tc.input.keyName,
 				tc.input.mnemonic,
-				"",
 				tc.input.coinType,
 				tc.input.account,
 				tc.input.index,
@@ -203,11 +194,8 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				}
 
 				// check that key info actually stored in local disk
-				keyInfo, err := evm.LoadKeyInfo(s.homePath, s.chainProvider.ChainName)
-				s.Require().NoError(err)
-
-				_, exist := keyInfo[tc.input.keyName]
-				s.Require().True(exist)
+				_, ok := s.wallet.GetAddress(tc.input.keyName)
+				s.Require().True(ok)
 			}
 		})
 	}
@@ -218,7 +206,7 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to delete
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
+	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Delete the key
@@ -226,7 +214,8 @@ func (s *KeysTestSuite) TestDeleteKey() {
 	s.Require().NoError(err)
 
 	// Ensure the key is no longer in the KeyInfo or KeyStore
-	s.Require().False(s.chainProvider.IsKeyNameExist(keyName))
+	_, ok := s.chainProvider.Wallet.GetAddress(keyName)
+	s.Require().False(ok)
 
 	// Delete the key again should return error
 	err = s.chainProvider.DeleteKey(keyName)
@@ -238,7 +227,7 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to export
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
+	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Export the private key
@@ -253,25 +242,22 @@ func (s *KeysTestSuite) TestListKeys() {
 	keyName1 := "key1"
 	keyName2 := "key2"
 	mnemonic := ""
-	privateKey := ""
 	coinType := 60
 	account := 0
 	index := 0
 
-	key1, err := s.chainProvider.AddKey(
+	key1, err := s.chainProvider.AddKeyByMnemonic(
 		keyName1,
 		mnemonic,
-		privateKey,
 		uint32(coinType),
 		uint(account),
 		uint(index),
 	)
 	s.Require().NoError(err)
 
-	key2, err := s.chainProvider.AddKey(
+	key2, err := s.chainProvider.AddKeyByMnemonic(
 		keyName2,
 		mnemonic,
-		privateKey,
 		uint32(coinType),
 		uint(account),
 		uint(index),
@@ -307,26 +293,11 @@ func (s *KeysTestSuite) TestShowKey() {
 	privatekeyHex := testPrivateKey
 
 	// Add a key to show
-	_, err := s.chainProvider.AddKeyWithPrivateKey(keyName, privatekeyHex)
+	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
 	s.Require().NoError(err)
 
 	// Show the key
 	address, err := s.chainProvider.ShowKey(keyName)
 	s.Require().Equal(address, address)
 	s.Require().NoError(err)
-}
-
-func (s *KeysTestSuite) TestIsKeyNameExist() {
-	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
-	s.Require().NoError(err)
-
-	_, err = s.chainProvider.Wallet.SavePrivateKey("testkey1", priv)
-	s.Require().NoError(err)
-
-	expected := s.chainProvider.IsKeyNameExist("testkey1")
-
-	s.Require().Equal(expected, true)
-
-	expected = s.chainProvider.IsKeyNameExist("testkey2")
-	s.Require().Equal(expected, false)
 }

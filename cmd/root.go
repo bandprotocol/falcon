@@ -32,7 +32,8 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 // NewRootCmd returns the root command for falcon.
 func NewRootCmd(log *zap.Logger) *cobra.Command {
 	passphrase := os.Getenv(PassphraseEnvKey)
-	app := falcon.NewApp(log, defaultHome, false, nil, passphrase, nil)
+	homePath := defaultHome
+	app := falcon.NewApp(log, false, nil, passphrase, nil)
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
@@ -50,7 +51,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) (err error) {
 		// set up store
-		app.Store, err = store.NewFileSystem(app.HomePath)
+		app.Store, err = store.NewFileSystem(homePath)
 		if err != nil {
 			return err
 		}
@@ -85,7 +86,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	}
 
 	// Register --home flag
-	rootCmd.PersistentFlags().StringVar(&app.HomePath, flagHome, defaultHome, "set home directory")
+	rootCmd.PersistentFlags().StringVar(&homePath, flagHome, defaultHome, "set home directory")
 	if err := viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
 		panic(err)
 	}
