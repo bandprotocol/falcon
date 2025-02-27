@@ -84,7 +84,7 @@ func (fs *FileSystem) SavePassphrase(passphrase string) error {
 	return os.Write(fs.hashedPassphrase, getPassphrasePath(fs.HomePath))
 }
 
-// ValidatePassphrase validates the given
+// ValidatePassphrase validates the given passphrase with the stored hashed passphrase.
 func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
 	// load passphrase from local disk
 	storedHashedPassphrase, err := fs.GetHashedPassphrase()
