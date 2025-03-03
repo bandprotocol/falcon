@@ -1,5 +1,5 @@
 # ============================ Build Stage ============================
-FROM golang:1.22.3-alpine3.19 as build
+FROM --platform=$BUILDPLATFORM golang:1.22.3-alpine3.19 as build
 
 LABEL org.opencontainers.image.source="https://github.com/bandprotocol/falcon"
 
@@ -31,14 +31,10 @@ RUN if [ -d "/go/bin/linux_${TARGETARCH}" ]; then mv /go/bin/linux_${TARGETARCH}
 # ============================ Final Stage ============================
 FROM alpine:3.19
 
-RUN apk add --update --no-cache ca-certificates shadow
+RUN apk add --no-cache ca-certificates
 
 # Set working directory inside the container
 WORKDIR /app
-
-# Copy start up script
-COPY run.sh .
-RUN chmod +x run.sh
 
 # Create non-root user for security
 RUN addgroup -S falcon && adduser -S falcon -G falcon
@@ -49,9 +45,7 @@ COPY --from=build /go/bin/falcon /usr/bin/falcon
 # Set ownership for non-root user
 RUN chown -R falcon:falcon /app
 
-# Set $HOME and Switch to non-root user
-RUN usermod -d /app falcon
+# Switch to non-root user
 USER falcon
 
-#ENTRYPOINT ["tail", "-f", "/dev/null"]
-ENTRYPOINT ["sh", "run.sh"]
+ENTRYPOINT ["falcon", "start"]
