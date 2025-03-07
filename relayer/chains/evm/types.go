@@ -51,8 +51,3 @@ func NewConfirmTxResult(
 		GasUsed: gasUsed,
 	}
 }
-
-func (c *ConfirmTxResult) WithStatus(status TxStatus) *ConfirmTxResult {
-	c.Status = status
-	return c
-}
