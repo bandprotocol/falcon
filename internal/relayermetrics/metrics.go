@@ -100,7 +100,7 @@ func DecActiveTargetContractsCount(destinationChain string) {
 	})
 }
 
-// IncTxsCount increments the transactions count per tunnel, categorized by transaction status.
+// IncTxsCount increments the transactions count.
 func IncTxsCount(tunnelID uint64, destinationChain string, txStatus string) {
 	updateMetrics(func() {
 		metrics.TxsCount.WithLabelValues(fmt.Sprintf("%d", tunnelID), destinationChain, txStatus).Inc()
