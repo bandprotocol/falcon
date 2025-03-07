@@ -31,6 +31,7 @@ type TunnelRelayerTestSuite struct {
 
 const (
 	defaultTunnelID               = uint64(1)
+	defaultTargetChainID          = ""
 	defaultContractAddress        = ""
 	defaultCheckingPacketInterval = time.Minute
 	defaultBandLatestSequence     = uint64(1)
@@ -48,6 +49,7 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 	tunnelRelayer := relayer.NewTunnelRelayer(
 		zap.NewNop(),
 		defaultTunnelID,
+		defaultTargetChainID,
 		defaultContractAddress,
 		defaultCheckingPacketInterval,
 		s.client,
