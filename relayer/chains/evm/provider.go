@@ -221,7 +221,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				relayermetrics.ObserveTxProcessTime(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), time.Since(createdAt).Milliseconds())
 
 				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), gasUsed)
+				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), gasUsed.Decimal.InexactFloat64())
 
 				log.Info(
 					"Packet is successfully relayed",
@@ -239,7 +239,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				)
 
 				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_FAILED.String(), gasUsed)
+				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
 				log.Debug(
 					"Transaction failed during relay attempt",
 					zap.Error(err),
@@ -583,6 +583,11 @@ func (cp *EVMChainProvider) QueryBalance(
 	}
 
 	return cp.Client.GetBalance(ctx, address)
+}
+
+// GetChainName ...
+func (cp *EVMChainProvider) GetChainName() string {
+	return cp.ChainName
 }
 
 // queryRelayerGasFee queries the relayer gas fee being set on tunnel router.

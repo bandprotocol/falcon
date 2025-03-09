@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 )
 
@@ -116,10 +115,10 @@ func ObserveTxProcessTime(tunnelID uint64, destinationChain string, txStatus str
 }
 
 // ObserveGasUsed tracks the amount of gas used for each transaction.
-func ObserveGasUsed(tunnelID uint64, destinationChain string, txStatus string, gasUsed decimal.NullDecimal) {
+func ObserveGasUsed(tunnelID uint64, destinationChain string, txStatus string, gasUsed float64) {
 	updateMetrics(func() {
 		metrics.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID), destinationChain, txStatus).
-			Observe(gasUsed.Decimal.InexactFloat64())
+			Observe(gasUsed)
 	})
 }
 

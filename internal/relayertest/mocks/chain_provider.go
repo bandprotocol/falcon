@@ -102,6 +102,20 @@ func (mr *MockChainProviderMockRecorder) ExportPrivateKey(keyName any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockChainProvider)(nil).ExportPrivateKey), keyName)
 }
 
+// GetChainName mocks base method.
+func (m *MockChainProvider) GetChainName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetChainName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetChainName indicates an expected call of GetChainName.
+func (mr *MockChainProviderMockRecorder) GetChainName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChainName", reflect.TypeOf((*MockChainProvider)(nil).GetChainName))
+}
+
 // Init mocks base method.
 func (m *MockChainProvider) Init(ctx context.Context) error {
 	m.ctrl.T.Helper()

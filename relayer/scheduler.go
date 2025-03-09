@@ -107,13 +107,15 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 
 	tr := s.tunnelRelayers[task.RelayerID]
 
+	chainName := tr.TargetChainProvider.GetChainName()
+
 	startExecutionTaskTime := time.Now()
 
 	// Check and relay the packet, if error occurs, set the error flag.
 	if isExecuting, err = tr.CheckAndRelay(ctx); err != nil && !isExecuting {
 		s.penaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
 
-		relayermetrics.IncTasksCount(tr.TunnelID, tr.TargetChainID, relayermetrics.ErrorTaskStatus)
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
 
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
@@ -127,7 +129,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	// record the execution time of finished task (ms)
 	relayermetrics.ObserveFinishedTaskExecutionTime(
 		tr.TunnelID,
-		tr.TargetChainID,
+		chainName,
 		time.Since(startExecutionTaskTime).Milliseconds(),
 	)
 
@@ -138,7 +140,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	}
 
 	// record metrics for the task execution for the current tunnel relayer
-	relayermetrics.IncTasksCount(tr.TunnelID, tr.TargetChainID, status)
+	relayermetrics.IncTasksCount(tr.TunnelID, chainName, status)
 
 	if !isExecuting {
 		s.Log.Info(
@@ -176,8 +178,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 		tr := NewTunnelRelayer(
 			s.Log,
 			tunnels[i].ID,
-			tunnels[i].TargetChainID,
-			tunnels[i].TargetAddress,
 			s.CheckingPacketInterval,
 			s.BandClient,
 			chainProvider,

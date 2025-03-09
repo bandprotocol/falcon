@@ -37,14 +37,3 @@ Grafana provides a pre-built Falcon Dashboard to visualize relay metrics efficie
 ![alt text](packet-relayed.png)
 
 ![alt text](example-destination-chain.png)
-
-
-
-
-
-
-
-
-
-
-

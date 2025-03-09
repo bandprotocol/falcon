@@ -18,8 +18,6 @@ import (
 type TunnelRelayer struct {
 	Log                    *zap.Logger
 	TunnelID               uint64
-	TargetChainID          string
-	ContractAddress        string
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
@@ -32,8 +30,6 @@ type TunnelRelayer struct {
 func NewTunnelRelayer(
 	log *zap.Logger,
 	tunnelID uint64,
-	targetChainID string,
-	contractAddress string,
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,
 	targetChainProvider chains.ChainProvider,
@@ -41,8 +37,6 @@ func NewTunnelRelayer(
 	return TunnelRelayer{
 		Log:                    log.With(zap.Uint64("tunnel_id", tunnelID)),
 		TunnelID:               tunnelID,
-		TargetChainID:          targetChainID,
-		ContractAddress:        contractAddress,
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
@@ -85,7 +79,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 		}
 
 		// Query tunnel info from TargetChain
-		tunnelChainInfo, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, t.ContractAddress)
+		tunnelChainInfo, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, tunnelBandInfo.TargetAddress)
 		if err != nil {
 			return false, err
 		}
@@ -99,7 +93,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 		if !tunnelChainInfo.IsActive {
 			// decrease active status if the tunnel was previously active
 			if t.isTargetChainActive {
-				relayermetrics.DecActiveTargetContractsCount(t.TargetChainID)
+				relayermetrics.DecActiveTargetContractsCount(tunnelBandInfo.TargetChainID)
 				t.isTargetChainActive = false
 			}
 			t.Log.Info("Tunnel is not active on target chain")
@@ -108,7 +102,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 
 		// increase active status if the tunnel was previously inactive
 		if tunnelChainInfo.IsActive && !t.isTargetChainActive {
-			relayermetrics.IncActiveTargetContractsCount(t.TargetChainID)
+			relayermetrics.IncActiveTargetContractsCount(tunnelBandInfo.TargetChainID)
 			t.isTargetChainActive = true
 		}
 
