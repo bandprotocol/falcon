@@ -32,7 +32,7 @@ type ChainProvider interface {
 	// QueryBalance queries balance by given key name from the destination chain.
 	QueryBalance(ctx context.Context, keyName string) (*big.Int, error)
 
-	// GetChainName ...
+	// GetChainName retrieves the chain name from the chain provider.
 	GetChainName() string
 }
 

@@ -585,7 +585,7 @@ func (cp *EVMChainProvider) QueryBalance(
 	return cp.Client.GetBalance(ctx, address)
 }
 
-// GetChainName ...
+// GetChainName retrieves the chain name from the chain provider.
 func (cp *EVMChainProvider) GetChainName() string {
 	return cp.ChainName
 }
