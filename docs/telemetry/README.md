@@ -34,6 +34,6 @@ Grafana provides a pre-built Falcon Dashboard to visualize relay metrics efficie
 - Dashboard Link: [Falcon Grafana Dashboard](https://grafana.com/grafana/dashboards/23038-falcon/)
 
 ### Example Screenshot:
-![alt text](example-packet-relayed.png)
+![Packets Relayed Panel](example-packets-relayed.png)
 
-![alt text](example-destination-chain.png)
+![Destination Chain Panel](example-destination-chain.png)
