@@ -20,13 +20,20 @@ var metrics *PrometheusMetrics
 // It is set on initialization and does not change for the lifetime of the program.
 var globalTelemetryEnabled bool
 
+// Task statuses used as labels
+const (
+	FinishedTaskStatus = "finished"
+	ErrorTaskStatus    = "error"
+	SkippedTaskStatus  = "skipped"
+)
+
 type PrometheusMetrics struct {
 	PacketsRelayedSuccess      *prometheus.CounterVec
 	UnrelayedPackets           *prometheus.GaugeVec
 	TasksCount                 *prometheus.CounterVec
-	TaskExecutionTime          *prometheus.SummaryVec
+	FinishedTaskExecutionTime  *prometheus.SummaryVec
 	TunnelsPerDestinationChain *prometheus.CounterVec
-	ActiveTargetContractsCount prometheus.Gauge
+	ActiveTargetContractsCount *prometheus.GaugeVec
 	TxsCount                   *prometheus.CounterVec
 	TxProcessTime              *prometheus.SummaryVec
 	GasUsed                    *prometheus.SummaryVec
@@ -38,35 +45,40 @@ func updateMetrics(updateFn func()) {
 	}
 }
 
-// IncPacketsRelayedSuccess increments the count of successfully relayed packets for a specific tunnel.
+// IncPacketsRelayedSuccess increments the count of successfully relayed packets.
 func IncPacketsRelayedSuccess(tunnelID uint64) {
 	updateMetrics(func() {
 		metrics.PacketsRelayedSuccess.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
 	})
 }
 
-// SetUnrelayedPackets sets the number of unrelayed packets for a specific tunnel.
-func SetUnrelayedPackets(tunnelID uint64, unrelayedPackets float64) {
+// SetUnrelayedPackets sets the number of unrelayed packets.
+func SetUnrelayedPackets(tunnelID uint64, unrelayedPackets uint64) {
 	updateMetrics(func() {
-		metrics.UnrelayedPackets.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(unrelayedPackets)
+		metrics.UnrelayedPackets.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Set(float64(unrelayedPackets))
 	})
 }
 
-// IncTasksCount increments the total tasks count for a specific tunnel.
-func IncTasksCount(tunnelID uint64) {
+// IncTasksCount increments the total count of executed tasks.
+func IncTasksCount(tunnelID uint64, destinationChain string, taskStatus string) {
 	updateMetrics(func() {
-		metrics.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+		metrics.TasksCount.WithLabelValues(fmt.Sprintf("%d", tunnelID), destinationChain, taskStatus).Inc()
 	})
 }
 
-// ObserveTaskExecutionTime records the execution time of a task for a specific tunnel.
-func ObserveTaskExecutionTime(tunnelID uint64, taskExecutionTime float64) {
+// ObserveFinishedTaskExecutionTime records the execution time (ms) of a finished task.
+func ObserveFinishedTaskExecutionTime(
+	tunnelID uint64,
+	destinationChain string,
+	finishedTaskExecutionTime int64,
+) {
 	updateMetrics(func() {
-		metrics.TaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(taskExecutionTime)
+		metrics.FinishedTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", tunnelID), destinationChain).
+			Observe(float64(finishedTaskExecutionTime))
 	})
 }
 
-// IncTunnelsPerDestinationChain increments the total number of tunnels per specific destination chain.
+// IncTunnelsPerDestinationChain increments the count of tunnels per destination chain.
 func IncTunnelsPerDestinationChain(destinationChain string) {
 	updateMetrics(func() {
 		metrics.TunnelsPerDestinationChain.WithLabelValues(destinationChain).Inc()
@@ -74,46 +86,52 @@ func IncTunnelsPerDestinationChain(destinationChain string) {
 }
 
 // IncActiveTargetContractsCount increases the count of active target contracts.
-func IncActiveTargetContractsCount() {
+func IncActiveTargetContractsCount(destinationChain string) {
 	updateMetrics(func() {
-		metrics.ActiveTargetContractsCount.Inc()
+		metrics.ActiveTargetContractsCount.WithLabelValues(destinationChain).Inc()
 	})
 }
 
 // DecActiveTargetContractsCount decreases the count of active target contracts.
-func DecActiveTargetContractsCount() {
+func DecActiveTargetContractsCount(destinationChain string) {
 	updateMetrics(func() {
-		metrics.ActiveTargetContractsCount.Dec()
+		metrics.ActiveTargetContractsCount.WithLabelValues(destinationChain).Dec()
 	})
 }
 
-// IncTxsCount increments the transactions count metric for a specific tunnel.
-func IncTxsCount(tunnelID uint64) {
+// IncTxsCount increments the transactions count.
+func IncTxsCount(tunnelID uint64, destinationChain string, txStatus string) {
 	updateMetrics(func() {
-		metrics.TxsCount.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Inc()
+		metrics.TxsCount.WithLabelValues(fmt.Sprintf("%d", tunnelID), destinationChain, txStatus).Inc()
 	})
 }
 
-// ObserveTxProcessTime tracks transaction processing time in seconds with millisecond precision.
-func ObserveTxProcessTime(destinationChain string, txProcessTime float64) {
+// ObserveTxProcessTime records the processing time (ms) for each transaction.
+func ObserveTxProcessTime(tunnelID uint64, destinationChain string, txStatus string, txProcessTime int64) {
 	updateMetrics(func() {
-		metrics.TxProcessTime.WithLabelValues(destinationChain).Observe(txProcessTime)
+		metrics.TxProcessTime.WithLabelValues(fmt.Sprintf("%d", tunnelID), destinationChain, txStatus).
+			Observe(float64(txProcessTime))
 	})
 }
 
-// ObserveGasUsed tracks gas used for the each relayed transaction.
-func ObserveGasUsed(tunnelID uint64, gasUsed uint64) {
+// ObserveGasUsed tracks the amount of gas used for each transaction.
+func ObserveGasUsed(tunnelID uint64, destinationChain string, txStatus string, gasUsed float64) {
 	updateMetrics(func() {
-		metrics.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID)).Observe(float64(gasUsed))
+		metrics.GasUsed.WithLabelValues(fmt.Sprintf("%d", tunnelID), destinationChain, txStatus).
+			Observe(gasUsed)
 	})
 }
 
 func InitPrometheusMetrics() {
 	packetLabels := []string{"tunnel_id"}
-	taskLabels := []string{"tunnel_id"}
+	tasksCountLabels := []string{"tunnel_id", "destination_chain", "task_status"}
+	finishedTaskExecutionTimeLabels := []string{"tunnel_id", "destination_chain"}
 	tunnelPerDestinationChainLabels := []string{"destination_chain"}
-	txLabels := []string{"tunnel_id"}
-	gasUsedLabels := []string{"tunnel_id"}
+	activeTargetContractsLabels := []string{"destination_chain"}
+	txsCountLabels := []string{"tunnel_id", "destination_chain", "tx_status"}
+	txProcessTimeLabels := []string{"tunnel_id", "destination_chain", "tx_status"}
+
+	gasUsedLabels := []string{"tunnel_id", "destination_chain", "tx_status"}
 
 	metrics = &PrometheusMetrics{
 		PacketsRelayedSuccess: promauto.NewCounterVec(prometheus.CounterOpts{
@@ -126,38 +144,38 @@ func InitPrometheusMetrics() {
 		}, packetLabels),
 		TasksCount: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_tasks_count",
-			Help: "Total number of successfully executed tasks",
-		}, taskLabels),
-		TaskExecutionTime: promauto.NewSummaryVec(prometheus.SummaryOpts{
-			Name: "falcon_task_execution_time",
-			Help: "Task execution time in milliseconds",
+			Help: "Total number of executed tasks",
+		}, tasksCountLabels),
+		FinishedTaskExecutionTime: promauto.NewSummaryVec(prometheus.SummaryOpts{
+			Name: "falcon_finished_task_execution_time",
+			Help: "Execution time (ms) for finished tasks",
 			Objectives: map[float64]float64{
 				0.5:  0.05,
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, taskLabels),
+		}, finishedTaskExecutionTimeLabels),
 		TunnelsPerDestinationChain: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_tunnels_per_destination_chain",
-			Help: "Total number of destination chains",
+			Help: "Total number of tunnels per destination chain",
 		}, tunnelPerDestinationChainLabels),
-		ActiveTargetContractsCount: promauto.NewGauge(prometheus.GaugeOpts{
+		ActiveTargetContractsCount: promauto.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "falcon_active_target_contracts_count",
 			Help: "Number of active target chain contracts",
-		}),
+		}, activeTargetContractsLabels),
 		TxsCount: promauto.NewCounterVec(prometheus.CounterOpts{
 			Name: "falcon_txs_count",
-			Help: "Total number of transactions per tunnel",
-		}, txLabels),
+			Help: "Total number of transactions",
+		}, txsCountLabels),
 		TxProcessTime: promauto.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_tx_process_time",
-			Help: "Transaction processing time in milliseconds",
+			Help: "Processing time (ms) for transaction",
 			Objectives: map[float64]float64{
 				0.5:  0.05,
 				0.9:  0.01,
 				0.99: 0.001,
 			},
-		}, txLabels),
+		}, txProcessTimeLabels),
 		GasUsed: promauto.NewSummaryVec(prometheus.SummaryOpts{
 			Name: "falcon_gas_used",
 			Help: "Amount of gas used per transaction",
@@ -178,7 +196,7 @@ func StartMetricsServer(ctx context.Context, log *zap.Logger, metricsListenAddr 
 	ln, err := net.Listen("tcp", metricsListenAddr)
 	if err != nil {
 		log.Error(
-			"Failed to start metrics server you can change the address and port using metrics-listen-addr config setting or --metrics-listen-flag",
+			"Failed to start metrics server you can change the address and port using metrics-listen-addr config setting or --metrics-listen-addr flag",
 		)
 
 		return fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)

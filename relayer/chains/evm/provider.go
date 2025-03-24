@@ -182,9 +182,6 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		createdAt := time.Now()
 
-		// increment the transactions count metric for the current tunnel
-		relayermetrics.IncTxsCount(packet.TunnelID)
-
 		log.Info(
 			"Submitted a message; checking transaction status",
 			zap.String("tx_hash", txHash),
@@ -193,6 +190,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		var checkTxErr error
 		var txStatus TxStatus
+		var gasUsed decimal.NullDecimal
 	checkTxLogic:
 		for time.Since(createdAt) < cp.Config.WaitingTxDuration {
 			result, err := cp.CheckConfirmedTx(ctx, txHash)
@@ -212,13 +210,18 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 			checkTxErr = nil
 			txStatus = result.Status
+			gasUsed = result.GasUsed
+
 			switch result.Status {
 			case TX_STATUS_SUCCESS:
-				// track transaction processing time in seconds with millisecond precision
-				relayermetrics.ObserveTxProcessTime(cp.ChainName, float64(time.Since(createdAt).Milliseconds()))
+				// increment the transactions count metric
+				relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String())
+
+				// track transaction processing time (ms)
+				relayermetrics.ObserveTxProcessTime(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), time.Since(createdAt).Milliseconds())
 
 				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, result.GasUsed.Decimal.BigInt().Uint64())
+				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), gasUsed.Decimal.InexactFloat64())
 
 				log.Info(
 					"Packet is successfully relayed",
@@ -227,6 +230,16 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				)
 				return nil
 			case TX_STATUS_FAILED:
+				// track transaction processing time (ms)
+				relayermetrics.ObserveTxProcessTime(
+					packet.TunnelID,
+					cp.ChainName,
+					TX_STATUS_FAILED.String(),
+					time.Since(createdAt).Milliseconds(),
+				)
+
+				// track gas used for the relayed transaction
+				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
 				log.Debug(
 					"Transaction failed during relay attempt",
 					zap.Error(err),
@@ -245,6 +258,9 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				time.Sleep(cp.Config.CheckingTxInterval)
 			}
 		}
+
+		// increment the transactions count metric
+		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, txStatus.String())
 
 		log.Error(
 			"Failed to relaying a packet with status and error",
@@ -296,19 +312,16 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	ctx context.Context,
 	txHash string,
 ) (*ConfirmTxResult, error) {
-	failResult := NewConfirmTxResult(
-		txHash,
-		TX_STATUS_UNMINED,
-		decimal.NullDecimal{},
-	)
-
 	receipt, err := cp.Client.GetTxReceipt(ctx, txHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tx receipt: %w", err)
 	}
 
+	// calculate gas used and effective gas price
+	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
+
 	if receipt.Status == gethtypes.ReceiptStatusFailed {
-		return failResult.WithStatus(TX_STATUS_FAILED), nil
+		return NewConfirmTxResult(txHash, TX_STATUS_FAILED, gasUsed), nil
 	}
 
 	latestBlock, err := cp.Client.GetBlockHeight(ctx)
@@ -318,11 +331,9 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 
 	// if tx block is not confirmed and waiting too long return status with timeout
 	if receipt.BlockNumber.Uint64() > latestBlock-cp.Config.BlockConfirmation {
-		return failResult.WithStatus(TX_STATUS_UNMINED), nil
+		return NewConfirmTxResult(txHash, TX_STATUS_UNMINED, decimal.NullDecimal{}), nil
 	}
 
-	// calculate gas used and effective gas price
-	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
 	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed), nil
 }
 
@@ -572,6 +583,11 @@ func (cp *EVMChainProvider) QueryBalance(
 	}
 
 	return cp.Client.GetBalance(ctx, address)
+}
+
+// GetChainName retrieves the chain name from the chain provider.
+func (cp *EVMChainProvider) GetChainName() string {
+	return cp.ChainName
 }
 
 // queryRelayerGasFee queries the relayer gas fee being set on tunnel router.

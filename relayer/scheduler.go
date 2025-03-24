@@ -97,21 +97,22 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		// Execute the task, if error occurs, wait for the next round.
 		task := NewTask(i, s.CheckingPacketInterval)
 		go s.TriggerTunnelRelayer(ctx, task)
-
-		// record metrics for the task execution for the current tunnel relayer
-		relayermetrics.IncTasksCount(tr.TunnelID)
 	}
 }
 
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 	tr := s.tunnelRelayers[task.RelayerID]
-
+	chainName := tr.TargetChainProvider.GetChainName()
 	startExecutionTaskTime := time.Now()
 
-	// Check and relay the packet, if error occurs, set the error flag.
-	if isExecuting, err := tr.CheckAndRelay(ctx); err != nil && !isExecuting {
+	isExecuting, err := tr.CheckAndRelay(ctx)
+
+	switch {
+	case err != nil:
 		s.penaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
+
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
 
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
@@ -119,19 +120,26 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 			zap.Uint64("tunnel_id", tr.TunnelID),
 		)
 
-		return
+	case isExecuting:
+		// Record metrics for the skipped task execution
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.SkippedTaskStatus)
+
+	default:
+		// Record execution time of finished task (ms)
+		relayermetrics.ObserveFinishedTaskExecutionTime(
+			tr.TunnelID,
+			chainName,
+			time.Since(startExecutionTaskTime).Milliseconds(),
+		)
+
+		// Record metrics for the finished task execution
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.FinishedTaskStatus)
+
+		s.Log.Info(
+			"Tunnel relayer finished execution",
+			zap.Uint64("tunnel_id", tr.TunnelID),
+		)
 	}
-
-	// record the execution time of successful task.
-	relayermetrics.ObserveTaskExecutionTime(
-		tr.TunnelID,
-		float64(time.Since(startExecutionTaskTime).Milliseconds()),
-	)
-
-	s.Log.Info(
-		"Tunnel relayer finished execution",
-		zap.Uint64("tunnel_id", tr.TunnelID),
-	)
 }
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
@@ -162,7 +170,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 		tr := NewTunnelRelayer(
 			s.Log,
 			tunnels[i].ID,
-			tunnels[i].TargetAddress,
 			s.CheckingPacketInterval,
 			s.BandClient,
 			chainProvider,

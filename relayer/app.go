@@ -386,7 +386,6 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	tr := NewTunnelRelayer(
 		a.Log,
 		tunnel.ID,
-		tunnel.TargetAddress,
 		a.Config.Global.CheckingPacketInterval,
 		a.BandClient,
 		chainProvider,

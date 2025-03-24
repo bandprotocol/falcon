@@ -259,7 +259,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 			out: evm.NewConfirmTxResult(
 				txHash,
 				evm.TX_STATUS_FAILED,
-				decimal.NullDecimal{},
+				decimal.NewNullDecimal(decimal.New(21000, 0)),
 			),
 		},
 		{
