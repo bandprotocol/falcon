@@ -102,17 +102,14 @@ func (s *Scheduler) Execute(ctx context.Context) {
 
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
-	var isExecuting bool
-	var err error
-
 	tr := s.tunnelRelayers[task.RelayerID]
-
 	chainName := tr.TargetChainProvider.GetChainName()
-
 	startExecutionTaskTime := time.Now()
 
-	// Check and relay the packet, if error occurs, set the error flag.
-	if isExecuting, err = tr.CheckAndRelay(ctx); err != nil && !isExecuting {
+	isExecuting, err := tr.CheckAndRelay(ctx)
+
+	switch {
+	case err != nil:
 		s.penaltySkipRemaining[task.RelayerID] = s.PenaltySkipRounds
 
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
@@ -123,20 +120,19 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 			zap.Uint64("tunnel_id", tr.TunnelID),
 		)
 
-		return
-	}
-
-	if isExecuting {
-		// record metrics for the skipped task execution for the current tunnel relayer
+	case isExecuting:
+		// Record metrics for the skipped task execution
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.SkippedTaskStatus)
-	} else {
-		// record the execution time of finished task (ms)
+
+	default:
+		// Record execution time of finished task (ms)
 		relayermetrics.ObserveFinishedTaskExecutionTime(
 			tr.TunnelID,
 			chainName,
 			time.Since(startExecutionTaskTime).Milliseconds(),
 		)
-		// record metrics for the finished task execution for the current tunnel relayer
+
+		// Record metrics for the finished task execution
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.FinishedTaskStatus)
 
 		s.Log.Info(
