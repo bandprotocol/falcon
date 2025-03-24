@@ -126,23 +126,19 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 		return
 	}
 
-	// record the execution time of finished task (ms)
-	relayermetrics.ObserveFinishedTaskExecutionTime(
-		tr.TunnelID,
-		chainName,
-		time.Since(startExecutionTaskTime).Milliseconds(),
-	)
-
-	// determine task status and record the metric
-	status := relayermetrics.FinishedTaskStatus
 	if isExecuting {
-		status = relayermetrics.SkippedTaskStatus
-	}
+		// record metrics for the skipped task execution for the current tunnel relayer
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.SkippedTaskStatus)
+	} else {
+		// record the execution time of finished task (ms)
+		relayermetrics.ObserveFinishedTaskExecutionTime(
+			tr.TunnelID,
+			chainName,
+			time.Since(startExecutionTaskTime).Milliseconds(),
+		)
+		// record metrics for the finished task execution for the current tunnel relayer
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.FinishedTaskStatus)
 
-	// record metrics for the task execution for the current tunnel relayer
-	relayermetrics.IncTasksCount(tr.TunnelID, chainName, status)
-
-	if !isExecuting {
 		s.Log.Info(
 			"Tunnel relayer finished execution",
 			zap.Uint64("tunnel_id", tr.TunnelID),
