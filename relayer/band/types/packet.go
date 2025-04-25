@@ -8,11 +8,12 @@ type SignalPrice struct {
 
 // Packet stores information about the packet generated from the tunnel.
 type Packet struct {
-	TunnelID             uint64        `json:"tunnel_id"`
-	Sequence             uint64        `json:"sequence"`
-	SignalPrices         []SignalPrice `json:"signal_prices"`
-	CurrentGroupSigning  *Signing      `json:"current_group_signing"`
-	IncomingGroupSigning *Signing      `json:"incoming_group_signing"`
+	TunnelID     uint64        `json:"tunnel_id"`
+	Sequence     uint64        `json:"sequence"`
+	SignalPrices []SignalPrice `json:"signal_prices"`
+	// CurrentGroupSigning and IncomingGroupSigning
+	CurrentGroupSigning  *Signing `json:"current_group_signing"`
+	IncomingGroupSigning *Signing `json:"incoming_group_signing"`
 }
 
 // NewPacket creates a new Packet instance.
@@ -22,8 +23,8 @@ func NewPacket(
 	signalPrices []SignalPrice,
 	currentGroupSigning *Signing,
 	incomingGroupSigning *Signing,
-) *Packet {
-	return &Packet{
+) Packet {
+	return Packet{
 		TunnelID:             tunnelID,
 		Sequence:             sequence,
 		SignalPrices:         signalPrices,

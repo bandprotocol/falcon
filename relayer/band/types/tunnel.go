@@ -16,8 +16,8 @@ func NewTunnel(
 	targetAddress string,
 	targetChainID string,
 	isActive bool,
-) *Tunnel {
-	return &Tunnel{
+) Tunnel {
+	return Tunnel{
 		ID:             id,
 		LatestSequence: latestSequence,
 		TargetAddress:  targetAddress,

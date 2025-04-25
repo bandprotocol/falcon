@@ -1,4 +1,4 @@
-package band_test
+package client_test
 
 import (
 	"context"
@@ -30,7 +30,7 @@ type ClientTestSuite struct {
 
 	ctx             context.Context
 	bandQueryClient *mocks.MockQueryClient
-	client          band.Client
+	client          Client
 	log             *zap.Logger
 }
 
@@ -45,7 +45,7 @@ func (s *ClientTestSuite) SetupTest() {
 	// mock objects.
 	s.log = zap.NewNop()
 	s.bandQueryClient = mocks.NewMockQueryClient(ctrl)
-	s.client = band.NewClient(
+	s.client = NewClient(
 		s.bandQueryClient,
 		s.log,
 		&band.Config{LivelinessCheckingInterval: 15 * time.Minute},
@@ -133,9 +133,11 @@ func (s *ClientTestSuite) TestGetTunnel() {
 			in:   1,
 			out:  bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false),
 			preprocess: func(c context.Context) {
-				s.bandQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
-					TunnelId: uint64(1),
-				}).Return(&tunneltypes.QueryTunnelResponse{Tunnel: tssTunnel}, nil)
+				s.bandQueryClient.EXPECT().Tunnel(
+					s.ctx, &tunneltypes.QueryTunnelRequest{
+						TunnelId: uint64(1),
+					},
+				).Return(&tunneltypes.QueryTunnelResponse{Tunnel: tssTunnel}, nil)
 			},
 		},
 		{
@@ -143,27 +145,31 @@ func (s *ClientTestSuite) TestGetTunnel() {
 			in:   2,
 			err:  fmt.Errorf("unsupported route type"),
 			preprocess: func(c context.Context) {
-				s.bandQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
-					TunnelId: uint64(2),
-				}).Return(&tunneltypes.QueryTunnelResponse{Tunnel: ibcTunnel}, nil)
+				s.bandQueryClient.EXPECT().Tunnel(
+					s.ctx, &tunneltypes.QueryTunnelRequest{
+						TunnelId: uint64(2),
+					},
+				).Return(&tunneltypes.QueryTunnelResponse{Tunnel: ibcTunnel}, nil)
 			},
 		},
 	}
 
 	for _, tc := range testcases {
-		s.T().Run(tc.name, func(t *testing.T) {
-			if tc.preprocess != nil {
-				tc.preprocess(s.ctx)
-			}
+		s.T().Run(
+			tc.name, func(t *testing.T) {
+				if tc.preprocess != nil {
+					tc.preprocess(s.ctx)
+				}
 
-			actual, err := s.client.GetTunnel(s.ctx, tc.in)
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
-				s.Require().Equal(tc.out, actual)
-			}
-		})
+				actual, err := s.client.GetTunnel(s.ctx, tc.in)
+				if tc.err != nil {
+					s.Require().ErrorContains(err, tc.err.Error())
+				} else {
+					s.Require().NoError(err)
+					s.Require().Equal(tc.out, actual)
+				}
+			},
+		)
 	}
 }
 
@@ -211,13 +217,17 @@ func (s *ClientTestSuite) TestGetTSSTunnelPacket() {
 	}
 
 	// expect response from bandQueryClient
-	s.bandQueryClient.EXPECT().Packet(s.ctx, &tunneltypes.QueryPacketRequest{
-		TunnelId: uint64(1),
-		Sequence: uint64(100),
-	}).Return(queryPacketResponse, nil)
-	s.bandQueryClient.EXPECT().Signing(s.ctx, &bandtsstypes.QuerySigningRequest{
-		SigningId: uint64(2),
-	}).Return(querySigningResponse, nil)
+	s.bandQueryClient.EXPECT().Packet(
+		s.ctx, &tunneltypes.QueryPacketRequest{
+			TunnelId: uint64(1),
+			Sequence: uint64(100),
+		},
+	).Return(queryPacketResponse, nil)
+	s.bandQueryClient.EXPECT().Signing(
+		s.ctx, &bandtsstypes.QuerySigningRequest{
+			SigningId: uint64(2),
+		},
+	).Return(querySigningResponse, nil)
 
 	// expected result
 	expectedSignalPrices := []bandclienttypes.SignalPrice{
@@ -280,10 +290,12 @@ func (s *ClientTestSuite) TestGetOtherTunnelPacket() {
 	}
 
 	// expect response from bandQueryClient
-	s.bandQueryClient.EXPECT().Packet(s.ctx, &tunneltypes.QueryPacketRequest{
-		TunnelId: uint64(1),
-		Sequence: uint64(100),
-	}).Return(queryPacketResponse, nil)
+	s.bandQueryClient.EXPECT().Packet(
+		s.ctx, &tunneltypes.QueryPacketRequest{
+			TunnelId: uint64(1),
+			Sequence: uint64(100),
+		},
+	).Return(queryPacketResponse, nil)
 
 	// actual result
 	_, err = s.client.GetTunnelPacket(s.ctx, uint64(1), uint64(100))
@@ -309,13 +321,15 @@ func (s *ClientTestSuite) TestGetTunnels() {
 		tssRoute, ok := routeI.(*tunneltypes.TSSRoute)
 		s.Require().True(ok)
 
-		expectedRes = append(expectedRes, *bandclienttypes.NewTunnel(
-			tunnel.ID,
-			tunnel.Sequence,
-			tssRoute.DestinationContractAddress,
-			tssRoute.DestinationChainID,
-			tunnel.IsActive,
-		))
+		expectedRes = append(
+			expectedRes, *bandclienttypes.NewTunnel(
+				tunnel.ID,
+				tunnel.Sequence,
+				tssRoute.DestinationContractAddress,
+				tssRoute.DestinationChainID,
+				tunnel.IsActive,
+			),
+		)
 	}
 
 	// create mock ibc tunnel
@@ -332,61 +346,75 @@ func (s *ClientTestSuite) TestGetTunnels() {
 			name: "success",
 			preprocess: func(c context.Context) {
 				// expect response from bandQueryClient
-				s.bandQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
-					Pagination: &querytypes.PageRequest{
-						Key: nil,
+				s.bandQueryClient.EXPECT().Tunnels(
+					s.ctx, &tunneltypes.QueryTunnelsRequest{
+						Pagination: &querytypes.PageRequest{
+							Key: nil,
+						},
 					},
-				}).Return(&tunneltypes.QueryTunnelsResponse{
-					Tunnels: tssTunnels[:100],
-					Pagination: &querytypes.PageResponse{
-						NextKey: []byte("next-key"),
-					},
-				}, nil)
+				).Return(
+					&tunneltypes.QueryTunnelsResponse{
+						Tunnels: tssTunnels[:100],
+						Pagination: &querytypes.PageResponse{
+							NextKey: []byte("next-key"),
+						},
+					}, nil,
+				)
 
-				s.bandQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
-					Pagination: &querytypes.PageRequest{
-						Key: []byte("next-key"),
+				s.bandQueryClient.EXPECT().Tunnels(
+					s.ctx, &tunneltypes.QueryTunnelsRequest{
+						Pagination: &querytypes.PageRequest{
+							Key: []byte("next-key"),
+						},
 					},
-				}).Return(&tunneltypes.QueryTunnelsResponse{
-					Tunnels: tssTunnels[100:],
-					Pagination: &querytypes.PageResponse{
-						NextKey: []byte(""),
-					},
-				}, nil)
+				).Return(
+					&tunneltypes.QueryTunnelsResponse{
+						Tunnels: tssTunnels[100:],
+						Pagination: &querytypes.PageResponse{
+							NextKey: []byte(""),
+						},
+					}, nil,
+				)
 			},
 			out: expectedRes,
 		},
 		{
 			name: "filter out unrelated tunnel",
 			preprocess: func(c context.Context) {
-				s.bandQueryClient.EXPECT().Tunnels(s.ctx, &tunneltypes.QueryTunnelsRequest{
-					Pagination: &querytypes.PageRequest{
-						Key: nil,
+				s.bandQueryClient.EXPECT().Tunnels(
+					s.ctx, &tunneltypes.QueryTunnelsRequest{
+						Pagination: &querytypes.PageRequest{
+							Key: nil,
+						},
 					},
-				}).Return(&tunneltypes.QueryTunnelsResponse{
-					Tunnels: []*tunneltypes.Tunnel{tssTunnels[0], &ibcTunnel},
-					Pagination: &querytypes.PageResponse{
-						NextKey: []byte(""),
-					},
-				}, nil)
+				).Return(
+					&tunneltypes.QueryTunnelsResponse{
+						Tunnels: []*tunneltypes.Tunnel{tssTunnels[0], &ibcTunnel},
+						Pagination: &querytypes.PageResponse{
+							NextKey: []byte(""),
+						},
+					}, nil,
+				)
 			},
 			out: []bandclienttypes.Tunnel{expectedRes[0]},
 		},
 	}
 
 	for _, tc := range testcases {
-		s.T().Run(tc.name, func(t *testing.T) {
-			if tc.preprocess != nil {
-				tc.preprocess(s.ctx)
-			}
+		s.T().Run(
+			tc.name, func(t *testing.T) {
+				if tc.preprocess != nil {
+					tc.preprocess(s.ctx)
+				}
 
-			actual, err := s.client.GetTunnels(s.ctx)
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
-				s.Require().Equal(tc.out, actual)
-			}
-		})
+				actual, err := s.client.GetTunnels(s.ctx)
+				if tc.err != nil {
+					s.Require().ErrorContains(err, tc.err.Error())
+				} else {
+					s.Require().NoError(err)
+					s.Require().Equal(tc.out, actual)
+				}
+			},
+		)
 	}
 }

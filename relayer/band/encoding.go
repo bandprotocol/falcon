@@ -15,22 +15,24 @@ import (
 // This is provided for compatibility between protobuf and amino implementations.
 type EncodingConfig struct {
 	InterfaceRegistry codectypes.InterfaceRegistry
-	Marshaler         codec.Codec
+	Marshaller        codec.Codec
 }
 
 // MakeEncodingConfig creates an EncodingConfig for an amino based test configuration.
 func MakeEncodingConfig() EncodingConfig {
-	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(codectypes.InterfaceRegistryOptions{
-		ProtoFiles: proto.HybridResolver,
-		SigningOptions: signing.Options{
-			AddressCodec: address.Bech32Codec{
-				Bech32Prefix: sdk.GetConfig().GetBech32AccountAddrPrefix(),
-			},
-			ValidatorAddressCodec: address.Bech32Codec{
-				Bech32Prefix: sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
+	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(
+		codectypes.InterfaceRegistryOptions{
+			ProtoFiles: proto.HybridResolver,
+			SigningOptions: signing.Options{
+				AddressCodec: address.Bech32Codec{
+					Bech32Prefix: sdk.GetConfig().GetBech32AccountAddrPrefix(),
+				},
+				ValidatorAddressCodec: address.Bech32Codec{
+					Bech32Prefix: sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +42,7 @@ func MakeEncodingConfig() EncodingConfig {
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 	return EncodingConfig{
 		InterfaceRegistry: interfaceRegistry,
-		Marshaler:         cdc,
+		Marshaller:        cdc,
 	}
 }
 

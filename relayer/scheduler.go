@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
-	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/band/client"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
@@ -19,7 +19,7 @@ type Scheduler struct {
 	SyncTunnelsInterval    time.Duration
 	PenaltySkipRounds      uint
 
-	BandClient     band.Client
+	BandClient     client.Client
 	ChainProviders chains.ChainProviders
 
 	tunnelRelayers       []*TunnelRelayer
@@ -33,7 +33,7 @@ func NewScheduler(
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
 	penaltySkipRounds uint,
-	bandClient band.Client,
+	bandClient client.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	return &Scheduler{
@@ -205,7 +205,7 @@ func (s *Scheduler) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandt
 			return nil, err
 		}
 
-		tunnels = append(tunnels, *tunnel)
+		tunnels = append(tunnels, tunnel)
 	}
 
 	return tunnels, nil

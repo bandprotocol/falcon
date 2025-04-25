@@ -10,7 +10,7 @@ import (
 
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
-	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/band/client"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
@@ -19,7 +19,7 @@ type TunnelRelayer struct {
 	Log                    *zap.Logger
 	TunnelID               uint64
 	CheckingPacketInterval time.Duration
-	BandClient             band.Client
+	BandClient             client.Client
 	TargetChainProvider    chains.ChainProvider
 
 	isTargetChainActive bool
@@ -31,7 +31,7 @@ func NewTunnelRelayer(
 	log *zap.Logger,
 	tunnelID uint64,
 	checkingPacketInterval time.Duration,
-	bandClient band.Client,
+	bandClient client.Client,
 	targetChainProvider chains.ChainProvider,
 ) TunnelRelayer {
 	return TunnelRelayer{
@@ -143,7 +143,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 		}
 
 		// Relay the packet to the target chain
-		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
+		if err := t.TargetChainProvider.RelayPacket(ctx, &packet); err != nil {
 			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return false, err
 		}

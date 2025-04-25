@@ -6,8 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
-	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
-	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	band "github.com/bandprotocol/falcon/relayer/band/types"
+	chains "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 // ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
@@ -24,10 +24,10 @@ type ChainProvider interface {
 		ctx context.Context,
 		tunnelID uint64,
 		tunnelDestinationAddr string,
-	) (*chainstypes.Tunnel, error)
+	) (*chains.Tunnel, error)
 
 	// RelayPacket relays the packet from the source chain to the destination chain.
-	RelayPacket(ctx context.Context, packet *bandtypes.Packet) error
+	RelayPacket(ctx context.Context, packet *band.Packet) error
 
 	// QueryBalance queries balance by given key name from the destination chain.
 	QueryBalance(ctx context.Context, keyName string) (*big.Int, error)
@@ -45,10 +45,10 @@ type KeyProvider interface {
 		coinType uint32,
 		account uint,
 		index uint,
-	) (*chainstypes.Key, error)
+	) (*chains.Key, error)
 
 	// AddKeyByPrivateKey adds a key using a private key.
-	AddKeyByPrivateKey(keyName string, privateKeyHex string) (*chainstypes.Key, error)
+	AddKeyByPrivateKey(keyName string, privateKeyHex string) (*chains.Key, error)
 
 	// DeleteKey deletes the key information and private key
 	DeleteKey(keyName string) error
@@ -57,7 +57,7 @@ type KeyProvider interface {
 	ExportPrivateKey(keyName string) (string, error)
 
 	// ListKeys lists all keys
-	ListKeys() []*chainstypes.Key
+	ListKeys() []*chains.Key
 
 	// ShowKey shows the address of the given key
 	ShowKey(keyName string) (string, error)

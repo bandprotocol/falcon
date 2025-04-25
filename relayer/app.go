@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/band/client"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -24,7 +24,7 @@ type App struct {
 	Store  store.Store
 
 	TargetChains chains.ChainProviders
-	BandClient   band.Client
+	BandClient   client.Client
 	Passphrase   string
 }
 
@@ -68,7 +68,7 @@ func (a *App) Init(ctx context.Context) error {
 
 // initBandClient establishes connection to rpc endpoints.
 func (a *App) initBandClient(ctx context.Context) error {
-	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
+	a.BandClient = client.NewClient(nil, a.Log, &a.Config.BandChain)
 
 	// connect to BandChain, if error occurs, log the error as debug and continue
 	if err := a.BandClient.Init(ctx); err != nil {
@@ -86,7 +86,8 @@ func (a *App) initTargetChains() error {
 	for chainName, chainConfig := range a.Config.TargetChains {
 		wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
 		if err != nil {
-			a.Log.Error("Wallet registry not found",
+			a.Log.Error(
+				"Wallet registry not found",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
 			)
@@ -95,7 +96,8 @@ func (a *App) initTargetChains() error {
 
 		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.Debug, wallet)
 		if err != nil {
-			a.Log.Error("Cannot create chain provider",
+			a.Log.Error(
+				"Cannot create chain provider",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
 			)
@@ -153,7 +155,7 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 	cp, ok := a.TargetChains[bandChainInfo.TargetChainID]
 	if !ok {
 		a.Log.Debug("Target chain provider not found", zap.String("chain_id", bandChainInfo.TargetChainID))
-		return types.NewTunnel(bandChainInfo, nil), nil
+		return types.NewTunnel(&bandChainInfo, nil), nil
 	}
 
 	tunnelChainInfo, err := cp.QueryTunnelInfo(ctx, tunnelID, bandChainInfo.TargetAddress)
@@ -162,7 +164,7 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 	}
 
 	return types.NewTunnel(
-		bandChainInfo,
+		&bandChainInfo,
 		tunnelChainInfo,
 	), nil
 }
@@ -172,8 +174,11 @@ func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequen
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")
 	}
-
-	return a.BandClient.GetTunnelPacket(ctx, tunnelID, sequence)
+	packet, err := a.BandClient.GetTunnelPacket(ctx, tunnelID, sequence)
+	if err != nil {
+		return nil, err
+	}
+	return &packet, nil
 }
 
 // AddChainConfig adds a new chain configuration to the config file.
@@ -329,7 +334,8 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 	// initialize target chain providers
 	for chainName, chainProvider := range a.TargetChains {
 		if err := chainProvider.LoadFreeSenders(); err != nil {
-			a.Log.Error("Cannot load keys in target chain",
+			a.Log.Error(
+				"Cannot load keys in target chain",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
 			)
@@ -337,7 +343,8 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		}
 
 		if err := chainProvider.Init(ctx); err != nil {
-			a.Log.Error("Cannot initialize chain provider",
+			a.Log.Error(
+				"Cannot initialize chain provider",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
 			)
@@ -376,7 +383,8 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 	}
 
 	if err := chainProvider.LoadFreeSenders(); err != nil {
-		a.Log.Error("Cannot load keys in target chain",
+		a.Log.Error(
+			"Cannot load keys in target chain",
 			zap.Error(err),
 			zap.String("chain_name", tunnel.TargetChainID),
 		)
