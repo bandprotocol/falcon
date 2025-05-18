@@ -124,23 +124,7 @@ $ %s k a eth test-key`, appName, appName)),
 			}
 
 			var key *chainstypes.Key
-			if input.IsRemoteSigner {
-				if input.RemoteSigner.address == "" {
-					return fmt.Errorf("remote signer address cannot be empty")
-				}
-				if input.RemoteSigner.url == "" {
-					return fmt.Errorf("remote signer URL cannot be empty")
-				}
-				key, err = app.AddRemoteSignerKey(
-					chainName,
-					keyName,
-					input.RemoteSigner.address,
-					input.RemoteSigner.url,
-				)
-				if err != nil {
-					return err
-				}
-			} else if input.PrivateKey != "" {
+			if input.PrivateKey != "" {
 				key, err = app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
 				if err != nil {
 					return err
