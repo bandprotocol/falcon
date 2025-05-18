@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -19,6 +20,7 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
 type LegacyProviderTestSuite struct {
@@ -30,10 +32,11 @@ type LegacyProviderTestSuite struct {
 	homePath      string
 	chainName     string
 
-	relayingPacket   bandtypes.Packet
-	relayingCalldata []byte
-	gasInfo          evm.GasInfo
-	mockSender       evm.Sender
+	relayingPacket    bandtypes.Packet
+	relayingCalldata  []byte
+	gasInfo           evm.GasInfo
+	mockSigner        wallet.Signer
+	mockSignerAddress common.Address
 }
 
 func TestLegacyProviderTestSuite(t *testing.T) {
@@ -49,25 +52,24 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	s.chainName = "testnet"
 	s.homePath = s.T().TempDir()
 
-	wallet, err := wallet.NewGethWallet("", s.homePath, s.chainName)
+	gethWallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), wallet)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), gethWallet)
 	s.Require().NoError(err)
+	s.chainProvider = chainProvider
 
 	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
 	s.Require().NoError(err)
 
-	s.mockSender, err = mockSender()
-	s.Require().NoError(err)
+	s.mockSigner = geth.NewLocalSigner("testkey", priv)
 
-	addr, err := wallet.SavePrivateKey(s.mockSender.Name, priv)
+	gethAddr, err := evm.HexToAddress(s.mockSigner.GetAddress())
 	s.Require().NoError(err)
-	s.Require().Equal(s.mockSender.Address.String(), addr)
+	s.mockSignerAddress = gethAddr
 
-	s.chainProvider = chainProvider
-	s.chainProvider.FreeSenders = make(chan *evm.Sender, 1)
-	s.chainProvider.FreeSenders <- &s.mockSender
+	s.chainProvider.Signer = make(chan wallet.Signer, 1)
+	s.chainProvider.Signer <- s.mockSigner
 
 	s.relayingPacket = mockPacket()
 	s.relayingCalldata, err = s.chainProvider.CreateCalldata(&s.relayingPacket)
@@ -85,7 +87,7 @@ func (s *LegacyProviderTestSuite) MockDefaultResponses() {
 	mockCtx := gomock.Any()
 	s.client.EXPECT().CheckAndConnect(mockCtx).Return(nil).AnyTimes()
 	s.client.EXPECT().EstimateGasPrice(mockCtx).Return(s.gasInfo.GasPrice, nil).AnyTimes()
-	s.client.EXPECT().PendingNonceAt(mockCtx, s.mockSender.Address).Return(uint64(100), nil).AnyTimes()
+	s.client.EXPECT().PendingNonceAt(mockCtx, s.mockSignerAddress).Return(uint64(100), nil).AnyTimes()
 	s.client.EXPECT().
 		Query(mockCtx, s.chainProvider.TunnelRouterAddress, gasInfoCalldata).
 		Return(gasInfoResponse, nil).
@@ -95,12 +97,11 @@ func (s *LegacyProviderTestSuite) MockDefaultResponses() {
 func (s *LegacyProviderTestSuite) TestRelayPacketSuccess() {
 	// mock client responses
 	s.client.EXPECT().EstimateGas(gomock.Any(), ethereum.CallMsg{
-		From:     s.mockSender.Address,
+		From:     s.mockSignerAddress,
 		To:       &s.chainProvider.TunnelRouterAddress,
 		Data:     s.relayingCalldata,
 		GasPrice: s.gasInfo.GasPrice,
-	}).Return(uint64(200_000), nil)
-
+	}).Return(uint64(200_000), nil).AnyTimes()
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
 	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
@@ -121,7 +122,7 @@ func (s *LegacyProviderTestSuite) TestRelayPacketSuccessWithoutQueryMaxGasFee() 
 
 	// mock client responses
 	s.client.EXPECT().EstimateGas(gomock.Any(), ethereum.CallMsg{
-		From:     s.mockSender.Address,
+		From:     s.mockSignerAddress,
 		To:       &s.chainProvider.TunnelRouterAddress,
 		Data:     s.relayingCalldata,
 		GasPrice: big.NewInt(2_000_000_000),
@@ -222,16 +223,16 @@ func (s *LegacyProviderTestSuite) TestEstimateGas() {
 func (s *LegacyProviderTestSuite) TestNewRelayTx() {
 	data := []byte("mock calldata")
 	callMsg := ethereum.CallMsg{
-		From:     s.mockSender.Address,
+		From:     s.mockSignerAddress,
 		To:       &s.chainProvider.TunnelRouterAddress,
 		Data:     data,
 		GasPrice: s.gasInfo.GasPrice,
 	}
 
 	s.client.EXPECT().EstimateGas(gomock.Any(), callMsg).Return(uint64(100), nil)
-	s.client.EXPECT().PendingNonceAt(gomock.Any(), s.mockSender.Address).Return(uint64(1), nil)
+	s.client.EXPECT().PendingNonceAt(gomock.Any(), s.mockSignerAddress).Return(uint64(1), nil)
 
-	actual, err := s.chainProvider.NewRelayTx(context.Background(), data, s.mockSender.Address, s.gasInfo)
+	actual, err := s.chainProvider.NewRelayTx(context.Background(), data, s.mockSigner, s.gasInfo)
 	s.Require().NoError(err)
 
 	expected := gethtypes.NewTx(&gethtypes.LegacyTx{

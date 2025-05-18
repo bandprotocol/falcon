@@ -1,5 +1,5 @@
 # ============================ Build Stage ============================
-FROM --platform=$BUILDPLATFORM golang:1.22.3-alpine3.19 as build
+FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine3.19 as build
 
 LABEL org.opencontainers.image.source="https://github.com/bandprotocol/falcon"
 

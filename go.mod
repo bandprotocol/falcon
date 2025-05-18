@@ -1,6 +1,6 @@
 module github.com/bandprotocol/falcon
 
-go 1.22.3
+go 1.24.2
 
 require (
 	cosmossdk.io/math v1.4.0
@@ -23,6 +23,7 @@ require (
 	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.67.1
+	google.golang.org/protobuf v1.36.1
 )
 
 require (
@@ -176,7 +177,6 @@ require (
 	google.golang.org/genproto v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241021214115-324edc3d5d38 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
-	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect

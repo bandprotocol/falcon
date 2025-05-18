@@ -41,6 +41,22 @@ func TestIsPathExist(t *testing.T) {
 	require.True(t, exist)
 }
 
+func TestListFilePath(t *testing.T) {
+	tmpDir := path.Join(t.TempDir(), "test")
+
+	// write two files
+	err := internal_os.Write([]byte("test1"), []string{tmpDir, "test1.txt"})
+	require.NoError(t, err)
+
+	err = internal_os.Write([]byte("test2"), []string{tmpDir, "test2.txt"})
+	require.NoError(t, err)
+
+	// list and verify returned file paths
+	filePaths, err := internal_os.ListFilePaths(tmpDir)
+	require.NoError(t, err)
+	require.Equal(t, []string{path.Join(tmpDir, "test1.txt"), path.Join(tmpDir, "test2.txt")}, filePaths)
+}
+
 func TestWrite(t *testing.T) {
 	tmpDir := path.Join(t.TempDir(), "test")
 
@@ -94,4 +110,26 @@ func TestReadFileIfExist(t *testing.T) {
 	data, err = internal_os.ReadFileIfExist(path.Join(tmpDir, "non-exist.txt"))
 	require.NoError(t, err)
 	require.Nil(t, data)
+}
+
+func TestDeletePath(t *testing.T) {
+	tmpDir := path.Join(t.TempDir(), "test")
+
+	// write a file
+	err := internal_os.Write([]byte("test"), []string{tmpDir, "test.txt"})
+	require.NoError(t, err)
+
+	// check if the file exists
+	exist, err := internal_os.IsPathExist(path.Join(tmpDir, "test.txt"))
+	require.NoError(t, err)
+	require.True(t, exist)
+
+	// delete file
+	err = internal_os.DeletePath(path.Join(tmpDir, "test.txt"))
+	require.NoError(t, err)
+
+	// check if a file doesn't exist, should return nil
+	exist, err = internal_os.IsPathExist(path.Join(tmpDir, "test.txt"))
+	require.NoError(t, err)
+	require.False(t, exist)
 }

@@ -18,13 +18,6 @@ const (
 	mnemonicSize = 256
 )
 
-const (
-	keyDir        = "keys"
-	infoDir       = "info"
-	privateKeyDir = "priv"
-	infoFileName  = "info.toml"
-)
-
 // AddKeyByMnemonic adds a key using a mnemonic phrase.
 func (cp *EVMChainProvider) AddKeyByMnemonic(
 	keyName string,
@@ -76,24 +69,36 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 	return chainstypes.NewKey(mnemonic, addr, ""), nil
 }
 
+// AddRemoteSignerKey adds a remote signer with the given name, address, and URL.
+func (cp *EVMChainProvider) AddRemoteSignerKey(keyName, addr, url string) (*chainstypes.Key, error) {
+	if err := cp.Wallet.SaveRemoteSignerKey(keyName, addr, url); err != nil {
+		return nil, err
+	}
+	return chainstypes.NewKey("", addr, ""), nil
+}
+
 // DeleteKey deletes the given key name from the key store and removes its information.
 func (cp *EVMChainProvider) DeleteKey(keyName string) error {
-	return cp.Wallet.DeletePrivateKey(keyName)
+	return cp.Wallet.DeleteKey(keyName)
 }
 
 // ExportPrivateKey exports private key of given key name.
 func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
-	return cp.Wallet.ExportPrivateKey(keyName)
+	signer, ok := cp.Wallet.GetSigner(keyName)
+	if !ok {
+		return "", fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	return signer.ExportPrivateKey()
 }
 
 // ListKeys lists all keys.
 func (cp *EVMChainProvider) ListKeys() []*chainstypes.Key {
-	keyNames := cp.Wallet.GetNames()
+	signers := cp.Wallet.GetSigners()
 
-	res := make([]*chainstypes.Key, 0, len(keyNames))
-	for _, keyName := range keyNames {
-		address, _ := cp.Wallet.GetAddress(keyName)
-		key := chainstypes.NewKey("", address, keyName)
+	res := make([]*chainstypes.Key, 0, len(signers))
+	for _, signer := range signers {
+		key := chainstypes.NewKey("", signer.GetAddress(), signer.GetName())
 		res = append(res, key)
 	}
 
@@ -102,12 +107,12 @@ func (cp *EVMChainProvider) ListKeys() []*chainstypes.Key {
 
 // ShowKey shows key by the given name.
 func (cp *EVMChainProvider) ShowKey(keyName string) (string, error) {
-	address, ok := cp.Wallet.GetAddress(keyName)
+	signer, ok := cp.Wallet.GetSigner(keyName)
 	if !ok {
 		return "", fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
-	return address, nil
+	return signer.GetAddress(), nil
 }
 
 // generatePrivateKey generates private key from given mnemonic.

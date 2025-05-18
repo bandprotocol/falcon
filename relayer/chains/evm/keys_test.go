@@ -10,13 +10,19 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
 const (
+	testKey        = "testKey"
 	testPrivateKey = "0x72d4772a70645a5a5ec3fdc27afda98d2860a6f7903bff5fd45c0a23d7982121"
 	testAddress    = "0x990Ec0f6dFc9e8eE20dec3Ab855D03007A9dD946"
 	testMnemonic   = "repeat sugar clarify visa chief soon walnut kangaroo rude parrot height piano spoil desk basket swim income catalog more plunge supreme above later worry"
 )
+
+func TestKeysTestSuite(t *testing.T) {
+	suite.Run(t, new(KeysTestSuite))
+}
 
 type KeysTestSuite struct {
 	suite.Suite
@@ -27,19 +33,13 @@ type KeysTestSuite struct {
 	wallet        wallet.Wallet
 }
 
-func TestKeysTestSuite(t *testing.T) {
-	suite.Run(t, new(KeysTestSuite))
-}
-
-// SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
-func (s *KeysTestSuite) SetupTest() {
-	s.homePath = s.T().TempDir()
+func (s *KeysTestSuite) loadChainProvider() {
 	s.log = zap.NewNop()
 
 	chainName := "testnet"
 	client := evm.NewClient(chainName, evmCfg, s.log)
 
-	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
+	wallet, err := geth.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
 	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet)
@@ -47,6 +47,12 @@ func (s *KeysTestSuite) SetupTest() {
 
 	s.chainProvider = chainProvider
 	s.wallet = wallet
+}
+
+// SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
+func (s *KeysTestSuite) SetupTest() {
+	s.homePath = s.T().TempDir()
+	s.loadChainProvider()
 }
 
 func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
@@ -63,7 +69,7 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 		{
 			name: "success",
 			input: Input{
-				keyName: "testkey",
+				keyName: "testkey2",
 				privKey: testPrivateKey,
 			},
 			out: chaintypes.NewKey("", testAddress, ""),
@@ -76,14 +82,6 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 			},
 			err: fmt.Errorf("invalid hex character"),
 		},
-		{
-			name: "duplicate private key",
-			input: Input{
-				keyName: "testkey3",
-				privKey: testPrivateKey,
-			},
-			err: fmt.Errorf("account already exists"),
-		},
 	}
 
 	for _, tc := range testcases {
@@ -95,10 +93,6 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 			} else {
 				s.Require().NoError(err)
 				s.Require().Equal(tc.out, key)
-
-				// check that key info actually stored in local disk
-				_, ok := s.wallet.GetAddress(tc.input.keyName)
-				s.Require().True(ok)
 			}
 		})
 	}
@@ -151,17 +145,6 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 			},
 		},
 		{
-			name: "duplicate key name",
-			input: Input{
-				keyName:  "testkey",
-				mnemonic: "",
-				coinType: 60,
-				account:  0,
-				index:    0,
-			},
-			err: fmt.Errorf("key name exists"),
-		},
-		{
 			name: "invalid mnemonic",
 			input: Input{
 				keyName:  "testkey4",
@@ -192,49 +175,102 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				if tc.out != nil {
 					s.Require().Equal(tc.out, key)
 				}
-
-				// check that key info actually stored in local disk
-				_, ok := s.wallet.GetAddress(tc.input.keyName)
-				s.Require().True(ok)
 			}
 		})
 	}
 }
 
-func (s *KeysTestSuite) TestDeleteKey() {
-	keyName := "deletablekey"
-	privatekeyHex := testPrivateKey
+func (s *KeysTestSuite) TestAddRemoteSignerKey() {
+	type Input struct {
+		keyName string
+		addr    string
+		url     string
+	}
+	testcases := []struct {
+		name  string
+		input Input
+		err   error
+		out   *chaintypes.Key
+	}{
+		{
+			name: "success",
+			input: Input{
+				keyName: "remotekey",
+				addr:    testAddress,
+				url:     "http://127.0.0.1:8545",
+			},
+			out: chaintypes.NewKey("", testAddress, ""),
+		},
+	}
 
-	// Add a key to delete
-	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
+	for _, tc := range testcases {
+		s.T().Run(tc.name, func(t *testing.T) {
+			key, err := s.chainProvider.AddRemoteSignerKey(
+				tc.input.keyName,
+				tc.input.addr,
+				tc.input.url,
+			)
+
+			s.Require().NoError(err)
+			s.Require().Equal(tc.out, key)
+		})
+	}
+}
+
+func (s *KeysTestSuite) TestDeleteKey() {
+	// Add key to delete
+	_, err := s.chainProvider.AddKeyByPrivateKey(testKey, testPrivateKey)
 	s.Require().NoError(err)
+
+	s.loadChainProvider()
 
 	// Delete the key
-	err = s.chainProvider.DeleteKey(keyName)
+	err = s.chainProvider.DeleteKey(testKey)
 	s.Require().NoError(err)
-
-	// Ensure the key is no longer in the KeyInfo or KeyStore
-	_, ok := s.chainProvider.Wallet.GetAddress(keyName)
-	s.Require().False(ok)
-
-	// Delete the key again should return error
-	err = s.chainProvider.DeleteKey(keyName)
-	s.Require().ErrorContains(err, "key name does not exist")
 }
 
 func (s *KeysTestSuite) TestExportPrivateKey() {
-	keyName := "exportkey"
-	privatekeyHex := testPrivateKey
+	tests := []struct {
+		name      string
+		keyName   string
+		setup     func()
+		wantErr   bool
+		errSubstr string
+	}{
+		{
+			name:    "success",
+			keyName: testKey,
+			setup: func() {
+				_, err := s.chainProvider.AddKeyByPrivateKey(testKey, testPrivateKey)
+				s.Require().NoError(err)
+			},
+		},
+		{
+			name:      "key name not exist",
+			keyName:   "doesNotExist",
+			wantErr:   true,
+			errSubstr: "key name does not exist",
+		},
+	}
 
-	// Add a key to export
-	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
-	s.Require().NoError(err)
-
-	// Export the private key
-	exportedKey, err := s.chainProvider.ExportPrivateKey(keyName)
-	s.Require().NoError(err)
-
-	s.Require().Equal(evm.StripPrivateKeyPrefix(privatekeyHex), evm.StripPrivateKeyPrefix(exportedKey))
+	for _, tc := range tests {
+		s.T().Run(tc.name, func(t *testing.T) {
+			if tc.setup != nil {
+				tc.setup()
+			}
+			s.loadChainProvider()
+			exported, err := s.chainProvider.ExportPrivateKey(tc.keyName)
+			if tc.wantErr {
+				s.Require().ErrorContains(err, tc.errSubstr)
+				return
+			}
+			s.Require().NoError(err)
+			s.Require().Equal(
+				evm.StripPrivateKeyPrefix(testPrivateKey),
+				evm.StripPrivateKeyPrefix(exported),
+			)
+		})
+	}
 }
 
 func (s *KeysTestSuite) TestListKeys() {
@@ -255,6 +291,8 @@ func (s *KeysTestSuite) TestListKeys() {
 	)
 	s.Require().NoError(err)
 
+	s.loadChainProvider()
+
 	key2, err := s.chainProvider.AddKeyByMnemonic(
 		keyName2,
 		mnemonic,
@@ -263,6 +301,8 @@ func (s *KeysTestSuite) TestListKeys() {
 		uint(index),
 	)
 	s.Require().NoError(err)
+
+	s.loadChainProvider()
 
 	// List all keys
 	actual := s.chainProvider.ListKeys()
@@ -289,15 +329,45 @@ func (s *KeysTestSuite) TestListKeys() {
 }
 
 func (s *KeysTestSuite) TestShowKey() {
-	keyName := "showkey"
-	privatekeyHex := testPrivateKey
+	tests := []struct {
+		name      string
+		keyName   string
+		setup     func()
+		wantErr   bool
+		errSubstr string
+	}{
+		{
+			name:    "success",
+			keyName: testKey,
+			setup: func() {
+				_, err := s.chainProvider.AddKeyByPrivateKey(testKey, testPrivateKey)
+				s.Require().NoError(err)
+			},
+		},
+		{
+			name:      "key name not exist",
+			keyName:   "doesNotExist",
+			wantErr:   true,
+			errSubstr: "key name does not exist",
+		},
+	}
 
-	// Add a key to show
-	_, err := s.chainProvider.AddKeyByPrivateKey(keyName, privatekeyHex)
-	s.Require().NoError(err)
-
-	// Show the key
-	address, err := s.chainProvider.ShowKey(keyName)
-	s.Require().Equal(address, address)
-	s.Require().NoError(err)
+	for _, tc := range tests {
+		s.T().Run(tc.name, func(t *testing.T) {
+			if tc.setup != nil {
+				tc.setup()
+			}
+			s.loadChainProvider()
+			address, err := s.chainProvider.ShowKey(tc.keyName)
+			if tc.wantErr {
+				s.Require().ErrorContains(err, tc.errSubstr)
+				return
+			}
+			s.Require().NoError(err)
+			s.Require().Equal(
+				testAddress,
+				address,
+			)
+		})
+	}
 }

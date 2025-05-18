@@ -27,11 +27,19 @@ const (
 
 // AddKeyInput is the input for adding a key to the keychain.
 type AddKeyInput struct {
-	PrivateKey string
-	Mnemonic   string
-	CoinType   uint64
-	Account    uint64
-	Index      uint64
+	PrivateKey     string
+	Mnemonic       string
+	CoinType       uint64
+	Account        uint64
+	Index          uint64
+	IsRemoteSigner bool
+	RemoteSigner   RemoteSignerInput
+}
+
+// RemoteSignerInput is the input that holds the parameters needed to configure a remote signer.
+type RemoteSignerInput struct {
+	address string
+	url     string
 }
 
 // keysCmd represents the keys command
@@ -93,7 +101,22 @@ $ %s k a eth test-key`, appName, appName)),
 				return err
 			}
 
-			if input.PrivateKey == "" && input.Mnemonic == "" {
+			input.IsRemoteSigner, err = cmd.Flags().GetBool(flagRemoteSigner)
+			if err != nil {
+				return err
+			}
+
+			input.RemoteSigner.address, err = cmd.Flags().GetString(flagAddress)
+			if err != nil {
+				return err
+			}
+
+			input.RemoteSigner.url, err = cmd.Flags().GetString(flagUrl)
+			if err != nil {
+				return err
+			}
+
+			if input.PrivateKey == "" && input.Mnemonic == "" && !input.IsRemoteSigner {
 				input, err = showHuhPrompt()
 				if err != nil {
 					return err
@@ -101,7 +124,23 @@ $ %s k a eth test-key`, appName, appName)),
 			}
 
 			var key *chainstypes.Key
-			if input.PrivateKey != "" {
+			if input.IsRemoteSigner {
+				if input.RemoteSigner.address == "" {
+					return fmt.Errorf("remote signer address cannot be empty")
+				}
+				if input.RemoteSigner.url == "" {
+					return fmt.Errorf("remote signer URL cannot be empty")
+				}
+				key, err = app.AddRemoteSignerKey(
+					chainName,
+					keyName,
+					input.RemoteSigner.address,
+					input.RemoteSigner.url,
+				)
+				if err != nil {
+					return err
+				}
+			} else if input.PrivateKey != "" {
 				key, err = app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
 				if err != nil {
 					return err
@@ -135,6 +174,10 @@ $ %s k a eth test-key`, appName, appName)),
 	cmd.Flags().Uint64(flagWalletAccount, 0, "account number in the HD derivation path")
 	cmd.Flags().
 		Uint64(flagWalletIndex, 0, "index number for the specific address within an account in the HD derivation path")
+
+	cmd.Flags().Bool(flagRemoteSigner, false, "add a remote signer (requires --address and --url)")
+	cmd.Flags().String(flagAddress, "", "address of the remote signer key")
+	cmd.Flags().String(flagUrl, "", "URL endpoint of the kms service")
 
 	return cmd
 }

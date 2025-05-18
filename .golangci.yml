@@ -1,98 +1,121 @@
+# This configuration was migrated from the previous golangci-lint version
+# using `golangci-lint migrate` (version 2.1.6).
+version: "2"
+
 run:
-  timeout: 5m
-  go: "1.22.3"
+  go: 1.24.2
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
-    - whitespace
-    - errcheck
     - copyloopvar
-    - gci
+    - errcheck
     - gocritic
-    - gofumpt
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - misspell
     - nolintlint
     - revive
     - staticcheck
-    - stylecheck
     - unconvert
-    - typecheck
+    - whitespace
+  settings:
+    gocritic:
+      disabled-checks:
+        - regexpMust
+        - appendAssign
+        - ifElseChain
+    gosec:
+      # To select a subset of rules to run.
+      # Available rules: https://github.com/securego/gosec#available-rules
+      # Default: [] - means include all rules
+      includes:
+        - G102 # Bind to all interfaces
+        - G103 # Audit the use of unsafe block
+        - G104 # Audit errors not checked
+        - G106 # Audit the use of ssh.InsecureIgnoreHostKey
+        - G107 # Url provided to HTTP request as taint input
+        - G108 # Profiling endpoint automatically exposed on /debug/pprof
+        - G109 # Potential Integer overflow made by strconv.Atoi result conversion to int16/32
+        - G110 # Potential DoS vulnerability via decompression bomb
+        - G111 # Potential directory traversal
+        - G112 # Potential slowloris attack
+        - G113 # Usage of Rat.SetString in math/big with an overflow (CVE-2022-23772)
+        - G114 # Use of net/http serve function that has no support for setting timeouts
+        - G201 # SQL query construction using format string
+        - G202 # SQL query construction using string concatenation
+        - G203 # Use of unescaped data in HTML templates
+        - G204 # Audit use of command execution
+        - G301 # Poor file permissions used when creating a directory
+        - G302 # Poor file permissions used with chmod
+        - G303 # Creating tempfile using a predictable path
+        - G304 # File path provided as taint input
+        - G305 # File traversal when extracting zip/tar archive
+        - G306 # Poor file permissions used when writing to a new file
+        - G307 # Deferring a method which returns an error
+        - G401 # Detect the usage of DES, RC4, MD5 or SHA1
+        - G402 # Look for bad TLS connection settings
+        - G403 # Ensure minimum RSA key length of 2048 bits
+        - G404 # Insecure random number source (rand)
+        - G501 # Import blocklist: crypto/md5
+        - G502 # Import blocklist: crypto/des
+        - G503 # Import blocklist: crypto/rc4
+        - G504 # Import blocklist: net/http/cgi
+        - G505 # Import blocklist: crypto/sha1
+        - G601 # Implicit memory aliasing of items from a range statement
+    nolintlint:
+      require-explanation: false
+      require-specific: false
+      allow-unused: false
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
 
-issues:
-  exclude-files:
-    - ".*\\.pb\\.go$"
-    - ".*\\.pb\\.gw\\.\\.go$"
-    - ".*\\.pulsar\\.go$"
-  exclude-rules:
-    - text: "Use of weak random number generator"
-      linters:
-        - gosec
-    - text: "ST1003:"
-      linters:
-        - stylecheck
-
-linters-settings:
-  gci:
-    custom-order: true
-    sections:
-      - standard # Standard section: captures all standard packages.
-      - default # Default section: contains all imports that could not be matched to another section type.
-      - prefix(github.com/bandprotocol) # band org
-      - prefix(github.com/bandprotocol/falcon)
-  gocritic:
-    disabled-checks:
-      - regexpMust
-      - appendAssign
-      - ifElseChain
-  nolintlint:
-    allow-unused: false
-    require-explanation: false
-    require-specific: false
-  revive:
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: unused-parameter
-        disabled: true
-  gosec:
-    # To select a subset of rules to run.
-    # Available rules: https://github.com/securego/gosec#available-rules
-    # Default: [] - means include all rules
-    includes:
-      - G102 # Bind to all interfaces
-      - G103 # Audit the use of unsafe block
-      - G104 # Audit errors not checked
-      - G106 # Audit the use of ssh.InsecureIgnoreHostKey
-      - G107 # Url provided to HTTP request as taint input
-      - G108 # Profiling endpoint automatically exposed on /debug/pprof
-      - G109 # Potential Integer overflow made by strconv.Atoi result conversion to int16/32
-      - G110 # Potential DoS vulnerability via decompression bomb
-      - G111 # Potential directory traversal
-      - G112 # Potential slowloris attack
-      - G113 # Usage of Rat.SetString in math/big with an overflow (CVE-2022-23772)
-      - G114 # Use of net/http serve function that has no support for setting timeouts
-      - G201 # SQL query construction using format string
-      - G202 # SQL query construction using string concatenation
-      - G203 # Use of unescaped data in HTML templates
-      - G204 # Audit use of command execution
-      - G301 # Poor file permissions used when creating a directory
-      - G302 # Poor file permissions used with chmod
-      - G303 # Creating tempfile using a predictable path
-      - G304 # File path provided as taint input
-      - G305 # File traversal when extracting zip/tar archive
-      - G306 # Poor file permissions used when writing to a new file
-      - G307 # Deferring a method which returns an error
-      - G401 # Detect the usage of DES, RC4, MD5 or SHA1
-      - G402 # Look for bad TLS connection settings
-      - G403 # Ensure minimum RSA key length of 2048 bits
-      - G404 # Insecure random number source (rand)
-      - G501 # Import blocklist: crypto/md5
-      - G502 # Import blocklist: crypto/des
-      - G503 # Import blocklist: crypto/rc4
-      - G504 # Import blocklist: net/http/cgi
-      - G505 # Import blocklist: crypto/sha1
-      - G601 # Implicit memory aliasing of items from a range statement
+      - linters:
+          - gosec
+        text: Use of weak random number generator
+      - linters:
+          - staticcheck
+        text: 'ST1003:'
+    paths:
+      - '.*\.pb\.go$'
+      - '.*\.pb\.gw\.go$'
+      - '.*\.pulsar\.go$'
+      - '^third_party/'
+      - '^builtin/'
+      - '^examples/'
+
+formatters:
+  enable:
+    - gci
+    - gofumpt
+
+  settings:
+    gci:
+      sections:
+        - standard # Standard section: captures all standard packages.
+        - default  # Default section: contains all imports that could not be matched to another section type.
+        - prefix(github.com/bandprotocol) # band org
+        - prefix(github.com/bandprotocol/falcon)
+      custom-order: true
+
+  exclusions:
+    generated: lax
+    paths:
+      - '.*\.pb\.go$'
+      - '.*\.pb\.gw\.go$'
+      - '.*\.pulsar\.go$'
+      - '^third_party/'
+      - '^builtin/'
+      - '^examples/'

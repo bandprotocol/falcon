@@ -73,6 +73,21 @@ func (mr *MockChainProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyH
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByPrivateKey", reflect.TypeOf((*MockChainProvider)(nil).AddKeyByPrivateKey), keyName, privateKeyHex)
 }
 
+// AddRemoteSignerKey mocks base method.
+func (m *MockChainProvider) AddRemoteSignerKey(keyName, addr, url string) (*types0.Key, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url)
+	ret0, _ := ret[0].(*types0.Key)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddRemoteSignerKey indicates an expected call of AddRemoteSignerKey.
+func (mr *MockChainProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockChainProvider)(nil).AddRemoteSignerKey), keyName, addr, url)
+}
+
 // DeleteKey mocks base method.
 func (m *MockChainProvider) DeleteKey(keyName string) error {
 	m.ctrl.T.Helper()
@@ -144,18 +159,18 @@ func (mr *MockChainProviderMockRecorder) ListKeys() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockChainProvider)(nil).ListKeys))
 }
 
-// LoadFreeSenders mocks base method.
-func (m *MockChainProvider) LoadFreeSenders() error {
+// LoadSigners mocks base method.
+func (m *MockChainProvider) LoadSigners() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadFreeSenders")
+	ret := m.ctrl.Call(m, "LoadSigners")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// LoadFreeSenders indicates an expected call of LoadFreeSenders.
-func (mr *MockChainProviderMockRecorder) LoadFreeSenders() *gomock.Call {
+// LoadSigners indicates an expected call of LoadSigners.
+func (mr *MockChainProviderMockRecorder) LoadSigners() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockChainProvider)(nil).LoadFreeSenders))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadSigners", reflect.TypeOf((*MockChainProvider)(nil).LoadSigners))
 }
 
 // QueryBalance mocks base method.
@@ -271,6 +286,21 @@ func (mr *MockKeyProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyHex
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByPrivateKey", reflect.TypeOf((*MockKeyProvider)(nil).AddKeyByPrivateKey), keyName, privateKeyHex)
 }
 
+// AddRemoteSignerKey mocks base method.
+func (m *MockKeyProvider) AddRemoteSignerKey(keyName, addr, url string) (*types0.Key, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url)
+	ret0, _ := ret[0].(*types0.Key)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddRemoteSignerKey indicates an expected call of AddRemoteSignerKey.
+func (mr *MockKeyProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockKeyProvider)(nil).AddRemoteSignerKey), keyName, addr, url)
+}
+
 // DeleteKey mocks base method.
 func (m *MockKeyProvider) DeleteKey(keyName string) error {
 	m.ctrl.T.Helper()
@@ -314,18 +344,18 @@ func (mr *MockKeyProviderMockRecorder) ListKeys() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockKeyProvider)(nil).ListKeys))
 }
 
-// LoadFreeSenders mocks base method.
-func (m *MockKeyProvider) LoadFreeSenders() error {
+// LoadSigners mocks base method.
+func (m *MockKeyProvider) LoadSigners() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadFreeSenders")
+	ret := m.ctrl.Call(m, "LoadSigners")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// LoadFreeSenders indicates an expected call of LoadFreeSenders.
-func (mr *MockKeyProviderMockRecorder) LoadFreeSenders() *gomock.Call {
+// LoadSigners indicates an expected call of LoadSigners.
+func (mr *MockKeyProviderMockRecorder) LoadSigners() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadFreeSenders", reflect.TypeOf((*MockKeyProvider)(nil).LoadFreeSenders))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadSigners", reflect.TypeOf((*MockKeyProvider)(nil).LoadSigners))
 }
 
 // ShowKey mocks base method.

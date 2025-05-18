@@ -8,4 +8,4 @@ $mockgen_cmd -source=relayer/chains/evm/client.go -mock_names Client=MockEVMClie
 $mockgen_cmd -source=relayer/band/client.go -package mocks -destination internal/relayertest/mocks/band_client.go
 $mockgen_cmd -source=relayer/wallet/wallet.go -package mocks -destination internal/relayertest/mocks/wallet.go
 $mockgen_cmd -source=relayer/store/store.go -package mocks -destination internal/relayertest/mocks/store.go
-
+$mockgen_cmd -source=proto/kms/signer_grpc.pb.go -package mocks -destination internal/relayertest/mocks/signer_grpc.go

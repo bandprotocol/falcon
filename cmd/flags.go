@@ -8,5 +8,8 @@ const (
 	flagCoinType          = "coin-type"
 	flagWalletAccount     = "account"
 	flagWalletIndex       = "index"
+	flagRemoteSigner      = "remote"
+	flagAddress           = "addr"
+	flagUrl               = "url"
 	flagMetricsListenAddr = "metrics-listen-addr"
 )
