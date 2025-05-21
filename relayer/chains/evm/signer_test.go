@@ -95,7 +95,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 
 	count := len(chainProvider.Wallet.GetSigners())
 	s.Require().
-		Equal(count, len(chainProvider.Signer))
+		Equal(count, len(chainProvider.FreeSigners))
 
 	expectedSenders := map[string]string{
 		keyName1: address1,
@@ -104,7 +104,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 
 	// Check all signers in the channel
 	for i := 0; i < count; i++ {
-		sender := <-chainProvider.Signer
+		sender := <-chainProvider.FreeSigners
 		s.Require().NotNil(sender)
 
 		name := sender.GetName()

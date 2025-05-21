@@ -266,10 +266,6 @@ func (a *App) AddRemoteSignerKey(
 	addr string,
 	url string,
 ) (*chainstypes.Key, error) {
-	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
-		return nil, err
-	}
-
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err

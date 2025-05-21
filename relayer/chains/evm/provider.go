@@ -32,7 +32,7 @@ type EVMChainProvider struct {
 	Client  Client
 	GasType GasType
 
-	Signer chan wallet.Signer
+	FreeSigners chan wallet.Signer
 
 	TunnelRouterAddress gethcommon.Address
 	TunnelRouterABI     abi.ABI
@@ -137,15 +137,15 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
-	// get a free sender
-	cp.Log.Debug("Waiting for a free sender...")
-	freeSigner := <-cp.Signer
-	defer func() { cp.Signer <- freeSigner }()
+	// get a free signer
+	cp.Log.Debug("Waiting for a free signer...")
+	freeSigner := <-cp.FreeSigners
+	defer func() { cp.FreeSigners <- freeSigner }()
 
 	log := cp.Log.With(
 		zap.Uint64("tunnel_id", packet.TunnelID),
 		zap.Uint64("sequence", packet.Sequence),
-		zap.String("sender_address", freeSigner.GetAddress()),
+		zap.String("signer_address", freeSigner.GetAddress()),
 	)
 
 	// get gas information
@@ -452,14 +452,14 @@ func (cp *EVMChainProvider) NewRelayTx(
 	signer wallet.Signer,
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
-	gethAddr := gethcommon.HexToAddress(signer.GetAddress())
-	nonce, err := cp.Client.PendingNonceAt(ctx, gethAddr)
+	addr := gethcommon.HexToAddress(signer.GetAddress())
+	nonce, err := cp.Client.PendingNonceAt(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
 
 	callMsg := ethereum.CallMsg{
-		From:      gethAddr,
+		From:      addr,
 		To:        &cp.TunnelRouterAddress,
 		Data:      data,
 		GasPrice:  gasInfo.GasPrice,
@@ -535,7 +535,7 @@ func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, er
 	)
 }
 
-// signTx signs the transaction with the sender.
+// signTx signs the transaction with the signer.
 func (cp *EVMChainProvider) signTx(
 	tx *gethtypes.Transaction,
 	signer wallet.Signer,

@@ -249,7 +249,7 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 			name:      "key name not exist",
 			keyName:   "doesNotExist",
 			wantErr:   true,
-			errSubstr: "key name does not exist",
+			errSubstr: "key name not exist",
 		},
 	}
 

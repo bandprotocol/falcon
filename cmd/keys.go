@@ -27,19 +27,18 @@ const (
 
 // AddKeyInput is the input for adding a key to the keychain.
 type AddKeyInput struct {
-	PrivateKey     string
-	Mnemonic       string
-	CoinType       uint64
-	Account        uint64
-	Index          uint64
-	IsRemoteSigner bool
-	RemoteSigner   RemoteSignerInput
+	PrivateKey   string
+	Mnemonic     string
+	CoinType     uint64
+	Account      uint64
+	Index        uint64
+	RemoteSigner RemoteSignerInput
 }
 
 // RemoteSignerInput is the input that holds the parameters needed to configure a remote signer.
 type RemoteSignerInput struct {
-	address string
-	url     string
+	Address string
+	Url     string
 }
 
 // keysCmd represents the keys command
@@ -101,22 +100,23 @@ $ %s k a eth test-key`, appName, appName)),
 				return err
 			}
 
-			input.IsRemoteSigner, err = cmd.Flags().GetBool(flagRemoteSigner)
+			input.RemoteSigner.Address, err = cmd.Flags().GetString(flagRemoteAddress)
 			if err != nil {
 				return err
 			}
 
-			input.RemoteSigner.address, err = cmd.Flags().GetString(flagAddress)
+			input.RemoteSigner.Url, err = cmd.Flags().GetString(flagRemoteUrl)
 			if err != nil {
 				return err
 			}
 
-			input.RemoteSigner.url, err = cmd.Flags().GetString(flagUrl)
-			if err != nil {
+			if err := validateAddKeyInput(input); err != nil {
 				return err
 			}
 
-			if input.PrivateKey == "" && input.Mnemonic == "" && !input.IsRemoteSigner {
+			// if no private key, mnemonic, or remote signer info is provided, prompt interactively
+			if input.PrivateKey == "" && input.Mnemonic == "" && input.RemoteSigner.Address == "" &&
+				input.RemoteSigner.Url == "" {
 				input, err = showHuhPrompt()
 				if err != nil {
 					return err
@@ -124,34 +124,28 @@ $ %s k a eth test-key`, appName, appName)),
 			}
 
 			var key *chainstypes.Key
-			if input.IsRemoteSigner {
-				if input.RemoteSigner.address == "" {
-					return fmt.Errorf("remote signer address cannot be empty")
-				}
-				if input.RemoteSigner.url == "" {
-					return fmt.Errorf("remote signer URL cannot be empty")
-				}
-				key, err = app.AddRemoteSignerKey(
-					chainName,
-					keyName,
-					input.RemoteSigner.address,
-					input.RemoteSigner.url,
-				)
-				if err != nil {
-					return err
-				}
-			} else if input.PrivateKey != "" {
+			if input.PrivateKey != "" {
 				key, err = app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
 				if err != nil {
 					return err
 				}
-			} else {
+			} else if input.Mnemonic != "" {
 				key, err = app.AddKeyByMnemonic(
 					chainName, keyName,
 					input.Mnemonic,
 					uint32(input.CoinType),
 					uint(input.Account),
 					uint(input.Index),
+				)
+				if err != nil {
+					return err
+				}
+			} else {
+				key, err = app.AddRemoteSignerKey(
+					chainName,
+					keyName,
+					input.RemoteSigner.Address,
+					input.RemoteSigner.Url,
 				)
 				if err != nil {
 					return err
@@ -175,9 +169,8 @@ $ %s k a eth test-key`, appName, appName)),
 	cmd.Flags().
 		Uint64(flagWalletIndex, 0, "index number for the specific address within an account in the HD derivation path")
 
-	cmd.Flags().Bool(flagRemoteSigner, false, "add a remote signer (requires --address and --url)")
-	cmd.Flags().String(flagAddress, "", "address of the remote signer key")
-	cmd.Flags().String(flagUrl, "", "URL endpoint of the kms service")
+	cmd.Flags().String(flagRemoteAddress, "", "address of the remote signer key")
+	cmd.Flags().String(flagRemoteUrl, "", "URL endpoint of the kms service")
 
 	return cmd
 }
@@ -285,6 +278,26 @@ $ %s k s eth test-key`, appName, appName)),
 	}
 
 	return cmd
+}
+
+// validateAddKeyInput checks that the AddKeyInput is valid.
+func validateAddKeyInput(input *AddKeyInput) error {
+	// validate remote signer address and URL if either is provided
+	if input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "" {
+		if input.RemoteSigner.Address == "" {
+			return fmt.Errorf("remote signer address cannot be empty")
+		}
+		if input.RemoteSigner.Url == "" {
+			return fmt.Errorf("remote signer URL cannot be empty")
+		}
+	}
+
+	// ensure the user does not specify both a private key and a mnemonic
+	if input.PrivateKey != "" && input.Mnemonic != "" {
+		return fmt.Errorf("cannot specify both a private key and a mnemonic; please choose one")
+	}
+
+	return nil
 }
 
 // showHuhPrompt shows a prompt to the user to input a private key, mnemonic for generating or

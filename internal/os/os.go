@@ -53,16 +53,16 @@ func ListFilePaths(dirPath string) ([]string, error) {
 
 	var filePaths []string
 
-	files, err := os.ReadDir(dirPath)
+	paths, err := os.ReadDir(dirPath)
 	if err != nil {
-		return nil, err
+		return []string{}, err
 	}
 
-	for _, f := range files {
-		if f.IsDir() {
-			return nil, fmt.Errorf("folder exists")
+	for _, p := range paths {
+		if p.IsDir() {
+			return []string{}, fmt.Errorf("folder exists")
 		}
-		filePaths = append(filePaths, path.Join(dirPath, f.Name()))
+		filePaths = append(filePaths, path.Join(dirPath, p.Name()))
 	}
 	return filePaths, nil
 }

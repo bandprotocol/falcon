@@ -7,12 +7,12 @@ import (
 // LoadSigners initializes the Signer channel with all configured wallet signers.
 func (cp *EVMChainProvider) LoadSigners() error {
 	signers := cp.Wallet.GetSigners()
-	signerChannels := make(chan wallet.Signer, len(signers))
+	signerChannel := make(chan wallet.Signer, len(signers))
 
 	for _, signer := range signers {
-		signerChannels <- signer
+		signerChannel <- signer
 	}
 
-	cp.Signer = signerChannels
+	cp.FreeSigners = signerChannel
 	return nil
 }

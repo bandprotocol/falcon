@@ -68,8 +68,8 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	s.Require().NoError(err)
 	s.mockSignerAddress = gethAddr
 
-	s.chainProvider.Signer = make(chan wallet.Signer, 1)
-	s.chainProvider.Signer <- s.mockSigner
+	s.chainProvider.FreeSigners = make(chan wallet.Signer, 1)
+	s.chainProvider.FreeSigners <- s.mockSigner
 
 	s.relayingPacket = mockPacket()
 	s.relayingCalldata, err = s.chainProvider.CreateCalldata(&s.relayingPacket)

@@ -86,7 +86,7 @@ func (cp *EVMChainProvider) DeleteKey(keyName string) error {
 func (cp *EVMChainProvider) ExportPrivateKey(keyName string) (string, error) {
 	signer, ok := cp.Wallet.GetSigner(keyName)
 	if !ok {
-		return "", fmt.Errorf("key name does not exist: %s", keyName)
+		return "", fmt.Errorf("key name not exist: %s", keyName)
 	}
 
 	return signer.ExportPrivateKey()
