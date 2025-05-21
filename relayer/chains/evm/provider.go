@@ -546,6 +546,8 @@ func (cp *EVMChainProvider) signTx(
 		gethSigner gethtypes.Signer
 	)
 
+	chainID := big.NewInt(int64(cp.Config.ChainID))
+
 	switch cp.GasType {
 	case GasTypeLegacy:
 		rlpEncoded, err = rlp.EncodeToBytes(
@@ -556,18 +558,18 @@ func (cp *EVMChainProvider) signTx(
 				tx.To(),
 				tx.Value(),
 				tx.Data(),
-				tx.ChainId(), uint(0), uint(0),
+				chainID, uint(0), uint(0),
 			},
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		gethSigner = gethtypes.NewEIP155Signer(big.NewInt(int64(cp.Config.ChainID)))
+		gethSigner = gethtypes.NewEIP155Signer(chainID)
 	case GasTypeEIP1559:
 		rlpEncoded, err = rlp.EncodeToBytes(
 			[]interface{}{
-				tx.ChainId(),
+				chainID,
 				tx.Nonce(),
 				tx.GasTipCap(),
 				tx.GasFeeCap(),
@@ -583,7 +585,7 @@ func (cp *EVMChainProvider) signTx(
 		}
 
 		rlpEncoded = append([]byte{tx.Type()}, rlpEncoded...)
-		gethSigner = gethtypes.NewLondonSigner(big.NewInt(int64(cp.Config.ChainID)))
+		gethSigner = gethtypes.NewLondonSigner(chainID)
 
 	default:
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
