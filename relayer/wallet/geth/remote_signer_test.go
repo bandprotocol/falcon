@@ -8,7 +8,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
-	kms "github.com/bandprotocol/falcon/proto/kms"
+	"github.com/bandprotocol/falcon/proto/kms"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 

@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	kms "github.com/bandprotocol/falcon/proto/kms"
+	"github.com/bandprotocol/falcon/proto/kms"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 

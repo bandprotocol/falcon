@@ -34,7 +34,7 @@ func getEVMKeyStoreDir(homePath, chainName string) []string {
 	return []string{homePath, "keys", chainName, "priv"}
 }
 
-// getEVMKeyNameInfoDir returns the signer record directory
+// getEVMSignerRecordDir returns the signer record directory
 func getEVMSignerRecordDir(homePath, chainName string) []string {
 	return []string{homePath, "keys", chainName, "signer"}
 }

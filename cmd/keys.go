@@ -282,19 +282,32 @@ $ %s k s eth test-key`, appName, appName)),
 
 // validateAddKeyInput checks that the AddKeyInput is valid.
 func validateAddKeyInput(input *AddKeyInput) error {
-	// validate remote signer address and URL if either is provided
+	// if a private key is provided, no other input should be present
+	if input.PrivateKey != "" &&
+		(input.Mnemonic != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "") {
+		return fmt.Errorf("")
+	}
+
+	// if a mnemonic is provided, no other input should be present
+	if input.Mnemonic != "" &&
+		(input.PrivateKey != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "") {
+		return fmt.Errorf("")
+	}
+
+	// if any remote-signer field is provided, it must be the only input
 	if input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "" {
+		// remote signer may not be combined with private key or mnemonic
+		if input.PrivateKey != "" || input.Mnemonic != "" {
+			return fmt.Errorf("")
+		}
+
+		// both address and URL cannot be empty
 		if input.RemoteSigner.Address == "" {
 			return fmt.Errorf("remote signer address cannot be empty")
 		}
 		if input.RemoteSigner.Url == "" {
 			return fmt.Errorf("remote signer URL cannot be empty")
 		}
-	}
-
-	// ensure the user does not specify both a private key and a mnemonic
-	if input.PrivateKey != "" && input.Mnemonic != "" {
-		return fmt.Errorf("cannot specify both a private key and a mnemonic; please choose one")
 	}
 
 	return nil
