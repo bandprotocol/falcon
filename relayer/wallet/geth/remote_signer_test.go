@@ -1,6 +1,7 @@
 package geth_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -70,7 +71,7 @@ func (s *RemoteSignerTestSuite) TestSign() {
 		EXPECT().
 		SignEvm(
 			gomock.Any(),
-			&kmsv1.SignEvmRequest{Address: common.HexToAddress(address).Hex(), Message: payload},
+			&kmsv1.SignEvmRequest{Address: strings.ToLower(address), Message: payload},
 		).
 		Return(&kmsv1.SignEvmResponse{Signature: expected}, nil)
 
