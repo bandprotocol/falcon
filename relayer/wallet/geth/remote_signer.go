@@ -3,6 +3,7 @@ package geth
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
@@ -54,10 +55,9 @@ func (r *RemoteSigner) GetAddress() (addr string) {
 
 // Sign requests the remote KMS to sign the data and returns the signature.
 func (r *RemoteSigner) Sign(data []byte) ([]byte, error) {
-	fmt.Println(r.Address.Hex())
 	res, err := r.KmsClient.SignEvm(
 		context.Background(),
-		&kmsv1.SignEvmRequest{Address: r.Address.Hex(), Message: data},
+		&kmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},
 	)
 	if err != nil {
 		return []byte{}, err
@@ -65,6 +65,3 @@ func (r *RemoteSigner) Sign(data []byte) ([]byte, error) {
 
 	return res.Signature, nil
 }
-
-// 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-// 0x56377c0b855c204ae32ed48dffddc1e059076f04

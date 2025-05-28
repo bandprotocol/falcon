@@ -45,10 +45,10 @@ func ReadFileIfExist(path string) ([]byte, error) {
 func ListFilePaths(dirPath string) ([]string, error) {
 	exist, err := IsPathExist(dirPath)
 	if err != nil {
-		return nil, err
+		return []string{}, err
 	}
 	if !exist {
-		return nil, nil
+		return []string{}, nil
 	}
 
 	var filePaths []string
