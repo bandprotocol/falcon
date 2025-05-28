@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.29.3
-// source: proto/kms/signer.proto
+// source: proto/kms/v1/signer.proto
 
-package kms
+package kmsv1
 
 import (
 	context "context"
@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KmsEvmService_SignEvm_FullMethodName = "/kms.KmsEvmService/SignEvm"
+	KmsEvmService_SignEvm_FullMethodName            = "/kms.v1.KmsEvmService/SignEvm"
+	KmsEvmService_GetSignerAddresses_FullMethodName = "/kms.v1.KmsEvmService/GetSignerAddresses"
 )
 
 // KmsEvmServiceClient is the client API for KmsEvmService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type KmsEvmServiceClient interface {
 	SignEvm(ctx context.Context, in *SignEvmRequest, opts ...grpc.CallOption) (*SignEvmResponse, error)
+	GetSignerAddresses(ctx context.Context, in *GetSignerAddressesRequest, opts ...grpc.CallOption) (*GetSignerAddressesResponse, error)
 }
 
 type kmsEvmServiceClient struct {
@@ -47,11 +49,22 @@ func (c *kmsEvmServiceClient) SignEvm(ctx context.Context, in *SignEvmRequest, o
 	return out, nil
 }
 
+func (c *kmsEvmServiceClient) GetSignerAddresses(ctx context.Context, in *GetSignerAddressesRequest, opts ...grpc.CallOption) (*GetSignerAddressesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSignerAddressesResponse)
+	err := c.cc.Invoke(ctx, KmsEvmService_GetSignerAddresses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KmsEvmServiceServer is the server API for KmsEvmService service.
 // All implementations must embed UnimplementedKmsEvmServiceServer
 // for forward compatibility.
 type KmsEvmServiceServer interface {
 	SignEvm(context.Context, *SignEvmRequest) (*SignEvmResponse, error)
+	GetSignerAddresses(context.Context, *GetSignerAddressesRequest) (*GetSignerAddressesResponse, error)
 	mustEmbedUnimplementedKmsEvmServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedKmsEvmServiceServer struct{}
 
 func (UnimplementedKmsEvmServiceServer) SignEvm(context.Context, *SignEvmRequest) (*SignEvmResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SignEvm not implemented")
+}
+func (UnimplementedKmsEvmServiceServer) GetSignerAddresses(context.Context, *GetSignerAddressesRequest) (*GetSignerAddressesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSignerAddresses not implemented")
 }
 func (UnimplementedKmsEvmServiceServer) mustEmbedUnimplementedKmsEvmServiceServer() {}
 func (UnimplementedKmsEvmServiceServer) testEmbeddedByValue()                       {}
@@ -104,18 +120,40 @@ func _KmsEvmService_SignEvm_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KmsEvmService_GetSignerAddresses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSignerAddressesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KmsEvmServiceServer).GetSignerAddresses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KmsEvmService_GetSignerAddresses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KmsEvmServiceServer).GetSignerAddresses(ctx, req.(*GetSignerAddressesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KmsEvmService_ServiceDesc is the grpc.ServiceDesc for KmsEvmService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var KmsEvmService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "kms.KmsEvmService",
+	ServiceName: "kms.v1.KmsEvmService",
 	HandlerType: (*KmsEvmServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "SignEvm",
 			Handler:    _KmsEvmService_SignEvm_Handler,
 		},
+		{
+			MethodName: "GetSignerAddresses",
+			Handler:    _KmsEvmService_GetSignerAddresses_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/kms/signer.proto",
+	Metadata: "proto/kms/v1/signer.proto",
 }

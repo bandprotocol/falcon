@@ -8,7 +8,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
-	"github.com/bandprotocol/falcon/proto/kms"
+	kmsv1 "github.com/bandprotocol/falcon/proto/kms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -70,9 +70,9 @@ func (s *RemoteSignerTestSuite) TestSign() {
 		EXPECT().
 		SignEvm(
 			gomock.Any(),
-			&kms.SignEvmRequest{Addr: common.HexToAddress(address).Hex(), Message: payload},
+			&kmsv1.SignEvmRequest{Address: common.HexToAddress(address).Hex(), Message: payload},
 		).
-		Return(&kms.SignEvmResponse{Signature: expected}, nil)
+		Return(&kmsv1.SignEvmResponse{Signature: expected}, nil)
 
 	sig, err := s.rs.Sign(payload)
 	s.Require().NoError(err)

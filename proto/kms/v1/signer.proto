@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package kms.v1;
+
+option go_package = "github.com/bandprotocol/falcon/proto/kms/v1;kmsv1";
+
+service KmsEvmService {
+  rpc SignEvm(SignEvmRequest) returns (SignEvmResponse);
+  rpc GetSignerAddresses(GetSignerAddressesRequest) returns (GetSignerAddressesResponse);
+}
+
+message SignEvmRequest {
+    string address = 1;
+    bytes message = 2;
+}
+
+message SignEvmResponse {
+    bytes signature = 1;
+}
+
+message GetSignerAddressesRequest {}
+
+message GetSignerAddressesResponse {
+  repeated string addresses = 1;
+}
