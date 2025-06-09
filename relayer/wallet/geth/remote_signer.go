@@ -38,7 +38,7 @@ func NewRemoteSigner(name string, address common.Address, url string) (*RemoteSi
 	}, nil
 }
 
-// ExportPrivateKey always returns an error for remote signerห.
+// ExportPrivateKey always returns an error for remote signer.
 func (r *RemoteSigner) ExportPrivateKey() (string, error) {
 	return "", fmt.Errorf("cannot extract private key from remote signer")
 }
