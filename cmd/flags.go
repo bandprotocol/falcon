@@ -11,4 +11,6 @@ const (
 	flagRemoteAddress     = "remote-address"
 	flagRemoteUrl         = "remote-url"
 	flagMetricsListenAddr = "metrics-listen-addr"
+	flagTunnelCreator     = "tunnel-creator"
+	flagTunnelIds         = "tunnel-ids"
 )

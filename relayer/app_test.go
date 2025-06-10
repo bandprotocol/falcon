@@ -313,8 +313,22 @@ func (s *AppTestSuite) TestGetChainConfig() {
 }
 
 func (s *AppTestSuite) TestQueryTunnelInfo() {
-	mockTunnelBandInfo := bandtypes.NewTunnel(1, 1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "testnet_evm", false)
-	mockTunnelBandInfoNoChain := bandtypes.NewTunnel(1, 1, "0xmock", "unknown_chain", false)
+	mockTunnelBandInfo := bandtypes.NewTunnel(
+		1,
+		1,
+		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+		"testnet_evm",
+		false,
+		"0xc0ffee254729296a45a3885639AC7E10F9d54979",
+	)
+	mockTunnelBandInfoNoChain := bandtypes.NewTunnel(
+		1,
+		1,
+		"0xmock",
+		"unknown_chain",
+		false,
+		"0xc0ffee254729296a45a3885639AC7E10F9d54979",
+	)
 	mockTunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false)
 
 	testcases := []struct {

@@ -131,7 +131,14 @@ func (s *ClientTestSuite) TestGetTunnel() {
 		{
 			name: "success",
 			in:   1,
-			out:  bandclienttypes.NewTunnel(1, 100, "0xe00F1f85abDB2aF6760759547d450da68CE66Bb1", "eth", false),
+			out: bandclienttypes.NewTunnel(
+				1,
+				100,
+				"0xe00F1f85abDB2aF6760759547d450da68CE66Bb1",
+				"eth",
+				false,
+				"cosmos1abc...",
+			),
 			preprocess: func(c context.Context) {
 				s.bandQueryClient.EXPECT().Tunnel(s.ctx, &tunneltypes.QueryTunnelRequest{
 					TunnelId: uint64(1),
@@ -315,6 +322,7 @@ func (s *ClientTestSuite) TestGetTunnels() {
 			tssRoute.DestinationContractAddress,
 			tssRoute.DestinationChainID,
 			tunnel.IsActive,
+			tunnel.Creator,
 		))
 	}
 
