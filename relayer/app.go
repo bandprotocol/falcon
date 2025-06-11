@@ -333,33 +333,8 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 	return cp.QueryBalance(ctx, keyName)
 }
 
-// StartWithTunnelCreator starts the tunnel relayer program for tunnels created by the specified creator.
-func (a *App) StartWithTunnelCreator(ctx context.Context, tunnelCreator string) error {
-	if a.Config == nil {
-		return fmt.Errorf("config is not initialized")
-	}
-
-	tunnels, err := a.BandClient.GetTunnels(ctx)
-	if err != nil {
-		return err
-	}
-
-	var filteredTunnelIDs []uint64
-	for _, tunnel := range tunnels {
-		if tunnel.Creator == tunnelCreator {
-			filteredTunnelIDs = append(filteredTunnelIDs, tunnel.ID)
-		}
-	}
-
-	if len(filteredTunnelIDs) == 0 {
-		return fmt.Errorf("there is no tunnel that has creator named: %s", tunnelCreator)
-	}
-
-	return a.Start(ctx, filteredTunnelIDs)
-}
-
 // Start starts the tunnel relayer program.
-func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
+func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase
@@ -396,7 +371,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.TargetChains,
 	)
 
-	return scheduler.Start(ctx, tunnelIDs)
+	return scheduler.Start(ctx, tunnelIDs, tunnelCreator)
 }
 
 // Relay relays the packet from the source chain to the destination chain.
