@@ -53,7 +53,9 @@ $ %s start --tunnel-creator 0xABC123   # start relaying data from tunnels create
 			}
 
 			if tunnelCreator != "" && len(tunnelIDs) != 0 {
-				return fmt.Errorf("cannot use both --tunnel-creator and --tunnel-ids flags at the same time")
+				return fmt.Errorf(
+					"The --tunnel-creator and --tunnel-ids flags cannot be used together. Please specify only one of these options at a time.",
+				)
 			}
 
 			return app.Start(cmd.Context(), tunnelIDs, tunnelCreator)
