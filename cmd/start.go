@@ -54,7 +54,7 @@ $ %s start --tunnel-creator 0xABC123   # start relaying data from tunnels create
 
 			if tunnelCreator != "" && len(tunnelIDs) != 0 {
 				return fmt.Errorf(
-					"The --tunnel-creator and --tunnel-ids flags cannot be used together. Please specify only one of these options at a time.",
+					"the --tunnel-creator and --tunnel-ids flags cannot be used together, please specify only one of these options at a time",
 				)
 			}
 
