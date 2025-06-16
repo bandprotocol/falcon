@@ -16,7 +16,7 @@ func startCmd(app *relayer.App) *cobra.Command {
 		Use:     "start",
 		Aliases: []string{"st"},
 		Short:   "Start the falcon tunnel relayer program",
-		Args:    withUsage(cobra.MinimumNArgs(0)),
+		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s start                             # start relaying data from every tunnel being registered on source chain.
 $ %s start --tunnel-ids 1,12           # start relaying data from specific tunnelIDs.
