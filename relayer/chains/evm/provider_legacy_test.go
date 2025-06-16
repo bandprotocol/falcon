@@ -87,7 +87,7 @@ func (s *LegacyProviderTestSuite) MockDefaultResponses() {
 	mockCtx := gomock.Any()
 	s.client.EXPECT().CheckAndConnect(mockCtx).Return(nil).AnyTimes()
 	s.client.EXPECT().EstimateGasPrice(mockCtx).Return(s.gasInfo.GasPrice, nil).AnyTimes()
-	s.client.EXPECT().PendingNonceAt(mockCtx, s.mockSignerAddress).Return(uint64(100), nil).AnyTimes()
+	s.client.EXPECT().NonceAt(mockCtx, s.mockSignerAddress).Return(uint64(100), nil).AnyTimes()
 	s.client.EXPECT().
 		Query(mockCtx, s.chainProvider.TunnelRouterAddress, gasInfoCalldata).
 		Return(gasInfoResponse, nil).
@@ -230,7 +230,7 @@ func (s *LegacyProviderTestSuite) TestNewRelayTx() {
 	}
 
 	s.client.EXPECT().EstimateGas(gomock.Any(), callMsg).Return(uint64(100), nil)
-	s.client.EXPECT().PendingNonceAt(gomock.Any(), s.mockSignerAddress).Return(uint64(1), nil)
+	s.client.EXPECT().NonceAt(gomock.Any(), s.mockSignerAddress).Return(uint64(1), nil)
 
 	actual, err := s.chainProvider.NewRelayTx(context.Background(), data, s.mockSigner, s.gasInfo)
 	s.Require().NoError(err)
