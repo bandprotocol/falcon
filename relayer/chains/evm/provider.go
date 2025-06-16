@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 
@@ -31,7 +32,7 @@ type EVMChainProvider struct {
 	Client  Client
 	GasType GasType
 
-	FreeSenders chan *Sender
+	FreeSigners chan wallet.Signer
 
 	TunnelRouterAddress gethcommon.Address
 	TunnelRouterABI     abi.ABI
@@ -136,15 +137,15 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
-	// get a free sender
-	cp.Log.Debug("Waiting for a free sender...")
-	sender := <-cp.FreeSenders
-	defer func() { cp.FreeSenders <- sender }()
+	// get a free signer
+	cp.Log.Debug("Waiting for a free signer...")
+	freeSigner := <-cp.FreeSigners
+	defer func() { cp.FreeSigners <- freeSigner }()
 
 	log := cp.Log.With(
 		zap.Uint64("tunnel_id", packet.TunnelID),
 		zap.Uint64("sequence", packet.Sequence),
-		zap.String("sender_address", sender.Address.String()),
+		zap.String("signer_address", freeSigner.GetAddress()),
 	)
 
 	// get gas information
@@ -159,7 +160,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		log.Info("Relaying a message", zap.Int("retry_count", retryCount))
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
-		signedTx, err := cp.createAndSignRelayTx(ctx, packet, sender, gasInfo)
+		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
 		if err != nil {
 			log.Error("CreateAndSignTx error", zap.Error(err), zap.Int("retry_count", retryCount))
 			retryCount += 1
@@ -286,7 +287,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 func (cp *EVMChainProvider) createAndSignRelayTx(
 	ctx context.Context,
 	packet *bandtypes.Packet,
-	sender *Sender,
+	signer wallet.Signer,
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
 	calldata, err := cp.CreateCalldata(packet)
@@ -294,12 +295,12 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 		return nil, fmt.Errorf("failed to create calldata: %w", err)
 	}
 
-	tx, err := cp.NewRelayTx(ctx, calldata, sender.Address, gasInfo)
+	tx, err := cp.NewRelayTx(ctx, calldata, signer, gasInfo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
 
-	signedTx, err := cp.signTx(tx, sender)
+	signedTx, err := cp.signTx(tx, signer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign an evm transaction: %w", err)
 	}
@@ -448,16 +449,17 @@ func (cp *EVMChainProvider) queryTunnelInfo(
 func (cp *EVMChainProvider) NewRelayTx(
 	ctx context.Context,
 	data []byte,
-	sender gethcommon.Address,
+	signer wallet.Signer,
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
-	nonce, err := cp.Client.PendingNonceAt(ctx, sender)
+	addr := gethcommon.HexToAddress(signer.GetAddress())
+	nonce, err := cp.Client.PendingNonceAt(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
 
 	callMsg := ethereum.CallMsg{
-		From:      sender,
+		From:      addr,
 		To:        &cp.TunnelRouterAddress,
 		Data:      data,
 		GasPrice:  gasInfo.GasPrice,
@@ -533,28 +535,68 @@ func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, er
 	)
 }
 
-// signTx signs the transaction with the sender.
+// signTx signs the transaction with the signer.
 func (cp *EVMChainProvider) signTx(
 	tx *gethtypes.Transaction,
-	sender *Sender,
+	signer wallet.Signer,
 ) (*gethtypes.Transaction, error) {
-	var signer gethtypes.Signer
+	var (
+		rlpEncoded []byte
+		err        error
+		gethSigner gethtypes.Signer
+	)
+
+	chainID := big.NewInt(int64(cp.Config.ChainID))
+
 	switch cp.GasType {
 	case GasTypeLegacy:
-		signer = gethtypes.NewEIP155Signer(big.NewInt(int64(cp.Config.ChainID)))
+		rlpEncoded, err = rlp.EncodeToBytes(
+			[]interface{}{
+				tx.Nonce(),
+				tx.GasPrice(),
+				tx.Gas(),
+				tx.To(),
+				tx.Value(),
+				tx.Data(),
+				chainID, uint(0), uint(0),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		gethSigner = gethtypes.NewEIP155Signer(chainID)
 	case GasTypeEIP1559:
-		signer = gethtypes.NewLondonSigner(big.NewInt(int64(cp.Config.ChainID)))
+		rlpEncoded, err = rlp.EncodeToBytes(
+			[]interface{}{
+				chainID,
+				tx.Nonce(),
+				tx.GasTipCap(),
+				tx.GasFeeCap(),
+				tx.Gas(),
+				tx.To(),
+				tx.Value(),
+				tx.Data(),
+				tx.AccessList(),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		rlpEncoded = append([]byte{tx.Type()}, rlpEncoded...)
+		gethSigner = gethtypes.NewLondonSigner(chainID)
+
 	default:
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
-	h := signer.Hash(tx)
-	signature, err := cp.Wallet.Sign(sender.Name, h.Bytes())
+	signature, err := signer.Sign(rlpEncoded)
 	if err != nil {
 		return nil, err
 	}
 
-	return tx.WithSignature(signer, signature)
+	return tx.WithSignature(gethSigner, signature)
 }
 
 // QueryBalance queries balance of specific account address.
@@ -571,13 +613,13 @@ func (cp *EVMChainProvider) QueryBalance(
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
-	hexAddr, ok := cp.Wallet.GetAddress(keyName)
+	signer, ok := cp.Wallet.GetSigner(keyName)
 	if !ok {
 		cp.Log.Error("Key name does not exist", zap.String("key_name", keyName))
 		return nil, fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
-	address, err := HexToAddress(hexAddr)
+	address, err := HexToAddress(signer.GetAddress())
 	if err != nil {
 		return nil, err
 	}

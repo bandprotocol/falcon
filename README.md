@@ -111,11 +111,11 @@ sudo apt-get update && \
 sudo apt-get upgrade -y && \
 sudo apt-get install -y build-essential curl wget jq
 ```
-- Install Go 1.22.3
+- Install Go 1.24.2
 ```shell
-# Install Go 1.22.3
-wget https://go.dev/dl/go1.22.3.linux-amd64.tar.gz
-tar xf go1.22.3.linux-amd64.tar.gz
+# Install Go 1.24.2
+wget https://go.dev/dl/go1.24.2.linux-amd64.tar.gz
+tar xf go1.24.2.linux-amd64.tar.gz
 sudo mv go /usr/local/go
 
 # Set Go path to $PATH variable

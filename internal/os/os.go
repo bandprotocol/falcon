@@ -1,6 +1,7 @@
 package os
 
 import (
+	"fmt"
 	"os"
 	"path"
 )
@@ -39,6 +40,33 @@ func ReadFileIfExist(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
+// ListFilePaths returns all file paths (non-dirs) immediately under dir.
+// If the directory does not exist, it returns an empty slice without error.
+func ListFilePaths(dirPath string) ([]string, error) {
+	exist, err := IsPathExist(dirPath)
+	if err != nil {
+		return []string{}, err
+	}
+	if !exist {
+		return []string{}, nil
+	}
+
+	var filePaths []string
+
+	paths, err := os.ReadDir(dirPath)
+	if err != nil {
+		return []string{}, err
+	}
+
+	for _, p := range paths {
+		if p.IsDir() {
+			return []string{}, fmt.Errorf("folder exists")
+		}
+		filePaths = append(filePaths, path.Join(dirPath, p.Name()))
+	}
+	return filePaths, nil
+}
+
 // Write writes the given data to the file at the given path. It also creates the folders if they don't exist.
 func Write(data []byte, paths []string) error {
 	// Create folders if they don't exist
@@ -63,4 +91,10 @@ func Write(data []byte, paths []string) error {
 	}
 
 	return nil
+}
+
+// DeletePath removes the file or directory at the given path.
+// It returns an error if the path does not exist.
+func DeletePath(path string) error {
+	return os.Remove(path)
 }

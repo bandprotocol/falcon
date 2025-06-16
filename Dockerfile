@@ -1,5 +1,5 @@
 # ============================ Build Stage ============================
-FROM --platform=$BUILDPLATFORM golang:1.22.3-alpine3.19 as build
+FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine3.20 AS build
 
 LABEL org.opencontainers.image.source="https://github.com/bandprotocol/falcon"
 
@@ -29,7 +29,7 @@ RUN if [ "${TARGETARCH}" = "arm64" ] && [ "${BUILDARCH}" != "arm64" ]; then \
 RUN if [ -d "/go/bin/linux_${TARGETARCH}" ]; then mv /go/bin/linux_${TARGETARCH}/* /go/bin/; fi
 
 # ============================ Final Stage ============================
-FROM alpine:3.19
+FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates
 

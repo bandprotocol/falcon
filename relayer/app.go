@@ -259,6 +259,21 @@ func (a *App) AddKeyByMnemonic(
 	return cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
 }
 
+// AddRemoteSignerKey adds a new remote signer key to the chain provider.
+func (a *App) AddRemoteSignerKey(
+	chainName string,
+	keyName string,
+	addr string,
+	url string,
+) (*chainstypes.Key, error) {
+	cp, err := a.getChainProvider(chainName)
+	if err != nil {
+		return nil, err
+	}
+
+	return cp.AddRemoteSignerKey(keyName, addr, url)
+}
+
 // DeleteKey deletes the key from the chain provider.
 func (a *App) DeleteKey(chainName string, keyName string) error {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
@@ -328,7 +343,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 
 	// initialize target chain providers
 	for chainName, chainProvider := range a.TargetChains {
-		if err := chainProvider.LoadFreeSenders(); err != nil {
+		if err := chainProvider.LoadSigners(); err != nil {
 			a.Log.Error("Cannot load keys in target chain",
 				zap.Error(err),
 				zap.String("chain_name", chainName),
@@ -375,7 +390,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 	}
 
-	if err := chainProvider.LoadFreeSenders(); err != nil {
+	if err := chainProvider.LoadSigners(); err != nil {
 		a.Log.Error("Cannot load keys in target chain",
 			zap.Error(err),
 			zap.String("chain_name", tunnel.TargetChainID),

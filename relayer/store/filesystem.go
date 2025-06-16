@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
 var _ Store = &FileSystem{}
@@ -103,7 +104,7 @@ func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
 func (fs *FileSystem) NewWallet(chainType chains.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
 	switch chainType {
 	case chains.ChainTypeEVM:
-		return wallet.NewGethWallet(passphrase, fs.HomePath, chainName)
+		return geth.NewGethWallet(passphrase, fs.HomePath, chainName)
 	default:
 		return nil, fmt.Errorf("unsupported chain type: %s", chainType)
 	}

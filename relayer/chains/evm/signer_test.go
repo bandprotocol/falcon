@@ -1,7 +1,6 @@
 package evm_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -10,14 +9,17 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
-	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
 const (
-	privateKey1 = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	keyName1    = "testkey1"
 	address1    = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-	privateKey2 = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
-	address2    = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+	privateKey1 = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+	keyName2 = "testkey2"
+	address2 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+	url      = "http://127.0.0.1:8545"
 )
 
 var evmCfg = &evm.EVMChainProviderConfig{
@@ -41,10 +43,8 @@ var evmCfg = &evm.EVMChainProviderConfig{
 type SenderTestSuite struct {
 	suite.Suite
 
-	ctx           context.Context
-	chainProvider *evm.EVMChainProvider
-	log           *zap.Logger
-	homePath      string
+	homePath  string
+	chainName string
 }
 
 func TestSenderTestSuite(t *testing.T) {
@@ -57,68 +57,64 @@ func (s *SenderTestSuite) SetupTest() {
 	tmpDir := s.T().TempDir()
 	s.homePath = tmpDir
 
+	s.chainName = "testnet"
+
 	log, err := zap.NewDevelopment()
 	s.Require().NoError(err)
 
-	// mock objects.
-	s.log = zap.NewNop()
+	client := evm.NewClient(s.chainName, evmCfg, log)
 
-	chainName := "testnet"
-
-	client := evm.NewClient(chainName, evmCfg, log)
-
-	wallet, err := wallet.NewGethWallet("", s.homePath, chainName)
+	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	s.chainProvider, err = evm.NewEVMChainProvider(chainName, client, evmCfg, log, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet)
 	s.Require().NoError(err)
 
-	s.ctx = context.Background()
+	// Add two mock keys to the chain provider
+	_, err = chainProvider.AddKeyByPrivateKey(keyName1, privateKey1)
+	s.Require().NoError(err)
+
+	_, err = chainProvider.AddRemoteSignerKey(keyName2, address2, url)
+	s.Require().NoError(err)
 }
 
 func (s *SenderTestSuite) TestLoadFreeSenders() {
-	keyName1 := "key1"
-	keyName2 := "key2"
-
-	// Add two mock keys to the chain provider
-	_, err := s.chainProvider.AddKeyByPrivateKey(keyName1, privateKey1)
+	log, err := zap.NewDevelopment()
 	s.Require().NoError(err)
 
-	_, err = s.chainProvider.AddKeyByPrivateKey(keyName2, privateKey2)
+	client := evm.NewClient(s.chainName, evmCfg, log)
+
+	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	// Load free senders
-	err = s.chainProvider.LoadFreeSenders()
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet)
 	s.Require().NoError(err)
 
-	// Validate the FreeSenders channel is populated correctly
-	count := len(s.chainProvider.Wallet.GetNames())
+	err = chainProvider.LoadSigners()
+	s.Require().NoError(err)
+
+	count := len(chainProvider.Wallet.GetSigners())
 	s.Require().
-		Equal(count, len(s.chainProvider.FreeSenders))
+		Equal(count, len(chainProvider.FreeSigners))
 
-	// Create a map to check properties of retrieved senders
 	expectedSenders := map[string]string{
-		address1: privateKey1,
-		address2: privateKey2,
+		keyName1: address1,
+		keyName2: address2,
 	}
 
-	// Check all senders in the channel
+	// Check all signers in the channel
 	for i := 0; i < count; i++ {
-		sender := <-s.chainProvider.FreeSenders
+		sender := <-chainProvider.FreeSigners
 		s.Require().NotNil(sender)
 
-		actualAddress := sender.Address.Hex()
+		name := sender.GetName()
+		actualAddress := sender.GetAddress()
 
-		privKey, exists := expectedSenders[actualAddress]
-		s.Require().True(exists, "Unexpected sender address: %s", actualAddress)
-
-		expectPrivKey := privateKey1
-		if actualAddress == address2 {
-			expectPrivKey = privateKey2
-		}
-		s.Require().Equal(expectPrivKey, privKey)
+		expectedAddress, exists := expectedSenders[name]
+		s.Require().True(exists, "Unexpected signer name: %s", name)
+		s.Require().Equal(expectedAddress, actualAddress)
 
 		// Remove the validated sender from the map
-		delete(expectedSenders, actualAddress)
+		delete(expectedSenders, name)
 	}
 }

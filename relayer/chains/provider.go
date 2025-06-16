@@ -50,6 +50,9 @@ type KeyProvider interface {
 	// AddKeyByPrivateKey adds a key using a private key.
 	AddKeyByPrivateKey(keyName string, privateKeyHex string) (*chainstypes.Key, error)
 
+	// AddRemoteSignerKey adds ...
+	AddRemoteSignerKey(keyName string, addr string, url string) (*chainstypes.Key, error)
+
 	// DeleteKey deletes the key information and private key
 	DeleteKey(keyName string) error
 
@@ -62,8 +65,8 @@ type KeyProvider interface {
 	// ShowKey shows the address of the given key
 	ShowKey(keyName string) (string, error)
 
-	// LoadFreeSenders loads key info to prepare to relay the packet
-	LoadFreeSenders() error
+	// LoadSigners loads signers to prepare to relay the packet
+	LoadSigners() error
 }
 
 // BaseChainProvider is a base object for connecting with the chain network.

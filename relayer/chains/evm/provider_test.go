@@ -22,7 +22,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
-	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
 var baseEVMCfg = &evm.EVMChainProviderConfig{
@@ -67,18 +67,6 @@ func mockPacket() bandtypes.Packet {
 	}
 }
 
-func mockSender() (evm.Sender, error) {
-	addr, err := evm.HexToAddress(testAddress)
-	if err != nil {
-		return evm.Sender{}, err
-	}
-
-	return evm.Sender{
-		Address: addr,
-		Name:    "tester1",
-	}, nil
-}
-
 func uint256ToHex(value *big.Int) string {
 	return fmt.Sprintf("%064x", value)
 }
@@ -113,7 +101,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	chainName := "testnet"
 	s.chainName = chainName
 
-	wallet, err := wallet.NewGethWallet("", s.homePath, s.chainName)
+	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, wallet)
