@@ -148,6 +148,7 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		tunnel.TargetAddress,
 		tunnel.TargetChainID,
 		tunnel.IsActive,
+		tunnel.Creator,
 	)
 
 	cp, ok := a.TargetChains[bandChainInfo.TargetChainID]
@@ -333,7 +334,7 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 }
 
 // Start starts the tunnel relayer program.
-func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
+func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase
@@ -370,7 +371,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64) error {
 		a.TargetChains,
 	)
 
-	return scheduler.Start(ctx, tunnelIDs)
+	return scheduler.Start(ctx, tunnelIDs, tunnelCreator)
 }
 
 // Relay relays the packet from the source chain to the destination chain.

@@ -50,8 +50,8 @@ func NewScheduler(
 }
 
 // Start starts all tunnel relayers
-func (s *Scheduler) Start(ctx context.Context, tunnelIds []uint64) error {
-	s.SyncTunnels(ctx, tunnelIds)
+func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
+	s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
 
 	ticker := time.NewTicker(s.CheckingPacketInterval)
 	defer ticker.Stop()
@@ -69,8 +69,9 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIds []uint64) error {
 
 			return nil
 		case <-syncTunnelTicker.C:
-			if len(tunnelIds) == 0 {
-				s.SyncTunnels(ctx, tunnelIds)
+			// sync tunnels only when no specific tunnel IDs are provided
+			if len(tunnelIDs) == 0 {
+				s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
 			}
 		case <-ticker.C:
 			s.Execute(ctx)
@@ -143,9 +144,10 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, task Task) {
 }
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
-func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
+// If tunnel creator is provided, only tunnels created by that address will be synchronized.
+func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) {
 	s.Log.Info("Start syncing tunnels from Bandchain")
-	tunnels, err := s.getTunnels(ctx, tunnelIds)
+	tunnels, err := s.getTunnels(ctx, tunnelIDs)
 	if err != nil {
 		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
 		return
@@ -164,6 +166,11 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIds []uint64) {
 				zap.String("chain_name", tunnels[i].TargetChainID),
 				zap.Uint64("tunnel_id", tunnels[i].ID),
 			)
+			continue
+		}
+
+		// if tunnel creator is provided, check if the tunnel matches the creator
+		if tunnelCreator != "" && tunnels[i].Creator != tunnelCreator {
 			continue
 		}
 

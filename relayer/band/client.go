@@ -162,6 +162,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 		tssRoute.DestinationContractAddress,
 		tssRoute.DestinationChainID,
 		res.Tunnel.IsActive,
+		res.Tunnel.Creator,
 	), nil
 }
 
@@ -266,6 +267,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 				tssRoute.DestinationContractAddress,
 				tssRoute.DestinationChainID,
 				tunnel.IsActive,
+				tunnel.Creator,
 			))
 		}
 

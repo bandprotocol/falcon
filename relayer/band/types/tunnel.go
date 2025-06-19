@@ -7,6 +7,7 @@ type Tunnel struct {
 	TargetAddress  string `json:"target_address"`
 	TargetChainID  string `json:"target_chain_id"`
 	IsActive       bool   `json:"is_active"`
+	Creator        string `json:"creator"`
 }
 
 // NewTunnel creates a new tunnel instance.
@@ -16,6 +17,7 @@ func NewTunnel(
 	targetAddress string,
 	targetChainID string,
 	isActive bool,
+	creator string,
 ) *Tunnel {
 	return &Tunnel{
 		ID:             id,
@@ -23,5 +25,6 @@ func NewTunnel(
 		TargetAddress:  targetAddress,
 		TargetChainID:  targetChainID,
 		IsActive:       isActive,
+		Creator:        creator,
 	}
 }
