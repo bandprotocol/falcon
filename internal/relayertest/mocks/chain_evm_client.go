@@ -193,19 +193,19 @@ func (mr *MockEVMClientMockRecorder) GetTxReceipt(ctx, txHash any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTxReceipt", reflect.TypeOf((*MockEVMClient)(nil).GetTxReceipt), ctx, txHash)
 }
 
-// PendingNonceAt mocks base method.
-func (m *MockEVMClient) PendingNonceAt(ctx context.Context, address common.Address) (uint64, error) {
+// NonceAt mocks base method.
+func (m *MockEVMClient) NonceAt(ctx context.Context, address common.Address) (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PendingNonceAt", ctx, address)
+	ret := m.ctrl.Call(m, "NonceAt", ctx, address)
 	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PendingNonceAt indicates an expected call of PendingNonceAt.
-func (mr *MockEVMClientMockRecorder) PendingNonceAt(ctx, address any) *gomock.Call {
+// NonceAt indicates an expected call of NonceAt.
+func (mr *MockEVMClientMockRecorder) NonceAt(ctx, address any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingNonceAt", reflect.TypeOf((*MockEVMClient)(nil).PendingNonceAt), ctx, address)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NonceAt", reflect.TypeOf((*MockEVMClient)(nil).NonceAt), ctx, address)
 }
 
 // Query mocks base method.

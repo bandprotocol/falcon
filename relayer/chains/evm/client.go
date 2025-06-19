@@ -20,7 +20,7 @@ type Client interface {
 	Connect(ctx context.Context) error
 	CheckAndConnect(ctx context.Context) error
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
-	PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
+	NonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
@@ -91,15 +91,16 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	}
 }
 
-// PendingNonceAt returns the current pending nonce of the given address.
-func (c *client) PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error) {
+// NonceAt retrieves the current account nonce for the given address
+// at the latest known block.
+func (c *client) NonceAt(ctx context.Context, address gethcommon.Address) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	nonce, err := c.client.PendingNonceAt(newCtx, address)
+	nonce, err := c.client.NonceAt(newCtx, address, nil)
 	if err != nil {
 		c.Log.Error(
-			"Failed to get pending nonce",
+			"Failed to get nonce",
 			zap.Error(err),
 			zap.String("endpoint", c.selectedEndpoint),
 			zap.String("evm_address", address.Hex()),

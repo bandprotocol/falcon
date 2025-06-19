@@ -88,7 +88,7 @@ func (s *EIP1559ProviderTestSuite) MockDefaultResponses() {
 	s.client.EXPECT().CheckAndConnect(mockCtx).Return(nil).AnyTimes()
 	s.client.EXPECT().EstimateGasTipCap(mockCtx).Return(s.gasInfo.GasPriorityFee, nil).AnyTimes()
 	s.client.EXPECT().EstimateBaseFee(mockCtx).Return(s.gasInfo.GasBaseFee, nil).AnyTimes()
-	s.client.EXPECT().PendingNonceAt(mockCtx, s.mockSignerAddress).Return(uint64(100), nil).AnyTimes()
+	s.client.EXPECT().NonceAt(mockCtx, s.mockSignerAddress).Return(uint64(100), nil).AnyTimes()
 	s.client.EXPECT().
 		Query(mockCtx, s.chainProvider.TunnelRouterAddress, gasInfoCalldata).
 		Return(gasInfoResponse, nil).
@@ -320,7 +320,7 @@ func (s *EIP1559ProviderTestSuite) TestNewRelayTx() {
 		GasTipCap: s.gasInfo.GasPriorityFee,
 	}
 	s.client.EXPECT().EstimateGas(gomock.Any(), callMsg).Return(uint64(100_000), nil)
-	s.client.EXPECT().PendingNonceAt(gomock.Any(), s.mockSignerAddress).Return(uint64(1), nil)
+	s.client.EXPECT().NonceAt(gomock.Any(), s.mockSignerAddress).Return(uint64(1), nil)
 
 	actual, err := s.chainProvider.NewRelayTx(context.Background(), data, s.mockSigner, s.gasInfo)
 	s.Require().NoError(err)

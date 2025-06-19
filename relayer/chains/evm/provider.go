@@ -453,7 +453,7 @@ func (cp *EVMChainProvider) NewRelayTx(
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
 	addr := gethcommon.HexToAddress(signer.GetAddress())
-	nonce, err := cp.Client.PendingNonceAt(ctx, addr)
+	nonce, err := cp.Client.NonceAt(ctx, addr)
 	if err != nil {
 		return nil, err
 	}
