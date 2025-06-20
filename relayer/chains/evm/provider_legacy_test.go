@@ -55,7 +55,7 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	gethWallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), gethWallet)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), nil, gethWallet)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider
 
@@ -96,19 +96,23 @@ func (s *LegacyProviderTestSuite) MockDefaultResponses() {
 
 func (s *LegacyProviderTestSuite) TestRelayPacketSuccess() {
 	// mock client responses
-	s.client.EXPECT().EstimateGas(gomock.Any(), ethereum.CallMsg{
-		From:     s.mockSignerAddress,
-		To:       &s.chainProvider.TunnelRouterAddress,
-		Data:     s.relayingCalldata,
-		GasPrice: s.gasInfo.GasPrice,
-	}).Return(uint64(200_000), nil).AnyTimes()
+	s.client.EXPECT().EstimateGas(
+		gomock.Any(), ethereum.CallMsg{
+			From:     s.mockSignerAddress,
+			To:       &s.chainProvider.TunnelRouterAddress,
+			Data:     s.relayingCalldata,
+			GasPrice: s.gasInfo.GasPrice,
+		},
+	).Return(uint64(200_000), nil).AnyTimes()
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
-	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-		Status:      gethtypes.ReceiptStatusSuccessful,
-		GasUsed:     21000,
-		BlockNumber: big.NewInt(100),
-	}, nil)
+	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(
+		&gethtypes.Receipt{
+			Status:      gethtypes.ReceiptStatusSuccessful,
+			GasUsed:     21000,
+			BlockNumber: big.NewInt(100),
+		}, nil,
+	)
 
 	s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(105), nil)
 	s.MockDefaultResponses()
@@ -121,20 +125,24 @@ func (s *LegacyProviderTestSuite) TestRelayPacketSuccessWithoutQueryMaxGasFee() 
 	s.chainProvider.Config.MaxGasPrice = 2_000_000_000
 
 	// mock client responses
-	s.client.EXPECT().EstimateGas(gomock.Any(), ethereum.CallMsg{
-		From:     s.mockSignerAddress,
-		To:       &s.chainProvider.TunnelRouterAddress,
-		Data:     s.relayingCalldata,
-		GasPrice: big.NewInt(2_000_000_000),
-	}).Return(uint64(200_000), nil)
+	s.client.EXPECT().EstimateGas(
+		gomock.Any(), ethereum.CallMsg{
+			From:     s.mockSignerAddress,
+			To:       &s.chainProvider.TunnelRouterAddress,
+			Data:     s.relayingCalldata,
+			GasPrice: big.NewInt(2_000_000_000),
+		},
+	).Return(uint64(200_000), nil)
 
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
-	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-		Status:      gethtypes.ReceiptStatusSuccessful,
-		GasUsed:     21000,
-		BlockNumber: big.NewInt(100),
-	}, nil)
+	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(
+		&gethtypes.Receipt{
+			Status:      gethtypes.ReceiptStatusSuccessful,
+			GasUsed:     21000,
+			BlockNumber: big.NewInt(100),
+		}, nil,
+	)
 
 	s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(105), nil)
 	s.MockDefaultResponses()
@@ -186,19 +194,21 @@ func (s *LegacyProviderTestSuite) TestBumpAndBoundGas() {
 	}
 
 	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			s.chainProvider.Config.MaxGasPrice = tc.maxGasPrice
+		s.Run(
+			tc.name, func() {
+				s.chainProvider.Config.MaxGasPrice = tc.maxGasPrice
 
-			actual, err := s.chainProvider.BumpAndBoundGas(
-				context.Background(),
-				evm.NewGasLegacyInfo(big.NewInt(tc.initialGasPrice)),
-				tc.multiplier,
-			)
-			s.Require().NoError(err)
+				actual, err := s.chainProvider.BumpAndBoundGas(
+					context.Background(),
+					evm.NewGasLegacyInfo(big.NewInt(tc.initialGasPrice)),
+					tc.multiplier,
+				)
+				s.Require().NoError(err)
 
-			expected := evm.NewGasLegacyInfo(big.NewInt(tc.expectedGasPrice))
-			s.Require().Equal(expected, actual, "Failed test case: %s", tc.name)
-		})
+				expected := evm.NewGasLegacyInfo(big.NewInt(tc.expectedGasPrice))
+				s.Require().Equal(expected, actual, "Failed test case: %s", tc.name)
+			},
+		)
 	}
 }
 
@@ -235,14 +245,16 @@ func (s *LegacyProviderTestSuite) TestNewRelayTx() {
 	actual, err := s.chainProvider.NewRelayTx(context.Background(), data, s.mockSigner, s.gasInfo)
 	s.Require().NoError(err)
 
-	expected := gethtypes.NewTx(&gethtypes.LegacyTx{
-		Nonce:    uint64(1),
-		To:       &s.chainProvider.TunnelRouterAddress,
-		Value:    decimal.NewFromInt(0).BigInt(),
-		Data:     data,
-		Gas:      uint64(100),
-		GasPrice: s.gasInfo.GasPrice,
-	})
+	expected := gethtypes.NewTx(
+		&gethtypes.LegacyTx{
+			Nonce:    uint64(1),
+			To:       &s.chainProvider.TunnelRouterAddress,
+			Value:    decimal.NewFromInt(0).BigInt(),
+			Data:     data,
+			Gas:      uint64(100),
+			GasPrice: s.gasInfo.GasPrice,
+		},
+	)
 
 	// check only some parts of the received tx.
 	s.Require().Equal(expected.Nonce(), actual.Nonce(), "Nonce mismatch")

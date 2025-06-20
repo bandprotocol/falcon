@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"time"
 
-	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -22,6 +22,7 @@ type Client interface {
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	PendingNonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
+	GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Block, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
@@ -122,6 +123,25 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	}
 
 	return blockHeight, nil
+}
+
+// GetBlock returns the blocks of the given block height
+func (c *client) GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Block, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	block, err := c.client.BlockByNumber(newCtx, height)
+	if err != nil {
+		c.Log.Error(
+			"Failed to get block by height",
+			zap.Error(err),
+			zap.String("endpoint", c.selectedEndpoint),
+			zap.String("height", height.String()),
+		)
+		return nil, fmt.Errorf("[EVMClient] failed to get block by height: %w", err)
+	}
+
+	return block, nil
 }
 
 // GetTxReceipt returns the transaction receipt of the given transaction hash.

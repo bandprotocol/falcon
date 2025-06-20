@@ -67,7 +67,7 @@ func (s *SenderTestSuite) SetupTest() {
 	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, nil, wallet)
 	s.Require().NoError(err)
 
 	// Add two mock keys to the chain provider
@@ -87,7 +87,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, nil, wallet)
 	s.Require().NoError(err)
 
 	err = chainProvider.LoadSigners()

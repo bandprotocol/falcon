@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/recorder"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
@@ -34,11 +35,12 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 	chainName string,
 	log *zap.Logger,
 	debug bool,
+	recorder recorder.TransactionRecorder,
 	wallet wallet.Wallet,
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)
 
-	return NewEVMChainProvider(chainName, client, cpc, log, wallet)
+	return NewEVMChainProvider(chainName, client, cpc, log, recorder, wallet)
 }
 
 // Validate validates the EVM chain provider configuration.

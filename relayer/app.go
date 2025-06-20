@@ -93,7 +93,7 @@ func (a *App) initTargetChains() error {
 			return err
 		}
 
-		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.Debug, wallet)
+		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.Debug, nil, wallet)
 		if err != nil {
 			a.Log.Error("Cannot create chain provider",
 				zap.Error(err),

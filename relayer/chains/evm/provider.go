@@ -19,6 +19,7 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/recorder"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
@@ -37,7 +38,8 @@ type EVMChainProvider struct {
 	TunnelRouterAddress gethcommon.Address
 	TunnelRouterABI     abi.ABI
 
-	Log *zap.Logger
+	Log      *zap.Logger
+	Recorder recorder.TransactionRecorder
 
 	Wallet wallet.Wallet
 }
@@ -48,12 +50,14 @@ func NewEVMChainProvider(
 	client Client,
 	cfg *EVMChainProviderConfig,
 	log *zap.Logger,
+	recorder recorder.TransactionRecorder,
 	wallet wallet.Wallet,
 ) (*EVMChainProvider, error) {
 	// load abis here
 	abi, err := abi.JSON(strings.NewReader(gasPriceTunnelRouterABI))
 	if err != nil {
-		log.Error("ChainProvider: failed to load abi",
+		log.Error(
+			"ChainProvider: failed to load abi",
 			zap.Error(err),
 			zap.String("chain_name", chainName),
 		)
@@ -62,7 +66,8 @@ func NewEVMChainProvider(
 
 	addr, err := HexToAddress(cfg.TunnelRouterAddress)
 	if err != nil {
-		log.Error("ChainProvider: cannot convert tunnel router address",
+		log.Error(
+			"ChainProvider: cannot convert tunnel router address",
 			zap.Error(err),
 			zap.String("chain_name", chainName),
 		)
@@ -77,6 +82,7 @@ func NewEVMChainProvider(
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
 		Log:                 log.With(zap.String("chain_name", chainName)),
+		Recorder:            recorder,
 		Wallet:              wallet,
 	}, nil
 }
@@ -215,20 +221,45 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 			switch result.Status {
 			case TX_STATUS_SUCCESS:
-				// increment the transactions count metric
+				// increment the transaction count metric
 				relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String())
 
 				// track transaction processing time (ms)
-				relayermetrics.ObserveTxProcessTime(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), time.Since(createdAt).Milliseconds())
+				relayermetrics.ObserveTxProcessTime(
+					packet.TunnelID,
+					cp.ChainName,
+					TX_STATUS_SUCCESS.String(),
+					time.Since(createdAt).Milliseconds(),
+				)
 
 				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), gasUsed.Decimal.InexactFloat64())
+				relayermetrics.ObserveGasUsed(
+					packet.TunnelID,
+					cp.ChainName,
+					TX_STATUS_SUCCESS.String(),
+					gasUsed.Decimal.InexactFloat64(),
+				)
 
 				log.Info(
 					"Packet is successfully relayed",
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
+
+				// Save transaction if the recorder is set
+				if cp.Recorder != nil {
+					tx := recorder.NewTransaction(
+						result.TxHash, packet.TunnelID, cp.ChainName, packet.Sequence,
+						result.GasUsed.Decimal.InexactFloat64(), result.EffectiveGasPrice.Decimal.InexactFloat64(),
+						packet.SignalPrices,
+						result.Timestamp,
+						result.Status.String(),
+					)
+					if err := cp.Recorder.RecordTransaction(tx); err != nil {
+						log.Error("Failed to record transaction", zap.Error(err))
+					}
+				}
+
 				return nil
 			case TX_STATUS_FAILED:
 				// track transaction processing time (ms)
@@ -240,13 +271,33 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				)
 
 				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
+				relayermetrics.ObserveGasUsed(
+					packet.TunnelID,
+					cp.ChainName,
+					TX_STATUS_FAILED.String(),
+					gasUsed.Decimal.InexactFloat64(),
+				)
 				log.Debug(
 					"Transaction failed during relay attempt",
 					zap.Error(err),
 					zap.String("tx_hash", txHash),
 					zap.Int("retry_count", retryCount),
 				)
+
+				// Save transaction if the recorder is set
+				if cp.Recorder != nil {
+					tx := recorder.NewTransaction(
+						result.TxHash, packet.TunnelID, cp.ChainName, packet.Sequence,
+						result.GasUsed.Decimal.InexactFloat64(), result.EffectiveGasPrice.Decimal.InexactFloat64(),
+						packet.SignalPrices,
+						result.Timestamp,
+						result.Status.String(),
+					)
+					if err := cp.Recorder.RecordTransaction(tx); err != nil {
+						log.Error("Failed to record transaction", zap.Error(err))
+					}
+				}
+
 				break checkTxLogic
 			case TX_STATUS_UNMINED:
 				log.Debug(
@@ -318,11 +369,18 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 		return nil, fmt.Errorf("failed to get tx receipt: %w", err)
 	}
 
+	block, err := cp.Client.GetBlock(ctx, receipt.BlockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get block: %w", err)
+	}
+
 	// calculate gas used and effective gas price
 	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
+	gasPrice := decimal.NewNullDecimal(decimal.New(int64(receipt.EffectiveGasPrice.Uint64()), 0))
+	timestamp := block.Time()
 
 	if receipt.Status == gethtypes.ReceiptStatusFailed {
-		return NewConfirmTxResult(txHash, TX_STATUS_FAILED, gasUsed), nil
+		return NewConfirmTxResult(txHash, TX_STATUS_FAILED, gasUsed, gasPrice, timestamp), nil
 	}
 
 	latestBlock, err := cp.Client.GetBlockHeight(ctx)
@@ -332,10 +390,10 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 
 	// if tx block is not confirmed and waiting too long return status with timeout
 	if receipt.BlockNumber.Uint64() > latestBlock-cp.Config.BlockConfirmation {
-		return NewConfirmTxResult(txHash, TX_STATUS_UNMINED, decimal.NullDecimal{}), nil
+		return NewConfirmTxResult(txHash, TX_STATUS_UNMINED, decimal.NullDecimal{}, decimal.NullDecimal{}, 0), nil
 	}
 
-	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed), nil
+	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed, gasPrice, timestamp), nil
 }
 
 // EstimateGasFee estimates the gas for the transaction.
@@ -480,26 +538,30 @@ func (cp *EVMChainProvider) NewRelayTx(
 	var tx *gethtypes.Transaction
 	switch cp.GasType {
 	case GasTypeLegacy:
-		tx = gethtypes.NewTx(&gethtypes.LegacyTx{
-			Nonce:    nonce,
-			To:       &cp.TunnelRouterAddress,
-			Value:    decimal.NewFromInt(0).BigInt(),
-			Data:     data,
-			Gas:      gasLimit,
-			GasPrice: gasInfo.GasPrice,
-		})
+		tx = gethtypes.NewTx(
+			&gethtypes.LegacyTx{
+				Nonce:    nonce,
+				To:       &cp.TunnelRouterAddress,
+				Value:    decimal.NewFromInt(0).BigInt(),
+				Data:     data,
+				Gas:      gasLimit,
+				GasPrice: gasInfo.GasPrice,
+			},
+		)
 
 	case GasTypeEIP1559:
-		tx = gethtypes.NewTx(&gethtypes.DynamicFeeTx{
-			ChainID:   big.NewInt(int64(cp.Config.ChainID)),
-			Nonce:     nonce,
-			To:        &cp.TunnelRouterAddress,
-			Value:     decimal.NewFromInt(0).BigInt(),
-			Data:      data,
-			Gas:       gasLimit,
-			GasFeeCap: gasInfo.GasFeeCap,
-			GasTipCap: gasInfo.GasPriorityFee,
-		})
+		tx = gethtypes.NewTx(
+			&gethtypes.DynamicFeeTx{
+				ChainID:   big.NewInt(int64(cp.Config.ChainID)),
+				Nonce:     nonce,
+				To:        &cp.TunnelRouterAddress,
+				Value:     decimal.NewFromInt(0).BigInt(),
+				Data:      data,
+				Gas:       gasLimit,
+				GasFeeCap: gasInfo.GasFeeCap,
+				GasTipCap: gasInfo.GasPriorityFee,
+			},
+		)
 
 	default:
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)

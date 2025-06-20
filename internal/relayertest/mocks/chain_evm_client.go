@@ -172,6 +172,11 @@ func (m *MockEVMClient) GetBlockHeight(ctx context.Context) (uint64, error) {
 	return ret0, ret1
 }
 
+// GetBlock mocks base method. This should never be called in test
+func (m *MockEVMClient) GetBlock(ctx context.Context, height *big.Int) (*types.Block, error) {
+	return nil, nil
+}
+
 // GetBlockHeight indicates an expected call of GetBlockHeight.
 func (mr *MockEVMClientMockRecorder) GetBlockHeight(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()

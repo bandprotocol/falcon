@@ -9,6 +9,7 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/recorder"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
@@ -28,6 +29,7 @@ type KeysTestSuite struct {
 	suite.Suite
 
 	chainProvider *evm.EVMChainProvider
+	recorder      *recorder.TransactionRecorder
 	log           *zap.Logger
 	homePath      string
 	wallet        wallet.Wallet
@@ -42,7 +44,7 @@ func (s *KeysTestSuite) loadChainProvider() {
 	wallet, err := geth.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, nil, wallet)
 	s.Require().NoError(err)
 
 	s.chainProvider = chainProvider
@@ -85,16 +87,18 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 	}
 
 	for _, tc := range testcases {
-		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddKeyByPrivateKey(tc.input.keyName, tc.input.privKey)
+		s.T().Run(
+			tc.name, func(t *testing.T) {
+				key, err := s.chainProvider.AddKeyByPrivateKey(tc.input.keyName, tc.input.privKey)
 
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
-				s.Require().Equal(tc.out, key)
-			}
-		})
+				if tc.err != nil {
+					s.Require().ErrorContains(err, tc.err.Error())
+				} else {
+					s.Require().NoError(err)
+					s.Require().Equal(tc.out, key)
+				}
+			},
+		)
 	}
 }
 
@@ -158,25 +162,27 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 	}
 
 	for _, tc := range testcases {
-		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddKeyByMnemonic(
-				tc.input.keyName,
-				tc.input.mnemonic,
-				tc.input.coinType,
-				tc.input.account,
-				tc.input.index,
-			)
+		s.T().Run(
+			tc.name, func(t *testing.T) {
+				key, err := s.chainProvider.AddKeyByMnemonic(
+					tc.input.keyName,
+					tc.input.mnemonic,
+					tc.input.coinType,
+					tc.input.account,
+					tc.input.index,
+				)
 
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
+				if tc.err != nil {
+					s.Require().ErrorContains(err, tc.err.Error())
+				} else {
+					s.Require().NoError(err)
 
-				if tc.out != nil {
-					s.Require().Equal(tc.out, key)
+					if tc.out != nil {
+						s.Require().Equal(tc.out, key)
+					}
 				}
-			}
-		})
+			},
+		)
 	}
 }
 
@@ -204,16 +210,18 @@ func (s *KeysTestSuite) TestAddRemoteSignerKey() {
 	}
 
 	for _, tc := range testcases {
-		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddRemoteSignerKey(
-				tc.input.keyName,
-				tc.input.addr,
-				tc.input.url,
-			)
+		s.T().Run(
+			tc.name, func(t *testing.T) {
+				key, err := s.chainProvider.AddRemoteSignerKey(
+					tc.input.keyName,
+					tc.input.addr,
+					tc.input.url,
+				)
 
-			s.Require().NoError(err)
-			s.Require().Equal(tc.out, key)
-		})
+				s.Require().NoError(err)
+				s.Require().Equal(tc.out, key)
+			},
+		)
 	}
 }
 
@@ -254,22 +262,24 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 	}
 
 	for _, tc := range tests {
-		s.T().Run(tc.name, func(t *testing.T) {
-			if tc.setup != nil {
-				tc.setup()
-			}
-			s.loadChainProvider()
-			exported, err := s.chainProvider.ExportPrivateKey(tc.keyName)
-			if tc.wantErr {
-				s.Require().ErrorContains(err, tc.errSubstr)
-				return
-			}
-			s.Require().NoError(err)
-			s.Require().Equal(
-				evm.StripPrivateKeyPrefix(testPrivateKey),
-				evm.StripPrivateKeyPrefix(exported),
-			)
-		})
+		s.T().Run(
+			tc.name, func(t *testing.T) {
+				if tc.setup != nil {
+					tc.setup()
+				}
+				s.loadChainProvider()
+				exported, err := s.chainProvider.ExportPrivateKey(tc.keyName)
+				if tc.wantErr {
+					s.Require().ErrorContains(err, tc.errSubstr)
+					return
+				}
+				s.Require().NoError(err)
+				s.Require().Equal(
+					evm.StripPrivateKeyPrefix(testPrivateKey),
+					evm.StripPrivateKeyPrefix(exported),
+				)
+			},
+		)
 	}
 }
 
@@ -353,21 +363,23 @@ func (s *KeysTestSuite) TestShowKey() {
 	}
 
 	for _, tc := range tests {
-		s.T().Run(tc.name, func(t *testing.T) {
-			if tc.setup != nil {
-				tc.setup()
-			}
-			s.loadChainProvider()
-			address, err := s.chainProvider.ShowKey(tc.keyName)
-			if tc.wantErr {
-				s.Require().ErrorContains(err, tc.errSubstr)
-				return
-			}
-			s.Require().NoError(err)
-			s.Require().Equal(
-				testAddress,
-				address,
-			)
-		})
+		s.T().Run(
+			tc.name, func(t *testing.T) {
+				if tc.setup != nil {
+					tc.setup()
+				}
+				s.loadChainProvider()
+				address, err := s.chainProvider.ShowKey(tc.keyName)
+				if tc.wantErr {
+					s.Require().ErrorContains(err, tc.errSubstr)
+					return
+				}
+				s.Require().NoError(err)
+				s.Require().Equal(
+					testAddress,
+					address,
+				)
+			},
+		)
 	}
 }

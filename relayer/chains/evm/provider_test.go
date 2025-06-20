@@ -104,7 +104,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, wallet)
+	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, s.log, nil, wallet)
 	s.Require().NoError(err)
 
 	s.chainProvider.Client = s.client
@@ -180,25 +180,27 @@ func (s *ProviderTestSuite) TestQueryTunnelInfo() {
 	}
 
 	for _, tc := range testcases {
-		s.Run(tc.name, func() {
-			if tc.preProcess != nil {
-				tc.preProcess()
-			}
-			defer s.ctrl.Finish()
+		s.Run(
+			tc.name, func() {
+				if tc.preProcess != nil {
+					tc.preProcess()
+				}
+				defer s.ctrl.Finish()
 
-			tunnel, err := s.chainProvider.QueryTunnelInfo(
-				context.Background(),
-				tc.input.tunnelID,
-				tc.input.tunnelAddr,
-			)
+				tunnel, err := s.chainProvider.QueryTunnelInfo(
+					context.Background(),
+					tc.input.tunnelID,
+					tc.input.tunnelAddr,
+				)
 
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
-				s.Require().Equal(tc.out, tunnel)
-			}
-		})
+				if tc.err != nil {
+					s.Require().ErrorContains(err, tc.err.Error())
+				} else {
+					s.Require().NoError(err)
+					s.Require().Equal(tc.out, tunnel)
+				}
+			},
+		)
 	}
 }
 
@@ -222,32 +224,40 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 			preProcess: func() {
 				currentBlock := txBlock + int64(s.chainProvider.Config.BlockConfirmation) + 10
 
-				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-					Status:      gethtypes.ReceiptStatusSuccessful,
-					GasUsed:     21000,
-					BlockNumber: big.NewInt(txBlock),
-				}, nil)
+				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(
+					&gethtypes.Receipt{
+						Status:      gethtypes.ReceiptStatusSuccessful,
+						GasUsed:     21000,
+						BlockNumber: big.NewInt(txBlock),
+					}, nil,
+				)
 				s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(currentBlock), nil)
 			},
 			out: evm.NewConfirmTxResult(
 				txHash,
 				evm.TX_STATUS_SUCCESS,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
+				decimal.NewNullDecimal(decimal.New(15, 0)),
+				10000,
 			),
 		},
 		{
 			name: "get tx receipt with failed status",
 			preProcess: func() {
-				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-					Status:      gethtypes.ReceiptStatusFailed,
-					GasUsed:     21000,
-					BlockNumber: big.NewInt(txBlock),
-				}, nil)
+				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(
+					&gethtypes.Receipt{
+						Status:      gethtypes.ReceiptStatusFailed,
+						GasUsed:     21000,
+						BlockNumber: big.NewInt(txBlock),
+					}, nil,
+				)
 			},
 			out: evm.NewConfirmTxResult(
 				txHash,
 				evm.TX_STATUS_FAILED,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
+				decimal.NewNullDecimal(decimal.New(15, 0)),
+				10000,
 			),
 		},
 		{
@@ -255,34 +265,40 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 			preProcess: func() {
 				currentBlock := txBlock + int64(s.chainProvider.Config.BlockConfirmation) - 1
 
-				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-					Status:      gethtypes.ReceiptStatusSuccessful,
-					GasUsed:     21000,
-					BlockNumber: big.NewInt(txBlock),
-				}, nil)
+				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(
+					&gethtypes.Receipt{
+						Status:      gethtypes.ReceiptStatusSuccessful,
+						GasUsed:     21000,
+						BlockNumber: big.NewInt(txBlock),
+					}, nil,
+				)
 				s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(currentBlock), nil)
 			},
 			out: evm.NewConfirmTxResult(
 				txHash,
 				evm.TX_STATUS_UNMINED,
 				decimal.NullDecimal{},
+				decimal.NullDecimal{},
+				10000,
 			),
 		},
 	}
 
 	for _, tc := range testcases {
-		s.Run(tc.name, func() {
-			if tc.preProcess != nil {
-				tc.preProcess()
-			}
+		s.Run(
+			tc.name, func() {
+				if tc.preProcess != nil {
+					tc.preProcess()
+				}
 
-			expect, err := s.chainProvider.CheckConfirmedTx(context.Background(), txHash)
-			if tc.err != nil {
-				s.Require().ErrorContains(err, tc.err.Error())
-			} else {
-				s.Require().NoError(err)
-				s.Require().Equal(tc.out, expect)
-			}
-		})
+				expect, err := s.chainProvider.CheckConfirmedTx(context.Background(), txHash)
+				if tc.err != nil {
+					s.Require().ErrorContains(err, tc.err.Error())
+				} else {
+					s.Require().NoError(err)
+					s.Require().Equal(tc.out, expect)
+				}
+			},
+		)
 	}
 }

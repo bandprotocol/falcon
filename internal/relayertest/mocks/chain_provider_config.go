@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	chains "github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/recorder"
 	wallet "github.com/bandprotocol/falcon/relayer/wallet"
 	gomock "go.uber.org/mock/gomock"
 	zap "go.uber.org/zap"
@@ -57,9 +58,9 @@ func (mr *MockChainProviderConfigMockRecorder) GetChainType() *gomock.Call {
 }
 
 // NewChainProvider mocks base method.
-func (m *MockChainProviderConfig) NewChainProvider(chainName string, log *zap.Logger, debug bool, wallet wallet.Wallet) (chains.ChainProvider, error) {
+func (m *MockChainProviderConfig) NewChainProvider(chainName string, log *zap.Logger, debug bool, recorder recorder.TransactionRecorder, wallet wallet.Wallet) (chains.ChainProvider, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, debug, wallet)
+	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, debug, recorder, wallet)
 	ret0, _ := ret[0].(chains.ChainProvider)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1

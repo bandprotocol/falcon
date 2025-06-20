@@ -5,7 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/recorder"
+	
 )
 
 // BaseChainProviderConfig contains common field for particular chain provider.
@@ -29,6 +30,7 @@ type ChainProviderConfig interface {
 		chainName string,
 		log *zap.Logger,
 		debug bool,
+		recorder recorder.TransactionRecorder,
 		wallet wallet.Wallet,
 	) (ChainProvider, error)
 
