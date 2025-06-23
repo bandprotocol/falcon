@@ -68,7 +68,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 		}
 	}()
 
-	t.Log.Info("Executing task", zap.Uint64("tunnel_id", t.TunnelID))
+	t.Log.Info("Executing task")
 
 	for {
 		// Query tunnel info from BandChain

@@ -129,23 +129,23 @@ $ %s k a eth test-key`, appName, appName)),
 				if err != nil {
 					return err
 				}
-			} else if input.Mnemonic != "" {
+			} else if input.RemoteSigner.Address != "" && input.RemoteSigner.Url != "" {
+				key, err = app.AddRemoteSignerKey(
+					chainName,
+					keyName,
+					input.RemoteSigner.Address,
+					input.RemoteSigner.Url,
+				)
+				if err != nil {
+					return err
+				}
+			} else {
 				key, err = app.AddKeyByMnemonic(
 					chainName, keyName,
 					input.Mnemonic,
 					uint32(input.CoinType),
 					uint(input.Account),
 					uint(input.Index),
-				)
-				if err != nil {
-					return err
-				}
-			} else {
-				key, err = app.AddRemoteSignerKey(
-					chainName,
-					keyName,
-					input.RemoteSigner.Address,
-					input.RemoteSigner.Url,
 				)
 				if err != nil {
 					return err

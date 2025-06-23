@@ -50,7 +50,7 @@ type KeyProvider interface {
 	// AddKeyByPrivateKey adds a key using a private key.
 	AddKeyByPrivateKey(keyName string, privateKeyHex string) (*chainstypes.Key, error)
 
-	// AddRemoteSignerKey adds ...
+	// AddRemoteSignerKey adds a key using a remote signer’s address and a Falcon KMS URL.
 	AddRemoteSignerKey(keyName string, addr string, url string) (*chainstypes.Key, error)
 
 	// DeleteKey deletes the key information and private key
