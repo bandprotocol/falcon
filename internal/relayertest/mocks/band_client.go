@@ -111,17 +111,3 @@ func (mr *MockClientMockRecorder) Init(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockClient)(nil).Init), ctx)
 }
-
-// SubscribeToProducePacketSuccess mocks base method.
-func (m *MockClient) SubscribeToProducePacketSuccess(ctx context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribeToProducePacketSuccess", ctx)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SubscribeToProducePacketSuccess indicates an expected call of SubscribeToProducePacketSuccess.
-func (mr *MockClientMockRecorder) SubscribeToProducePacketSuccess(ctx any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeToProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).SubscribeToProducePacketSuccess), ctx)
-}

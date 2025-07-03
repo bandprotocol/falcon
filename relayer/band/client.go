@@ -106,7 +106,7 @@ func (c *client) connect(onStartup bool) error {
 
 		if err := c.subscribeToProducePacketSuccess(context.Background()); err != nil {
 			c.Log.Error(
-				"Failed to subscribe ...",
+				"Failed to subscribe to ProducePacketSuccess events",
 				zap.String("rpcEndpoint", c.Context.NodeURI),
 				zap.Error(err),
 			)
