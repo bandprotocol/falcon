@@ -22,8 +22,9 @@ type TunnelRelayer struct {
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
 
-	isTargetChainActive bool
-	mu                  *sync.Mutex
+	isTargetChainActive  bool
+	penaltySkipRemaining uint64
+	mu                   *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -41,6 +42,7 @@ func NewTunnelRelayer(
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
 		isTargetChainActive:    false,
+		penaltySkipRemaining:   0,
 		mu:                     &sync.Mutex{},
 	}
 }
