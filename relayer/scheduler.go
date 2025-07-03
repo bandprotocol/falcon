@@ -53,6 +53,27 @@ func NewScheduler(
 func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
 	s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
 
+	go s.BandClient.HandleProducePacketSuccess(func(tunnelID uint64) {
+		for i, tr := range s.tunnelRelayers {
+			if tr.TunnelID == tunnelID {
+				if s.penaltySkipRemaining[i] > 0 {
+					s.Log.Debug("Skipping due to penalty",
+						zap.Uint64("tunnel_id", tunnelID),
+						zap.Uint("penalty_skip_remaining", s.penaltySkipRemaining[i]),
+					)
+					return
+				}
+
+				s.Log.Info("Triggering tunnel relayer from event",
+					zap.Uint64("tunnel_id", tunnelID),
+				)
+
+				go s.TriggerTunnelRelayer(ctx, NewTask(i, s.CheckingPacketInterval))
+				return
+			}
+		}
+	})
+
 	ticker := time.NewTicker(s.CheckingPacketInterval)
 	defer ticker.Stop()
 

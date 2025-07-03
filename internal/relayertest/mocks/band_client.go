@@ -86,6 +86,18 @@ func (mr *MockClientMockRecorder) GetTunnels(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTunnels", reflect.TypeOf((*MockClient)(nil).GetTunnels), ctx)
 }
 
+// HandleProducePacketSuccess mocks base method.
+func (m *MockClient) HandleProducePacketSuccess(handler func(uint64)) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "HandleProducePacketSuccess", handler)
+}
+
+// HandleProducePacketSuccess indicates an expected call of HandleProducePacketSuccess.
+func (mr *MockClientMockRecorder) HandleProducePacketSuccess(handler any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).HandleProducePacketSuccess), handler)
+}
+
 // Init mocks base method.
 func (m *MockClient) Init(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -98,4 +110,18 @@ func (m *MockClient) Init(ctx context.Context) error {
 func (mr *MockClientMockRecorder) Init(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockClient)(nil).Init), ctx)
+}
+
+// SubscribeToProducePacketSuccess mocks base method.
+func (m *MockClient) SubscribeToProducePacketSuccess(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeToProducePacketSuccess", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SubscribeToProducePacketSuccess indicates an expected call of SubscribeToProducePacketSuccess.
+func (mr *MockClientMockRecorder) SubscribeToProducePacketSuccess(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeToProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).SubscribeToProducePacketSuccess), ctx)
 }
