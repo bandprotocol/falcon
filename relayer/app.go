@@ -59,18 +59,19 @@ func (a *App) Init(ctx context.Context) error {
 	}
 
 	// initialize BandChain client
-	if err := a.initBandClient(ctx); err != nil {
-		return err
-	}
+	a.initBandClient()
 
 	return nil
 }
 
-// initBandClient establishes connection to rpc endpoints.
-func (a *App) initBandClient(ctx context.Context) error {
+// initBandClient initializes BandChain client.
+func (a *App) initBandClient() {
 	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
+}
 
-	// connect to BandChain, if error occurs, log the error as debug and continue
+// connectBandClient establishes connection to rpc endpoints.
+func (a *App) connectBandClient(ctx context.Context) error {
+	// connect to BandChain
 	if err := a.BandClient.Init(ctx); err != nil {
 		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
 		return err
@@ -137,6 +138,11 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return nil, err
+	}
+
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return nil, err
@@ -172,6 +178,11 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequence uint64) (*bandtypes.Packet, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return nil, err
 	}
 
 	return a.BandClient.GetTunnelPacket(ctx, tunnelID, sequence)
@@ -335,6 +346,11 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return err
+	}
+
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase

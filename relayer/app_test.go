@@ -49,6 +49,7 @@ func (s *AppTestSuite) SetupTest() {
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
 	s.chainProvider = mocks.NewMockChainProvider(ctrl)
 	s.client = mocks.NewMockClient(ctrl)
+	s.client.EXPECT().Init(gomock.Any()).Return(nil).AnyTimes()
 	s.store = mocks.NewMockStore(ctrl)
 
 	cfg := config.Config{

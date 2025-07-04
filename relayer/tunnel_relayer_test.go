@@ -251,16 +251,36 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
 
-				packet := createMockPacket(
+				waitingPacket := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
 					int32(tss.SIGNING_STATUS_WAITING),
 					-1,
 				)
 
-				s.client.EXPECT().
-					GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-					Return(packet, nil)
+				successPacket := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					int32(tss.SIGNING_STATUS_SUCCESS),
+					-1,
+				)
+
+				gomock.InOrder(
+					s.client.
+						EXPECT().
+						GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+						Return(waitingPacket, nil),
+					s.client.
+						EXPECT().
+						GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+						Return(successPacket, nil),
+				)
+
+				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), successPacket).Return(nil)
+
+				// Check and relay the packet for the second time
+				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
 			err: nil,
 		},
