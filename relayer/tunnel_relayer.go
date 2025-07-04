@@ -11,6 +11,7 @@ import (
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
@@ -23,7 +24,7 @@ type TunnelRelayer struct {
 	TargetChainProvider    chains.ChainProvider
 
 	isTargetChainActive  bool
-	penaltySkipRemaining uint64
+	penaltySkipRemaining uint
 	mu                   *sync.Mutex
 }
 
@@ -115,34 +116,13 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 			return false, nil
 		}
 
-		t.Log.Info("Relaying packet", zap.Uint64("sequence", seq))
-
 		// get packet of the sequence
-		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
+		packet, err := t.getTunnelPacket(ctx, seq)
 		if err != nil {
-			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return false, err
 		}
 
-		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
-		// If it is not success (Failed or Undefined), return error.
-		signing := packet.CurrentGroupSigning
-		if signing == nil ||
-			signing.SigningStatus == tsstypes.SIGNING_STATUS_FALLEN {
-			signing = packet.IncomingGroupSigning
-		}
-
-		if signing.SigningStatus == tsstypes.SIGNING_STATUS_WAITING {
-			t.Log.Info(
-				"The current packet must wait for the completion of the EVM signature",
-				zap.Uint64("sequence", seq),
-			)
-			return false, nil
-		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
-			err := fmt.Errorf("signing status is not success")
-			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
-			return false, err
-		}
+		t.Log.Info("Relaying packet", zap.Uint64("sequence", seq))
 
 		// Relay the packet to the target chain
 		if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
@@ -154,5 +134,42 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 		relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 
 		t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", seq))
+	}
+}
+
+// getTunnelPacket polls BandChain for the packet with the given sequence
+// until its TSS signing status becomes SUCCESS, then returns it.
+func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types.Packet, error) {
+	for {
+		// get packet of the sequence
+		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
+		if err != nil {
+			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
+			return nil, err
+		}
+
+		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
+		// If it is not success (Failed or Undefined), return error.
+		signing := packet.CurrentGroupSigning
+		if signing == nil ||
+			signing.SigningStatus == tsstypes.SIGNING_STATUS_FALLEN {
+			signing = packet.IncomingGroupSigning
+		}
+
+		if signing.SigningStatus == tsstypes.SIGNING_STATUS_WAITING {
+			t.Log.Debug(
+				"The current packet must wait for the completion of the EVM signature",
+				zap.Uint64("sequence", seq),
+			)
+			// wait 1 secs for each block
+			time.Sleep(time.Second)
+			continue
+		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
+			err := fmt.Errorf("signing status is not success")
+			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
+			return nil, err
+		}
+
+		return packet, nil
 	}
 }

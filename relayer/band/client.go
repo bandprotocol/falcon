@@ -137,7 +137,6 @@ func (c *client) startLivelinessCheck(ctx context.Context) {
 
 			return
 		case <-ticker.C:
-			c.Log.Info("Starting liveliness check")
 			if _, err := c.Context.Client.Status(ctx); err != nil {
 				c.Log.Error(
 					"BandChain client disconnected",

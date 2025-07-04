@@ -17,7 +17,7 @@ type Scheduler struct {
 	Log                    *zap.Logger
 	CheckingPacketInterval time.Duration
 	SyncTunnelsInterval    time.Duration
-	PenaltySkipRounds      uint64
+	PenaltySkipRounds      uint
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
@@ -31,7 +31,7 @@ func NewScheduler(
 	log *zap.Logger,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
-	penaltySkipRounds uint64,
+	penaltySkipRounds uint,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
@@ -60,7 +60,7 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator
 		if tunnelRelayer.penaltySkipRemaining > 0 {
 			s.Log.Debug("Skipping tunnel execution due to penalty from previous failure.",
 				zap.Uint64("tunnel_id", tunnelID),
-				zap.Uint64("penalty_skip_remaining", tunnelRelayer.penaltySkipRemaining),
+				zap.Uint("penalty_skip_remaining", tunnelRelayer.penaltySkipRemaining),
 			)
 			return
 		}
@@ -105,7 +105,7 @@ func (s *Scheduler) Execute(ctx context.Context) {
 			s.Log.Debug(
 				"Skipping tunnel execution due to penalty from previous failure.",
 				zap.Uint64("tunnel_id", tr.TunnelID),
-				zap.Uint64("penalty_skip_remaining", tr.penaltySkipRemaining),
+				zap.Uint("penalty_skip_remaining", tr.penaltySkipRemaining),
 			)
 			tr.penaltySkipRemaining -= 1
 			continue

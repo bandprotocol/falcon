@@ -22,7 +22,7 @@ type GlobalConfig struct {
 	LogLevel               string        `mapstructure:"log_level"                toml:"log_level"`
 	CheckingPacketInterval time.Duration `mapstructure:"checking_packet_interval" toml:"checking_packet_interval"`
 	SyncTunnelsInterval    time.Duration `mapstructure:"sync_tunnels_interval"    toml:"sync_tunnels_interval"`
-	PenaltySkipRounds      uint64        `mapstructure:"penalty_skip_rounds"      toml:"penalty_skip_rounds"`
+	PenaltySkipRounds      uint          `mapstructure:"penalty_skip_rounds"      toml:"penalty_skip_rounds"`
 	MetricsListenAddr      string        `mapstructure:"metrics_listen_addr"      toml:"metrics_listen_addr"`
 }
 
