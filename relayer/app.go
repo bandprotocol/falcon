@@ -80,6 +80,17 @@ func (a *App) connectBandClient(ctx context.Context) error {
 	return nil
 }
 
+// subscribeBandClient subscribes event of BandChain.
+func (a *App) subscribeBandClient(ctx context.Context) error {
+	// subscribe to BandChain
+	if err := a.BandClient.Subscribe(ctx); err != nil {
+		a.Log.Error("Cannot subscribe to BandChain", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
 // initTargetChains initializes the target chains.
 func (a *App) initTargetChains() error {
 	a.TargetChains = make(chains.ChainProviders)
@@ -351,6 +362,11 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 		return err
 	}
 
+	// subscribe BandChain client
+	if err := a.subscribeBandClient(ctx); err != nil {
+		return err
+	}
+
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase
@@ -392,6 +408,11 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 
 // Relay relays the packet from the source chain to the destination chain.
 func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return err
+	}
+
 	a.Log.Debug("Query tunnel info on BandChain", zap.Uint64("tunnel_id", tunnelID))
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {

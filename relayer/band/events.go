@@ -10,6 +10,21 @@ import (
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 )
 
+// Subscribe subscribes events from BandChain.
+func (c *client) Subscribe(ctx context.Context) error {
+	if err := c.subscribeToProducePacketSuccess(ctx); err != nil {
+		c.Log.Error(
+			"Failed to subscribe to ProducePacketSuccess events",
+			zap.String("rpcEndpoint", c.Context.NodeURI),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	c.Log.Info("Subscribed to BandChain", zap.String("rpcEndpoint", c.Context.NodeURI))
+	return nil
+}
+
 // subscribeToProducePacketSuccess subscribes to BandChain that emits events
 // whenever a packet is successfully produced on any tunnel.
 func (c *client) subscribeToProducePacketSuccess(ctx context.Context) error {
@@ -55,7 +70,7 @@ func (c *client) HandleProducePacketSuccess(handler func(tunnelID uint64)) {
 			tunnelID, err := strconv.ParseUint(idStr, 10, 64)
 			if err != nil {
 				c.Log.Debug("failed to parse tunnel_id",
-					zap.String("raw", idStr),
+					zap.String("tunnel_id", idStr),
 					zap.Error(err),
 				)
 				continue

@@ -26,6 +26,9 @@ type Client interface {
 	// periodic liveliness checks.
 	Init(ctx context.Context) error
 
+	// Subscribe subscribes events from BandChain.
+	Subscribe(ctx context.Context) error
+
 	// HandleProducePacketSuccess reads ProducePacketSuccess events from the channel
 	// and invokes the given handler once for each tunnel ID found in an event.
 	HandleProducePacketSuccess(handler func(tunnelID uint64))
@@ -104,15 +107,6 @@ func (c *client) connect(onStartup bool) error {
 
 		c.rpcClient = client
 
-		if err := c.subscribeToProducePacketSuccess(context.Background()); err != nil {
-			c.Log.Error(
-				"Failed to subscribe to ProducePacketSuccess events",
-				zap.String("rpcEndpoint", c.Context.NodeURI),
-				zap.Error(err),
-			)
-			return err
-		}
-
 		c.Context.Client = client
 		c.Context.NodeURI = rpcEndpoint
 		c.QueryClient = NewBandQueryClient(c.Context)
@@ -145,6 +139,10 @@ func (c *client) startLivelinessCheck(ctx context.Context) {
 				)
 				if err := c.connect(false); err != nil {
 					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
+				}
+
+				if err := c.subscribeToProducePacketSuccess(ctx); err != nil {
+					c.Log.Error("Liveliness check: unable to subscribe BandChain", zap.Error(err))
 				}
 			}
 		}
