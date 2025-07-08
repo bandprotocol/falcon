@@ -38,7 +38,7 @@ func (c *client) subscribeToProducePacketSuccess(ctx context.Context) error {
 
 	eventCh, err := c.rpcClient.Subscribe(ctx, "", subscriptionQuery)
 	if err != nil {
-		c.Log.Error("failed to subscribe to packet success events: %w")
+		c.Log.Error("failed to subscribe to packet success events")
 		return err
 	}
 
