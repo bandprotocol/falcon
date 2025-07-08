@@ -59,20 +59,32 @@ func (a *App) Init(ctx context.Context) error {
 	}
 
 	// initialize BandChain client
-	if err := a.initBandClient(ctx); err != nil {
+	a.initBandClient()
+
+	return nil
+}
+
+// initBandClient initializes BandChain client.
+func (a *App) initBandClient() {
+	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
+}
+
+// connectBandClient establishes connection to rpc endpoints.
+func (a *App) connectBandClient(ctx context.Context) error {
+	// connect to BandChain
+	if err := a.BandClient.Init(ctx); err != nil {
+		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
 		return err
 	}
 
 	return nil
 }
 
-// initBandClient establishes connection to rpc endpoints.
-func (a *App) initBandClient(ctx context.Context) error {
-	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
-
-	// connect to BandChain, if error occurs, log the error as debug and continue
-	if err := a.BandClient.Init(ctx); err != nil {
-		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
+// subscribeBandClient subscribes event of BandChain.
+func (a *App) subscribeBandClient(ctx context.Context) error {
+	// subscribe to BandChain
+	if err := a.BandClient.Subscribe(ctx); err != nil {
+		a.Log.Error("Cannot subscribe to BandChain", zap.Error(err))
 		return err
 	}
 
@@ -137,6 +149,11 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 		return nil, fmt.Errorf("config is not initialized")
 	}
 
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return nil, err
+	}
+
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return nil, err
@@ -172,6 +189,11 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 func (a *App) QueryTunnelPacketInfo(ctx context.Context, tunnelID uint64, sequence uint64) (*bandtypes.Packet, error) {
 	if a.Config == nil {
 		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return nil, err
 	}
 
 	return a.BandClient.GetTunnelPacket(ctx, tunnelID, sequence)
@@ -335,6 +357,16 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 
 // Start starts the tunnel relayer program.
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return err
+	}
+
+	// subscribe BandChain client
+	if err := a.subscribeBandClient(ctx); err != nil {
+		return err
+	}
+
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase
@@ -376,6 +408,11 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 
 // Relay relays the packet from the source chain to the destination chain.
 func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
+	// connect BandChain client
+	if err := a.connectBandClient(ctx); err != nil {
+		return err
+	}
+
 	a.Log.Debug("Query tunnel info on BandChain", zap.Uint64("tunnel_id", tunnelID))
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
