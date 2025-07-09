@@ -49,13 +49,10 @@ func NewTunnelRelayer(
 }
 
 // CheckAndRelay checks the tunnel and relays the packet
-func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, err error) {
+func (t *TunnelRelayer) CheckAndRelay(ctx context.Context, isForce bool) (isExecuting bool, err error) {
+	// if the tunnel relayer is executing, skip the round
 	if !t.mu.TryLock() {
-		// if the tunnel relayer is executing, skip the round
-		t.Log.Debug(
-			"Skipping this tunnel: tunnel relayer is executing on another process",
-			zap.Uint64("tunnel_id", t.TunnelID),
-		)
+		t.Log.Debug("Skipping this tunnel: tunnel relayer is executing on another process")
 		return true, nil
 	}
 	defer func() {
@@ -67,20 +64,26 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 			if !ok {
 				newErr = fmt.Errorf("%v", r)
 			}
+
 			err = newErr
 		}
 	}()
 
-	t.Log.Info("Executing task")
+	// Query tunnel info from BandChain, exit if the tunnel is not active and isForce is false
+	tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
+	if err != nil {
+		t.Log.Error("Failed to get tunnel", zap.Error(err))
+		return false, err
+	}
+
+	if !isForce && !tunnelBandInfo.IsActive {
+		t.Log.Debug("Tunnel is not active on BandChain")
+		return false, nil
+	}
+
+	t.Log.Debug("Executing task")
 
 	for {
-		// Query tunnel info from BandChain
-		tunnelBandInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
-		if err != nil {
-			t.Log.Error("Failed to get tunnel", zap.Error(err))
-			return false, err
-		}
-
 		// Query tunnel info from TargetChain
 		tunnelChainInfo, err := t.TargetChainProvider.QueryTunnelInfo(ctx, t.TunnelID, tunnelBandInfo.TargetAddress)
 		if err != nil {
@@ -99,7 +102,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 				relayermetrics.DecActiveTargetContractsCount(tunnelBandInfo.TargetChainID)
 				t.isTargetChainActive = false
 			}
-			t.Log.Info("Tunnel is not active on target chain")
+			t.Log.Debug("Tunnel is not active on target chain")
 			return false, nil
 		}
 
@@ -112,7 +115,7 @@ func (t *TunnelRelayer) CheckAndRelay(ctx context.Context) (isExecuting bool, er
 		// end process if current packet is already relayed
 		seq := tunnelChainInfo.LatestSequence + 1
 		if tunnelBandInfo.LatestSequence < seq {
-			t.Log.Info("No new packet to relay", zap.Uint64("sequence", tunnelChainInfo.LatestSequence))
+			t.Log.Debug("No new packet to relay", zap.Uint64("sequence", tunnelChainInfo.LatestSequence))
 			return false, nil
 		}
 

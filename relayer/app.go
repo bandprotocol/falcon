@@ -407,7 +407,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 }
 
 // Relay relays the packet from the source chain to the destination chain.
-func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
+func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 	// connect BandChain client
 	if err := a.connectBandClient(ctx); err != nil {
 		return err
@@ -444,7 +444,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		chainProvider,
 	)
 
-	_, err = tr.CheckAndRelay(ctx)
+	_, err = tr.CheckAndRelay(ctx, isForce)
 
 	return err
 }

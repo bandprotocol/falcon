@@ -57,17 +57,15 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator
 			return
 		}
 
+		s.Log.Info("Received produce_packet_success event", zap.Uint64("tunnel_id", tunnelID))
+
 		if tunnelRelayer.penaltySkipRemaining > 0 {
-			s.Log.Debug("Skipping tunnel execution due to penalty from previous failure.",
+			s.Log.Info(
+				"Skipping tunnel execution due to penalty from previous failure",
 				zap.Uint64("tunnel_id", tunnelID),
-				zap.Uint("penalty_skip_remaining", tunnelRelayer.penaltySkipRemaining),
 			)
 			return
 		}
-
-		s.Log.Info("Triggering tunnel relayer from event",
-			zap.Uint64("tunnel_id", tunnelID),
-		)
 
 		go s.TriggerTunnelRelayer(ctx, tunnelRelayer)
 	})
@@ -100,6 +98,8 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator
 
 // Execute executes the task for the tunnel relayer
 func (s *Scheduler) Execute(ctx context.Context) {
+	s.Log.Info("Executing tunnel relayers from the scheduler")
+
 	for _, tr := range s.tunnelRelayers {
 		if tr.penaltySkipRemaining > 0 {
 			s.Log.Debug(
@@ -119,7 +119,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 	chainName := tr.TargetChainProvider.GetChainName()
 	startExecutionTaskTime := time.Now()
 
-	isExecuting, err := tr.CheckAndRelay(ctx)
+	isExecuting, err := tr.CheckAndRelay(ctx, false)
 
 	switch {
 	case err != nil:
@@ -137,6 +137,11 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 		// Record metrics for the skipped task execution
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.SkippedTaskStatus)
 
+		s.Log.Info(
+			"This tunnel relayer is already executing",
+			zap.Uint64("tunnel_id", tr.TunnelID),
+		)
+
 	default:
 		// Record execution time of finished task (ms)
 		relayermetrics.ObserveFinishedTaskExecutionTime(
@@ -147,11 +152,6 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 
 		// Record metrics for the finished task execution
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.FinishedTaskStatus)
-
-		s.Log.Info(
-			"Tunnel relayer finished execution",
-			zap.Uint64("tunnel_id", tr.TunnelID),
-		)
 	}
 }
 

@@ -37,16 +37,24 @@ func txRelayCmd(app *relayer.App) *cobra.Command {
 		Short:   "Relay the next sequence message to the destination tunnel contract address",
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx relay 1, # relay the next sequence message of the tunnelID 1`, appName)),
+$ %s tx relay 1, 		# relay tunnelID 1's pending packets
+$ %s tx relay 1 --force	# relay tunnelID 1's pending packets regardless of its active status on BandChain`, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
 				return err
 			}
 
-			return app.Relay(cmd.Context(), tunnelID)
+			isForce, err := cmd.Flags().GetBool(flagForce)
+			if err != nil {
+				return err
+			}
+
+			return app.Relay(cmd.Context(), tunnelID, isForce)
 		},
 	}
+
+	cmd.Flags().Bool(flagForce, false, "force relaying data from specific tunnelIDs")
 
 	return cmd
 }

@@ -153,7 +153,6 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
 
 				// Check and relay the packet for the second time
-				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
 		},
@@ -222,7 +221,6 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
 
 				// Check and relay the packet for the second time
-				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
 		},
@@ -279,7 +277,6 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), successPacket).Return(nil)
 
 				// Check and relay the packet for the second time
-				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
 			err: nil,
@@ -312,7 +309,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				tc.preprocess()
 			}
 
-			isExecuting, err := s.tunnelRelayer.CheckAndRelay(s.ctx)
+			isExecuting, err := s.tunnelRelayer.CheckAndRelay(s.ctx, false)
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
 				s.Require().False(isExecuting)

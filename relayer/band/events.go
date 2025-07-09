@@ -38,7 +38,7 @@ func (c *client) subscribeToProducePacketSuccess(ctx context.Context) error {
 
 	eventCh, err := c.rpcClient.Subscribe(ctx, "", subscriptionQuery)
 	if err != nil {
-		c.Log.Error("failed to subscribe to packet success events")
+		c.Log.Error("Failed to subscribe to packet success events")
 		return err
 	}
 
@@ -61,7 +61,7 @@ func (c *client) HandleProducePacketSuccess(handler func(tunnelID uint64)) {
 
 		tunnelIDs := attrs[key]
 		if len(tunnelIDs) == 0 {
-			c.Log.Debug("missing tunnel_id in event")
+			c.Log.Error("Missing tunnel_id in event produce_packet_success")
 			continue
 		}
 
@@ -69,7 +69,7 @@ func (c *client) HandleProducePacketSuccess(handler func(tunnelID uint64)) {
 		for _, idStr := range tunnelIDs {
 			tunnelID, err := strconv.ParseUint(idStr, 10, 64)
 			if err != nil {
-				c.Log.Debug("failed to parse tunnel_id",
+				c.Log.Error("Failed to parse tunnel_id in the event produce_packet_success",
 					zap.String("tunnel_id", idStr),
 					zap.Error(err),
 				)
