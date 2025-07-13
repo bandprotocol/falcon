@@ -161,20 +161,25 @@ func (h *PacketHandler) UpdateValidTunnelIDs(tunnelIDs []uint64) {
 
 // cacheSigningNewPacket caches the signing IDs of a new packet.
 func (h *PacketHandler) cacheSigningNewPacket(packet *types.Packet) {
-	cacheEntry := NewCacheEntry(
-		packet.TunnelID,
-		packet.GetCurrentGroupSigningID(),
-		packet.GetIncomingGroupSigningID(),
-	)
-
-	if cacheEntry.CurrentGroupSigningID != 0 &&
-		!h.signingCache.Has(cacheEntry.CurrentGroupSigningID) {
-		h.signingCache.Set(cacheEntry.CurrentGroupSigningID, cacheEntry, cacheTTL)
+	// Get the signing IDs from the packet.
+	currentSigningID, incomingSigningID := uint64(0), uint64(0)
+	if packet.CurrentGroupSigning != nil {
+		currentSigningID = packet.CurrentGroupSigning.ID
+	}
+	if packet.IncomingGroupSigning != nil {
+		incomingSigningID = packet.IncomingGroupSigning.ID
 	}
 
-	if cacheEntry.IncomingGroupSigningID != 0 &&
-		!h.signingCache.Has(cacheEntry.IncomingGroupSigningID) {
-		h.signingCache.Set(cacheEntry.IncomingGroupSigningID, cacheEntry, cacheTTL)
+	cacheEntry := NewCacheEntry(packet.TunnelID, currentSigningID, incomingSigningID)
+
+	// Cache the signing ID if it is not in the cache.
+	if currentSigningID != 0 &&
+		!h.signingCache.Has(currentSigningID) {
+		h.signingCache.Set(currentSigningID, cacheEntry, cacheTTL)
+	}
+	if incomingSigningID != 0 &&
+		!h.signingCache.Has(incomingSigningID) {
+		h.signingCache.Set(incomingSigningID, cacheEntry, cacheTTL)
 	}
 
 	h.Log.Debug("Stored current group signing ID in cache",
