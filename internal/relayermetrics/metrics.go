@@ -123,12 +123,12 @@ func ObserveGasUsed(tunnelID uint64, destinationChain string, txStatus string, g
 	})
 }
 
-// IncreasePendingNewSigning increases the number of pending new signing.
+// IncreasePendingNewSigning increases the number of pending new signing in the ttl cache.
 func IncreasePendingNewSigning() {
 	updateMetrics(func() { metrics.PendingNewSigning.Inc() })
 }
 
-// DecreasePendingNewSigning decreases the number of pending new signing.
+// DecreasePendingNewSigning decreases the number of pending new signing in the ttl cache.
 func DecreasePendingNewSigning() {
 	updateMetrics(func() { metrics.PendingNewSigning.Dec() })
 }
@@ -198,7 +198,7 @@ func InitPrometheusMetrics() {
 		}, gasUsedLabels),
 		PendingNewSigning: promauto.NewGauge(prometheus.GaugeOpts{
 			Name: "falcon_pending_new_signing",
-			Help: "Number of pending new signing",
+			Help: "Number of pending new signing in the ttl cache",
 		}),
 	}
 }
