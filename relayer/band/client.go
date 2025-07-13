@@ -30,11 +30,18 @@ type Client interface {
 	Subscribe(ctx context.Context) error
 
 	// HandleProducePacketSuccess reads ProducePacketSuccess events from the channel
-	// and invokes the given handler once for each tunnel ID found in an event.
-	HandleProducePacketSuccess(handler func(tunnelID uint64))
+	// and writes the received tunnel IDs to the channel.
+	HandleProducePacketSuccess(newPacketCh chan<- *types.Packet)
+
+	// HandleSigningSuccess reads SigningSuccess events from the channel
+	// and writes the received signing IDs to the channel.
+	HandleSigningSuccess(signingIDCh chan<- uint64)
 
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
+
+	// GetLatestPacket returns the latest packet for the given tunnel ID.
+	GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error)
 
 	// GetTunnel returns the tunnel with the given tunnelID.
 	GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error)
@@ -45,12 +52,13 @@ type Client interface {
 
 // client is the BandChain client struct.
 type client struct {
-	Context     cosmosclient.Context
-	QueryClient QueryClient
-	Log         *zap.Logger
-	Config      *Config
-	rpcClient   rpcclient.Client
-	eventCh     <-chan coretypes.ResultEvent
+	Context               cosmosclient.Context
+	QueryClient           QueryClient
+	Log                   *zap.Logger
+	Config                *Config
+	rpcClient             rpcclient.Client
+	producePacketEventCh  <-chan coretypes.ResultEvent
+	signingSuccessEventCh <-chan coretypes.ResultEvent
 }
 
 // NewClient creates a new BandChain client instance.
@@ -141,7 +149,7 @@ func (c *client) startLivelinessCheck(ctx context.Context) {
 					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
 				}
 
-				if err := c.subscribeToProducePacketSuccess(ctx); err != nil {
+				if err := c.Subscribe(ctx); err != nil {
 					c.Log.Error("Liveliness check: unable to subscribe BandChain", zap.Error(err))
 				}
 			}
@@ -301,6 +309,33 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	}
 
 	return tunnels, nil
+}
+
+// GetLatestPacket gets the latest packet for the given tunnel ID. If the tunnel
+// doesn't produce packet, return nil.
+func (c *client) GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error) {
+	queryTunnelCtx, cancelQueryTunnel := context.WithTimeout(ctx, c.Config.Timeout)
+	defer cancelQueryTunnel()
+
+	tunnel, err := c.GetTunnel(queryTunnelCtx, tunnelID)
+	if err != nil {
+		return nil, err
+	}
+
+	// if the tunnel doesn't produce packet, return nil
+	if tunnel.LatestSequence == 0 {
+		return nil, nil
+	}
+
+	queryPacketCtx, cancelQueryPacket := context.WithTimeout(ctx, c.Config.Timeout)
+	defer cancelQueryPacket()
+
+	packet, err := c.GetTunnelPacket(queryPacketCtx, tunnelID, tunnel.LatestSequence)
+	if err != nil {
+		return nil, err
+	}
+
+	return packet, nil
 }
 
 // UnpackAny unpacks the provided *codectypes.Any into the specified interface.

@@ -21,7 +21,11 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
+	PacketHandler  *band.PacketHandler
 
+	triggerRelayerCh chan uint64
+	newSigningIDCh   chan uint64
+	newPacketCh      chan *bandtypes.Packet
 	tunnelRelayers   map[uint64]*TunnelRelayer
 	bandLatestTunnel int
 }
@@ -35,6 +39,12 @@ func NewScheduler(
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
+	triggerRelayerCh := make(chan uint64, 1000)
+	newSigningIDCh := make(chan uint64, 1000)
+	newPacketCh := make(chan *bandtypes.Packet, 1000)
+
+	packetHandler := band.NewPacketHandler(log, triggerRelayerCh, newSigningIDCh, newPacketCh)
+
 	return &Scheduler{
 		Log:                    log,
 		CheckingPacketInterval: checkingPacketInterval,
@@ -42,6 +52,10 @@ func NewScheduler(
 		PenaltySkipRounds:      penaltySkipRounds,
 		BandClient:             bandClient,
 		ChainProviders:         chainProviders,
+		PacketHandler:          packetHandler,
+		triggerRelayerCh:       triggerRelayerCh,
+		newSigningIDCh:         newSigningIDCh,
+		newPacketCh:            newPacketCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
 	}
@@ -51,33 +65,22 @@ func NewScheduler(
 func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
 	s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
 
-	go s.BandClient.HandleProducePacketSuccess(func(tunnelID uint64) {
-		tunnelRelayer, ok := s.tunnelRelayers[tunnelID]
-		if !ok {
-			return
-		}
+	// listen events from BandChain
+	go s.BandClient.HandleProducePacketSuccess(s.newPacketCh)
+	go s.BandClient.HandleSigningSuccess(s.newSigningIDCh)
 
-		s.Log.Info("Received produce_packet_success event", zap.Uint64("tunnel_id", tunnelID))
+	// handle new packets and signing IDs
+	go s.PacketHandler.HandleNewPacket()
+	go s.PacketHandler.HandleNewSigning()
 
-		if tunnelRelayer.penaltySkipRemaining > 0 {
-			s.Log.Info(
-				"Skipping tunnel execution due to penalty from previous failure",
-				zap.Uint64("tunnel_id", tunnelID),
-			)
-			return
-		}
-
-		go s.TriggerTunnelRelayer(ctx, tunnelRelayer)
-	})
+	// handle trigger relayer event from packet handler
+	go s.HandleTriggerTunnelRelayer(ctx)
 
 	ticker := time.NewTicker(s.CheckingPacketInterval)
 	defer ticker.Stop()
 
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
-
-	// execute once we start the scheduler.
-	s.Execute(ctx)
 
 	for {
 		select {
@@ -172,6 +175,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 		return
 	}
 
+	var newTunnelIDs []uint64
 	for i := s.bandLatestTunnel; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
@@ -196,6 +200,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 			chainProvider,
 		)
 
+		newTunnelIDs = append(newTunnelIDs, tunnels[i].ID)
 		s.tunnelRelayers[tunnels[i].ID] = &tr
 
 		// update the metric for the number of tunnels per destination chain
@@ -208,7 +213,57 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 		)
 	}
 
+	// update the valid tunnel IDs in the packet handler
+	s.updateNewTunnelIDs(ctx, newTunnelIDs)
+
 	s.bandLatestTunnel = len(tunnels)
+}
+
+// HandleTriggerTunnelRelayer triggers the tunnel relayer from the received tunnelID.
+func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
+	for tunnelID := range s.triggerRelayerCh {
+		tunnelRelayer, ok := s.tunnelRelayers[tunnelID]
+		if !ok {
+			return
+		}
+
+		s.Log.Info("Received trigger relayer event", zap.Uint64("tunnel_id", tunnelID))
+
+		if tunnelRelayer.penaltySkipRemaining > 0 {
+			s.Log.Info(
+				"Skipping tunnel execution due to penalty from previous failure",
+				zap.Uint64("tunnel_id", tunnelID),
+			)
+			return
+		}
+
+		go s.TriggerTunnelRelayer(ctx, tunnelRelayer)
+	}
+}
+
+// updateNewTunnelIDs updates the valid tunnel IDs in the packet handler and
+// synchronize the latest packet for each new tunnel.
+func (s *Scheduler) updateNewTunnelIDs(ctx context.Context, newTunnelIDs []uint64) {
+	s.PacketHandler.UpdateValidTunnelIDs(newTunnelIDs)
+
+	for _, tunnelID := range newTunnelIDs {
+		s.Log.Debug("synchronize latest packet", zap.Uint64("tunnel_id", tunnelID))
+
+		packet, err := s.BandClient.GetLatestPacket(ctx, tunnelID)
+		if err != nil {
+			s.Log.Error(
+				"Failed to get latest packet", zap.Error(err),
+				zap.Uint64("tunnel_id", tunnelID),
+			)
+			continue
+		}
+		if packet == nil {
+			s.Log.Debug("Tunnel doesn't produce packet", zap.Uint64("tunnel_id", tunnelID))
+			continue
+		}
+
+		s.newPacketCh <- packet
+	}
 }
 
 // getTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,

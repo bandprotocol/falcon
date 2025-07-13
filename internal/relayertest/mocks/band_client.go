@@ -41,6 +41,21 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
+// GetLatestPacket mocks base method.
+func (m *MockClient) GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLatestPacket", ctx, tunnelID)
+	ret0, _ := ret[0].(*types.Packet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLatestPacket indicates an expected call of GetLatestPacket.
+func (mr *MockClientMockRecorder) GetLatestPacket(ctx, tunnelID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestPacket", reflect.TypeOf((*MockClient)(nil).GetLatestPacket), ctx, tunnelID)
+}
+
 // GetTunnel mocks base method.
 func (m *MockClient) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error) {
 	m.ctrl.T.Helper()
@@ -87,15 +102,27 @@ func (mr *MockClientMockRecorder) GetTunnels(ctx any) *gomock.Call {
 }
 
 // HandleProducePacketSuccess mocks base method.
-func (m *MockClient) HandleProducePacketSuccess(handler func(uint64)) {
+func (m *MockClient) HandleProducePacketSuccess(newPacketCh chan<- *types.Packet) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleProducePacketSuccess", handler)
+	m.ctrl.Call(m, "HandleProducePacketSuccess", newPacketCh)
 }
 
 // HandleProducePacketSuccess indicates an expected call of HandleProducePacketSuccess.
-func (mr *MockClientMockRecorder) HandleProducePacketSuccess(handler any) *gomock.Call {
+func (mr *MockClientMockRecorder) HandleProducePacketSuccess(newPacketCh any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).HandleProducePacketSuccess), handler)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).HandleProducePacketSuccess), newPacketCh)
+}
+
+// HandleSigningSuccess mocks base method.
+func (m *MockClient) HandleSigningSuccess(signingIDCh chan<- uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "HandleSigningSuccess", signingIDCh)
+}
+
+// HandleSigningSuccess indicates an expected call of HandleSigningSuccess.
+func (mr *MockClientMockRecorder) HandleSigningSuccess(signingIDCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSigningSuccess", reflect.TypeOf((*MockClient)(nil).HandleSigningSuccess), signingIDCh)
 }
 
 // Init mocks base method.

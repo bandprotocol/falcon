@@ -57,18 +57,18 @@ func (mr *MockChainProviderConfigMockRecorder) GetChainType() *gomock.Call {
 }
 
 // NewChainProvider mocks base method.
-func (m *MockChainProviderConfig) NewChainProvider(chainName string, log *zap.Logger, debug bool, wallet wallet.Wallet) (chains.ChainProvider, error) {
+func (m *MockChainProviderConfig) NewChainProvider(chainName string, log *zap.Logger, debug bool, arg3 wallet.Wallet) (chains.ChainProvider, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, debug, wallet)
+	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, debug, arg3)
 	ret0, _ := ret[0].(chains.ChainProvider)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewChainProvider indicates an expected call of NewChainProvider.
-func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, debug, wallet any) *gomock.Call {
+func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, debug, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, debug, wallet)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, debug, arg3)
 }
 
 // Validate mocks base method.

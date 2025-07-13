@@ -31,3 +31,21 @@ func NewPacket(
 		IncomingGroupSigning: incomingGroupSigning,
 	}
 }
+
+// GetCurrentGroupSigningID returns the signing ID of the current group.
+func (p *Packet) GetCurrentGroupSigningID() uint64 {
+	if p.CurrentGroupSigning == nil {
+		return 0
+	}
+
+	return p.CurrentGroupSigning.ID
+}
+
+// GetIncomingGroupSigningID returns the signing ID of the incoming group.
+func (p *Packet) GetIncomingGroupSigningID() uint64 {
+	if p.IncomingGroupSigning == nil {
+		return 0
+	}
+
+	return p.IncomingGroupSigning.ID
+}
