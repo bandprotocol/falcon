@@ -23,11 +23,12 @@ type Scheduler struct {
 	ChainProviders chains.ChainProviders
 	PacketHandler  *band.PacketHandler
 
-	triggerRelayerCh chan uint64
-	newSigningIDCh   chan uint64
-	newPacketCh      chan *bandtypes.Packet
-	tunnelRelayers   map[uint64]*TunnelRelayer
-	bandLatestTunnel int
+	triggerRelayerCh   chan uint64
+	signingIDSuccessCh chan uint64
+	signingIDFailureCh chan uint64
+	newPacketCh        chan *bandtypes.Packet
+	tunnelRelayers     map[uint64]*TunnelRelayer
+	bandLatestTunnel   int
 }
 
 // NewScheduler creates a new Scheduler
@@ -40,10 +41,17 @@ func NewScheduler(
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	triggerRelayerCh := make(chan uint64, 1000)
-	newSigningIDCh := make(chan uint64, 1000)
+	signingIDSuccessCh := make(chan uint64, 1000)
+	signingIDFailureCh := make(chan uint64, 1000)
 	newPacketCh := make(chan *bandtypes.Packet, 1000)
 
-	packetHandler := band.NewPacketHandler(log, triggerRelayerCh, newSigningIDCh, newPacketCh)
+	packetHandler := band.NewPacketHandler(
+		log,
+		triggerRelayerCh,
+		signingIDSuccessCh,
+		signingIDFailureCh,
+		newPacketCh,
+	)
 
 	return &Scheduler{
 		Log:                    log,
@@ -54,7 +62,8 @@ func NewScheduler(
 		ChainProviders:         chainProviders,
 		PacketHandler:          packetHandler,
 		triggerRelayerCh:       triggerRelayerCh,
-		newSigningIDCh:         newSigningIDCh,
+		signingIDSuccessCh:     signingIDSuccessCh,
+		signingIDFailureCh:     signingIDFailureCh,
 		newPacketCh:            newPacketCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
@@ -67,11 +76,13 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator
 
 	// listen events from BandChain
 	go s.BandClient.HandleProducePacketSuccess(s.newPacketCh)
-	go s.BandClient.HandleSigningSuccess(s.newSigningIDCh)
+	go s.BandClient.HandleSigningSuccess(s.signingIDSuccessCh)
+	go s.BandClient.HandleSigningFailure(s.signingIDFailureCh)
 
-	// handle new packets and signing IDs
+	// handle new packets and failed or successful signing IDs
 	go s.PacketHandler.HandleNewPacket()
-	go s.PacketHandler.HandleNewSigning()
+	go s.PacketHandler.HandleSigningSuccess()
+	go s.PacketHandler.HandleSigningFailure()
 
 	// handle trigger relayer event from packet handler
 	go s.HandleTriggerTunnelRelayer(ctx)

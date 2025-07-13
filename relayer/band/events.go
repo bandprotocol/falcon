@@ -32,6 +32,15 @@ func (c *client) Subscribe(ctx context.Context) error {
 		return err
 	}
 
+	if err := c.subscribeToSigningFailed(ctx); err != nil {
+		c.Log.Error(
+			"Failed to subscribe to SigningFailed events",
+			zap.String("rpcEndpoint", c.Context.NodeURI),
+			zap.Error(err),
+		)
+		return err
+	}
+
 	c.Log.Info("Subscribed to BandChain", zap.String("rpcEndpoint", c.Context.NodeURI))
 	return nil
 }
@@ -70,6 +79,24 @@ func (c *client) subscribeToSigningSuccess(ctx context.Context) error {
 		return err
 	}
 	c.signingSuccessEventCh = eventCh
+
+	return nil
+}
+
+// subscribeToSigningFailed subscribes to BandChain that emits events
+// whenever a signature is failed to aggregate.
+func (c *client) subscribeToSigningFailed(ctx context.Context) error {
+	subscriptionQuery := fmt.Sprintf(
+		"tm.event='NewBlock' AND %s.%s EXISTS",
+		tsstypes.EventTypeSigningFailed,
+		tsstypes.AttributeKeySigningID,
+	)
+
+	eventCh, err := c.rpcClient.Subscribe(ctx, "signingFailed", subscriptionQuery)
+	if err != nil {
+		return err
+	}
+	c.signingFailedEventCh = eventCh
 
 	return nil
 }
@@ -135,11 +162,11 @@ func (c *client) HandleProducePacketSuccess(packetCh chan<- *types.Packet) {
 
 // HandleSigningSuccess reads SigningSuccess events from the channel
 // and writes the received signing IDs to the channel.
-func (c *client) HandleSigningSuccess(signingIDCh chan<- uint64) {
+func (c *client) HandleSigningSuccess(signingIDSuccessCh chan<- uint64) {
 	for msg := range c.signingSuccessEventCh {
 		attrs := msg.Events
 
-		// key for the tunnelID attribute
+		// key for the signingID attribute
 		key := fmt.Sprintf("%s.%s",
 			tsstypes.EventTypeSigningSuccess,
 			tsstypes.AttributeKeySigningID,
@@ -151,7 +178,7 @@ func (c *client) HandleSigningSuccess(signingIDCh chan<- uint64) {
 			continue
 		}
 
-		// handle *each* tunnelID in the event
+		// handle *each* signingID in the event
 		for _, idStr := range signingIDs {
 			signingID, err := strconv.ParseUint(idStr, 10, 64)
 			if err != nil {
@@ -161,7 +188,40 @@ func (c *client) HandleSigningSuccess(signingIDCh chan<- uint64) {
 				)
 				continue
 			}
-			signingIDCh <- signingID
+			signingIDSuccessCh <- signingID
+		}
+	}
+}
+
+// HandleSigningFailure reads SigningFailed events from the channel
+// and writes the received signing IDs to the channel.
+func (c *client) HandleSigningFailure(signingIDFailureCh chan<- uint64) {
+	for msg := range c.signingFailedEventCh {
+		attrs := msg.Events
+
+		// key for the signingID attribute
+		key := fmt.Sprintf("%s.%s",
+			tsstypes.EventTypeSigningFailed,
+			tsstypes.AttributeKeySigningID,
+		)
+
+		signingIDs := attrs[key]
+		if len(signingIDs) == 0 {
+			c.Log.Error("Missing signing_id in event signing_failed")
+			continue
+		}
+
+		// handle *each* tunnelID in the event
+		for _, idStr := range signingIDs {
+			signingID, err := strconv.ParseUint(idStr, 10, 64)
+			if err != nil {
+				c.Log.Error("Failed to parse signing_id in the event signing_failed",
+					zap.String("tunnel_id", idStr),
+					zap.Error(err),
+				)
+				continue
+			}
+			signingIDFailureCh <- signingID
 		}
 	}
 }

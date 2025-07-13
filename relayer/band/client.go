@@ -35,12 +35,16 @@ type Client interface {
 
 	// HandleSigningSuccess reads SigningSuccess events from the channel
 	// and writes the received signing IDs to the channel.
-	HandleSigningSuccess(signingIDCh chan<- uint64)
+	HandleSigningSuccess(succeededSigningIDCh chan<- uint64)
+
+	// HandleSigningFailure reads SigningFailure events from the channel
+	// and writes the received signing IDs to the channel.
+	HandleSigningFailure(signingIDFailureCh chan<- uint64)
 
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
 
-	// GetLatestPacket returns the latest packet for the given tunnel ID.
+	// GetLatestPacket returns the latest packet of the given tunnel ID.
 	GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error)
 
 	// GetTunnel returns the tunnel with the given tunnelID.
@@ -59,6 +63,7 @@ type client struct {
 	rpcClient             rpcclient.Client
 	producePacketEventCh  <-chan coretypes.ResultEvent
 	signingSuccessEventCh <-chan coretypes.ResultEvent
+	signingFailedEventCh  <-chan coretypes.ResultEvent
 }
 
 // NewClient creates a new BandChain client instance.

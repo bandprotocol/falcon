@@ -113,16 +113,28 @@ func (mr *MockClientMockRecorder) HandleProducePacketSuccess(newPacketCh any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).HandleProducePacketSuccess), newPacketCh)
 }
 
-// HandleSigningSuccess mocks base method.
-func (m *MockClient) HandleSigningSuccess(signingIDCh chan<- uint64) {
+// HandleSigningFailure mocks base method.
+func (m *MockClient) HandleSigningFailure(signingIDCh chan<- uint64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleSigningSuccess", signingIDCh)
+	m.ctrl.Call(m, "HandleSigningFailure", signingIDCh)
+}
+
+// HandleSigningFailure indicates an expected call of HandleSigningFailure.
+func (mr *MockClientMockRecorder) HandleSigningFailure(signingIDCh any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSigningFailure", reflect.TypeOf((*MockClient)(nil).HandleSigningFailure), signingIDCh)
+}
+
+// HandleSigningSuccess mocks base method.
+func (m *MockClient) HandleSigningSuccess(succeededSigningIDCh chan<- uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "HandleSigningSuccess", succeededSigningIDCh)
 }
 
 // HandleSigningSuccess indicates an expected call of HandleSigningSuccess.
-func (mr *MockClientMockRecorder) HandleSigningSuccess(signingIDCh any) *gomock.Call {
+func (mr *MockClientMockRecorder) HandleSigningSuccess(succeededSigningIDCh any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSigningSuccess", reflect.TypeOf((*MockClient)(nil).HandleSigningSuccess), signingIDCh)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSigningSuccess", reflect.TypeOf((*MockClient)(nil).HandleSigningSuccess), succeededSigningIDCh)
 }
 
 // Init mocks base method.
