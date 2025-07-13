@@ -260,39 +260,20 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
 
-				waitingPacket := createMockPacket(
+				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
 					int32(tss.SIGNING_STATUS_WAITING),
 					-1,
 				)
 
-				successPacket := createMockPacket(
-					s.tunnelRelayer.TunnelID,
-					defaultTargetChainSequence+1,
-					int32(tss.SIGNING_STATUS_SUCCESS),
-					-1,
-				)
-
-				gomock.InOrder(
-					s.client.
-						EXPECT().
-						GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-						Return(waitingPacket, nil),
-					s.client.
-						EXPECT().
-						GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
-						Return(successPacket, nil),
-				)
-
-				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), successPacket).Return(nil)
-
-				// Check and relay the packet for the second time
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
+				s.client.
+					EXPECT().
+					GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
 			},
 			err:         nil,
-			relayStatus: relayer.RelayStatusSuccess,
+			relayStatus: relayer.RelayStatusSkipped,
 		},
 		{
 			name: "failed to relay packet",

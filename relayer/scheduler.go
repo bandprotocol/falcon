@@ -124,12 +124,12 @@ func (s *Scheduler) Execute(ctx context.Context) {
 			tr.penaltySkipRemaining -= 1
 			continue
 		}
-		go s.TriggerTunnelRelayer(ctx, tr)
+		go func() { _ = s.TriggerTunnelRelayer(ctx, tr) }()
 	}
 }
 
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
-func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer) {
+func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer) (status RelayStatus) {
 	chainName := tr.TargetChainProvider.GetChainName()
 	startExecutionTaskTime := time.Now()
 
@@ -144,18 +144,13 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 		)
 
 		tr.penaltySkipRemaining = s.PenaltySkipRounds
-		return
+		return RelayStatusFailed
 	}
 
 	switch relayStatus {
 	case RelayStatusExecuting:
 		// Record metrics for the skipped task execution
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.SkippedTaskStatus)
-
-		s.Log.Info(
-			"This tunnel relayer is already executing on another process",
-			zap.Uint64("tunnel_id", tr.TunnelID),
-		)
 	case RelayStatusSuccess:
 		// Record execution time of finished task (ms)
 		relayermetrics.ObserveFinishedTaskExecutionTime(
@@ -169,6 +164,8 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 
 		s.Log.Info("Relay packet successfully", zap.Uint64("tunnel_id", tr.TunnelID))
 	}
+
+	return relayStatus
 }
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
@@ -248,7 +245,16 @@ func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
 			return
 		}
 
-		go s.TriggerTunnelRelayer(ctx, tunnelRelayer)
+		go func() {
+			status := s.TriggerTunnelRelayer(ctx, tunnelRelayer)
+			if status != RelayStatusSuccess {
+				s.Log.Info(
+					"relay tunnel not success",
+					zap.Uint64("tunnel_id", tunnelID),
+					zap.String("status", string(status)),
+				)
+			}
+		}()
 	}
 }
 

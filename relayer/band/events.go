@@ -96,13 +96,13 @@ func (c *client) subscribeToSigningFailed(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	c.signingFailedEventCh = eventCh
+	c.signingFailureEventCh = eventCh
 
 	return nil
 }
 
 // HandleProducePacketSuccess reads ProducePacketSuccess events from the channel
-// and writes the received tunnel IDs to the channel.
+// and forwards the received tunnel IDs to the channel.
 func (c *client) HandleProducePacketSuccess(packetCh chan<- *types.Packet) {
 	for msg := range c.producePacketEventCh {
 		attrs := msg.Events
@@ -134,9 +134,11 @@ func (c *client) HandleProducePacketSuccess(packetCh chan<- *types.Packet) {
 			tunnelIDs = append(tunnelIDs, tunnelID)
 		}
 
-		// handle *each* tunnelID in the event
+		// handle each tunnelID in the event
 		for _, tunnelID := range tunnelIDs {
 			go func(tunnelID uint64) {
+				// get the latest packet from the tunnel and forward to the packet channel
+				// only if the tunnel is tssRoute and produce a new packet
 				packet, err := c.GetLatestPacket(context.Background(), tunnelID)
 				if err != nil {
 					c.Log.Error(
@@ -145,12 +147,7 @@ func (c *client) HandleProducePacketSuccess(packetCh chan<- *types.Packet) {
 						zap.Uint64("tunnel_id", tunnelID),
 					)
 					return
-				}
-				if packet == nil {
-					c.Log.Debug(
-						"Tunnel doesn't produce packet",
-						zap.Uint64("tunnel_id", tunnelID),
-					)
+				} else if packet == nil {
 					return
 				}
 
@@ -161,7 +158,7 @@ func (c *client) HandleProducePacketSuccess(packetCh chan<- *types.Packet) {
 }
 
 // HandleSigningSuccess reads SigningSuccess events from the channel
-// and writes the received signing IDs to the channel.
+// and forwards the received signing IDs to the channel.
 func (c *client) HandleSigningSuccess(signingIDSuccessCh chan<- uint64) {
 	for msg := range c.signingSuccessEventCh {
 		attrs := msg.Events
@@ -178,7 +175,7 @@ func (c *client) HandleSigningSuccess(signingIDSuccessCh chan<- uint64) {
 			continue
 		}
 
-		// handle *each* signingID in the event
+		// handle each signingID in the event
 		for _, idStr := range signingIDs {
 			signingID, err := strconv.ParseUint(idStr, 10, 64)
 			if err != nil {
@@ -194,9 +191,9 @@ func (c *client) HandleSigningSuccess(signingIDSuccessCh chan<- uint64) {
 }
 
 // HandleSigningFailure reads SigningFailed events from the channel
-// and writes the received signing IDs to the channel.
+// and forwards the received signing IDs to the channel.
 func (c *client) HandleSigningFailure(signingIDFailureCh chan<- uint64) {
-	for msg := range c.signingFailedEventCh {
+	for msg := range c.signingFailureEventCh {
 		attrs := msg.Events
 
 		// key for the signingID attribute
@@ -211,7 +208,7 @@ func (c *client) HandleSigningFailure(signingIDFailureCh chan<- uint64) {
 			continue
 		}
 
-		// handle *each* tunnelID in the event
+		// handle each signingID in the event
 		for _, idStr := range signingIDs {
 			signingID, err := strconv.ParseUint(idStr, 10, 64)
 			if err != nil {

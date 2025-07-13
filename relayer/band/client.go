@@ -30,15 +30,15 @@ type Client interface {
 	Subscribe(ctx context.Context) error
 
 	// HandleProducePacketSuccess reads ProducePacketSuccess events from the channel
-	// and writes the received tunnel IDs to the channel.
+	// and forwards the received tunnel IDs to the channel.
 	HandleProducePacketSuccess(newPacketCh chan<- *types.Packet)
 
 	// HandleSigningSuccess reads SigningSuccess events from the channel
-	// and writes the received signing IDs to the channel.
+	// and forwards the received signing IDs to the channel.
 	HandleSigningSuccess(succeededSigningIDCh chan<- uint64)
 
-	// HandleSigningFailure reads SigningFailure events from the channel
-	// and writes the received signing IDs to the channel.
+	// HandleSigningFailure reads SigningFailed events from the channel
+	// and forwards the received signing IDs to the channel.
 	HandleSigningFailure(signingIDFailureCh chan<- uint64)
 
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
@@ -63,7 +63,7 @@ type client struct {
 	rpcClient             rpcclient.Client
 	producePacketEventCh  <-chan coretypes.ResultEvent
 	signingSuccessEventCh <-chan coretypes.ResultEvent
-	signingFailedEventCh  <-chan coretypes.ResultEvent
+	signingFailureEventCh <-chan coretypes.ResultEvent
 }
 
 // NewClient creates a new BandChain client instance.
@@ -317,30 +317,27 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 }
 
 // GetLatestPacket gets the latest packet for the given tunnel ID. If the tunnel
-// doesn't produce packet, return nil.
+// doesn't belong to TSSRoute nor produce packet, return nil.
 func (c *client) GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error) {
 	queryTunnelCtx, cancelQueryTunnel := context.WithTimeout(ctx, c.Config.Timeout)
 	defer cancelQueryTunnel()
 
-	tunnel, err := c.GetTunnel(queryTunnelCtx, tunnelID)
+	// if the tunnel doesn't belong to TSSRoute nor produce packet, return nil
+	res, err := c.QueryClient.Tunnel(queryTunnelCtx, &tunneltypes.QueryTunnelRequest{
+		TunnelId: tunnelID,
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	// if the tunnel doesn't produce packet, return nil
-	if tunnel.LatestSequence == 0 {
+	if res.Tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" ||
+		res.Tunnel.Sequence == 0 {
 		return nil, nil
 	}
 
 	queryPacketCtx, cancelQueryPacket := context.WithTimeout(ctx, c.Config.Timeout)
 	defer cancelQueryPacket()
 
-	packet, err := c.GetTunnelPacket(queryPacketCtx, tunnelID, tunnel.LatestSequence)
-	if err != nil {
-		return nil, err
-	}
-
-	return packet, nil
+	return c.GetTunnelPacket(queryPacketCtx, tunnelID, res.Tunnel.Sequence)
 }
 
 // UnpackAny unpacks the provided *codectypes.Any into the specified interface.
