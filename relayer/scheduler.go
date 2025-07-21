@@ -150,7 +150,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 	switch relayStatus {
 	case RelayStatusExecuting:
 		// Record metrics for the skipped task execution
-		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.SkippedTaskStatus)
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ExecutingTaskStatus)
 	case RelayStatusSuccess:
 		// Record execution time of finished task (ms)
 		relayermetrics.ObserveFinishedTaskExecutionTime(

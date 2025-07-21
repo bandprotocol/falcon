@@ -22,9 +22,9 @@ var globalTelemetryEnabled bool
 
 // Task statuses used as labels
 const (
-	FinishedTaskStatus = "finished"
-	ErrorTaskStatus    = "error"
-	SkippedTaskStatus  = "skipped"
+	FinishedTaskStatus  = "finished"
+	ErrorTaskStatus     = "error"
+	ExecutingTaskStatus = "executing"
 )
 
 type PrometheusMetrics struct {
