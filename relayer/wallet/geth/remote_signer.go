@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	kmsv1 "github.com/bandprotocol/falcon/proto/kms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet"
@@ -20,10 +21,11 @@ type RemoteSigner struct {
 	Name      string
 	Address   common.Address
 	KmsClient kmsv1.KmsEvmServiceClient
+	Key       string
 }
 
 // NewRemoteSigner creates a new RemoteSigner instance.
-func NewRemoteSigner(name string, address common.Address, url string) (*RemoteSigner, error) {
+func NewRemoteSigner(name string, address common.Address, url string, key string) (*RemoteSigner, error) {
 	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to remote signer at %s: %w", url, err)
@@ -35,6 +37,7 @@ func NewRemoteSigner(name string, address common.Address, url string) (*RemoteSi
 		Name:      name,
 		Address:   address,
 		KmsClient: kmsClient,
+		Key:       key,
 	}, nil
 }
 
@@ -55,8 +58,10 @@ func (r *RemoteSigner) GetAddress() (addr string) {
 
 // Sign requests the remote KMS to sign the data and returns the signature.
 func (r *RemoteSigner) Sign(data []byte) ([]byte, error) {
+	md := metadata.Pairs("api-key", r.Key)
+	ctx := metadata.NewOutgoingContext(context.Background(), md)
 	res, err := r.KmsClient.SignEvm(
-		context.Background(),
+		ctx,
 		&kmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},
 	)
 	if err != nil {

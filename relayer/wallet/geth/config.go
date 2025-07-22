@@ -15,6 +15,7 @@ type SignerRecord struct {
 // RemoteSignerRecord is remote signer's information.
 type RemoteSignerRecord struct {
 	Url string `toml:"url"`
+	Key string `toml:"key"`
 }
 
 // LoadSignerRecord loads all files in `path/*.toml` into SignerRecord.

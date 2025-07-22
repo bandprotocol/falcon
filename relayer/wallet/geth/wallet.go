@@ -84,7 +84,7 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 				return nil, fmt.Errorf("no remote signer record found: %s", name)
 			}
 
-			signer, err = NewRemoteSigner(name, gethAddr, remoteSignerRecord.Url)
+			signer, err = NewRemoteSigner(name, gethAddr, remoteSignerRecord.Url, remoteSignerRecord.Key)
 			if err != nil {
 				return nil, err
 			}
