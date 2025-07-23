@@ -15,7 +15,7 @@ import (
 
 var _ Subscriber = &PacketSuccessSubscriber{}
 
-// PacketSuccessSubscriber subscribes to the produce packet success event.
+// PacketSuccessSubscriber is an object for handling the produce packet success event.
 type PacketSuccessSubscriber struct {
 	rpcClient  rpcclient.Client
 	log        *zap.Logger

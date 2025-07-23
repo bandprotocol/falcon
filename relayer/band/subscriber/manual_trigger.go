@@ -14,14 +14,13 @@ import (
 
 var _ Subscriber = &ManualTriggerSubscriber{}
 
+// ManualTriggerSubscriber is an object for handling the manual trigger event.
 type ManualTriggerSubscriber struct {
 	rpcClient  rpcclient.Client
 	log        *zap.Logger
 	eventCh    <-chan coretypes.ResultEvent
 	tunnelIDCh chan<- uint64
 }
-
-var _ Subscriber = &ManualTriggerSubscriber{}
 
 // NewManualTriggerSubscriber creates a new ManualTriggerSubscriber.
 func NewManualTriggerSubscriber(

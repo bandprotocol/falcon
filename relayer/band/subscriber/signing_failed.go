@@ -15,7 +15,7 @@ import (
 
 var _ Subscriber = &SigningFailedSubscriber{}
 
-// SigningFailedSubscriber subscribes to the signing failed event.
+// SigningFailedSubscriber is an object for handling the signing failed event.
 type SigningFailedSubscriber struct {
 	rpcClient   rpcclient.Client
 	log         *zap.Logger

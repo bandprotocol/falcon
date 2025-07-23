@@ -15,7 +15,7 @@ import (
 
 var _ Subscriber = &SigningSuccessSubscriber{}
 
-// SigningSuccessSubscriber subscribes to the signing success event.
+// SigningSuccessSubscriber is an object for handling the signing success event.
 type SigningSuccessSubscriber struct {
 	rpcClient   rpcclient.Client
 	log         *zap.Logger
