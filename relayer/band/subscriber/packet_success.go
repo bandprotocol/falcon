@@ -99,7 +99,6 @@ func (s *PacketSuccessSubscriber) HandleEvent(ctx context.Context) {
 				)
 				continue
 			}
-			fmt.Println("tunnelID", tunnelID)
 			s.tunnelIDCh <- tunnelID
 		}
 	}
