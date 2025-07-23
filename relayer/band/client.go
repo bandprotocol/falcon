@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
@@ -15,6 +13,7 @@ import (
 
 	bandtsstypes "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
+	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
@@ -26,26 +25,14 @@ type Client interface {
 	// periodic liveliness checks.
 	Init(ctx context.Context) error
 
+	// SetSubscribers sets the subscribers for the BandChain client.
+	SetSubscribers(subscribers []subscriber.Subscriber)
+
 	// Subscribe subscribes events from BandChain.
 	Subscribe(ctx context.Context) error
 
-	// HandleProducePacketSuccess reads ProducePacketSuccess events from the channel
-	// and forwards the received tunnel IDs to the channel.
-	HandleProducePacketSuccess(newPacketCh chan<- *types.Packet)
-
-	// HandleSigningSuccess reads SigningSuccess events from the channel
-	// and forwards the received signing IDs to the channel.
-	HandleSigningSuccess(succeededSigningIDCh chan<- uint64)
-
-	// HandleSigningFailure reads SigningFailed events from the channel
-	// and forwards the received signing IDs to the channel.
-	HandleSigningFailure(signingIDFailureCh chan<- uint64)
-
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
-
-	// GetLatestPacket returns the latest packet of the given tunnel ID.
-	GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error)
 
 	// GetTunnel returns the tunnel with the given tunnelID.
 	GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel, error)
@@ -56,14 +43,13 @@ type Client interface {
 
 // client is the BandChain client struct.
 type client struct {
-	Context               cosmosclient.Context
-	QueryClient           QueryClient
-	Log                   *zap.Logger
-	Config                *Config
-	rpcClient             rpcclient.Client
-	producePacketEventCh  <-chan coretypes.ResultEvent
-	signingSuccessEventCh <-chan coretypes.ResultEvent
-	signingFailureEventCh <-chan coretypes.ResultEvent
+	Context     cosmosclient.Context
+	QueryClient QueryClient
+	Log         *zap.Logger
+	Config      *Config
+	Subscribers []subscriber.Subscriber
+
+	selectedRPCEndpoint string
 }
 
 // NewClient creates a new BandChain client instance.
@@ -78,6 +64,7 @@ func NewClient(queryClient QueryClient, log *zap.Logger, bandChainCfg *Config) C
 		QueryClient: queryClient,
 		Log:         log,
 		Config:      bandChainCfg,
+		Subscribers: []subscriber.Subscriber{},
 	}
 }
 
@@ -118,8 +105,7 @@ func (c *client) connect(onStartup bool) error {
 			return err
 		}
 
-		c.rpcClient = client
-
+		c.selectedRPCEndpoint = rpcEndpoint
 		c.Context.Client = client
 		c.Context.NodeURI = rpcEndpoint
 		c.QueryClient = NewBandQueryClient(c.Context)
@@ -316,35 +302,37 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 	return tunnels, nil
 }
 
-// GetLatestPacket gets the latest packet for the given tunnel ID. If the tunnel
-// doesn't belong to TSSRoute nor produce packet, return nil.
-func (c *client) GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error) {
-	queryTunnelCtx, cancelQueryTunnel := context.WithTimeout(ctx, c.Config.Timeout)
-	defer cancelQueryTunnel()
-
-	// if the tunnel doesn't belong to TSSRoute nor produce packet, return nil
-	res, err := c.QueryClient.Tunnel(queryTunnelCtx, &tunneltypes.QueryTunnelRequest{
-		TunnelId: tunnelID,
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !tunneltypes.IsTssRouteType(res.Tunnel.Route.TypeUrl) ||
-		res.Tunnel.Sequence == 0 {
-		return nil, nil
-	}
-
-	queryPacketCtx, cancelQueryPacket := context.WithTimeout(ctx, c.Config.Timeout)
-	defer cancelQueryPacket()
-
-	return c.GetTunnelPacket(queryPacketCtx, tunnelID, res.Tunnel.Sequence)
-}
-
 // UnpackAny unpacks the provided *codectypes.Any into the specified interface.
 func (c *client) UnpackAny(any *codectypes.Any, target interface{}) error {
 	err := c.Context.InterfaceRegistry.UnpackAny(any, target)
 	if err != nil {
 		return fmt.Errorf("error unpacking into %T: %w", target, err)
 	}
+	return nil
+}
+
+// SetSubscribers sets the subscribers for the BandChain client.
+func (c *client) SetSubscribers(subscribers []subscriber.Subscriber) {
+	c.Subscribers = subscribers
+}
+
+// Subscribe subscribes events from BandChain.
+func (c *client) Subscribe(ctx context.Context) error {
+	if c.selectedRPCEndpoint == "" {
+		c.Log.Error("selected rpcEndpoint is not set")
+		return fmt.Errorf("selected rpcEndpoint is not set")
+	}
+
+	for _, subscriber := range c.Subscribers {
+		if err := subscriber.Subscribe(ctx, c.selectedRPCEndpoint); err != nil {
+			c.Log.Error(
+				"Failed to subscribe to events",
+				zap.String("rpcEndpoint", c.selectedRPCEndpoint),
+				zap.Error(err),
+			)
+			return err
+		}
+	}
+
 	return nil
 }

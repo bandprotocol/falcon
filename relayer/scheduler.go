@@ -8,6 +8,7 @@ import (
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
@@ -21,12 +22,12 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
-	PacketHandler  *band.PacketHandler
+	PacketHandler  *PacketHandler
 
 	triggerRelayerCh   chan uint64
 	signingIDSuccessCh chan uint64
 	signingIDFailureCh chan uint64
-	newPacketCh        chan *bandtypes.Packet
+	tunnelIDCh         chan uint64
 	tunnelRelayers     map[uint64]*TunnelRelayer
 	bandLatestTunnel   int
 }
@@ -43,14 +44,15 @@ func NewScheduler(
 	triggerRelayerCh := make(chan uint64, 1000)
 	signingIDSuccessCh := make(chan uint64, 1000)
 	signingIDFailureCh := make(chan uint64, 1000)
-	newPacketCh := make(chan *bandtypes.Packet, 1000)
+	tunnelIDCh := make(chan uint64, 1000)
 
-	packetHandler := band.NewPacketHandler(
+	packetHandler := NewPacketHandler(
 		log,
+		bandClient,
 		triggerRelayerCh,
 		signingIDSuccessCh,
 		signingIDFailureCh,
-		newPacketCh,
+		tunnelIDCh,
 	)
 
 	return &Scheduler{
@@ -64,7 +66,7 @@ func NewScheduler(
 		triggerRelayerCh:       triggerRelayerCh,
 		signingIDSuccessCh:     signingIDSuccessCh,
 		signingIDFailureCh:     signingIDFailureCh,
-		newPacketCh:            newPacketCh,
+		tunnelIDCh:             tunnelIDCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
 	}
@@ -72,15 +74,28 @@ func NewScheduler(
 
 // Start starts all tunnel relayers
 func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
+	subscribers := []subscriber.Subscriber{
+		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh),
+		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh),
+		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingIDSuccessCh),
+		subscriber.NewSigningFailedSubscriber(s.Log, s.signingIDFailureCh),
+	}
+	s.BandClient.SetSubscribers(subscribers)
+
+	if err := s.BandClient.Subscribe(ctx); err != nil {
+		s.Log.Error("Failed to subscribe to BandChain", zap.Error(err))
+		return err
+	}
+
 	s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
 
 	// listen events from BandChain
-	go s.BandClient.HandleProducePacketSuccess(s.newPacketCh)
-	go s.BandClient.HandleSigningSuccess(s.signingIDSuccessCh)
-	go s.BandClient.HandleSigningFailure(s.signingIDFailureCh)
+	for _, subscriber := range subscribers {
+		go subscriber.HandleEvent(ctx)
+	}
 
 	// handle new packets and failed or successful signing IDs
-	go s.PacketHandler.HandleNewPacket()
+	go s.PacketHandler.HandleNewPacket(ctx)
 	go s.PacketHandler.HandleSigningSuccess()
 	go s.PacketHandler.HandleSigningFailure()
 
@@ -222,7 +237,10 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 	}
 
 	// update the valid tunnel IDs in the packet handler
-	s.updateNewTunnelIDs(ctx, newTunnelIDs)
+	s.PacketHandler.UpdateValidTunnelIDs(newTunnelIDs)
+	for _, tunnelID := range newTunnelIDs {
+		s.tunnelIDCh <- tunnelID
+	}
 
 	s.bandLatestTunnel = len(tunnels)
 }
@@ -255,31 +273,6 @@ func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
 				)
 			}
 		}()
-	}
-}
-
-// updateNewTunnelIDs updates the valid tunnel IDs in the packet handler and
-// synchronize the latest packet for each new tunnel.
-func (s *Scheduler) updateNewTunnelIDs(ctx context.Context, newTunnelIDs []uint64) {
-	s.PacketHandler.UpdateValidTunnelIDs(newTunnelIDs)
-
-	for _, tunnelID := range newTunnelIDs {
-		s.Log.Debug("synchronize latest packet", zap.Uint64("tunnel_id", tunnelID))
-
-		packet, err := s.BandClient.GetLatestPacket(ctx, tunnelID)
-		if err != nil {
-			s.Log.Error(
-				"Failed to get latest packet", zap.Error(err),
-				zap.Uint64("tunnel_id", tunnelID),
-			)
-			continue
-		}
-		if packet == nil {
-			s.Log.Debug("Tunnel doesn't produce packet", zap.Uint64("tunnel_id", tunnelID))
-			continue
-		}
-
-		s.newPacketCh <- packet
 	}
 }
 

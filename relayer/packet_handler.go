@@ -1,4 +1,4 @@
-package band
+package relayer
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
+	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
@@ -46,9 +47,10 @@ func NewCacheEntry(
 // PacketHandler handles new signing IDs and packets.
 type PacketHandler struct {
 	Log                *zap.Logger
+	BandClient         band.Client
 	SigningIDSuccessCh <-chan uint64
 	SigningIDFailureCh <-chan uint64
-	NewPacketCh        <-chan *types.Packet
+	TunnelIDCh         <-chan uint64
 	TriggerRelayerCh   chan<- uint64
 	ValidTunnelIDs     map[uint64]struct{}
 	signingCache       *ttlcache.Cache[uint64, *CacheEntry]
@@ -57,10 +59,11 @@ type PacketHandler struct {
 // NewPacketHandler creates a new PacketHandler.
 func NewPacketHandler(
 	log *zap.Logger,
+	bandClient band.Client,
 	triggerRelayerCh chan<- uint64,
 	signingIDSuccessCh <-chan uint64,
 	signingIDFailureCh <-chan uint64,
-	newPacketCh <-chan *types.Packet,
+	tunnelIDCh <-chan uint64,
 ) *PacketHandler {
 	cache := ttlcache.New(
 		ttlcache.WithTTL[uint64, *CacheEntry](cacheTTL),
@@ -84,9 +87,10 @@ func NewPacketHandler(
 
 	return &PacketHandler{
 		Log:                log,
+		BandClient:         bandClient,
 		SigningIDSuccessCh: signingIDSuccessCh,
 		SigningIDFailureCh: signingIDFailureCh,
-		NewPacketCh:        newPacketCh,
+		TunnelIDCh:         tunnelIDCh,
 		TriggerRelayerCh:   triggerRelayerCh,
 		ValidTunnelIDs:     make(map[uint64]struct{}),
 		signingCache:       cache,
@@ -181,9 +185,35 @@ func (h *PacketHandler) HandleSigningFailure() {
 
 // HandleNewPacket handles new packets received from the channel. If the packet is valid,
 // the requested signing IDs of the packet are cached.
-func (h *PacketHandler) HandleNewPacket() {
-	for packet := range h.NewPacketCh {
-		if _, ok := h.ValidTunnelIDs[packet.TunnelID]; !ok {
+func (h *PacketHandler) HandleNewPacket(ctx context.Context) {
+	for tunnelID := range h.TunnelIDCh {
+		if _, ok := h.ValidTunnelIDs[tunnelID]; !ok {
+			continue
+		}
+
+		tunnel, err := h.BandClient.GetTunnel(ctx, tunnelID)
+		if err != nil {
+			h.Log.Error(
+				"Failed to get tunnel",
+				zap.Error(err),
+				zap.Uint64("tunnel_id", tunnelID),
+			)
+			continue
+		}
+
+		// skip tunnel that doesn't produce a packet.
+		if tunnel.LatestSequence == 0 {
+			h.Log.Debug("Tunnel doesn't produce a packet", zap.Uint64("tunnel_id", tunnelID))
+			continue
+		}
+
+		packet, err := h.BandClient.GetTunnelPacket(ctx, tunnelID, tunnel.LatestSequence)
+		if err != nil {
+			h.Log.Error(
+				"Failed to get latest packet",
+				zap.Error(err),
+				zap.Uint64("tunnel_id", tunnelID),
+			)
 			continue
 		}
 

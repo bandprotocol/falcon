@@ -80,17 +80,6 @@ func (a *App) connectBandClient(ctx context.Context) error {
 	return nil
 }
 
-// subscribeBandClient subscribes event of BandChain.
-func (a *App) subscribeBandClient(ctx context.Context) error {
-	// subscribe to BandChain
-	if err := a.BandClient.Subscribe(ctx); err != nil {
-		a.Log.Error("Cannot subscribe to BandChain", zap.Error(err))
-		return err
-	}
-
-	return nil
-}
-
 // initTargetChains initializes the target chains.
 func (a *App) initTargetChains() error {
 	a.TargetChains = make(chains.ChainProviders)
@@ -359,11 +348,6 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
 	// connect BandChain client
 	if err := a.connectBandClient(ctx); err != nil {
-		return err
-	}
-
-	// subscribe BandChain client
-	if err := a.subscribeBandClient(ctx); err != nil {
 		return err
 	}
 

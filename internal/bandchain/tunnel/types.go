@@ -7,6 +7,7 @@ import (
 // events
 const (
 	EventTypeProducePacketSuccess = "produce_packet_success"
+	EventTypeTriggerTunnel        = "trigger_tunnel"
 
 	AttributeKeyTunnelID = "tunnel_id"
 	AttributeKeySequence = "sequence"

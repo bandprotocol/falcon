@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	subscriber "github.com/bandprotocol/falcon/relayer/band/subscriber"
 	types "github.com/bandprotocol/falcon/relayer/band/types"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -39,21 +40,6 @@ func NewMockClient(ctrl *gomock.Controller) *MockClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
-}
-
-// GetLatestPacket mocks base method.
-func (m *MockClient) GetLatestPacket(ctx context.Context, tunnelID uint64) (*types.Packet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLatestPacket", ctx, tunnelID)
-	ret0, _ := ret[0].(*types.Packet)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetLatestPacket indicates an expected call of GetLatestPacket.
-func (mr *MockClientMockRecorder) GetLatestPacket(ctx, tunnelID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLatestPacket", reflect.TypeOf((*MockClient)(nil).GetLatestPacket), ctx, tunnelID)
 }
 
 // GetTunnel mocks base method.
@@ -101,42 +87,6 @@ func (mr *MockClientMockRecorder) GetTunnels(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTunnels", reflect.TypeOf((*MockClient)(nil).GetTunnels), ctx)
 }
 
-// HandleProducePacketSuccess mocks base method.
-func (m *MockClient) HandleProducePacketSuccess(newPacketCh chan<- *types.Packet) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleProducePacketSuccess", newPacketCh)
-}
-
-// HandleProducePacketSuccess indicates an expected call of HandleProducePacketSuccess.
-func (mr *MockClientMockRecorder) HandleProducePacketSuccess(newPacketCh any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).HandleProducePacketSuccess), newPacketCh)
-}
-
-// HandleSigningFailure mocks base method.
-func (m *MockClient) HandleSigningFailure(signingIDCh chan<- uint64) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleSigningFailure", signingIDCh)
-}
-
-// HandleSigningFailure indicates an expected call of HandleSigningFailure.
-func (mr *MockClientMockRecorder) HandleSigningFailure(signingIDCh any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSigningFailure", reflect.TypeOf((*MockClient)(nil).HandleSigningFailure), signingIDCh)
-}
-
-// HandleSigningSuccess mocks base method.
-func (m *MockClient) HandleSigningSuccess(succeededSigningIDCh chan<- uint64) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleSigningSuccess", succeededSigningIDCh)
-}
-
-// HandleSigningSuccess indicates an expected call of HandleSigningSuccess.
-func (mr *MockClientMockRecorder) HandleSigningSuccess(succeededSigningIDCh any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSigningSuccess", reflect.TypeOf((*MockClient)(nil).HandleSigningSuccess), succeededSigningIDCh)
-}
-
 // Init mocks base method.
 func (m *MockClient) Init(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -149,6 +99,18 @@ func (m *MockClient) Init(ctx context.Context) error {
 func (mr *MockClientMockRecorder) Init(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockClient)(nil).Init), ctx)
+}
+
+// SetSubscribers mocks base method.
+func (m *MockClient) SetSubscribers(subscribers []subscriber.Subscriber) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetSubscribers", subscribers)
+}
+
+// SetSubscribers indicates an expected call of SetSubscribers.
+func (mr *MockClientMockRecorder) SetSubscribers(subscribers any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSubscribers", reflect.TypeOf((*MockClient)(nil).SetSubscribers), subscribers)
 }
 
 // Subscribe mocks base method.
