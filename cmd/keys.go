@@ -39,6 +39,7 @@ type AddKeyInput struct {
 type RemoteSignerInput struct {
 	Address string
 	Url     string
+	Key     string
 }
 
 // keysCmd represents the keys command
@@ -110,13 +111,18 @@ $ %s k a eth test-key`, appName, appName)),
 				return err
 			}
 
+			input.RemoteSigner.Key, err = cmd.Flags().GetString(flagRemoteKey)
+			if err != nil {
+				return err
+			}
+
 			if err := validateAddKeyInput(input); err != nil {
 				return err
 			}
 
 			// if no private key, mnemonic, or remote signer info is provided, prompt interactively
 			if input.PrivateKey == "" && input.Mnemonic == "" && input.RemoteSigner.Address == "" &&
-				input.RemoteSigner.Url == "" {
+				input.RemoteSigner.Url == "" && input.RemoteSigner.Key == "" {
 				input, err = showHuhPrompt()
 				if err != nil {
 					return err
@@ -129,12 +135,13 @@ $ %s k a eth test-key`, appName, appName)),
 				if err != nil {
 					return err
 				}
-			} else if input.RemoteSigner.Address != "" && input.RemoteSigner.Url != "" {
+			} else if input.RemoteSigner.Address != "" && input.RemoteSigner.Url != "" && input.RemoteSigner.Key != "" {
 				key, err = app.AddRemoteSignerKey(
 					chainName,
 					keyName,
 					input.RemoteSigner.Address,
 					input.RemoteSigner.Url,
+					input.RemoteSigner.Key,
 				)
 				if err != nil {
 					return err
@@ -171,6 +178,7 @@ $ %s k a eth test-key`, appName, appName)),
 
 	cmd.Flags().String(flagRemoteAddress, "", "address of the remote signer key")
 	cmd.Flags().String(flagRemoteUrl, "", "URL endpoint of the kms service")
+	cmd.Flags().String(flagRemoteKey, "", "key for authenticating with the remote KMS signer service")
 
 	return cmd
 }
@@ -284,24 +292,27 @@ $ %s k s eth test-key`, appName, appName)),
 func validateAddKeyInput(input *AddKeyInput) error {
 	// if a private key is provided, no other input should be present
 	if input.PrivateKey != "" &&
-		(input.Mnemonic != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "") {
+		(input.Mnemonic != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "" || input.RemoteSigner.Key != "") {
 		return fmt.Errorf("private key cannot be provided with mnemonic or remote signer")
 	}
 
 	// if a mnemonic is provided, no other input should be present
 	if input.Mnemonic != "" &&
-		(input.PrivateKey != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "") {
+		(input.PrivateKey != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "" || input.RemoteSigner.Key != "") {
 		return fmt.Errorf("mnemonic cannot be provided with private key or remote signer")
 	}
 
 	// if any remote-signer field is provided, it must be the only input
-	if input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "" {
+	if input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "" || input.RemoteSigner.Key != "" {
 		// both address and URL cannot be empty
 		if input.RemoteSigner.Address == "" {
 			return fmt.Errorf("remote signer address cannot be empty")
 		}
 		if input.RemoteSigner.Url == "" {
 			return fmt.Errorf("remote signer URL cannot be empty")
+		}
+		if input.RemoteSigner.Key == "" {
+			return fmt.Errorf("remote signer key cannot be empty")
 		}
 	}
 

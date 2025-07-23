@@ -20,6 +20,7 @@ const (
 	keyName2 = "testkey2"
 	address2 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 	url      = "http://127.0.0.1:8545"
+	key      = "teat-key"
 )
 
 var evmCfg = &evm.EVMChainProviderConfig{
@@ -74,7 +75,7 @@ func (s *SenderTestSuite) SetupTest() {
 	_, err = chainProvider.AddKeyByPrivateKey(keyName1, privateKey1)
 	s.Require().NoError(err)
 
-	_, err = chainProvider.AddRemoteSignerKey(keyName2, address2, url)
+	_, err = chainProvider.AddRemoteSignerKey(keyName2, address2, url, key)
 	s.Require().NoError(err)
 }
 

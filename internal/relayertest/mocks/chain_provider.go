@@ -74,9 +74,9 @@ func (mr *MockChainProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyH
 }
 
 // AddRemoteSignerKey mocks base method.
-func (m *MockChainProvider) AddRemoteSignerKey(keyName, addr, url string) (*types0.Key, error) {
+func (m *MockChainProvider) AddRemoteSignerKey(keyName, addr, url, key string) (*types0.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url)
+	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url, key)
 	ret0, _ := ret[0].(*types0.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1

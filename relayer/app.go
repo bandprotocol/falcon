@@ -266,13 +266,14 @@ func (a *App) AddRemoteSignerKey(
 	keyName string,
 	addr string,
 	url string,
+	key string,
 ) (*chainstypes.Key, error) {
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.AddRemoteSignerKey(keyName, addr, url)
+	return cp.AddRemoteSignerKey(keyName, addr, url, key)
 }
 
 // DeleteKey deletes the key from the chain provider.
