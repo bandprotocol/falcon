@@ -55,11 +55,9 @@ func (s *PacketSuccessSubscriber) Subscribe(ctx context.Context, endpoint string
 	s.rpcClient = client
 
 	subscriptionQuery := fmt.Sprintf(
-		"tm.event='NewBlock' AND %s.%s EXISTS AND %s.%s EXISTS",
+		"tm.event='NewBlock' AND %s.%s EXISTS",
 		tunneltypes.EventTypeProducePacketSuccess,
 		tunneltypes.AttributeKeyTunnelID,
-		tunneltypes.EventTypeProducePacketSuccess,
-		tunneltypes.AttributeKeySequence,
 	)
 
 	eventCh, err := s.rpcClient.Subscribe(ctx, "producePacketSuccess", subscriptionQuery, 1000)
@@ -73,7 +71,7 @@ func (s *PacketSuccessSubscriber) Subscribe(ctx context.Context, endpoint string
 
 // HandleEvent handles the produce packet success event and
 // forwards the received packet to the packet channel.
-func (s *PacketSuccessSubscriber) HandleEvent(ctx context.Context) error {
+func (s *PacketSuccessSubscriber) HandleEvent(ctx context.Context) {
 	for msg := range s.eventCh {
 		attrs := msg.Events
 
@@ -105,6 +103,4 @@ func (s *PacketSuccessSubscriber) HandleEvent(ctx context.Context) error {
 			s.tunnelIDCh <- tunnelID
 		}
 	}
-
-	return nil
 }

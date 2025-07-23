@@ -185,8 +185,8 @@ func (t *TunnelRelayer) updateRelayerMetrics(
 ) {
 	// update the metric for unrelayed packets based on the difference
 	// between the latest sequences on BandChain and the target chain
-	unrelayedPakets := tunnelInfo.LatestSequence - targetContractInfo.LatestSequence
-	relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPakets)
+	unrelayedPackets := tunnelInfo.LatestSequence - targetContractInfo.LatestSequence
+	relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPackets)
 
 	// update the metric for the number of active target contracts
 	if targetContractInfo.IsActive && !t.isTargetChainActive {

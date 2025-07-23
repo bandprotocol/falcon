@@ -24,12 +24,11 @@ type Scheduler struct {
 	ChainProviders chains.ChainProviders
 	PacketHandler  *PacketHandler
 
-	triggerRelayerCh   chan uint64
-	signingIDSuccessCh chan uint64
-	signingIDFailureCh chan uint64
-	tunnelIDCh         chan uint64
-	tunnelRelayers     map[uint64]*TunnelRelayer
-	bandLatestTunnel   int
+	triggerRelayerCh chan uint64
+	signingResultCh  chan subscriber.SigningResult
+	tunnelIDCh       chan uint64
+	tunnelRelayers   map[uint64]*TunnelRelayer
+	bandLatestTunnel int
 }
 
 // NewScheduler creates a new Scheduler
@@ -42,16 +41,14 @@ func NewScheduler(
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	triggerRelayerCh := make(chan uint64, 1000)
-	signingIDSuccessCh := make(chan uint64, 1000)
-	signingIDFailureCh := make(chan uint64, 1000)
+	signingResultCh := make(chan subscriber.SigningResult, 1000)
 	tunnelIDCh := make(chan uint64, 1000)
 
 	packetHandler := NewPacketHandler(
 		log,
 		bandClient,
 		triggerRelayerCh,
-		signingIDSuccessCh,
-		signingIDFailureCh,
+		signingResultCh,
 		tunnelIDCh,
 	)
 
@@ -64,8 +61,7 @@ func NewScheduler(
 		ChainProviders:         chainProviders,
 		PacketHandler:          packetHandler,
 		triggerRelayerCh:       triggerRelayerCh,
-		signingIDSuccessCh:     signingIDSuccessCh,
-		signingIDFailureCh:     signingIDFailureCh,
+		signingResultCh:        signingResultCh,
 		tunnelIDCh:             tunnelIDCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
@@ -77,8 +73,8 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator
 	subscribers := []subscriber.Subscriber{
 		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh),
 		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh),
-		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingIDSuccessCh),
-		subscriber.NewSigningFailedSubscriber(s.Log, s.signingIDFailureCh),
+		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingResultCh),
+		subscriber.NewSigningFailedSubscriber(s.Log, s.signingResultCh),
 	}
 	s.BandClient.SetSubscribers(subscribers)
 
@@ -96,8 +92,7 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator
 
 	// handle new packets and failed or successful signing IDs
 	go s.PacketHandler.HandleNewPacket(ctx)
-	go s.PacketHandler.HandleSigningSuccess()
-	go s.PacketHandler.HandleSigningFailure()
+	go s.PacketHandler.HandleSigningResult()
 
 	// handle trigger relayer event from packet handler
 	go s.HandleTriggerTunnelRelayer(ctx)
@@ -151,6 +146,8 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 	// checkAndRelay tunnel's packets and update penalty if it fails to do so.
 	relayStatus, err := tr.CheckAndRelay(ctx, false)
 	if err != nil {
+		tr.penaltySkipRemaining = s.PenaltySkipRounds
+
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
@@ -158,7 +155,6 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 			zap.Uint64("tunnel_id", tr.TunnelID),
 		)
 
-		tr.penaltySkipRemaining = s.PenaltySkipRounds
 		return RelayStatusFailed
 	}
 

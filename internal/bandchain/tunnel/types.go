@@ -10,7 +10,6 @@ const (
 	EventTypeTriggerTunnel        = "trigger_tunnel"
 
 	AttributeKeyTunnelID = "tunnel_id"
-	AttributeKeySequence = "sequence"
 )
 
 // isTssRouteType checks if the route type is TSSRoute

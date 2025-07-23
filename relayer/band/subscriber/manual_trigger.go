@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"strconv"
 
-	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
+
+	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 )
 
 var _ Subscriber = &ManualTriggerSubscriber{}
@@ -70,7 +71,7 @@ func (s *ManualTriggerSubscriber) Subscribe(ctx context.Context, endpoint string
 
 // HandleEvent handles the produce packet success event and
 // forwards the received packet to the packet channel.
-func (s *ManualTriggerSubscriber) HandleEvent(ctx context.Context) error {
+func (s *ManualTriggerSubscriber) HandleEvent(ctx context.Context) {
 	for msg := range s.eventCh {
 		attrs := msg.Events
 
@@ -101,6 +102,4 @@ func (s *ManualTriggerSubscriber) HandleEvent(ctx context.Context) error {
 			s.tunnelIDCh <- tunnelID
 		}
 	}
-
-	return nil
 }

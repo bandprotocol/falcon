@@ -17,22 +17,22 @@ var _ Subscriber = &SigningSuccessSubscriber{}
 
 // SigningSuccessSubscriber is an object for handling the signing success event.
 type SigningSuccessSubscriber struct {
-	rpcClient   rpcclient.Client
-	log         *zap.Logger
-	eventCh     <-chan coretypes.ResultEvent
-	signingIDCh chan<- uint64
+	rpcClient       rpcclient.Client
+	log             *zap.Logger
+	eventCh         <-chan coretypes.ResultEvent
+	signingResultCh chan<- SigningResult
 }
 
 // NewSigningSuccessSubscriber creates a new SigningSuccessSubscriber.
 func NewSigningSuccessSubscriber(
 	log *zap.Logger,
-	signingIDCh chan<- uint64,
+	signingResultCh chan<- SigningResult,
 ) *SigningSuccessSubscriber {
 	return &SigningSuccessSubscriber{
-		rpcClient:   nil,
-		log:         log.With(zap.String("subscriber", "signing_success")),
-		eventCh:     make(chan coretypes.ResultEvent),
-		signingIDCh: signingIDCh,
+		rpcClient:       nil,
+		log:             log.With(zap.String("subscriber", "signing_success")),
+		eventCh:         make(chan coretypes.ResultEvent),
+		signingResultCh: signingResultCh,
 	}
 }
 
@@ -71,7 +71,7 @@ func (s *SigningSuccessSubscriber) Subscribe(ctx context.Context, endpoint strin
 
 // HandleEvent handles the produce packet success event and
 // forwards the received packet to the packet channel.
-func (s *SigningSuccessSubscriber) HandleEvent(ctx context.Context) error {
+func (s *SigningSuccessSubscriber) HandleEvent(ctx context.Context) {
 	for msg := range s.eventCh {
 		attrs := msg.Events
 
@@ -94,14 +94,12 @@ func (s *SigningSuccessSubscriber) HandleEvent(ctx context.Context) error {
 			if err != nil {
 				s.log.Error(
 					"Failed to parse signing_id in the event signing_success",
-					zap.String("tunnel_id", idStr),
+					zap.String("signing_id", idStr),
 					zap.Error(err),
 				)
 				continue
 			}
-			s.signingIDCh <- signingID
+			s.signingResultCh <- NewSigningResult(signingID, true)
 		}
 	}
-
-	return nil
 }
