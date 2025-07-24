@@ -13,6 +13,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
+	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
@@ -162,9 +163,8 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		return fmt.Errorf("failed to estimate gas fee: %w", err)
 	}
 
-	retryCount := 1
-	for retryCount <= cp.Config.MaxRetry {
-		log.Info("Relaying a message", "retry_count", retryCount)
+	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
+		log.Info("Relaying a message", zap.Int("retry_count", retryCount))
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
@@ -189,7 +189,6 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				log.Error("Cannot bump gas", "retry_count", retryCount, err)
 			}
 
-			retryCount += 1
 			continue
 		}
 
@@ -201,118 +200,15 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			"retry_count", retryCount,
 		)
 
-		var checkTxErr error
-		var txStatus chainstypes.TxStatus
-		savedOnce := false
-	checkTxLogic:
-		for time.Since(createdAt) < cp.Config.WaitingTxDuration {
-			result, err := cp.CheckConfirmedTx(ctx, txHash)
-			if err != nil {
-				log.Debug(
-					"Failed to check tx status",
-					"tx_hash", txHash,
-					"retry_count", retryCount,
-					err,
-				)
-
-				checkTxErr = err
-				txStatus = chainstypes.TX_STATUS_PENDING
-				// update in db as pending
-				if !savedOnce {
-					if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-						log.Error("saveTransaction error", "retry_count", retryCount, err)
-					} else {
-						savedOnce = true
-					}
-				}
-				time.Sleep(cp.Config.CheckingTxInterval)
-				continue
-			}
-
-			checkTxErr = nil
-			txStatus = result.Status
-			gasUsed := result.GasUsed
-
-			switch result.Status {
-			case chainstypes.TX_STATUS_SUCCESS:
-				// increment the transactions count metric
-				relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_SUCCESS.String())
-
-				// track transaction processing time (ms)
-				relayermetrics.ObserveTxProcessTime(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_SUCCESS.String(), time.Since(createdAt).Milliseconds())
-
-				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_SUCCESS.String(), gasUsed.Decimal.InexactFloat64())
-
-				// update db as success
-				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-					log.Error("saveTransaction error", "retry_count", retryCount, err)
-				}
-
-				log.Info(
-					"Packet is successfully relayed",
-					"tx_hash", txHash,
-					"retry_count", retryCount,
-				)
-				return nil
-			case chainstypes.TX_STATUS_FAILED:
-				// track transaction processing time (ms)
-				relayermetrics.ObserveTxProcessTime(
-					packet.TunnelID,
-					cp.ChainName,
-					chainstypes.TX_STATUS_FAILED.String(),
-					time.Since(createdAt).Milliseconds(),
-				)
-
-				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
-
-				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-					log.Error("saveTransaction error", "retry_count", retryCount, err)
-				}
-
-				log.Debug(
-					"Transaction failed during relay attempt",
-					"tx_hash", txHash,
-					"retry_count", retryCount,
-					err,
-				)
-				break checkTxLogic
-			case chainstypes.TX_STATUS_PENDING:
-				// update db as pending
-				if !savedOnce {
-					if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-						log.Error("saveTransaction error", "retry_count", retryCount, err)
-					} else {
-						savedOnce = true
-					}
-				}
-
-				log.Debug(
-					"Waiting for tx to be mined",
-					"tx_hash", txHash,
-					"retry_count", retryCount,
-					err,
-				)
-
-				time.Sleep(cp.Config.CheckingTxInterval)
-			}
-		}
-
-		// increment the transactions count metric
-		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, txStatus.String())
-
-		if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, NewTxResult(txHash, chainstypes.TX_STATUS_TIMEOUT, decimal.NullDecimal{}, decimal.NullDecimal{}, nil)); err != nil {
-			log.Error("saveTransaction error", "retry_count", retryCount, err)
-		}
-
-		log.Error(
-			"Failed to relaying a packet with status and error",
-			"status", txStatus.String(),
-			"tx_hash", txHash,
-			"retry_count", retryCount,
-			checkTxErr,
-		)
+		txResult, err := cp.waitForTx(ctx, txHash, createdAt, packet, log, retryCount)
+		if err != nil {
+			log.Error(
+				"Failed to relaying a packet with status and error",
+				zap.Error(err),
+				zap.String("status", txResult.Status.String()),
+				zap.String("tx_hash", txHash),
+				zap.Int("retry_count", retryCount),
+			)
 
 		// bump gas and retry
 		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
@@ -320,7 +216,14 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			log.Error("Cannot bump gas", "retry_count", retryCount, err)
 		}
 
-		retryCount += 1
+		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
+		if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult); err != nil {
+			log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+		}
+
+		if txResult.Status == chainstypes.TX_STATUS_SUCCESS {
+			return nil
+		}
 	}
 
 	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
@@ -349,6 +252,95 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	}
 
 	return signedTx, nil
+}
+
+// waitForTx polls tx status until success/failed or timeout, saving the first pending snapshot.
+func (cp *EVMChainProvider) waitForTx(
+	ctx context.Context,
+	txHash string,
+	createdAt time.Time,
+	packet *bandtypes.Packet,
+	log logger.ZapLogger,
+	retryCount int,
+) (TxResult, error) {
+	savedOnce := false
+	for time.Since(createdAt) <= cp.Config.WaitingTxDuration {
+		result, err := cp.CheckConfirmedTx(ctx, txHash)
+		if err != nil {
+			log.Debug(
+				"Failed to check tx status",
+				zap.Error(err),
+				zap.String("tx_hash", txHash),
+			)
+		}
+
+		switch result.Status {
+		case chainstypes.TX_STATUS_SUCCESS:
+			log.Info(
+				"Packet is successfully relayed",
+				zap.String("tx_hash", txHash),
+				zap.Int("retry_count", retryCount),
+			)
+			return result, nil
+		case chainstypes.TX_STATUS_FAILED:
+			log.Debug(
+				"Transaction failed during relay attempt",
+				zap.Error(err),
+				zap.String("tx_hash", txHash),
+				zap.Int("retry_count", retryCount),
+			)
+			return result, err
+		case chainstypes.TX_STATUS_PENDING:
+			log.Debug(
+				"Waiting for tx to be mined",
+				zap.Error(err),
+				zap.String("tx_hash", txHash),
+				zap.Int("retry_count", retryCount),
+			)
+			if !savedOnce {
+				if err := cp.saveTransaction(ctx, "", nil, packet, result); err != nil {
+					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+				} else {
+					savedOnce = true
+				}
+			}
+			time.Sleep(cp.Config.CheckingTxInterval)
+		}
+	}
+
+	return NewTxResult(
+			txHash,
+			chainstypes.TX_STATUS_TIMEOUT,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+		), fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
+			cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
+}
+
+// handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.
+func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, txResult TxResult) {
+	// increment the transactions count metric
+	relayermetrics.IncTxsCount(tunnelID, cp.ChainName, txResult.Status.String())
+
+	switch txResult.Status {
+	case chainstypes.TX_STATUS_SUCCESS, chainstypes.TX_STATUS_FAILED:
+		// track transaction processing time (ms)
+		relayermetrics.ObserveTxProcessTime(
+			tunnelID,
+			cp.ChainName,
+			txResult.Status.String(),
+			time.Since(createdAt).Milliseconds(),
+		)
+
+		// track gas used for the relayed transaction
+		relayermetrics.ObserveGasUsed(
+			tunnelID,
+			cp.ChainName,
+			txResult.Status.String(),
+			txResult.GasUsed.Decimal.InexactFloat64(),
+		)
+	}
 }
 
 // CheckConfirmedTx checks the confirmed transaction status.
