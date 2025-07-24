@@ -217,7 +217,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				checkTxErr = err
 				txStatus = chainstypes.TX_STATUS_PENDING
 				// update in db as pending
-				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
 					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
 				}
 				time.Sleep(cp.Config.CheckingTxInterval)
@@ -240,7 +240,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_SUCCESS.String(), gasUsed.Decimal.InexactFloat64())
 
 				// update db as success
-				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
 					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
 				}
 
@@ -262,7 +262,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				// track gas used for the relayed transaction
 				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
 
-				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
 					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
 				}
 
@@ -275,7 +275,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				break checkTxLogic
 			case chainstypes.TX_STATUS_PENDING:
 				// update db as pending
-				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
 					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
 				}
 
@@ -293,7 +293,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// increment the transactions count metric
 		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, txStatus.String())
 
-		if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, NewTxResult(txHash, chainstypes.TX_STATUS_TIMEOUT, decimal.NullDecimal{}, decimal.NullDecimal{}, nil)); err != nil {
+		if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, NewTxResult(txHash, chainstypes.TX_STATUS_TIMEOUT, decimal.NullDecimal{}, decimal.NullDecimal{}, nil)); err != nil {
 			log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
 		}
 
@@ -351,7 +351,7 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	if err != nil {
 		return NewTxResult(
 				txHash,
-				chainstypes.TX_STATUS_FAILED,
+				chainstypes.TX_STATUS_PENDING,
 				decimal.NullDecimal{},
 				decimal.NullDecimal{},
 				nil,
@@ -713,7 +713,7 @@ func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, e
 
 func (cp *EVMChainProvider) saveTransaction(
 	ctx context.Context,
-	signerAddress gethcommon.Address,
+	signerAddress string,
 	oldBalance *big.Int,
 	packet *bandtypes.Packet,
 	txResult TxResult,
@@ -730,7 +730,8 @@ func (cp *EVMChainProvider) saveTransaction(
 
 	// find block timestamp
 	timestamp := uint64(0)
-	var balanceDelta *big.Int
+
+	balanceDelta := decimal.NullDecimal{}
 
 	if txResult.Status == chainstypes.TX_STATUS_SUCCESS || txResult.Status == chainstypes.TX_STATUS_FAILED {
 		block, err := cp.Client.GetBlock(ctx, txResult.BlockNumber)
@@ -741,11 +742,12 @@ func (cp *EVMChainProvider) saveTransaction(
 
 		// find new balance
 		if oldBalance != nil {
-			newBalance, err := cp.Client.GetBalance(ctx, signerAddress, txResult.BlockNumber)
+			newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
 			if err != nil {
 				return fmt.Errorf("failed to get balance: %w", err)
 			}
-			balanceDelta = new(big.Int).Sub(newBalance, oldBalance)
+			diff := new(big.Int).Sub(newBalance, oldBalance)
+			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
 		}
 	}
 
@@ -758,7 +760,7 @@ func (cp *EVMChainProvider) saveTransaction(
 		txResult.Status,
 		txResult.GasUsed,
 		txResult.EffectiveGasPrice,
-		decimal.NewNullDecimal(decimal.NewFromBigInt(balanceDelta, 0)),
+		balanceDelta,
 		signalPrices,
 		time.Unix(int64(timestamp), 0).UTC(),
 	)
