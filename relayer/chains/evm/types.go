@@ -1,8 +1,12 @@
 package evm
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/shopspring/decimal"
+
+	"github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 // ClientConnectionResult is the struct that contains the result of connecting to the specific endpoint.
@@ -12,42 +16,27 @@ type ClientConnectionResult struct {
 	BlockHeight uint64
 }
 
-// TxStatus is the status of the transaction
-type TxStatus int
-
-const (
-	TX_STATUS_UNDEFINED TxStatus = iota
-	TX_STATUS_UNMINED
-	TX_STATUS_SUCCESS
-	TX_STATUS_FAILED
-)
-
-var txStatusNameMap = map[TxStatus]string{
-	TX_STATUS_UNDEFINED: "undefined",
-	TX_STATUS_UNMINED:   "unmined",
-	TX_STATUS_SUCCESS:   "success",
-	TX_STATUS_FAILED:    "failed",
+// TxResult is the result of confirming a transaction
+type TxResult struct {
+	TxHash            string
+	Status            types.TxStatus
+	GasUsed           decimal.NullDecimal
+	EffectiveGasPrice decimal.NullDecimal
+	BlockNumber       *big.Int
 }
 
-func (t TxStatus) String() string {
-	return txStatusNameMap[t]
-}
-
-// ConfirmTxResult is the result of confirming a transaction
-type ConfirmTxResult struct {
-	TxHash  string
-	Status  TxStatus
-	GasUsed decimal.NullDecimal
-}
-
-func NewConfirmTxResult(
+func NewTxResult(
 	txHash string,
-	status TxStatus,
+	status types.TxStatus,
 	gasUsed decimal.NullDecimal,
-) *ConfirmTxResult {
-	return &ConfirmTxResult{
-		TxHash:  txHash,
-		Status:  status,
-		GasUsed: gasUsed,
+	effectiveGasPrice decimal.NullDecimal,
+	blockNumber *big.Int,
+) TxResult {
+	return TxResult{
+		TxHash:            txHash,
+		Status:            status,
+		GasUsed:           gasUsed,
+		EffectiveGasPrice: effectiveGasPrice,
+		BlockNumber:       blockNumber,
 	}
 }

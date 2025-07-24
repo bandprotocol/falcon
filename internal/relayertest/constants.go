@@ -7,6 +7,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 )
 
@@ -35,7 +36,7 @@ var CustomCfg = config.Config{
 		"testnet": &evm.EVMChainProviderConfig{
 			BaseChainProviderConfig: chains.BaseChainProviderConfig{
 				Endpoints:           []string{"http://localhost:8545"},
-				ChainType:           chains.ChainTypeEVM,
+				ChainType:           chainstypes.ChainTypeEVM,
 				MaxRetry:            3,
 				ChainID:             31337,
 				TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",

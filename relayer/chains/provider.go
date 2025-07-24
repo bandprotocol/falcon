@@ -8,6 +8,7 @@ import (
 
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/db"
 )
 
 // ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
@@ -18,6 +19,9 @@ type ChainProvider interface {
 	KeyProvider
 	// Init initialize to the chain.
 	Init(ctx context.Context) error
+
+	// SetupDatabase ...
+	SetupDatabase(database db.Database)
 
 	// QueryTunnelInfo queries the tunnel information from the destination chain.
 	QueryTunnelInfo(

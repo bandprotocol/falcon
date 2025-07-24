@@ -104,12 +104,15 @@ func (s *LegacyProviderTestSuite) TestRelayPacketSuccess() {
 		Data:     s.relayingCalldata,
 		GasPrice: s.gasInfo.GasPrice,
 	}).Return(uint64(200_000), nil).AnyTimes()
+
+	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil)
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
 	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-		Status:      gethtypes.ReceiptStatusSuccessful,
-		GasUsed:     21000,
-		BlockNumber: big.NewInt(100),
+		Status:            gethtypes.ReceiptStatusSuccessful,
+		GasUsed:           21000,
+		EffectiveGasPrice: big.NewInt(20000),
+		BlockNumber:       big.NewInt(100),
 	}, nil)
 
 	s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(105), nil)
@@ -130,12 +133,14 @@ func (s *LegacyProviderTestSuite) TestRelayPacketSuccessWithoutQueryMaxGasFee() 
 		GasPrice: big.NewInt(2_000_000_000),
 	}).Return(uint64(200_000), nil)
 
+	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil)
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
 	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-		Status:      gethtypes.ReceiptStatusSuccessful,
-		GasUsed:     21000,
-		BlockNumber: big.NewInt(100),
+		Status:            gethtypes.ReceiptStatusSuccessful,
+		GasUsed:           21000,
+		EffectiveGasPrice: big.NewInt(20000),
+		BlockNumber:       big.NewInt(100),
 	}, nil)
 
 	s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(105), nil)

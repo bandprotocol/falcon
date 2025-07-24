@@ -24,6 +24,7 @@ type Client interface {
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	NonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
+	GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Block, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
@@ -31,7 +32,7 @@ type Client interface {
 	EstimateBaseFee(ctx context.Context) (*big.Int, error)
 	EstimateGasTipCap(ctx context.Context) (*big.Int, error)
 	BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error)
-	GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error)
+	GetBalance(ctx context.Context, gethAddr gethcommon.Address, blockNumber *big.Int) (*big.Int, error)
 }
 
 // Client is the struct that handles interactions with the EVM chain.
@@ -125,6 +126,25 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	}
 
 	return blockHeight, nil
+}
+
+// GetBlock returns the blocks of the given block height
+func (c *client) GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Block, error) {
+	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	defer cancel()
+
+	block, err := c.client.BlockByNumber(newCtx, height)
+	if err != nil {
+		c.Log.Error(
+			"Failed to get block by height",
+			zap.Error(err),
+			zap.String("endpoint", c.selectedEndpoint),
+			zap.String("height", height.String()),
+		)
+		return nil, fmt.Errorf("[EVMClient] failed to get block by height: %w", err)
+	}
+
+	return block, nil
 }
 
 // GetTxReceipt returns the transaction receipt of the given transaction hash.
@@ -364,11 +384,11 @@ func (c *client) CheckAndConnect(ctx context.Context) error {
 }
 
 // GetBalance get the balance of specific account the EVM chain.
-func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address) (*big.Int, error) {
+func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address, blockNumber *big.Int) (*big.Int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	res, err := c.client.BalanceAt(newCtx, gethAddr, nil)
+	res, err := c.client.BalanceAt(newCtx, gethAddr, blockNumber)
 	if err != nil {
 		c.Log.Error(
 			"Failed to query balance",

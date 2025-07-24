@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 // ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)
@@ -24,6 +25,7 @@ type GlobalConfig struct {
 	SyncTunnelsInterval    time.Duration `mapstructure:"sync_tunnels_interval"    toml:"sync_tunnels_interval"`
 	PenaltySkipRounds      uint          `mapstructure:"penalty_skip_rounds"      toml:"penalty_skip_rounds"`
 	MetricsListenAddr      string        `mapstructure:"metrics_listen_addr"      toml:"metrics_listen_addr"`
+	DBPath                 string        `mapstructure:"db_path"                  toml:"db_path"`
 }
 
 // Config defines the configuration for the falcon tunnel relayer.
@@ -49,19 +51,19 @@ func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProvide
 	if !ok {
 		return nil, fmt.Errorf("chain_type is required")
 	}
-	chainType := chains.ToChainType(typeName)
+	chainType := chainstypes.ToChainType(typeName)
 
 	decoderConfig := mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			decodeTimeHook,
-			chains.DecodeChainTypeHook,
+			chainstypes.DecodeChainTypeHook,
 			evm.DecodeGasTypeHook,
 		),
 	}
 
 	var cfg chains.ChainProviderConfig
 	switch chainType {
-	case chains.ChainTypeEVM:
+	case chainstypes.ChainTypeEVM:
 		var newCfg evm.EVMChainProviderConfig
 
 		decoderConfig.Result = &newCfg

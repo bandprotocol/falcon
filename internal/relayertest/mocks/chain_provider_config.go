@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	chains "github.com/bandprotocol/falcon/relayer/chains"
+	types "github.com/bandprotocol/falcon/relayer/chains/types"
 	logger "github.com/bandprotocol/falcon/relayer/logger"
 	wallet "github.com/bandprotocol/falcon/relayer/wallet"
 	gomock "go.uber.org/mock/gomock"
@@ -43,10 +44,10 @@ func (m *MockChainProviderConfig) EXPECT() *MockChainProviderConfigMockRecorder 
 }
 
 // GetChainType mocks base method.
-func (m *MockChainProviderConfig) GetChainType() chains.ChainType {
+func (m *MockChainProviderConfig) GetChainType() types.ChainType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetChainType")
-	ret0, _ := ret[0].(chains.ChainType)
+	ret0, _ := ret[0].(types.ChainType)
 	return ret0
 }
 
@@ -57,18 +58,18 @@ func (mr *MockChainProviderConfigMockRecorder) GetChainType() *gomock.Call {
 }
 
 // NewChainProvider mocks base method.
-func (m *MockChainProviderConfig) NewChainProvider(chainName string, log logger.ZapLogger, arg2 wallet.Wallet) (chains.ChainProvider, error) {
+func (m *MockChainProviderConfig) NewChainProvider(chainName string, log logger.ZapLogger, wallet wallet.Wallet) (chains.ChainProvider, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, arg2)
+	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, wallet)
 	ret0, _ := ret[0].(chains.ChainProvider)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewChainProvider indicates an expected call of NewChainProvider.
-func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, arg2 any) *gomock.Call {
+func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, wallet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, wallet)
 }
 
 // Validate mocks base method.

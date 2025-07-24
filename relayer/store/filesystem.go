@@ -9,7 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/bandprotocol/falcon/internal/os"
-	"github.com/bandprotocol/falcon/relayer/chains"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
@@ -101,9 +101,9 @@ func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
 }
 
 // NewWallet creates a new wallet object based on the chain type and chain name.
-func (fs *FileSystem) NewWallet(chainType chains.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
+func (fs *FileSystem) NewWallet(chainType chainstypes.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
 	switch chainType {
-	case chains.ChainTypeEVM:
+	case chainstypes.ChainTypeEVM:
 		return geth.NewGethWallet(passphrase, fs.HomePath, chainName)
 	default:
 		return nil, fmt.Errorf("unsupported chain type: %s", chainType)

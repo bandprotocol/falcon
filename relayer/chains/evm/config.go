@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
@@ -44,6 +45,6 @@ func (cpc *EVMChainProviderConfig) Validate() error {
 	return nil
 }
 
-func (cpc *EVMChainProviderConfig) GetChainType() chains.ChainType {
-	return chains.ChainTypeEVM
+func (cpc *EVMChainProviderConfig) GetChainType() types.ChainType {
+	return types.ChainTypeEVM
 }
