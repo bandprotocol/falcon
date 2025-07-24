@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	chains "github.com/bandprotocol/falcon/relayer/chains"
+	types "github.com/bandprotocol/falcon/relayer/chains/types"
 	logger "github.com/bandprotocol/falcon/relayer/logger"
 	wallet "github.com/bandprotocol/falcon/relayer/wallet"
 	gomock "go.uber.org/mock/gomock"
@@ -43,10 +44,10 @@ func (m *MockChainProviderConfig) EXPECT() *MockChainProviderConfigMockRecorder 
 }
 
 // GetChainType mocks base method.
-func (m *MockChainProviderConfig) GetChainType() chains.ChainType {
+func (m *MockChainProviderConfig) GetChainType() types.ChainType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetChainType")
-	ret0, _ := ret[0].(chains.ChainType)
+	ret0, _ := ret[0].(types.ChainType)
 	return ret0
 }
 

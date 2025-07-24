@@ -29,7 +29,7 @@ import (
 var baseEVMCfg = &evm.EVMChainProviderConfig{
 	BaseChainProviderConfig: chains.BaseChainProviderConfig{
 		Endpoints:           []string{"http://localhost:8545"},
-		ChainType:           chains.ChainTypeEVM,
+		ChainType:           chaintypes.ChainTypeEVM,
 		MaxRetry:            3,
 		ChainID:             31337,
 		TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
@@ -217,7 +217,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 		name       string
 		preProcess func()
 		err        error
-		out        *evm.ConfirmTxResult
+		out        evm.TxResult
 	}{
 		{
 			name: "success",
@@ -225,31 +225,37 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				currentBlock := txBlock + int64(s.chainProvider.Config.BlockConfirmation) + 10
 
 				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-					Status:      gethtypes.ReceiptStatusSuccessful,
-					GasUsed:     21000,
-					BlockNumber: big.NewInt(txBlock),
+					Status:            gethtypes.ReceiptStatusSuccessful,
+					GasUsed:           21000,
+					EffectiveGasPrice: big.NewInt(20000),
+					BlockNumber:       big.NewInt(txBlock),
 				}, nil)
 				s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(currentBlock), nil)
 			},
-			out: evm.NewConfirmTxResult(
+			out: evm.NewTxResult(
 				txHash,
-				evm.TX_STATUS_SUCCESS,
+				chaintypes.TX_STATUS_SUCCESS,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
+				decimal.NewNullDecimal(decimal.New(20000, 0)),
+				big.NewInt(100),
 			),
 		},
 		{
 			name: "get tx receipt with failed status",
 			preProcess: func() {
 				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-					Status:      gethtypes.ReceiptStatusFailed,
-					GasUsed:     21000,
-					BlockNumber: big.NewInt(txBlock),
+					Status:            gethtypes.ReceiptStatusFailed,
+					GasUsed:           21000,
+					EffectiveGasPrice: big.NewInt(20000),
+					BlockNumber:       big.NewInt(txBlock),
 				}, nil)
 			},
-			out: evm.NewConfirmTxResult(
+			out: evm.NewTxResult(
 				txHash,
-				evm.TX_STATUS_FAILED,
+				chaintypes.TX_STATUS_FAILED,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
+				decimal.NewNullDecimal(decimal.New(20000, 0)),
+				big.NewInt(100),
 			),
 		},
 		{
@@ -258,16 +264,19 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				currentBlock := txBlock + int64(s.chainProvider.Config.BlockConfirmation) - 1
 
 				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-					Status:      gethtypes.ReceiptStatusSuccessful,
-					GasUsed:     21000,
-					BlockNumber: big.NewInt(txBlock),
+					Status:            gethtypes.ReceiptStatusSuccessful,
+					GasUsed:           21000,
+					EffectiveGasPrice: big.NewInt(20000),
+					BlockNumber:       big.NewInt(txBlock),
 				}, nil)
 				s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(currentBlock), nil)
 			},
-			out: evm.NewConfirmTxResult(
+			out: evm.NewTxResult(
 				txHash,
-				evm.TX_STATUS_UNMINED,
+				chaintypes.TX_STATUS_PENDING,
 				decimal.NullDecimal{},
+				decimal.NullDecimal{},
+				nil,
 			),
 		},
 	}

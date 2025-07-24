@@ -19,6 +19,7 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
@@ -41,6 +42,7 @@ type EVMChainProvider struct {
 	Log logger.ZapLogger
 
 	Wallet wallet.Wallet
+	DB     db.Database
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -91,6 +93,10 @@ func (cp *EVMChainProvider) Init(ctx context.Context) error {
 	go cp.Client.StartLivelinessCheck(ctx, cp.Config.LivelinessCheckingInterval)
 
 	return nil
+}
+
+func (cp *EVMChainProvider) SetupDatabase(database db.Database) {
+	cp.DB = database
 }
 
 // QueryTunnelInfo queries the tunnel info from the tunnel router contract.
@@ -168,6 +174,11 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			continue
 		}
 
+		balance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), nil)
+		if err != nil {
+			log.Error("GetBalance error", zap.Error(err))
+		}
+
 		// submit the transaction, if failed, bump gas and retry
 		txHash, err := cp.Client.BroadcastTx(ctx, signedTx)
 		if err != nil {
@@ -191,8 +202,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 
 		var checkTxErr error
-		var txStatus TxStatus
-		var gasUsed decimal.NullDecimal
+		var txStatus chainstypes.TxStatus
 	checkTxLogic:
 		for time.Since(createdAt) < cp.Config.WaitingTxDuration {
 			result, err := cp.CheckConfirmedTx(ctx, txHash)
@@ -205,25 +215,34 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				)
 
 				checkTxErr = err
-				txStatus = TX_STATUS_UNDEFINED
+				txStatus = chainstypes.TX_STATUS_PENDING
+				// update in db as pending
+				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+				}
 				time.Sleep(cp.Config.CheckingTxInterval)
 				continue
 			}
 
 			checkTxErr = nil
 			txStatus = result.Status
-			gasUsed = result.GasUsed
+			gasUsed := result.GasUsed
 
 			switch result.Status {
-			case TX_STATUS_SUCCESS:
+			case chainstypes.TX_STATUS_SUCCESS:
 				// increment the transactions count metric
-				relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String())
+				relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_SUCCESS.String())
 
 				// track transaction processing time (ms)
-				relayermetrics.ObserveTxProcessTime(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), time.Since(createdAt).Milliseconds())
+				relayermetrics.ObserveTxProcessTime(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_SUCCESS.String(), time.Since(createdAt).Milliseconds())
 
 				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_SUCCESS.String(), gasUsed.Decimal.InexactFloat64())
+				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_SUCCESS.String(), gasUsed.Decimal.InexactFloat64())
+
+				// update db as success
+				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+				}
 
 				log.Info(
 					"Packet is successfully relayed",
@@ -231,17 +250,22 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 					zap.Int("retry_count", retryCount),
 				)
 				return nil
-			case TX_STATUS_FAILED:
+			case chainstypes.TX_STATUS_FAILED:
 				// track transaction processing time (ms)
 				relayermetrics.ObserveTxProcessTime(
 					packet.TunnelID,
 					cp.ChainName,
-					TX_STATUS_FAILED.String(),
+					chainstypes.TX_STATUS_FAILED.String(),
 					time.Since(createdAt).Milliseconds(),
 				)
 
 				// track gas used for the relayed transaction
-				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
+				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
+
+				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+				}
+
 				log.Debug(
 					"Transaction failed during relay attempt",
 					zap.Error(err),
@@ -249,7 +273,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 					zap.Int("retry_count", retryCount),
 				)
 				break checkTxLogic
-			case TX_STATUS_UNMINED:
+			case chainstypes.TX_STATUS_PENDING:
+				// update db as pending
+				if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, result); err != nil {
+					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+				}
+
 				log.Debug(
 					"Waiting for tx to be mined",
 					zap.Error(err),
@@ -263,6 +292,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		// increment the transactions count metric
 		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, txStatus.String())
+
+		if err := cp.saveTransaction(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), balance, packet, NewTxResult(txHash, chainstypes.TX_STATUS_TIMEOUT, decimal.NullDecimal{}, decimal.NullDecimal{}, nil)); err != nil {
+			log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+		}
 
 		log.Error(
 			"Failed to relaying a packet with status and error",
@@ -313,30 +346,55 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 func (cp *EVMChainProvider) CheckConfirmedTx(
 	ctx context.Context,
 	txHash string,
-) (*ConfirmTxResult, error) {
+) (TxResult, error) {
 	receipt, err := cp.Client.GetTxReceipt(ctx, txHash)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tx receipt: %w", err)
+		return NewTxResult(
+				txHash,
+				chainstypes.TX_STATUS_FAILED,
+				decimal.NullDecimal{},
+				decimal.NullDecimal{},
+				nil,
+			), fmt.Errorf(
+				"failed to get tx receipt: %w",
+				err,
+			)
 	}
 
 	// calculate gas used and effective gas price
 	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
+	gasPrice := decimal.NewNullDecimal(decimal.New(int64(receipt.EffectiveGasPrice.Uint64()), 0))
 
 	if receipt.Status == gethtypes.ReceiptStatusFailed {
-		return NewConfirmTxResult(txHash, TX_STATUS_FAILED, gasUsed), nil
+		return NewTxResult(txHash, chainstypes.TX_STATUS_FAILED, gasUsed, gasPrice, receipt.BlockNumber), nil
 	}
 
 	latestBlock, err := cp.Client.GetBlockHeight(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get latest block height: %w", err)
+		return NewTxResult(
+				txHash,
+				chainstypes.TX_STATUS_PENDING,
+				decimal.NullDecimal{},
+				decimal.NullDecimal{},
+				nil,
+			), fmt.Errorf(
+				"failed to get latest block height: %w",
+				err,
+			)
 	}
 
 	// if tx block is not confirmed and waiting too long return status with timeout
 	if receipt.BlockNumber.Uint64() > latestBlock-cp.Config.BlockConfirmation {
-		return NewConfirmTxResult(txHash, TX_STATUS_UNMINED, decimal.NullDecimal{}), nil
+		return NewTxResult(
+			txHash,
+			chainstypes.TX_STATUS_PENDING,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+		), nil
 	}
 
-	return NewConfirmTxResult(txHash, TX_STATUS_SUCCESS, gasUsed), nil
+	return NewTxResult(txHash, chainstypes.TX_STATUS_SUCCESS, gasUsed, gasPrice, receipt.BlockNumber), nil
 }
 
 // EstimateGasFee estimates the gas for the transaction.
@@ -625,7 +683,7 @@ func (cp *EVMChainProvider) QueryBalance(
 		return nil, err
 	}
 
-	return cp.Client.GetBalance(ctx, address)
+	return cp.Client.GetBalance(ctx, address, nil)
 }
 
 // GetChainName retrieves the chain name from the chain provider.
@@ -651,4 +709,63 @@ func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, e
 	}
 
 	return output, nil
+}
+
+func (cp *EVMChainProvider) saveTransaction(
+	ctx context.Context,
+	signerAddress gethcommon.Address,
+	oldBalance *big.Int,
+	packet *bandtypes.Packet,
+	txResult TxResult,
+) error {
+	// db was disabled
+	if cp.DB == nil {
+		return nil
+	}
+
+	signalPrices := make([]db.SignalPrice, 0)
+	for _, p := range packet.SignalPrices {
+		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
+	}
+
+	// find block timestamp
+	timestamp := uint64(0)
+	var balanceDelta *big.Int
+
+	if txResult.Status == chainstypes.TX_STATUS_SUCCESS || txResult.Status == chainstypes.TX_STATUS_FAILED {
+		block, err := cp.Client.GetBlock(ctx, txResult.BlockNumber)
+		if err != nil {
+			return fmt.Errorf("failed to get block: %w", err)
+		}
+		timestamp = block.Time()
+
+		// find new balance
+		if oldBalance != nil {
+			newBalance, err := cp.Client.GetBalance(ctx, signerAddress, txResult.BlockNumber)
+			if err != nil {
+				return fmt.Errorf("failed to get balance: %w", err)
+			}
+			balanceDelta = new(big.Int).Sub(newBalance, oldBalance)
+		}
+	}
+
+	tx := db.NewTransaction(
+		txResult.TxHash,
+		packet.TunnelID,
+		packet.Sequence,
+		cp.ChainName,
+		chainstypes.ChainTypeEVM,
+		txResult.Status,
+		txResult.GasUsed,
+		txResult.EffectiveGasPrice,
+		decimal.NewNullDecimal(decimal.NewFromBigInt(balanceDelta, 0)),
+		signalPrices,
+		time.Unix(int64(timestamp), 0).UTC(),
+	)
+
+	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
+		return fmt.Errorf("failed to save transaction to database: %w", err)
+	}
+
+	return nil
 }

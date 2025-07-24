@@ -149,18 +149,33 @@ func (mr *MockEVMClientMockRecorder) EstimateGasTipCap(ctx any) *gomock.Call {
 }
 
 // GetBalance mocks base method.
-func (m *MockEVMClient) GetBalance(ctx context.Context, gethAddr common.Address) (*big.Int, error) {
+func (m *MockEVMClient) GetBalance(ctx context.Context, gethAddr common.Address, blockNumber *big.Int) (*big.Int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBalance", ctx, gethAddr)
+	ret := m.ctrl.Call(m, "GetBalance", ctx, gethAddr, blockNumber)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetBalance indicates an expected call of GetBalance.
-func (mr *MockEVMClientMockRecorder) GetBalance(ctx, gethAddr any) *gomock.Call {
+func (mr *MockEVMClientMockRecorder) GetBalance(ctx, gethAddr, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockEVMClient)(nil).GetBalance), ctx, gethAddr)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockEVMClient)(nil).GetBalance), ctx, gethAddr, blockNumber)
+}
+
+// GetBlock mocks base method.
+func (m *MockEVMClient) GetBlock(ctx context.Context, height *big.Int) (*types.Block, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlock", ctx, height)
+	ret0, _ := ret[0].(*types.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlock indicates an expected call of GetBlock.
+func (mr *MockEVMClientMockRecorder) GetBlock(ctx, height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlock", reflect.TypeOf((*MockEVMClient)(nil).GetBlock), ctx, height)
 }
 
 // GetBlockHeight mocks base method.
