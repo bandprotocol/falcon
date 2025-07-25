@@ -12,7 +12,7 @@ const (
 	AttributeKeyTunnelID = "tunnel_id"
 )
 
-// isTssRouteType checks if the route type is TSSRoute
+// IsTssRouteType checks if the route type is TSSRoute
 func IsTssRouteType(routeType string) bool {
 	tssRouteType := proto.MessageName(&TSSRoute{})
 	return routeType == tssRouteType || routeType == "/"+tssRouteType
