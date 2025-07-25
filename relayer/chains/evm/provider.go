@@ -95,7 +95,8 @@ func (cp *EVMChainProvider) Init(ctx context.Context) error {
 	return nil
 }
 
-func (cp *EVMChainProvider) SetupDatabase(database db.Database) {
+// SetDatabase assigns the given database instance to the EVMChainProvider.
+func (cp *EVMChainProvider) SetDatabase(database db.Database) {
 	cp.DB = database
 }
 
@@ -711,6 +712,7 @@ func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, e
 	return output, nil
 }
 
+// saveTransaction stores the transaction result and related metadata (e.g. gas, status, balance delta) to the database if enabled.
 func (cp *EVMChainProvider) saveTransaction(
 	ctx context.Context,
 	signerAddress string,
@@ -728,9 +730,7 @@ func (cp *EVMChainProvider) saveTransaction(
 		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
 	}
 
-	// find block timestamp
 	timestamp := uint64(0)
-
 	balanceDelta := decimal.NullDecimal{}
 
 	if txResult.Status == chainstypes.TX_STATUS_SUCCESS || txResult.Status == chainstypes.TX_STATUS_FAILED {

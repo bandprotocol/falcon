@@ -16,7 +16,7 @@ type ClientConnectionResult struct {
 	BlockHeight uint64
 }
 
-// TxResult is the result of confirming a transaction
+// TxResult is the result of transaction.
 type TxResult struct {
 	TxHash            string
 	Status            types.TxStatus
@@ -25,6 +25,7 @@ type TxResult struct {
 	BlockNumber       *big.Int
 }
 
+// NewTxResult creates a new TxResult instance.
 func NewTxResult(
 	txHash string,
 	status types.TxStatus,

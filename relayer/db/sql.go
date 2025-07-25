@@ -11,10 +11,13 @@ import (
 
 var _ Database = &SQL{}
 
+// SQL is instance that wraps Gorm DB instance.
 type SQL struct {
 	db *gorm.DB
 }
 
+// NewSQL opens a new Gorm connection using the given driverName and dbPath.
+// Supported drivers: "postgresql", "mysql".
 func NewSQL(driverName, dbPath string) (SQL, error) {
 	var db *gorm.DB
 	var err error
@@ -50,6 +53,8 @@ func NewSQL(driverName, dbPath string) (SQL, error) {
 	return SQL{db: db}, nil
 }
 
+// AddOrUpdateTransaction inserts a new Transaction record if none exists with the same TxHash.
+// If an existing record is in PENDING state and the new transaction has progressed to a non-PENDING status.
 func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 	var queryTransaction Transaction
 
