@@ -8,6 +8,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
+// Transaction represents transaction information sent to the target chain contract that will be stored in the database.
 type Transaction struct {
 	ID                uint                `gorm:"primarykey"`
 	TxHash            string              `gorm:"unique"`
@@ -24,6 +25,7 @@ type Transaction struct {
 	Timestamp    time.Time `gorm:"type:timestamp"`
 }
 
+// NewTransaction creates a new Transaction instance.
 func NewTransaction(
 	txHash string,
 	tunnelID uint64,
@@ -52,12 +54,14 @@ func NewTransaction(
 	}
 }
 
+// SignalPrice represents the price of a signal for a given transaction.
 type SignalPrice struct {
 	TransactionID uint   `gorm:"primarykey"`
 	SignalPrice   string `gorm:"primarykey"`
 	Price         uint64 `gorm:"not null"`
 }
 
+// NewSignalPrice creates a new SignalPrice instance.
 func NewSignalPrice(
 	signalPrice string,
 	price uint64,

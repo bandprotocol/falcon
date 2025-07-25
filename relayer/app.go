@@ -413,7 +413,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 			return err
 		}
 
-		chainProvider.SetupDatabase(database)
+		chainProvider.SetDatabase(database)
 	}
 
 	// start the tunnel relayers

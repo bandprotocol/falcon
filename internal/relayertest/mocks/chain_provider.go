@@ -218,16 +218,16 @@ func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, packet any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, packet)
 }
 
-// SetupDatabase mocks base method.
-func (m *MockChainProvider) SetupDatabase(database db.Database) {
+// SetDatabase mocks base method.
+func (m *MockChainProvider) SetDatabase(database db.Database) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetupDatabase", database)
+	m.ctrl.Call(m, "SetDatabase", database)
 }
 
-// SetupDatabase indicates an expected call of SetupDatabase.
-func (mr *MockChainProviderMockRecorder) SetupDatabase(database any) *gomock.Call {
+// SetDatabase indicates an expected call of SetDatabase.
+func (mr *MockChainProviderMockRecorder) SetDatabase(database any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupDatabase", reflect.TypeOf((*MockChainProvider)(nil).SetupDatabase), database)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDatabase", reflect.TypeOf((*MockChainProvider)(nil).SetDatabase), database)
 }
 
 // ShowKey mocks base method.

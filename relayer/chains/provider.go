@@ -20,8 +20,8 @@ type ChainProvider interface {
 	// Init initialize to the chain.
 	Init(ctx context.Context) error
 
-	// SetupDatabase ...
-	SetupDatabase(database db.Database)
+	// SetDatabase assigns the given database instance.
+	SetDatabase(database db.Database)
 
 	// QueryTunnelInfo queries the tunnel information from the destination chain.
 	QueryTunnelInfo(
