@@ -69,12 +69,17 @@ func NewScheduler(
 }
 
 // Start starts all tunnel relayers
-func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
+func (s *Scheduler) Start(
+	ctx context.Context,
+	tunnelIDs []uint64,
+	tunnelCreator string,
+	subscriptionTimeout time.Duration,
+) error {
 	subscribers := []subscriber.Subscriber{
-		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh),
-		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh),
-		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingResultCh),
-		subscriber.NewSigningFailedSubscriber(s.Log, s.signingResultCh),
+		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
+		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
+		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingResultCh, subscriptionTimeout),
+		subscriber.NewSigningFailedSubscriber(s.Log, s.signingResultCh, subscriptionTimeout),
 	}
 	s.BandClient.SetSubscribers(subscribers)
 

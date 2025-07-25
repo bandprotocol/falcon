@@ -387,7 +387,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 		a.TargetChains,
 	)
 
-	return scheduler.Start(ctx, tunnelIDs, tunnelCreator)
+	return scheduler.Start(ctx, tunnelIDs, tunnelCreator, a.Config.BandChain.Timeout)
 }
 
 // Relay relays the packet from the source chain to the destination chain.
