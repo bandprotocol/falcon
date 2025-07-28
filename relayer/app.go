@@ -19,7 +19,6 @@ import (
 // App is the main application struct.
 type App struct {
 	Log    *zap.Logger
-	Debug  bool
 	Config *config.Config
 	Store  store.Store
 
@@ -31,14 +30,12 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp(
 	log *zap.Logger,
-	debug bool,
 	config *config.Config,
 	passphrase string,
 	store store.Store,
 ) *App {
 	app := App{
 		Log:        log,
-		Debug:      debug,
 		Config:     config,
 		Store:      store,
 		Passphrase: passphrase,
@@ -94,7 +91,7 @@ func (a *App) initTargetChains() error {
 			return err
 		}
 
-		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.Debug, wallet)
+		cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet)
 		if err != nil {
 			a.Log.Error("Cannot create chain provider",
 				zap.Error(err),

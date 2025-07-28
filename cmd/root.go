@@ -33,7 +33,7 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 func NewRootCmd(log *zap.Logger) *cobra.Command {
 	passphrase := os.Getenv(PassphraseEnvKey)
 	homePath := defaultHome
-	app := falcon.NewApp(log, false, nil, passphrase, nil)
+	app := falcon.NewApp(log, nil, passphrase, nil)
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
@@ -88,12 +88,6 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	// Register --home flag
 	rootCmd.PersistentFlags().StringVar(&homePath, flagHome, defaultHome, "set home directory")
 	if err := viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
-		panic(err)
-	}
-
-	// Register --debug flag
-	rootCmd.PersistentFlags().BoolVarP(&app.Debug, "debug", "d", false, "debug output")
-	if err := viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
 		panic(err)
 	}
 
