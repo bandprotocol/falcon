@@ -24,8 +24,8 @@ type versionInfo struct {
 	Go      string `json:"go"      yaml:"go"`
 }
 
-// versionCmd returns a command that prints the falcon version information.
-func versionCmd(_ *relayer.App) *cobra.Command {
+// VersionCmd returns a command that prints the falcon version information.
+func VersionCmd(_ *relayer.App) *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:     "version",
 		Aliases: []string{"v"},

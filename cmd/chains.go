@@ -11,8 +11,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 )
 
-// chainsCmd returns a command that manages chain configurations.
-func chainsCmd(app *relayer.App) *cobra.Command {
+// ChainsCmd returns a command that manages chain configurations.
+func ChainsCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "chains",
 		Aliases: []string{"ch"},

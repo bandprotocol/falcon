@@ -105,17 +105,17 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	// Register subcommands
 	rootCmd.AddCommand(
-		configCmd(app),
-		chainsCmd(app),
-		keysCmd(app),
+		ConfigCmd(app),
+		ChainsCmd(app),
+		KeysCmd(app),
 
 		lineBreakCommand(),
-		transactionCmd(app),
-		queryCmd(app),
-		startCmd(app),
+		TransactionCmd(app),
+		QueryCmd(app),
+		StartCmd(app),
 
 		lineBreakCommand(),
-		versionCmd(app),
+		VersionCmd(app),
 	)
 
 	return rootCmd

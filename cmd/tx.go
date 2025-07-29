@@ -10,9 +10,9 @@ import (
 	"github.com/bandprotocol/falcon/relayer"
 )
 
-// transactionCmd returns a parent transaction command handler, where all child
+// TransactionCmd returns a parent transaction command handler, where all child
 // commands can submit transactions on destination chains.
-func transactionCmd(app *relayer.App) *cobra.Command {
+func TransactionCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "transact",
 		Aliases: []string{"tx"},

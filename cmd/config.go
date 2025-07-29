@@ -12,8 +12,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/config"
 )
 
-// configCmd returns a command that manages global configuration file
-func configCmd(app *relayer.App) *cobra.Command {
+// ConfigCmd returns a command that manages global configuration file
+func ConfigCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
 		Aliases: []string{"cfg"},
