@@ -22,7 +22,7 @@ type SigningSuccessSubscriber struct {
 // NewSigningSuccessSubscriber creates a new SigningSuccessSubscriber.
 func NewSigningSuccessSubscriber(
 	log *zap.Logger,
-	signingResultCh chan<- SigningResult,
+	signingIDCh chan<- uint64,
 	timeout time.Duration,
 ) *SigningSuccessSubscriber {
 	name := "signing_success"
@@ -34,7 +34,7 @@ func NewSigningSuccessSubscriber(
 	)
 
 	l := log.With(zap.String("subscriber", name))
-	onEventReceived := onHandleSigningSuccessEvent(signingResultCh, l)
+	onEventReceived := onHandleSigningSuccessEvent(signingIDCh, l)
 
 	subscription := NewSubscription(
 		name,
@@ -51,7 +51,7 @@ func NewSigningSuccessSubscriber(
 
 // onHandleSigningSuccessEvent handles the signing success event.
 func onHandleSigningSuccessEvent(
-	signingResultCh chan<- SigningResult,
+	signingIDCh chan<- uint64,
 	log *zap.Logger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
@@ -81,7 +81,7 @@ func onHandleSigningSuccessEvent(
 				)
 				continue
 			}
-			signingResultCh <- NewSigningResult(signingID, true)
+			signingIDCh <- signingID
 		}
 	}
 }

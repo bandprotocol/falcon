@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
 
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
 var _ Subscriber = &PacketSuccessSubscriber{}

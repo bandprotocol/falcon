@@ -25,7 +25,7 @@ type Scheduler struct {
 	PacketHandler  *PacketHandler
 
 	triggerRelayerCh chan uint64
-	signingResultCh  chan subscriber.SigningResult
+	signingIDCh      chan uint64
 	tunnelIDCh       chan uint64
 	tunnelRelayers   map[uint64]*TunnelRelayer
 	bandLatestTunnel int
@@ -41,14 +41,14 @@ func NewScheduler(
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
 	triggerRelayerCh := make(chan uint64, 1000)
-	signingResultCh := make(chan subscriber.SigningResult, 1000)
+	signingIDCh := make(chan uint64, 1000)
 	tunnelIDCh := make(chan uint64, 1000)
 
 	packetHandler := NewPacketHandler(
 		log,
 		bandClient,
 		triggerRelayerCh,
-		signingResultCh,
+		signingIDCh,
 		tunnelIDCh,
 	)
 
@@ -61,7 +61,7 @@ func NewScheduler(
 		ChainProviders:         chainProviders,
 		PacketHandler:          packetHandler,
 		triggerRelayerCh:       triggerRelayerCh,
-		signingResultCh:        signingResultCh,
+		signingIDCh:            signingIDCh,
 		tunnelIDCh:             tunnelIDCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
@@ -78,8 +78,8 @@ func (s *Scheduler) Start(
 	subscribers := []subscriber.Subscriber{
 		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
 		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
-		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingResultCh, subscriptionTimeout),
-		subscriber.NewSigningFailedSubscriber(s.Log, s.signingResultCh, subscriptionTimeout),
+		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingIDCh, subscriptionTimeout),
+		subscriber.NewSigningFailedSubscriber(s.Log, s.signingIDCh, subscriptionTimeout),
 	}
 	s.BandClient.SetSubscribers(subscribers)
 

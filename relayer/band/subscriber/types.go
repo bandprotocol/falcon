@@ -11,19 +11,3 @@ type Subscriber interface {
 	// HandleEvent handles the event from the subscribed channel.
 	HandleEvent(ctx context.Context)
 }
-
-// SigningResult is a struct for handling the signing result from BandChain.
-// It is used to group signingSuccess and signingFailed into the same channel to
-// avoid race conditions when handling the signing result.
-type SigningResult struct {
-	SigningID uint64
-	IsSuccess bool
-}
-
-// NewSigningResult creates a new SigningResult.
-func NewSigningResult(signingID uint64, isSuccess bool) SigningResult {
-	return SigningResult{
-		SigningID: signingID,
-		IsSuccess: isSuccess,
-	}
-}

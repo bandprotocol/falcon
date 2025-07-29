@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
 
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
 var _ Subscriber = &SigningFailedSubscriber{}
@@ -22,7 +22,7 @@ type SigningFailedSubscriber struct {
 // NewSigningFailedSubscriber creates a new SigningFailedSubscriber.
 func NewSigningFailedSubscriber(
 	log *zap.Logger,
-	signingResultCh chan<- SigningResult,
+	signingIDCh chan<- uint64,
 	timeout time.Duration,
 ) *SigningFailedSubscriber {
 	name := "signing_failed"
@@ -34,7 +34,7 @@ func NewSigningFailedSubscriber(
 	)
 
 	l := log.With(zap.String("subscriber", name))
-	onEventReceived := onHandleSigningFailedEvent(signingResultCh, l)
+	onEventReceived := onHandleSigningFailedEvent(signingIDCh, l)
 
 	subscription := NewSubscription(
 		name,
@@ -51,7 +51,7 @@ func NewSigningFailedSubscriber(
 
 // onHandleSigningFailedEvent handles the signing failed event.
 func onHandleSigningFailedEvent(
-	signingResultCh chan<- SigningResult,
+	signingIDCh chan<- uint64,
 	log *zap.Logger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
@@ -81,7 +81,7 @@ func onHandleSigningFailedEvent(
 				)
 				continue
 			}
-			signingResultCh <- NewSigningResult(signingID, false)
+			signingIDCh <- signingID
 		}
 	}
 }

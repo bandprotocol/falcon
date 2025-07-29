@@ -10,7 +10,6 @@ import (
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
-	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
@@ -20,27 +19,18 @@ const (
 
 // CacheEntry represents a cache entry for packet information
 type CacheEntry struct {
-	TunnelID               uint64
-	CurrentGroupSigningID  uint64
-	IncomingGroupSigningID uint64
-	CurrentGroupStatus     tsstypes.SigningStatus
-	IncomingGroupStatus    tsstypes.SigningStatus
+	TunnelID  uint64
+	SigningID uint64
 }
 
 // NewCacheEntry creates a new cache entry.
 func NewCacheEntry(
 	tunnelID uint64,
-	currentGroupSigningID uint64,
-	incomingGroupSigningID uint64,
-	currentGroupStatus tsstypes.SigningStatus,
-	incomingGroupStatus tsstypes.SigningStatus,
+	signingID uint64,
 ) *CacheEntry {
 	return &CacheEntry{
-		TunnelID:               tunnelID,
-		CurrentGroupSigningID:  currentGroupSigningID,
-		IncomingGroupSigningID: incomingGroupSigningID,
-		CurrentGroupStatus:     currentGroupStatus,
-		IncomingGroupStatus:    incomingGroupStatus,
+		TunnelID:  tunnelID,
+		SigningID: signingID,
 	}
 }
 
@@ -48,7 +38,7 @@ func NewCacheEntry(
 type PacketHandler struct {
 	Log              *zap.Logger
 	BandClient       band.Client
-	SigningResultCh  <-chan subscriber.SigningResult
+	SigningIDCh      <-chan uint64
 	TunnelIDCh       <-chan uint64
 	TriggerRelayerCh chan<- uint64
 	ValidTunnelIDs   map[uint64]struct{}
@@ -60,7 +50,7 @@ func NewPacketHandler(
 	log *zap.Logger,
 	bandClient band.Client,
 	triggerRelayerCh chan<- uint64,
-	signingResultCh <-chan subscriber.SigningResult,
+	signingIDCh <-chan uint64,
 	tunnelIDCh <-chan uint64,
 ) *PacketHandler {
 	cache := ttlcache.New(
@@ -86,7 +76,7 @@ func NewPacketHandler(
 	return &PacketHandler{
 		Log:              log,
 		BandClient:       bandClient,
-		SigningResultCh:  signingResultCh,
+		SigningIDCh:      signingIDCh,
 		TunnelIDCh:       tunnelIDCh,
 		TriggerRelayerCh: triggerRelayerCh,
 		ValidTunnelIDs:   make(map[uint64]struct{}),
@@ -96,94 +86,23 @@ func NewPacketHandler(
 
 // HandleSigningResult handles signingResult received from the channel.
 func (h *PacketHandler) HandleSigningResult() {
-	for signingResult := range h.SigningResultCh {
-		if signingResult.IsSuccess {
-			h.handleSigningSuccess(signingResult.SigningID)
-		} else {
-			h.handleSigningFailure(signingResult.SigningID)
-		}
-	}
-}
-
-// handleSigningSuccess handles signingID that is successfully signed.
-func (h *PacketHandler) handleSigningSuccess(signingID uint64) {
-	item := h.signingCache.Get(signingID)
-	if item == nil {
-		return
-	}
-
-	cacheEntry := item.Value()
-	incomingSigningID := cacheEntry.IncomingGroupSigningID
-	currentSigningID := cacheEntry.CurrentGroupSigningID
-	canSkipCurrentSigning := currentSigningID == 0 ||
-		cacheEntry.CurrentGroupStatus == tsstypes.SIGNING_STATUS_FALLEN
-
-	h.Log.Debug("Found matching signing ID in cache",
-		zap.Uint64("signing_id", signingID),
-		zap.Uint64("tunnel_id", cacheEntry.TunnelID),
-		zap.Uint64("current_group_signing_id", currentSigningID),
-		zap.Uint64("incoming_group_signing_id", incomingSigningID),
-	)
-
-	// Delete the signing ID from the cache.
-	h.signingCache.Delete(signingID)
-
-	if signingID == currentSigningID {
-		// Delete the incoming group SigningID if it exists and trigger relayer.
-		if incomingSigningID != 0 && h.signingCache.Has(incomingSigningID) {
-			h.signingCache.Delete(incomingSigningID)
+	for signingID := range h.SigningIDCh {
+		item := h.signingCache.Get(signingID)
+		if item == nil {
+			return
 		}
 
-		h.Log.Debug("Triggered relayer for tunnel", zap.Uint64("tunnel_id", cacheEntry.TunnelID))
-		h.TriggerRelayerCh <- cacheEntry.TunnelID
-	} else if signingID == incomingSigningID && canSkipCurrentSigning {
-		// currentGroupSigning ID shouldn't exist, just trigger relayer.
-		h.Log.Debug("Triggered relayer for tunnel", zap.Uint64("tunnel_id", cacheEntry.TunnelID))
-		h.TriggerRelayerCh <- cacheEntry.TunnelID
-	} else {
-		// have to wait for the current group signing to be successful.
-		// update the incoming group signing status to success on currentGroupSigning ID key.
-		cacheEntry.IncomingGroupStatus = tsstypes.SIGNING_STATUS_SUCCESS
-		h.signingCache.Set(currentSigningID, cacheEntry, cacheTTL)
-
-		h.Log.Debug("Updated incoming group signing status to success",
+		cacheEntry := item.Value()
+		h.Log.Debug("Found matching signing ID in cache",
+			zap.Uint64("signing_id", signingID),
 			zap.Uint64("tunnel_id", cacheEntry.TunnelID),
-			zap.Uint64("incoming_group_signing_id", incomingSigningID),
-			zap.Uint64("current_group_signing_id", currentSigningID),
 		)
-	}
-}
 
-// handleSigningFailure handles the signingID that is failed to sign.
-func (h *PacketHandler) handleSigningFailure(signingID uint64) {
-	item := h.signingCache.Get(signingID)
-	if item == nil {
-		return
-	}
+		// Delete the signing ID from the cache.
+		h.signingCache.Delete(signingID)
 
-	cacheEntry := item.Value()
-	incomingSigningID := cacheEntry.IncomingGroupSigningID
-	currentSigningID := cacheEntry.CurrentGroupSigningID
-	incomingSigningStatus := cacheEntry.IncomingGroupStatus
-
-	// Delete the signing ID from the cache.
-	h.signingCache.Delete(signingID)
-
-	if signingID == currentSigningID && incomingSigningStatus == tsstypes.SIGNING_STATUS_SUCCESS {
-		// if it is the current group signing ID and the incoming group signing is successful,
-		// trigger relayer.
 		h.Log.Debug("Triggered relayer for tunnel", zap.Uint64("tunnel_id", cacheEntry.TunnelID))
 		h.TriggerRelayerCh <- cacheEntry.TunnelID
-	} else if signingID == currentSigningID && h.signingCache.Has(incomingSigningID) {
-		// if it is the current group signing ID and the incoming group signing ID exists,
-		// update the current group signing status to failed in incomingGroupSigning ID key.
-		cacheEntry.CurrentGroupStatus = tsstypes.SIGNING_STATUS_FALLEN
-		h.signingCache.Set(incomingSigningID, cacheEntry, cacheTTL)
-
-		h.Log.Debug("Updated current group signing status to failed",
-			zap.Uint64("tunnel_id", cacheEntry.TunnelID),
-			zap.Uint64("current_group_signing_id", currentSigningID),
-		)
 	}
 }
 
@@ -231,7 +150,13 @@ func (h *PacketHandler) HandleNewPacket(ctx context.Context) {
 			continue
 		}
 
-		h.cacheSigningNewPacket(packet)
+		if packet.CurrentGroupSigning != nil {
+			h.cacheSigning(packet.TunnelID, packet.CurrentGroupSigning.ID)
+		}
+
+		if packet.IncomingGroupSigning != nil {
+			h.cacheSigning(packet.TunnelID, packet.IncomingGroupSigning.ID)
+		}
 	}
 }
 
@@ -273,41 +198,16 @@ func (h *PacketHandler) UpdateValidTunnelIDs(tunnelIDs []uint64) {
 	}
 }
 
-// cacheSigningNewPacket caches the signing IDs of the given packet.
-func (h *PacketHandler) cacheSigningNewPacket(packet *types.Packet) {
-	currentSigningID, incomingSigningID := uint64(0), uint64(0)
-	currentSigningStatus := tsstypes.SIGNING_STATUS_UNSPECIFIED
-	incomingSigningStatus := tsstypes.SIGNING_STATUS_UNSPECIFIED
-
-	if packet.CurrentGroupSigning != nil {
-		currentSigningID = packet.CurrentGroupSigning.ID
-		currentSigningStatus = packet.CurrentGroupSigning.SigningStatus
-	}
-	if packet.IncomingGroupSigning != nil {
-		incomingSigningID = packet.IncomingGroupSigning.ID
-		incomingSigningStatus = packet.IncomingGroupSigning.SigningStatus
-	}
-
-	cacheEntry := NewCacheEntry(
-		packet.TunnelID,
-		currentSigningID,
-		incomingSigningID,
-		currentSigningStatus,
-		incomingSigningStatus,
+// cacheSigning caches the signing ID.
+func (h *PacketHandler) cacheSigning(tunnelID uint64, signingID uint64) {
+	entry := NewCacheEntry(
+		tunnelID,
+		signingID,
 	)
+	h.signingCache.Set(signingID, entry, cacheTTL)
 
-	// Cache the signing ID if it is not in the cache.
-	if currentSigningID != 0 && !h.signingCache.Has(currentSigningID) {
-		h.signingCache.Set(currentSigningID, cacheEntry, cacheTTL)
-	}
-	if incomingSigningID != 0 && !h.signingCache.Has(incomingSigningID) {
-		h.signingCache.Set(incomingSigningID, cacheEntry, cacheTTL)
-	}
-
-	h.Log.Debug("Stored current group signing ID in cache",
-		zap.Uint64("tunnel_id", packet.TunnelID),
-		zap.Uint64("sequence", packet.Sequence),
-		zap.Uint64("current_group_signing_id", cacheEntry.CurrentGroupSigningID),
-		zap.Uint64("incoming_group_signing_id", cacheEntry.IncomingGroupSigningID),
+	h.Log.Debug("Stored signing ID in cache",
+		zap.Uint64("tunnel_id", tunnelID),
+		zap.Uint64("signing_id", signingID),
 	)
 }
