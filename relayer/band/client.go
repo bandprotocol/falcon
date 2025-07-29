@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
@@ -24,6 +26,13 @@ type Client interface {
 	// periodic liveliness checks.
 	Init(ctx context.Context) error
 
+	// Subscribe subscribes events from BandChain.
+	Subscribe(ctx context.Context) error
+
+	// HandleProducePacketSuccess reads ProducePacketSuccess events from the channel
+	// and invokes the given handler once for each tunnel ID found in an event.
+	HandleProducePacketSuccess(handler func(tunnelID uint64))
+
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
 
@@ -40,6 +49,8 @@ type client struct {
 	QueryClient QueryClient
 	Log         *zap.Logger
 	Config      *Config
+	rpcClient   rpcclient.Client
+	eventCh     <-chan coretypes.ResultEvent
 }
 
 // NewClient creates a new BandChain client instance.
@@ -83,10 +94,18 @@ func (c *client) connect(onStartup bool) error {
 		// skip status check on startup to avoid blocking relayer initialization
 		// perform status checks later to ensure endpoint health and rotation
 		if !onStartup {
-			if _, err := c.Context.Client.Status(context.Background()); err != nil {
+			if _, err := client.Status(context.Background()); err != nil {
 				continue
 			}
 		}
+
+		// Start the client to establish a connection
+		if err := client.Start(); err != nil {
+			c.Log.Error("Failed to start HTTP client", zap.String("rpcEndpoint", rpcEndpoint), zap.Error(err))
+			return err
+		}
+
+		c.rpcClient = client
 
 		c.Context.Client = client
 		c.Context.NodeURI = rpcEndpoint
@@ -120,6 +139,10 @@ func (c *client) startLivelinessCheck(ctx context.Context) {
 				)
 				if err := c.connect(false); err != nil {
 					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
+				}
+
+				if err := c.subscribeToProducePacketSuccess(ctx); err != nil {
+					c.Log.Error("Liveliness check: unable to subscribe BandChain", zap.Error(err))
 				}
 			}
 		}

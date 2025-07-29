@@ -271,7 +271,7 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 		zap.Uint64("gas", tx.Gas()),
 	)
 
-	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
+	newCtx, cancel := context.WithTimeout(ctx, c.ExecuteTimeout)
 	defer cancel()
 
 	if err := c.client.SendTransaction(newCtx, tx); err != nil {
