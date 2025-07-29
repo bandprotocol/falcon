@@ -1,8 +1,6 @@
 package subscriber
 
-import (
-	"context"
-)
+import "context"
 
 type Subscriber interface {
 	// Subscribe subscribes to the event by initialize the rpc client from the given endpoint.

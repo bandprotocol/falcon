@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	cleanupCacheInterval = 1 * time.Hour
-	cacheTTL             = 24 * time.Hour
+	cacheTTL = 24 * time.Hour
 )
 
 // CacheEntry represents a cache entry for packet information
