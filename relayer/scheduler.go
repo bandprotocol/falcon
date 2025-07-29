@@ -22,10 +22,7 @@ type Scheduler struct {
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
-	PacketHandler  *PacketHandler
 
-	triggerRelayerCh chan uint64
-	signingIDCh      chan uint64
 	tunnelIDCh       chan uint64
 	tunnelRelayers   map[uint64]*TunnelRelayer
 	bandLatestTunnel int
@@ -40,17 +37,7 @@ func NewScheduler(
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
-	triggerRelayerCh := make(chan uint64, 1000)
-	signingIDCh := make(chan uint64, 1000)
 	tunnelIDCh := make(chan uint64, 1000)
-
-	packetHandler := NewPacketHandler(
-		log,
-		bandClient,
-		triggerRelayerCh,
-		signingIDCh,
-		tunnelIDCh,
-	)
 
 	return &Scheduler{
 		Log:                    log,
@@ -59,9 +46,6 @@ func NewScheduler(
 		PenaltySkipRounds:      penaltySkipRounds,
 		BandClient:             bandClient,
 		ChainProviders:         chainProviders,
-		PacketHandler:          packetHandler,
-		triggerRelayerCh:       triggerRelayerCh,
-		signingIDCh:            signingIDCh,
 		tunnelIDCh:             tunnelIDCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
@@ -78,8 +62,6 @@ func (s *Scheduler) Start(
 	subscribers := []subscriber.Subscriber{
 		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
 		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
-		subscriber.NewSigningSuccessSubscriber(s.Log, s.signingIDCh, subscriptionTimeout),
-		subscriber.NewSigningFailedSubscriber(s.Log, s.signingIDCh, subscriptionTimeout),
 	}
 	s.BandClient.SetSubscribers(subscribers)
 
@@ -94,10 +76,6 @@ func (s *Scheduler) Start(
 	for _, subscriber := range subscribers {
 		go subscriber.HandleEvent(ctx)
 	}
-
-	// handle new packets and failed or successful signing IDs
-	go s.PacketHandler.HandleNewPacket(ctx)
-	go s.PacketHandler.HandleSigningResult()
 
 	// handle trigger relayer event from packet handler
 	go s.HandleTriggerTunnelRelayer(ctx)
@@ -238,7 +216,6 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 	}
 
 	// update the valid tunnel IDs in the packet handler
-	s.PacketHandler.UpdateValidTunnelIDs(newTunnelIDs)
 	for _, tunnelID := range newTunnelIDs {
 		s.tunnelIDCh <- tunnelID
 	}
@@ -248,7 +225,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 
 // HandleTriggerTunnelRelayer triggers the tunnel relayer from the received tunnelID.
 func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
-	for tunnelID := range s.triggerRelayerCh {
+	for tunnelID := range s.tunnelIDCh {
 		tunnelRelayer, ok := s.tunnelRelayers[tunnelID]
 		if !ok {
 			return

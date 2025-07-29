@@ -95,25 +95,10 @@ func (t *TunnelRelayer) CheckAndRelay(
 			break
 		}
 		t.Log.Debug("Next packet sequence to relay", zap.Uint64("sequence", seq))
-
 		// get packet of the sequence
-		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
+		packet, err := t.getTunnelPacket(ctx, seq)
 		if err != nil {
-			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
 			return RelayStatusFailed, err
-		}
-
-		// check if the packet is ready to relay
-		signingStatus := getSigningStatus(packet)
-		if signingStatus == tsstypes.SIGNING_STATUS_WAITING {
-			t.Log.Debug(
-				"The current packet must wait for the completion of the EVM signature",
-				zap.Uint64("sequence", seq),
-			)
-			break
-		} else if signingStatus == tsstypes.SIGNING_STATUS_FALLEN {
-			t.Log.Error("Signing status is not success", zap.Uint64("sequence", seq))
-			return RelayStatusFailed, fmt.Errorf("signing status is not success")
 		}
 
 		// relay the packet
@@ -213,13 +198,38 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 	return nil
 }
 
-// getSigningStatus returns the signing status of the packet.
-func getSigningStatus(packet *types.Packet) tsstypes.SigningStatus {
-	signing := packet.CurrentGroupSigning
-	if signing == nil ||
-		signing.SigningStatus == tsstypes.SIGNING_STATUS_FALLEN {
-		signing = packet.IncomingGroupSigning
-	}
+// getTunnelPacket polls BandChain for the packet with the given sequence
+// until its TSS signing status becomes SUCCESS, then returns it.
+func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types.Packet, error) {
+	for {
+		// get packet of the sequence
+		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
+		if err != nil {
+			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
+			return nil, err
+		}
+		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
+		// If it is not success (Failed or Undefined), return error.
+		signing := packet.CurrentGroupSigning
+		if signing == nil ||
+			signing.SigningStatus == tsstypes.SIGNING_STATUS_FALLEN {
+			signing = packet.IncomingGroupSigning
+		}
 
-	return signing.SigningStatus
+		if signing.SigningStatus == tsstypes.SIGNING_STATUS_WAITING {
+			t.Log.Debug(
+				"The current packet must wait for the completion of the EVM signature",
+				zap.Uint64("sequence", seq),
+			)
+			// wait 1 secs for each block
+			time.Sleep(time.Second)
+			continue
+		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
+			err := fmt.Errorf("signing status is not success")
+			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
+			return nil, err
+		}
+
+		return packet, nil
+	}
 }
