@@ -33,7 +33,7 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 func NewRootCmd(log *zap.Logger) *cobra.Command {
 	passphrase := os.Getenv(PassphraseEnvKey)
 	homePath := defaultHome
-	app := falcon.NewApp(log, false, nil, passphrase, nil)
+	app := falcon.NewApp(log, nil, passphrase, nil)
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
@@ -91,12 +91,6 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 		panic(err)
 	}
 
-	// Register --debug flag
-	rootCmd.PersistentFlags().BoolVarP(&app.Debug, "debug", "d", false, "debug output")
-	if err := viper.BindPFlag("debug", rootCmd.PersistentFlags().Lookup("debug")); err != nil {
-		panic(err)
-	}
-
 	// Register --log-format flag
 	rootCmd.PersistentFlags().String("log-format", "auto", "log output format (auto, logfmt, json, or console)")
 	if err := viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
@@ -111,17 +105,17 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
 	// Register subcommands
 	rootCmd.AddCommand(
-		configCmd(app),
-		chainsCmd(app),
-		keysCmd(app),
+		ConfigCmd(app),
+		ChainsCmd(app),
+		KeysCmd(app),
 
 		lineBreakCommand(),
-		transactionCmd(app),
-		queryCmd(app),
-		startCmd(app),
+		TransactionCmd(app),
+		QueryCmd(app),
+		StartCmd(app),
 
 		lineBreakCommand(),
-		versionCmd(app),
+		VersionCmd(app),
 	)
 
 	return rootCmd

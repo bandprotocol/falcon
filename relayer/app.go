@@ -19,7 +19,6 @@ import (
 // App is the main application struct.
 type App struct {
 	Log    *zap.Logger
-	Debug  bool
 	Config *config.Config
 	Store  store.Store
 
@@ -31,14 +30,12 @@ type App struct {
 // NewApp creates a new App instance.
 func NewApp(
 	log *zap.Logger,
-	debug bool,
 	config *config.Config,
 	passphrase string,
 	store store.Store,
 ) *App {
 	app := App{
 		Log:        log,
-		Debug:      debug,
 		Config:     config,
 		Store:      store,
 		Passphrase: passphrase,
@@ -80,17 +77,6 @@ func (a *App) connectBandClient(ctx context.Context) error {
 	return nil
 }
 
-// subscribeBandClient subscribes event of BandChain.
-func (a *App) subscribeBandClient(ctx context.Context) error {
-	// subscribe to BandChain
-	if err := a.BandClient.Subscribe(ctx); err != nil {
-		a.Log.Error("Cannot subscribe to BandChain", zap.Error(err))
-		return err
-	}
-
-	return nil
-}
-
 // initTargetChains initializes the target chains.
 func (a *App) initTargetChains() error {
 	a.TargetChains = make(chains.ChainProviders)
@@ -105,7 +91,7 @@ func (a *App) initTargetChains() error {
 			return err
 		}
 
-		cp, err := chainConfig.NewChainProvider(chainName, a.Log, a.Debug, wallet)
+		cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet)
 		if err != nil {
 			a.Log.Error("Cannot create chain provider",
 				zap.Error(err),
@@ -362,11 +348,6 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 		return err
 	}
 
-	// subscribe BandChain client
-	if err := a.subscribeBandClient(ctx); err != nil {
-		return err
-	}
-
 	a.Log.Info("Starting tunnel relayer")
 
 	// validate passphrase
@@ -403,11 +384,11 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 		a.TargetChains,
 	)
 
-	return scheduler.Start(ctx, tunnelIDs, tunnelCreator)
+	return scheduler.Start(ctx, tunnelIDs, tunnelCreator, a.Config.BandChain.Timeout)
 }
 
 // Relay relays the packet from the source chain to the destination chain.
-func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
+func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 	// connect BandChain client
 	if err := a.connectBandClient(ctx); err != nil {
 		return err
@@ -444,7 +425,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64) error {
 		chainProvider,
 	)
 
-	_, err = tr.CheckAndRelay(ctx)
+	_, err = tr.CheckAndRelay(ctx, isForce)
 
 	return err
 }

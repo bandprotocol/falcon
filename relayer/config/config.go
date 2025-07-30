@@ -171,14 +171,14 @@ func decodeTimeHook(from reflect.Type, to reflect.Type, data interface{}) (inter
 
 // LoadChainConfig reads chain config file from given path and return chain config object
 func LoadChainConfig(cfgPath string) (chains.ChainProviderConfig, error) {
-	byt, err := os.ReadFile(cfgPath)
+	b, err := os.ReadFile(cfgPath)
 	if err != nil {
 		return nil, err
 	}
 
 	var chainProviderConfigWrapper ChainProviderConfigWrapper
 	// unmarshal them with Config into struct
-	err = toml.Unmarshal(byt, &chainProviderConfigWrapper)
+	err = toml.Unmarshal(b, &chainProviderConfigWrapper)
 	if err != nil {
 		return nil, err
 	}

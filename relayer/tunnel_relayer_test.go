@@ -131,9 +131,10 @@ func createMockPacket(
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 	testcases := []struct {
-		name       string
-		preprocess func()
-		err        error
+		name        string
+		preprocess  func()
+		err         error
+		relayStatus relayer.RelayStatus
 	}{
 		{
 			name: "success",
@@ -156,6 +157,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
+			relayStatus: relayer.RelayStatusSuccess,
 		},
 		{
 			name: "failed to get tunnel on band client",
@@ -164,7 +166,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).
 					Return(nil, fmt.Errorf("failed to get tunnel"))
 			},
-			err: fmt.Errorf("failed to get tunnel"),
+			err:         fmt.Errorf("failed to get tunnel"),
+			relayStatus: relayer.RelayStatusFailed,
 		},
 		{
 			name: "failed to query chain tunnel info",
@@ -174,7 +177,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					QueryTunnelInfo(gomock.Any(), s.tunnelRelayer.TunnelID, defaultContractAddress).
 					Return(nil, fmt.Errorf("failed to query tunnel info"))
 			},
-			err: fmt.Errorf("failed to query tunnel info"),
+			err:         fmt.Errorf("failed to query tunnel info"),
+			relayStatus: relayer.RelayStatusFailed,
 		},
 		{
 			name: "target chain not active",
@@ -182,7 +186,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, false, defaultContractAddress)
 			},
-			err: nil,
+			err:         nil,
+			relayStatus: relayer.RelayStatusSkipped,
 		},
 		{
 			name: "no new packet to relay",
@@ -190,7 +195,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
-			err: nil,
+			err:         nil,
+			relayStatus: relayer.RelayStatusSkipped,
 		},
 		{
 			name: "fail to get a new packet",
@@ -202,7 +208,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
 					Return(nil, fmt.Errorf("failed to get packet"))
 			},
-			err: fmt.Errorf("failed to get packet"),
+			err:         fmt.Errorf("failed to get packet"),
+			relayStatus: relayer.RelayStatusFailed,
 		},
 		{
 			name: "fallen signing status of current group but incoming group success",
@@ -225,6 +232,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
+			relayStatus: relayer.RelayStatusSuccess,
 		},
 		{
 			name: "incoming group signing status fallen",
@@ -243,14 +251,14 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					GetTunnelPacket(s.ctx, s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
 					Return(packet, nil)
 			},
-			err: fmt.Errorf(("signing status is not success")),
+			err:         fmt.Errorf(("signing status is not success")),
+			relayStatus: relayer.RelayStatusFailed,
 		},
 		{
 			name: "signing status is waiting",
 			preprocess: func() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
-
 				waitingPacket := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
@@ -282,7 +290,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockGetTunnel(defaultBandLatestSequence)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
-			err: nil,
+			err:         nil,
+			relayStatus: relayer.RelayStatusSuccess,
 		},
 		{
 			name: "failed to relay packet",
@@ -302,7 +311,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 					Return(packet, nil)
 				s.chainProvider.EXPECT().RelayPacket(s.ctx, packet).Return(fmt.Errorf("failed to relay packet"))
 			},
-			err: fmt.Errorf("failed to relay packet"),
+			err:         fmt.Errorf("failed to relay packet"),
+			relayStatus: relayer.RelayStatusFailed,
 		},
 	}
 
@@ -312,10 +322,10 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				tc.preprocess()
 			}
 
-			isExecuting, err := s.tunnelRelayer.CheckAndRelay(s.ctx)
+			relayStatus, err := s.tunnelRelayer.CheckAndRelay(s.ctx, false)
+			s.Require().Equal(tc.relayStatus, relayStatus)
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
-				s.Require().False(isExecuting)
 			} else {
 				s.Require().NoError(err)
 			}

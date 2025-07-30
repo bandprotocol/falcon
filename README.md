@@ -237,13 +237,13 @@ Choose how to add a key
   Generate new address (no private key or mnemonic needed)
 ```
 
-If you already have a private key and want to retrive key from it, you can choose `Private key` option. 
+If you already have a private key and want to retrieve key from it, you can choose `Private key` option. 
 ```
 Enter your private key
 >
 ```
 
-If you already have a mnemonic and want to retrive key from it, you can choose `Mnemonic` option. 
+If you already have a mnemonic and want to retrieve key from it, you can choose `Mnemonic` option. 
 ```
 Enter your mnemonic
 >

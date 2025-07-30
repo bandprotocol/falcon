@@ -33,7 +33,6 @@ type EVMChainProviderConfig struct {
 func (cpc *EVMChainProviderConfig) NewChainProvider(
 	chainName string,
 	log *zap.Logger,
-	debug bool,
 	wallet wallet.Wallet,
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
+	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 )
@@ -22,6 +23,7 @@ type Scheduler struct {
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
 
+	tunnelIDCh       chan uint64
 	tunnelRelayers   map[uint64]*TunnelRelayer
 	bandLatestTunnel int
 }
@@ -35,6 +37,8 @@ func NewScheduler(
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 ) *Scheduler {
+	tunnelIDCh := make(chan uint64, 1000)
+
 	return &Scheduler{
 		Log:                    log,
 		CheckingPacketInterval: checkingPacketInterval,
@@ -42,44 +46,45 @@ func NewScheduler(
 		PenaltySkipRounds:      penaltySkipRounds,
 		BandClient:             bandClient,
 		ChainProviders:         chainProviders,
+		tunnelIDCh:             tunnelIDCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
 	}
 }
 
 // Start starts all tunnel relayers
-func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) error {
+func (s *Scheduler) Start(
+	ctx context.Context,
+	tunnelIDs []uint64,
+	tunnelCreator string,
+	subscriptionTimeout time.Duration,
+) error {
+	subscribers := []subscriber.Subscriber{
+		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
+		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
+	}
+	s.BandClient.SetSubscribers(subscribers)
+
+	if err := s.BandClient.Subscribe(ctx); err != nil {
+		s.Log.Error("Failed to subscribe to BandChain", zap.Error(err))
+		return err
+	}
+
 	s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
 
-	go s.BandClient.HandleProducePacketSuccess(func(tunnelID uint64) {
-		tunnelRelayer, ok := s.tunnelRelayers[tunnelID]
-		if !ok {
-			return
-		}
+	// listen events from BandChain
+	for _, subscriber := range subscribers {
+		go subscriber.HandleEvent(ctx)
+	}
 
-		if tunnelRelayer.penaltySkipRemaining > 0 {
-			s.Log.Debug("Skipping tunnel execution due to penalty from previous failure.",
-				zap.Uint64("tunnel_id", tunnelID),
-				zap.Uint("penalty_skip_remaining", tunnelRelayer.penaltySkipRemaining),
-			)
-			return
-		}
-
-		s.Log.Info("Triggering tunnel relayer from event",
-			zap.Uint64("tunnel_id", tunnelID),
-		)
-
-		go s.TriggerTunnelRelayer(ctx, tunnelRelayer)
-	})
+	// handle trigger relayer event from packet handler
+	go s.HandleTriggerTunnelRelayer(ctx)
 
 	ticker := time.NewTicker(s.CheckingPacketInterval)
 	defer ticker.Stop()
 
 	syncTunnelTicker := time.NewTicker(s.SyncTunnelsInterval)
 	defer syncTunnelTicker.Stop()
-
-	// execute once we start the scheduler.
-	s.Execute(ctx)
 
 	for {
 		select {
@@ -100,6 +105,8 @@ func (s *Scheduler) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator
 
 // Execute executes the task for the tunnel relayer
 func (s *Scheduler) Execute(ctx context.Context) {
+	s.Log.Info("Executing tunnel relayers from the scheduler")
+
 	for _, tr := range s.tunnelRelayers {
 		if tr.penaltySkipRemaining > 0 {
 			s.Log.Debug(
@@ -110,34 +117,35 @@ func (s *Scheduler) Execute(ctx context.Context) {
 			tr.penaltySkipRemaining -= 1
 			continue
 		}
-		go s.TriggerTunnelRelayer(ctx, tr)
+		go func() { _ = s.TriggerTunnelRelayer(ctx, tr) }()
 	}
 }
 
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
-func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer) {
+func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer) (status RelayStatus) {
 	chainName := tr.TargetChainProvider.GetChainName()
 	startExecutionTaskTime := time.Now()
 
-	isExecuting, err := tr.CheckAndRelay(ctx)
-
-	switch {
-	case err != nil:
+	// checkAndRelay tunnel's packets and update penalty if it fails to do so.
+	relayStatus, err := tr.CheckAndRelay(ctx, false)
+	if err != nil {
 		tr.penaltySkipRemaining = s.PenaltySkipRounds
 
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
-
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
 			zap.Error(err),
 			zap.Uint64("tunnel_id", tr.TunnelID),
 		)
 
-	case isExecuting:
-		// Record metrics for the skipped task execution
-		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.SkippedTaskStatus)
+		return RelayStatusFailed
+	}
 
-	default:
+	switch relayStatus {
+	case RelayStatusExecuting:
+		// Record metrics for the executing task execution
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ExecutingTaskStatus)
+	case RelayStatusSuccess:
 		// Record execution time of finished task (ms)
 		relayermetrics.ObserveFinishedTaskExecutionTime(
 			tr.TunnelID,
@@ -148,11 +156,10 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 		// Record metrics for the finished task execution
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.FinishedTaskStatus)
 
-		s.Log.Info(
-			"Tunnel relayer finished execution",
-			zap.Uint64("tunnel_id", tr.TunnelID),
-		)
+		s.Log.Info("Relay packet successfully", zap.Uint64("tunnel_id", tr.TunnelID))
 	}
+
+	return relayStatus
 }
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
@@ -170,6 +177,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 		return
 	}
 
+	var newTunnelIDs []uint64
 	for i := s.bandLatestTunnel; i < len(tunnels); i++ {
 		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
 		if !ok {
@@ -194,6 +202,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 			chainProvider,
 		)
 
+		newTunnelIDs = append(newTunnelIDs, tunnels[i].ID)
 		s.tunnelRelayers[tunnels[i].ID] = &tr
 
 		// update the metric for the number of tunnels per destination chain
@@ -206,7 +215,43 @@ func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelC
 		)
 	}
 
+	// update the valid tunnel IDs in the packet handler
+	for _, tunnelID := range newTunnelIDs {
+		s.tunnelIDCh <- tunnelID
+	}
+
 	s.bandLatestTunnel = len(tunnels)
+}
+
+// HandleTriggerTunnelRelayer triggers the tunnel relayer from the received tunnelID.
+func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
+	for tunnelID := range s.tunnelIDCh {
+		tunnelRelayer, ok := s.tunnelRelayers[tunnelID]
+		if !ok {
+			continue
+		}
+
+		s.Log.Info("Received trigger relayer event", zap.Uint64("tunnel_id", tunnelID))
+
+		if tunnelRelayer.penaltySkipRemaining > 0 {
+			s.Log.Info(
+				"Skipping tunnel execution due to penalty from previous failure",
+				zap.Uint64("tunnel_id", tunnelID),
+			)
+			continue
+		}
+
+		go func() {
+			status := s.TriggerTunnelRelayer(ctx, tunnelRelayer)
+			if status != RelayStatusSuccess {
+				s.Log.Info(
+					"relay tunnel not success",
+					zap.Uint64("tunnel_id", tunnelID),
+					zap.String("status", string(status)),
+				)
+			}
+		}()
+	}
 }
 
 // getTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,

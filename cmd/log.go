@@ -59,9 +59,6 @@ func initLogger(defaultLogLevel string) (log *zap.Logger, err error) {
 	logFormat := viper.GetString("log-format")
 
 	logLevel := viper.GetString("log-level")
-	if viper.GetBool("debug") {
-		logLevel = "debug"
-	}
 	if logLevel == "" && defaultLogLevel != "" {
 		logLevel = defaultLogLevel
 	}
