@@ -228,7 +228,7 @@ func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
 	for tunnelID := range s.tunnelIDCh {
 		tunnelRelayer, ok := s.tunnelRelayers[tunnelID]
 		if !ok {
-			return
+			continue
 		}
 
 		s.Log.Info("Received trigger relayer event", zap.Uint64("tunnel_id", tunnelID))
@@ -238,7 +238,7 @@ func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
 				"Skipping tunnel execution due to penalty from previous failure",
 				zap.Uint64("tunnel_id", tunnelID),
 			)
-			return
+			continue
 		}
 
 		go func() {
