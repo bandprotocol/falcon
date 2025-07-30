@@ -68,6 +68,7 @@ func (s *Subscription) Subscribe(ctx context.Context, endpoint string) error {
 		return err
 	}
 
+	s.stopCh = make(chan struct{})
 	go func() {
 		for {
 			select {
