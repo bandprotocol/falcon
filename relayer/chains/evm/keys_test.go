@@ -181,11 +181,12 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 }
 
 func (s *KeysTestSuite) TestAddRemoteSignerKey() {
+	testKey := "testKey"
 	type Input struct {
 		keyName string
 		addr    string
 		url     string
-		key     string
+		key     *string
 	}
 	testcases := []struct {
 		name  string
@@ -199,7 +200,7 @@ func (s *KeysTestSuite) TestAddRemoteSignerKey() {
 				keyName: "remotekey",
 				addr:    testAddress,
 				url:     "http://127.0.0.1:8545",
-				key:     "test-api",
+				key:     &testKey,
 			},
 			out: chaintypes.NewKey("", testAddress, ""),
 		},

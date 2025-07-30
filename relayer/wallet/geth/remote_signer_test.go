@@ -17,7 +17,6 @@ const (
 	name    = "remote"
 	address = "0x1234567890abcdef1234567890abcdef12345678"
 	url     = "0.0.0.0:50051"
-	key     = "testkey"
 )
 
 // RemoteSignerTestSuite runs tests for geth.RemoteSigner.
@@ -37,11 +36,12 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockClient = mocks.NewMockKmsEvmServiceClient(s.ctrl)
 
+	testKey := "testKey"
 	rs, err := geth.NewRemoteSigner(
 		name,
 		common.HexToAddress(address),
 		url,
-		key,
+		&testKey,
 	)
 	s.Require().NoError(err)
 

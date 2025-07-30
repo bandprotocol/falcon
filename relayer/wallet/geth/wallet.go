@@ -142,7 +142,7 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (add
 
 // SaveRemoteSignerKey registers a remote signer under the given name,
 // storing its address and service URL as on‐disk records.
-func (w *GethWallet) SaveRemoteSignerKey(name, address, url, key string) error {
+func (w *GethWallet) SaveRemoteSignerKey(name, address, url string, key *string) error {
 	// check if the key name exists
 	if _, ok := w.Signers[name]; ok {
 		return fmt.Errorf("key name exists: %s", name)

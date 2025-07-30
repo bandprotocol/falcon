@@ -21,11 +21,11 @@ type RemoteSigner struct {
 	Name      string
 	Address   common.Address
 	KmsClient kmsv1.KmsEvmServiceClient
-	Key       string
+	Key       *string
 }
 
 // NewRemoteSigner creates a new RemoteSigner instance.
-func NewRemoteSigner(name string, address common.Address, url string, key string) (*RemoteSigner, error) {
+func NewRemoteSigner(name string, address common.Address, url string, key *string) (*RemoteSigner, error) {
 	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to remote signer at %s: %w", url, err)
@@ -58,8 +58,11 @@ func (r *RemoteSigner) GetAddress() (addr string) {
 
 // Sign requests the remote KMS to sign the data and returns the signature.
 func (r *RemoteSigner) Sign(data []byte) ([]byte, error) {
-	md := metadata.Pairs("api-key", r.Key)
-	ctx := metadata.NewOutgoingContext(context.Background(), md)
+	ctx := context.Background()
+	if r.Key != nil {
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))
+	}
+
 	res, err := r.KmsClient.SignEvm(
 		ctx,
 		&kmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},

@@ -70,7 +70,7 @@ func (cp *EVMChainProvider) finalizeKeyAddition(
 }
 
 // AddRemoteSignerKey adds a remote signer with the given name, address, and URL.
-func (cp *EVMChainProvider) AddRemoteSignerKey(keyName, addr, url, key string) (*chainstypes.Key, error) {
+func (cp *EVMChainProvider) AddRemoteSignerKey(keyName, addr, url string, key *string) (*chainstypes.Key, error) {
 	if err := cp.Wallet.SaveRemoteSignerKey(keyName, addr, url, key); err != nil {
 		return nil, err
 	}
