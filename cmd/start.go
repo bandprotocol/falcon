@@ -10,8 +10,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer"
 )
 
-// startCmd represents the start command
-func startCmd(app *relayer.App) *cobra.Command {
+// StartCmd represents the start command
+func StartCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start",
 		Aliases: []string{"st"},

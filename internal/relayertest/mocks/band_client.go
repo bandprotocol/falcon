@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	subscriber "github.com/bandprotocol/falcon/relayer/band/subscriber"
 	types "github.com/bandprotocol/falcon/relayer/band/types"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -86,18 +87,6 @@ func (mr *MockClientMockRecorder) GetTunnels(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTunnels", reflect.TypeOf((*MockClient)(nil).GetTunnels), ctx)
 }
 
-// HandleProducePacketSuccess mocks base method.
-func (m *MockClient) HandleProducePacketSuccess(handler func(uint64)) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "HandleProducePacketSuccess", handler)
-}
-
-// HandleProducePacketSuccess indicates an expected call of HandleProducePacketSuccess.
-func (mr *MockClientMockRecorder) HandleProducePacketSuccess(handler any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleProducePacketSuccess", reflect.TypeOf((*MockClient)(nil).HandleProducePacketSuccess), handler)
-}
-
 // Init mocks base method.
 func (m *MockClient) Init(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -110,6 +99,18 @@ func (m *MockClient) Init(ctx context.Context) error {
 func (mr *MockClientMockRecorder) Init(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockClient)(nil).Init), ctx)
+}
+
+// SetSubscribers mocks base method.
+func (m *MockClient) SetSubscribers(subscribers []subscriber.Subscriber) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetSubscribers", subscribers)
+}
+
+// SetSubscribers indicates an expected call of SetSubscribers.
+func (mr *MockClientMockRecorder) SetSubscribers(subscribers any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSubscribers", reflect.TypeOf((*MockClient)(nil).SetSubscribers), subscribers)
 }
 
 // Subscribe mocks base method.

@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
-	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
@@ -15,6 +13,7 @@ import (
 
 	bandtsstypes "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
+	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 )
 
@@ -26,12 +25,11 @@ type Client interface {
 	// periodic liveliness checks.
 	Init(ctx context.Context) error
 
+	// SetSubscribers sets the subscribers for the BandChain client.
+	SetSubscribers(subscribers []subscriber.Subscriber)
+
 	// Subscribe subscribes events from BandChain.
 	Subscribe(ctx context.Context) error
-
-	// HandleProducePacketSuccess reads ProducePacketSuccess events from the channel
-	// and invokes the given handler once for each tunnel ID found in an event.
-	HandleProducePacketSuccess(handler func(tunnelID uint64))
 
 	// GetTunnelPacket returns the packet with the given tunnelID and sequence.
 	GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence uint64) (*types.Packet, error)
@@ -49,8 +47,9 @@ type client struct {
 	QueryClient QueryClient
 	Log         *zap.Logger
 	Config      *Config
-	rpcClient   rpcclient.Client
-	eventCh     <-chan coretypes.ResultEvent
+	Subscribers []subscriber.Subscriber
+
+	selectedRPCEndpoint string
 }
 
 // NewClient creates a new BandChain client instance.
@@ -65,6 +64,7 @@ func NewClient(queryClient QueryClient, log *zap.Logger, bandChainCfg *Config) C
 		QueryClient: queryClient,
 		Log:         log,
 		Config:      bandChainCfg,
+		Subscribers: []subscriber.Subscriber{},
 	}
 }
 
@@ -105,8 +105,7 @@ func (c *client) connect(onStartup bool) error {
 			return err
 		}
 
-		c.rpcClient = client
-
+		c.selectedRPCEndpoint = rpcEndpoint
 		c.Context.Client = client
 		c.Context.NodeURI = rpcEndpoint
 		c.QueryClient = NewBandQueryClient(c.Context)
@@ -141,7 +140,7 @@ func (c *client) startLivelinessCheck(ctx context.Context) {
 					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
 				}
 
-				if err := c.subscribeToProducePacketSuccess(ctx); err != nil {
+				if err := c.Subscribe(ctx); err != nil {
 					c.Log.Error("Liveliness check: unable to subscribe BandChain", zap.Error(err))
 				}
 			}
@@ -163,7 +162,7 @@ func (c *client) GetTunnel(ctx context.Context, tunnelID uint64) (*types.Tunnel,
 		return nil, err
 	}
 
-	if res.Tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
+	if !tunneltypes.IsTssRouteType(res.Tunnel.Route.TypeUrl) {
 		return nil, fmt.Errorf("unsupported route type: %s", res.Tunnel.Route.TypeUrl)
 	}
 
@@ -269,7 +268,7 @@ func (c *client) GetTunnels(ctx context.Context) ([]types.Tunnel, error) {
 
 		for _, tunnel := range res.Tunnels {
 			// Extract route information and filter out non-TSS tunnels
-			if tunnel.Route.TypeUrl != "/band.tunnel.v1beta1.TSSRoute" {
+			if !tunneltypes.IsTssRouteType(tunnel.Route.TypeUrl) {
 				continue
 			}
 
@@ -309,5 +308,31 @@ func (c *client) UnpackAny(any *codectypes.Any, target interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error unpacking into %T: %w", target, err)
 	}
+	return nil
+}
+
+// SetSubscribers sets the subscribers for the BandChain client.
+func (c *client) SetSubscribers(subscribers []subscriber.Subscriber) {
+	c.Subscribers = subscribers
+}
+
+// Subscribe subscribes events from BandChain.
+func (c *client) Subscribe(ctx context.Context) error {
+	if c.selectedRPCEndpoint == "" {
+		c.Log.Error("selected rpcEndpoint is not set")
+		return fmt.Errorf("selected rpcEndpoint is not set")
+	}
+
+	for _, subscriber := range c.Subscribers {
+		if err := subscriber.Subscribe(ctx, c.selectedRPCEndpoint); err != nil {
+			c.Log.Error(
+				"Failed to subscribe to events",
+				zap.String("rpcEndpoint", c.selectedRPCEndpoint),
+				zap.Error(err),
+			)
+			return err
+		}
+	}
+
 	return nil
 }

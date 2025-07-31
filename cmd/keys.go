@@ -42,8 +42,8 @@ type RemoteSignerInput struct {
 	Key     *string
 }
 
-// keysCmd represents the keys command
-func keysCmd(app *relayer.App) *cobra.Command {
+// KeysCmd represents the keys command
+func KeysCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "keys",
 		Aliases: []string{"k"},

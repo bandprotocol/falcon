@@ -11,8 +11,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer"
 )
 
-// queryCmd represents the command for querying data from source and destination chains.
-func queryCmd(app *relayer.App) *cobra.Command {
+// QueryCmd represents the command for querying data from source and destination chains.
+func QueryCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "query",
 		Aliases: []string{"q"},
