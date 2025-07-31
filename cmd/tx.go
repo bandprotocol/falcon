@@ -17,9 +17,12 @@ func TransactionCmd(app *relayer.App) *cobra.Command {
 		Use:     "transact",
 		Aliases: []string{"tx"},
 		Short:   "Transaction commands to destination chain",
-		Long: strings.TrimSpace(`Commands to create transactions on destination chains.
+		Long: fmt.Sprintf(
+			`Commands to create transactions on destination chains.
 
-Make sure that chains are properly configured to relay over by using the 'falcon chains list' command.`),
+Make sure that chains are properly configured to relay over by using the '%s chains list' command.`,
+			app.Name,
+		),
 	}
 
 	cmd.AddCommand(
@@ -38,7 +41,7 @@ func txRelayCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s tx relay 1, 		# relay tunnelID 1's pending packets
-$ %s tx relay 1 --force	# relay tunnelID 1's pending packets regardless of its active status on BandChain`, appName, appName)),
+$ %s tx relay 1 --force	# relay tunnelID 1's pending packets regardless of its active status on BandChain`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {

@@ -36,7 +36,7 @@ func queryTunnelCmd(app *relayer.App) *cobra.Command {
 		Short:   "Query commands on tunnel data",
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query tunnel 1`, appName)),
+$ %s query tunnel 1`, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
@@ -69,7 +69,7 @@ func queryPacketCmd(app *relayer.App) *cobra.Command {
 		Short:   "Query commands on packet data",
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query packet 1 1`, appName)),
+$ %s query packet 1 1`, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
@@ -108,7 +108,7 @@ func queryBalanceCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s query balance eth test-key
-$ %s q b eth test-key`, appName, appName)),
+$ %s q b eth test-key`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keyName := args[1]

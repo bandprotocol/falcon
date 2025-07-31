@@ -69,7 +69,7 @@ func keysAddCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys add eth test-key
-$ %s k a eth test-key`, appName, appName)),
+$ %s k a eth test-key`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			chainName := args[0]
 			keyName := args[1]
@@ -184,7 +184,7 @@ func keysDeleteCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys delete eth test-key 
-$ %s k d eth test-key`, appName, appName)),
+$ %s k d eth test-key`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keyName := args[1]
@@ -204,7 +204,7 @@ func keysListCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys list eth
-$ %s k l eth`, appName, appName)),
+$ %s k l eth`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keys, err := app.ListKeys(chainName)
@@ -234,7 +234,7 @@ func keysExportCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys export eth test-key
-$ %s k e eth test-key`, appName, appName)),
+$ %s k e eth test-key`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keyName := args[1]
@@ -261,7 +261,7 @@ func keysShowCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s keys show eth test-key
-$ %s k s eth test-key`, appName, appName)),
+$ %s k s eth test-key`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			keyName := args[1]
