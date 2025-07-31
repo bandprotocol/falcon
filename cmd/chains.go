@@ -38,7 +38,7 @@ func chainsAddCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(2)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s ch a evm chains/eth.toml 
-$ %s chains add evm chains/eth.toml`, appName, appName)),
+$ %s chains add evm chains/eth.toml`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 			filePath := args[1]
@@ -59,7 +59,7 @@ func chainsDeleteCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains delete eth
-$ %s ch d eth`, appName, appName)),
+$ %s ch d eth`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 
@@ -81,7 +81,7 @@ func chainsListCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains list
-$ %s ch l`, appName, appName)),
+$ %s ch l`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app.Config == nil {
 				return fmt.Errorf("config is not initialized")
@@ -114,7 +114,7 @@ func chainsShowCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s ch s eth
-$ %s chains show eth --yaml`, appName, appName)),
+$ %s chains show eth --yaml`, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chainName := args[0]
 

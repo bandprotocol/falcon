@@ -25,16 +25,16 @@ type versionInfo struct {
 }
 
 // VersionCmd returns a command that prints the falcon version information.
-func VersionCmd(_ *relayer.App) *cobra.Command {
+func VersionCmd(app *relayer.App) *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:     "version",
 		Aliases: []string{"v"},
-		Short:   "Print the falcon version info",
+		Short:   fmt.Sprintf("Print the %s version info", app.Name),
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s version
 $ %s v`,
-			appName, appName,
+			app.Name, app.Name,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			commit := Commit

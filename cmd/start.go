@@ -15,12 +15,12 @@ func StartCmd(app *relayer.App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start",
 		Aliases: []string{"st"},
-		Short:   "Start the falcon tunnel relayer program",
+		Short:   fmt.Sprintf("Start the %s tunnel relayer program", app.Name),
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s start                             # start relaying data from every tunnel being registered on source chain.
 $ %s start --tunnel-ids 1,12           # start relaying data from specific tunnelIDs.
-$ %s start --tunnel-creator 0xABC123   # start relaying data from tunnels created by a specific address`, appName, appName, appName)),
+$ %s start --tunnel-creator 0xABC123   # start relaying data from tunnels created by a specific address`, app.Name, app.Name, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			argsTunnelIDs, err := cmd.Flags().GetUintSlice(flagTunnelIds)
 			if err != nil {

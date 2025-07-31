@@ -18,6 +18,7 @@ import (
 
 // App is the main application struct.
 type App struct {
+	Name   string
 	Log    *zap.Logger
 	Config *config.Config
 	Store  store.Store
@@ -29,12 +30,14 @@ type App struct {
 
 // NewApp creates a new App instance.
 func NewApp(
+	name string,
 	log *zap.Logger,
 	config *config.Config,
 	passphrase string,
 	store store.Store,
 ) *App {
 	app := App{
+		Name:       name,
 		Log:        log,
 		Config:     config,
 		Store:      store,

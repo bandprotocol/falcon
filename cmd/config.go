@@ -36,7 +36,7 @@ func configShowCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config show --home %s
-$ %s cfg list`, appName, defaultHome, appName)),
+$ %s cfg list`, app.Name, defaultHome, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app.Config == nil {
 				return fmt.Errorf("config is not initialized")
@@ -63,7 +63,7 @@ func configInitCmd(app *relayer.App) *cobra.Command {
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config init --home %s
-$ %s cfg i`, appName, defaultHome, appName)),
+$ %s cfg i`, app.Name, defaultHome, app.Name)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath, err := cmd.Flags().GetString(flagFile)
 			if err != nil {
