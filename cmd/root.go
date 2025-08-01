@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 	"syscall"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 )
 
 const (
-	appName         = "falcon"
 	defaultCoinType = 60
 
 	PassphraseEnvKey = "PASSPHRASE"
@@ -33,20 +31,25 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 func NewRootCmd(log *zap.Logger) *cobra.Command {
 	passphrase := os.Getenv(PassphraseEnvKey)
 	homePath := defaultHome
-	app := falcon.NewApp(log, nil, passphrase, nil)
+	app := falcon.NewApp("falcon", log, nil, passphrase, nil)
 
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
-		Use:   appName,
-		Short: "Falcon relays tss tunnel messages from BandChain to destination chains/smart contracts",
-		Long: strings.TrimSpace(`This application has:
+		Use: app.Name,
+		Short: fmt.Sprintf(
+			"%s relays tss tunnel messages from BandChain to destination chains/smart contracts",
+			app.Name,
+		),
+		Long: fmt.Sprintf(`This application has:
    1. Configuration Management: Handles the configuration of the program.
    2. Key Management: Supports managing multiple keys across multiple chains.
    3. Transaction Execution: Enables executing transactions on destination chains.
    4. Query Functionality: Facilitates querying data from both source and destination chains.
 
    NOTE: Most of the commands have aliases that make typing them much quicker 
-         (i.e. 'falcon tx', 'falcon q', etc...)`),
+         (i.e. '%s tx', '%s q', etc...)`,
+			app.Name, app.Name,
+		),
 	}
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) (err error) {
@@ -159,7 +162,7 @@ func Execute() error {
 		// But if a case is reached, panic so that we get a non-zero exit and a dump of remaining goroutines.
 		select {
 		case <-time.After(time.Minute):
-			panic(errors.New("falcon did not shut down within one minute of interrupt"))
+			panic(errors.New("program did not shut down within one minute of interrupt"))
 		case sig := <-sigCh:
 			panic(fmt.Errorf("received signal %v; forcing quit", sig))
 		}
