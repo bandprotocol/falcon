@@ -204,6 +204,16 @@ func (s *KeysTestSuite) TestAddRemoteSignerKey() {
 			},
 			out: chaintypes.NewKey("", testAddress, ""),
 		},
+		{
+			name: "nil key",
+			input: Input{
+				keyName: "nilkey",
+				addr:    testAddress,
+				url:     "http://127.0.0.1:8545",
+				key:     nil,
+			},
+			out: chaintypes.NewKey("", testAddress, ""),
+		},
 	}
 
 	for _, tc := range testcases {
