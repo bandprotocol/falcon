@@ -16,6 +16,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/types"
 )
 
+var _ Application = &App{}
+
 // App is the main application struct.
 type App struct {
 	Log    *zap.Logger
