@@ -18,7 +18,6 @@ import (
 
 // App is the main application struct.
 type App struct {
-	Name   string
 	Log    *zap.Logger
 	Config *config.Config
 	Store  store.Store
@@ -30,14 +29,12 @@ type App struct {
 
 // NewApp creates a new App instance.
 func NewApp(
-	name string,
 	log *zap.Logger,
 	config *config.Config,
 	passphrase string,
 	store store.Store,
 ) *App {
 	app := App{
-		Name:       name,
 		Log:        log,
 		Config:     config,
 		Store:      store,
@@ -107,6 +104,11 @@ func (a *App) initTargetChains() error {
 	}
 
 	return nil
+}
+
+// GetConfig retrieves the configuration from the application's store.
+func (a *App) GetConfig() *config.Config {
+	return a.Config
 }
 
 // SaveConfig saves the configuration into the application's store.
@@ -431,6 +433,18 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 	_, err = tr.CheckAndRelay(ctx, isForce)
 
 	return err
+}
+
+// GetLog retrieves the log of the application.
+func (a *App) GetLog() *zap.Logger {
+	return a.Log
+}
+
+// GetPassphrase retrieves the passphrase of the application.
+// Note: this may be different from the one in the store object. The hashed of
+// the passphrase will be checked against the store if necessary.
+func (a *App) GetPassphrase() string {
+	return a.Passphrase
 }
 
 // getChainProvider retrieves the chain provider by given chain name.

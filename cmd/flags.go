@@ -1,7 +1,10 @@
 package cmd
 
 const (
-	flagHome              = "home"
+	FlagHome      = "home"
+	FlagLogLevel  = "log-level"
+	FlagLogFormat = "log-format"
+
 	flagFile              = "file"
 	flagPrivateKey        = "private-key"
 	flagMnemonic          = "mnemonic"

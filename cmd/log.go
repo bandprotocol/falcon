@@ -6,7 +6,6 @@ import (
 	"time"
 
 	zaplogfmt "github.com/jsternberg/zap-logfmt"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -55,14 +54,7 @@ func newLogger(format string, logLevel string) (*zap.Logger, error) {
 }
 
 // initLogger initializes the logger with the given default log level.
-func initLogger(defaultLogLevel string) (log *zap.Logger, err error) {
-	logFormat := viper.GetString("log-format")
-
-	logLevel := viper.GetString("log-level")
-	if logLevel == "" && defaultLogLevel != "" {
-		logLevel = defaultLogLevel
-	}
-
+func initLogger(logLevel string, logFormat string) (log *zap.Logger, err error) {
 	// initialize logger only if user run command "start" or log level is "debug"
 	if os.Args[1] == "start" || logLevel == "debug" {
 		log, err = newLogger(logFormat, logLevel)
