@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
 )
@@ -20,7 +21,7 @@ var _ Application = &App{}
 
 // App is the main application struct.
 type App struct {
-	Log    *zap.Logger
+	Log    logger.Logger
 	Config *config.Config
 	Store  store.Store
 
@@ -31,7 +32,7 @@ type App struct {
 
 // NewApp creates a new App instance.
 func NewApp(
-	log *zap.Logger,
+	log logger.Logger,
 	config *config.Config,
 	passphrase string,
 	store store.Store,
@@ -438,7 +439,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 }
 
 // GetLog retrieves the log of the application.
-func (a *App) GetLog() *zap.Logger {
+func (a *App) GetLog() logger.Logger {
 	return a.Log
 }
 

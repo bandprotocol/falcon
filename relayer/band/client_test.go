@@ -23,6 +23,7 @@ import (
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandclienttypes "github.com/bandprotocol/falcon/relayer/band/types"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 type ClientTestSuite struct {
@@ -31,7 +32,7 @@ type ClientTestSuite struct {
 	ctx             context.Context
 	bandQueryClient *mocks.MockQueryClient
 	client          band.Client
-	log             *zap.Logger
+	log             logger.Logger
 }
 
 func TestClientTestSuite(t *testing.T) {
@@ -43,7 +44,7 @@ func (s *ClientTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
 
 	// mock objects.
-	s.log = zap.NewNop()
+	s.log = logger.NewZapLogWrapper(zap.NewNop())
 	s.bandQueryClient = mocks.NewMockQueryClient(ctrl)
 	s.client = band.NewClient(
 		s.bandQueryClient,

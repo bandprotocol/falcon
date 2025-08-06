@@ -3,9 +3,8 @@ package evm
 import (
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
@@ -32,7 +31,7 @@ type EVMChainProviderConfig struct {
 // NewProvider creates a new EVM chain provider.
 func (cpc *EVMChainProviderConfig) NewChainProvider(
 	chainName string,
-	log *zap.Logger,
+	log logger.Logger,
 	wallet wallet.Wallet,
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)

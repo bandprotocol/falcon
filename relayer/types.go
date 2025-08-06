@@ -4,12 +4,11 @@ import (
 	"context"
 	"math/big"
 
-	"go.uber.org/zap"
-
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
 )
@@ -26,7 +25,6 @@ type AppOptions interface {
 // AppCreator is a function that allows us to lazily initialize an
 // application using various configurations.
 type AppCreator func(
-	log *zap.Logger,
 	store store.Store,
 	appOpt AppOptions,
 ) (Application, error)
@@ -38,7 +36,7 @@ type Application interface {
 	GetConfig() *config.Config
 	SaveConfig(cfg *config.Config) error
 
-	GetLog() *zap.Logger
+	GetLog() logger.Logger
 	GetPassphrase() string
 	SavePassphrase(passphrase string) error
 

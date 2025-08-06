@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/bandprotocol/falcon/relayer/logger"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -16,7 +17,7 @@ type Subscription struct {
 	subscriptionQuery string
 	timeout           time.Duration
 	rpcClient         rpcclient.Client
-	log               *zap.Logger
+	log               logger.Logger
 	stopCh            chan struct{}
 	eventCh           chan coretypes.ResultEvent
 	onEventReceived   func(ctx context.Context, msg coretypes.ResultEvent)
@@ -28,7 +29,7 @@ func NewSubscription(
 	subscriptionQuery string,
 	onEventReceived func(ctx context.Context, msg coretypes.ResultEvent),
 	timeout time.Duration,
-	log *zap.Logger,
+	log logger.Logger,
 ) *Subscription {
 	return &Subscription{
 		name:              name,

@@ -13,9 +13,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 
 	falcon "github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 )
 
@@ -162,30 +162,11 @@ func createApp(
 		return nil, err
 	}
 
-	logLevel := vp.GetString(flagLogLevel)
-	if logLevel == "" && store != nil {
-		cfg, err := store.GetConfig()
-		if err != nil {
-			return nil, err
-		}
-
-		if cfg != nil {
-			logLevel = cfg.Global.LogLevel
-		}
-	}
-
-	logFormat := vp.GetString(flagLogFormat)
-
-	log, err := initLogger(logLevel, logFormat)
-	if err != nil {
-		return nil, err
-	}
-
-	return appCreator(log, store, vp)
+	return appCreator(store, vp)
 }
 
 // syncLog syncs the log to the specific output at the end of the program.
-func syncLog(log *zap.Logger) {
+func syncLog(log logger.Logger) {
 	if err := log.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
 		fmt.Fprintf(os.Stderr, "failed to sync logs: %v\n", err)
 	}

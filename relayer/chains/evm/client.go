@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/bandprotocol/falcon/relayer/logger"
 	ethereum "github.com/ethereum/go-ethereum"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -39,14 +40,14 @@ type client struct {
 	QueryTimeout   time.Duration
 	ExecuteTimeout time.Duration
 
-	Log *zap.Logger
+	Log logger.Logger
 
 	selectedEndpoint string
 	client           *ethclient.Client
 }
 
 // NewClient creates a new EVM client from config file and load keys.
-func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *client {
+func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger) *client {
 	return &client{
 		ChainName:      chainName,
 		Endpoints:      cfg.Endpoints,

@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 var _ Subscriber = &PacketSuccessSubscriber{}
@@ -21,7 +22,7 @@ type PacketSuccessSubscriber struct {
 
 // NewPacketSuccessSubscriber creates a new PacketSuccessSubscriber.
 func NewPacketSuccessSubscriber(
-	log *zap.Logger,
+	log logger.Logger,
 	tunnelIDCh chan<- uint64,
 	timeout time.Duration,
 ) *PacketSuccessSubscriber {
@@ -52,7 +53,7 @@ func NewPacketSuccessSubscriber(
 // onHandlePacketSuccessEvent handles the produce packet success event.
 func onHandlePacketSuccessEvent(
 	tunnelIDCh chan<- uint64,
-	log *zap.Logger,
+	log logger.Logger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
 		attrs := msg.Events

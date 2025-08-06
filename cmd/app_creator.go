@@ -3,9 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"go.uber.org/zap"
-
 	"github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 )
 
@@ -15,18 +14,12 @@ type AppCreator struct{}
 
 // NewApp creates a new App instance that being used in the falcon command.
 func (a *AppCreator) NewApp(
-	log *zap.Logger,
 	store store.Store,
 	opts relayer.AppOptions,
 ) (relayer.Application, error) {
-	passphrase := ""
-	passphraseOpt := opts.Get(EnvPassphrase)
-	if passphraseOpt != nil {
-		var ok bool
-		passphrase, ok = passphraseOpt.(string)
-		if !ok {
-			return nil, fmt.Errorf("passphrase require a string or empty string")
-		}
+	passphrase, err := getOptString(opts, EnvPassphrase)
+	if err != nil {
+		return nil, err
 	}
 
 	cfg, err := store.GetConfig()
@@ -34,6 +27,36 @@ func (a *AppCreator) NewApp(
 		return nil, err
 	}
 
-	app := relayer.NewApp(log, cfg, passphrase, store)
+	logLevel, err := getOptString(opts, flagLogLevel)
+	if err != nil {
+		return nil, err
+	}
+
+	logFormat, err := getOptString(opts, flagLogFormat)
+	if err != nil {
+		return nil, err
+	}
+
+	log, err := initLogger(logLevel, logFormat)
+	if err != nil {
+		return nil, err
+	}
+
+	logWrapper := logger.NewZapLogWrapper(log)
+	app := relayer.NewApp(logWrapper, cfg, passphrase, store)
 	return app, nil
+}
+
+func getOptString(opts relayer.AppOptions, key string) (string, error) {
+	res := ""
+	opt := opts.Get(key)
+	if opt != nil {
+		var ok bool
+		res, ok = opt.(string)
+		if !ok {
+			return "", fmt.Errorf("%s require a string or empty string", key)
+		}
+	}
+
+	return res, nil
 }

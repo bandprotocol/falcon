@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 var _ Subscriber = &ManualTriggerSubscriber{}
@@ -21,7 +22,7 @@ type ManualTriggerSubscriber struct {
 
 // NewManualTriggerSubscriber creates a new ManualTriggerSubscriber.
 func NewManualTriggerSubscriber(
-	log *zap.Logger,
+	log logger.Logger,
 	tunnelIDCh chan<- uint64,
 	timeout time.Duration,
 ) *ManualTriggerSubscriber {
@@ -52,7 +53,7 @@ func NewManualTriggerSubscriber(
 // onHandleManualTriggeredEvent handles the manual triggered event.
 func onHandleManualTriggeredEvent(
 	tunnelIDCh chan<- uint64,
-	log *zap.Logger,
+	log logger.Logger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
 		attrs := msg.Events

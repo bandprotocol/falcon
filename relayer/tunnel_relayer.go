@@ -14,6 +14,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 type RelayStatus string
@@ -27,7 +28,7 @@ const (
 
 // TunnelRelayer is a relayer that listens to the tunnel and relays the packet
 type TunnelRelayer struct {
-	Log                    *zap.Logger
+	Log                    logger.Logger
 	TunnelID               uint64
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
@@ -40,7 +41,7 @@ type TunnelRelayer struct {
 
 // NewTunnelRelayer creates a new TunnelRelayer
 func NewTunnelRelayer(
-	log *zap.Logger,
+	log logger.Logger,
 	tunnelID uint64,
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,

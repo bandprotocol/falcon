@@ -19,6 +19,7 @@ import (
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
@@ -55,7 +56,8 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	gethWallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, zap.NewNop(), gethWallet)
+	log := logger.NewZapLogWrapper(zap.NewNop())
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, log, gethWallet)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider
 
