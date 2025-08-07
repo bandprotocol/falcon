@@ -22,7 +22,7 @@ const (
 )
 
 // registerCommonFlags registers the common flags for the command.
-func registerCommonFlags(cmd *cobra.Command) {
+func registerCommonFlags(cmd *cobra.Command, defaultHome string) {
 	cmd.PersistentFlags().String(FlagHome, defaultHome, "set home directory")
 	cmd.PersistentFlags().String(FlagLogLevel, "", "log level format (info, debug, warn, error, panic or fatal)")
 	cmd.PersistentFlags().String(FlagLogFormat, "auto", "log output format (auto, logfmt, json, or console)")

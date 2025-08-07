@@ -63,7 +63,7 @@ tx relay 1 --force	# relay tunnelID 1's pending packets regardless of its active
 		},
 	}
 
-	registerCommonFlags(cmd)
+	registerCommonFlags(cmd, defaultHome)
 	cmd.Flags().Bool(flagForce, false, "force relaying data from specific tunnelIDs")
 
 	return cmd

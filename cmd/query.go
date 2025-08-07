@@ -18,7 +18,7 @@ func QueryCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command 
 		Short:   "Query commands on source and destination chains",
 	}
 
-	registerCommonFlags(cmd)
+	registerCommonFlags(cmd, defaultHome)
 
 	cmd.AddCommand(
 		queryTunnelCmd(appCreator, defaultHome),

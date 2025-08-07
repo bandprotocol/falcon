@@ -22,7 +22,7 @@ type versionInfo struct {
 }
 
 // VersionCmd returns a command that prints the falcon version information.
-func VersionCmd() *cobra.Command {
+func VersionCmd(defaultHome string) *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:     "version",
 		Aliases: []string{"v"},
@@ -47,7 +47,7 @@ func VersionCmd() *cobra.Command {
 		},
 	}
 
-	registerCommonFlags(versionCmd)
+	registerCommonFlags(versionCmd, defaultHome)
 
 	return versionCmd
 }

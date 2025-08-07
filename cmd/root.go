@@ -63,7 +63,7 @@ func NewRootCmd() *cobra.Command {
 		StartCmd(ac.NewApp, defaultHome),
 
 		lineBreakCommand(),
-		VersionCmd(),
+		VersionCmd(defaultHome),
 	)
 
 	return rootCmd

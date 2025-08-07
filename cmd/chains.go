@@ -19,7 +19,7 @@ func ChainsCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command
 		Short:   "Manage chain configurations",
 	}
 
-	registerCommonFlags(cmd)
+	registerCommonFlags(cmd, defaultHome)
 
 	cmd.AddCommand(
 		chainsAddCmd(appCreator, defaultHome),
