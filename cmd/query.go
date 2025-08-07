@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -12,7 +11,7 @@ import (
 )
 
 // QueryCmd represents the command for querying data from source and destination chains.
-func QueryCmd(app *relayer.App) *cobra.Command {
+func QueryCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "query",
 		Aliases: []string{"q"},
@@ -20,24 +19,33 @@ func QueryCmd(app *relayer.App) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		queryTunnelCmd(app),
-		queryPacketCmd(app),
-		queryBalanceCmd(app),
+		queryTunnelCmd(appCreator, defaultHome),
+		queryPacketCmd(appCreator, defaultHome),
+		queryBalanceCmd(appCreator, defaultHome),
 	)
 
 	return cmd
 }
 
 // queryTunnelCmd returns a command that query tunnel information.
-func queryTunnelCmd(app *relayer.App) *cobra.Command {
+func queryTunnelCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "tunnel [tunnel_id]",
 		Aliases: []string{"t"},
 		Short:   "Query commands on tunnel data",
 		Args:    withUsage(cobra.ExactArgs(1)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query tunnel 1`, app.Name)),
+		Example: "query tunnel 1",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
 				return err
@@ -62,15 +70,24 @@ $ %s query tunnel 1`, app.Name)),
 }
 
 // queryPacketCmd returns a command that query packet information.
-func queryPacketCmd(app *relayer.App) *cobra.Command {
+func queryPacketCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "packet [tunnel_id] [sequence]",
 		Aliases: []string{"p"},
 		Short:   "Query commands on packet data",
 		Args:    withUsage(cobra.ExactArgs(2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query packet 1 1`, app.Name)),
+		Example: "query packet 1 1",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
 				return err
@@ -100,16 +117,24 @@ $ %s query packet 1 1`, app.Name)),
 }
 
 // queryBalanceCmd returns a command that query balance of the given account.
-func queryBalanceCmd(app *relayer.App) *cobra.Command {
+func queryBalanceCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "balance [chain_name] [key_name]",
 		Aliases: []string{"b"},
 		Short:   "Query commands on account balance",
 		Args:    withUsage(cobra.ExactArgs(2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s query balance eth test-key
-$ %s q b eth test-key`, app.Name, app.Name)),
+		Example: "query balance eth test-key",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			chainName := args[0]
 			keyName := args[1]
 			bal, err := app.QueryBalance(cmd.Context(), chainName, keyName)

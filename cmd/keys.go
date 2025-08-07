@@ -43,7 +43,7 @@ type RemoteSignerInput struct {
 }
 
 // KeysCmd represents the keys command
-func KeysCmd(app *relayer.App) *cobra.Command {
+func KeysCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "keys",
 		Aliases: []string{"k"},
@@ -51,27 +51,37 @@ func KeysCmd(app *relayer.App) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		keysAddCmd(app),
-		keysDeleteCmd(app),
-		keysListCmd(app),
-		keysExportCmd(app),
-		keysShowCmd(app),
+		keysAddCmd(appCreator, defaultHome),
+		keysDeleteCmd(appCreator, defaultHome),
+		keysListCmd(appCreator, defaultHome),
+		keysExportCmd(appCreator, defaultHome),
+		keysShowCmd(appCreator, defaultHome),
 	)
 
 	return cmd
 }
 
 // keysAddCmd returns a command that adds a key to the keychain.
-func keysAddCmd(app *relayer.App) *cobra.Command {
+func keysAddCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add [chain_name] [key_name]",
 		Aliases: []string{"a"},
 		Short:   "Add a key to the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys add eth test-key
-$ %s k a eth test-key`, app.Name, app.Name)),
+		Example: strings.TrimSpace(`
+k add eth test-key
+keys add eth test-key`),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			chainName := args[0]
 			keyName := args[1]
 
@@ -187,16 +197,26 @@ $ %s k a eth test-key`, app.Name, app.Name)),
 }
 
 // keysDeleteCmd returns a command that delete the key from the keychain.
-func keysDeleteCmd(app *relayer.App) *cobra.Command {
+func keysDeleteCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete [chain_name] [key_name]",
 		Aliases: []string{"d"},
 		Short:   "Delete a key from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys delete eth test-key 
-$ %s k d eth test-key`, app.Name, app.Name)),
+		Example: strings.TrimSpace(`
+k delete eth test-key
+keys delete eth test-key`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			chainName := args[0]
 			keyName := args[1]
 			return app.DeleteKey(chainName, keyName)
@@ -207,16 +227,26 @@ $ %s k d eth test-key`, app.Name, app.Name)),
 }
 
 // keysListCmd returns a command that list keys associated with a particular chain from the keychain.
-func keysListCmd(app *relayer.App) *cobra.Command {
+func keysListCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [chain_name]",
 		Aliases: []string{"l"},
 		Short:   "List keys from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(1)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys list eth
-$ %s k l eth`, app.Name, app.Name)),
+		Example: strings.TrimSpace(`
+k list eth
+keys list eth`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			chainName := args[0]
 			keys, err := app.ListKeys(chainName)
 			if err != nil {
@@ -237,16 +267,26 @@ $ %s k l eth`, app.Name, app.Name)),
 }
 
 // keysExportCmd returns a command that export the private key from the keychain.
-func keysExportCmd(app *relayer.App) *cobra.Command {
+func keysExportCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "export [chain_name] [key_name]",
 		Aliases: []string{"e"},
 		Short:   "Export a private key from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys export eth test-key
-$ %s k e eth test-key`, app.Name, app.Name)),
+		Example: strings.TrimSpace(`
+k export eth test-key
+keys export eth test-key`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			chainName := args[0]
 			keyName := args[1]
 
@@ -264,16 +304,26 @@ $ %s k e eth test-key`, app.Name, app.Name)),
 }
 
 // keysShowCmd a command that show the key information.
-func keysShowCmd(app *relayer.App) *cobra.Command {
+func keysShowCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show [chain_name] [key_name]",
 		Aliases: []string{"s"},
 		Short:   "Show a key from the keychain associated with a particular chain",
 		Args:    withUsage(cobra.ExactArgs(2)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s keys show eth test-key
-$ %s k s eth test-key`, app.Name, app.Name)),
+		Example: strings.TrimSpace(`
+k show eth test-key
+keys show eth test-key`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			chainName := args[0]
 			keyName := args[1]
 

@@ -5,8 +5,6 @@ import (
 	"context"
 	"testing"
 
-	"go.uber.org/zap/zaptest"
-
 	"github.com/bandprotocol/falcon/cmd"
 )
 
@@ -40,7 +38,7 @@ type RunResult struct {
 }
 
 func (s *System) RunWithInput(t *testing.T, args ...string) RunResult {
-	rootCmd := cmd.NewRootCmd(zaptest.NewLogger(t))
+	rootCmd := cmd.NewRootCmd()
 
 	rootCmd.SilenceUsage = true
 

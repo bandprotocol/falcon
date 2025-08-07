@@ -11,6 +11,8 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
+
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 var _ Client = &client{}
@@ -39,14 +41,14 @@ type client struct {
 	QueryTimeout   time.Duration
 	ExecuteTimeout time.Duration
 
-	Log *zap.Logger
+	Log logger.ZapLogger
 
 	selectedEndpoint string
 	client           *ethclient.Client
 }
 
 // NewClient creates a new EVM client from config file and load keys.
-func NewClient(chainName string, cfg *EVMChainProviderConfig, log *zap.Logger) *client {
+func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.ZapLogger) *client {
 	return &client{
 		ChainName:      chainName,
 		Endpoints:      cfg.Endpoints,

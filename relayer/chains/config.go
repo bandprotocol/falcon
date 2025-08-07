@@ -3,8 +3,7 @@ package chains
 import (
 	"time"
 
-	"go.uber.org/zap"
-
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
@@ -27,7 +26,7 @@ type ChainProviderConfigs map[string]ChainProviderConfig
 type ChainProviderConfig interface {
 	NewChainProvider(
 		chainName string,
-		log *zap.Logger,
+		log logger.ZapLogger,
 		wallet wallet.Wallet,
 	) (ChainProvider, error)
 

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -12,37 +11,44 @@ import (
 
 // TransactionCmd returns a parent transaction command handler, where all child
 // commands can submit transactions on destination chains.
-func TransactionCmd(app *relayer.App) *cobra.Command {
+func TransactionCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "transact",
 		Aliases: []string{"tx"},
 		Short:   "Transaction commands to destination chain",
-		Long: fmt.Sprintf(
-			`Commands to create transactions on destination chains.
+		Long: `Commands to create transactions on destination chains.
 
-Make sure that chains are properly configured to relay over by using the '%s chains list' command.`,
-			app.Name,
-		),
+Make sure that chains are properly configured to relay over by using the 'chains list' command.`,
 	}
 
 	cmd.AddCommand(
-		txRelayCmd(app),
+		txRelayCmd(appCreator, defaultHome),
 	)
 
 	return cmd
 }
 
 // txRelayCmd returns a command that relays a specific message to the destination chain.
-func txRelayCmd(app *relayer.App) *cobra.Command {
+func txRelayCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "relay [tunnel_id]",
 		Aliases: []string{"rly"},
 		Short:   "Relay the next sequence message to the destination tunnel contract address",
 		Args:    withUsage(cobra.ExactArgs(1)),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s tx relay 1, 		# relay tunnelID 1's pending packets
-$ %s tx relay 1 --force	# relay tunnelID 1's pending packets regardless of its active status on BandChain`, app.Name, app.Name)),
+		Example: strings.TrimSpace(`
+tx relay 1, 		# relay tunnelID 1's pending packets
+tx relay 1 --force	# relay tunnelID 1's pending packets regardless of its active status on BandChain`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			tunnelID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
 				return err

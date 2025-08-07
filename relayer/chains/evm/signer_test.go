@@ -9,6 +9,7 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -59,7 +60,7 @@ func (s *SenderTestSuite) SetupTest() {
 
 	s.chainName = "testnet"
 
-	log, err := zap.NewDevelopment()
+	log := logger.NewZapLogWrapper(zap.NewNop())
 	s.Require().NoError(err)
 
 	client := evm.NewClient(s.chainName, evmCfg, log)
@@ -80,8 +81,7 @@ func (s *SenderTestSuite) SetupTest() {
 }
 
 func (s *SenderTestSuite) TestLoadFreeSenders() {
-	log, err := zap.NewDevelopment()
-	s.Require().NoError(err)
+	log := logger.NewZapLogWrapper(zap.NewNop())
 
 	client := evm.NewClient(s.chainName, evmCfg, log)
 

@@ -17,6 +17,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 type TunnelRelayerTestSuite struct {
@@ -47,7 +48,7 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 	s.ctx = context.Background()
 
 	tunnelRelayer := relayer.NewTunnelRelayer(
-		zap.NewNop(),
+		logger.NewZapLogWrapper(zap.NewNop()),
 		defaultTunnelID,
 		defaultCheckingPacketInterval,
 		s.client,

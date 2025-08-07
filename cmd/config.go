@@ -13,7 +13,7 @@ import (
 )
 
 // ConfigCmd returns a command that manages global configuration file
-func ConfigCmd(app *relayer.App) *cobra.Command {
+func ConfigCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "config",
 		Aliases: []string{"cfg"},
@@ -21,28 +21,40 @@ func ConfigCmd(app *relayer.App) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		configShowCmd(app),
-		configInitCmd(app),
+		configShowCmd(appCreator, defaultHome),
+		configInitCmd(appCreator, defaultHome),
 	)
+
 	return cmd
 }
 
 // configShowCmd returns the commands that prints current configuration
-func configShowCmd(app *relayer.App) *cobra.Command {
+func configShowCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "show",
 		Aliases: []string{"s", "list", "l"},
 		Short:   "Prints current configuration",
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config show --home %s
-$ %s cfg list`, app.Name, defaultHome, app.Name)),
+config show --home %s
+cfg list`, defaultHome)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if app.Config == nil {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
+			cfg := app.GetConfig()
+			if cfg == nil {
 				return fmt.Errorf("config is not initialized")
 			}
 
-			b, err := toml.Marshal(app.Config)
+			b, err := toml.Marshal(cfg)
 			if err != nil {
 				return err
 			}
@@ -55,15 +67,15 @@ $ %s cfg list`, app.Name, defaultHome, app.Name)),
 }
 
 // configInitCmd returns the commands that initializes an empty config at the --home location
-func configInitCmd(app *relayer.App) *cobra.Command {
+func configInitCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Aliases: []string{"i"},
 		Short:   "Create a default configuration at home directory path",
 		Args:    withUsage(cobra.NoArgs),
 		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s config init --home %s
-$ %s cfg i`, app.Name, defaultHome, app.Name)),
+config init --home %s
+cfg i`, defaultHome)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath, err := cmd.Flags().GetString(flagFile)
 			if err != nil {
@@ -84,12 +96,21 @@ $ %s cfg i`, app.Name, defaultHome, app.Name)),
 				}
 			}
 
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
 			if err := app.SaveConfig(cfg); err != nil {
 				return err
 			}
 
-			passphrase := os.Getenv(PassphraseEnvKey)
-			return app.SavePassphrase(passphrase)
+			return app.SavePassphrase(app.GetPassphrase())
 		},
 	}
 	cmd.Flags().StringP(flagFile, "f", "", "input config .toml file path")

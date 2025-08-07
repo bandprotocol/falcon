@@ -9,6 +9,7 @@ import (
 
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
@@ -28,13 +29,13 @@ type KeysTestSuite struct {
 	suite.Suite
 
 	chainProvider *evm.EVMChainProvider
-	log           *zap.Logger
+	log           logger.ZapLogger
 	homePath      string
 	wallet        wallet.Wallet
 }
 
 func (s *KeysTestSuite) loadChainProvider() {
-	s.log = zap.NewNop()
+	s.log = logger.NewZapLogWrapper(zap.NewNop())
 
 	chainName := "testnet"
 	client := evm.NewClient(chainName, evmCfg, s.log)

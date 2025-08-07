@@ -24,6 +24,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/types"
 )
 
@@ -43,7 +44,7 @@ type AppTestSuite struct {
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
 func (s *AppTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
-	log := zap.NewNop()
+	log := logger.NewZapLogWrapper(zap.NewNop())
 
 	// mock objects.
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)

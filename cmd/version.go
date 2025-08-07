@@ -3,12 +3,9 @@ package cmd
 import (
 	"fmt"
 	"runtime"
-	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
-
-	"github.com/bandprotocol/falcon/relayer"
 )
 
 var (
@@ -25,17 +22,12 @@ type versionInfo struct {
 }
 
 // VersionCmd returns a command that prints the falcon version information.
-func VersionCmd(app *relayer.App) *cobra.Command {
+func VersionCmd(defaultHome string) *cobra.Command {
 	versionCmd := &cobra.Command{
 		Use:     "version",
 		Aliases: []string{"v"},
-		Short:   fmt.Sprintf("Print the %s version info", app.Name),
+		Short:   "Print the version info",
 		Args:    withUsage(cobra.NoArgs),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s version
-$ %s v`,
-			app.Name, app.Name,
-		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			commit := Commit
 			if Dirty != "0" {

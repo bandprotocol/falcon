@@ -11,17 +11,32 @@ import (
 )
 
 // StartCmd represents the start command
-func StartCmd(app *relayer.App) *cobra.Command {
+func StartCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start",
 		Aliases: []string{"st"},
-		Short:   fmt.Sprintf("Start the %s tunnel relayer program", app.Name),
+		Short:   "Start the tunnel relayer program",
 		Args:    withUsage(cobra.NoArgs),
-		Example: strings.TrimSpace(fmt.Sprintf(`
-$ %s start                             # start relaying data from every tunnel being registered on source chain.
-$ %s start --tunnel-ids 1,12           # start relaying data from specific tunnelIDs.
-$ %s start --tunnel-creator 0xABC123   # start relaying data from tunnels created by a specific address`, app.Name, app.Name, app.Name)),
+		Example: strings.TrimSpace(`
+start                             # start relaying data from every tunnel being registered on source chain.
+start --tunnel-ids 1,12           # start relaying data from specific tunnelIDs.
+start --tunnel-creator 0xABC123   # start relaying data from tunnels created by a specific address`),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			app, err := createApp(cmd, appCreator, defaultHome)
+			if err != nil {
+				return err
+			}
+			defer syncLog(app.GetLog())
+
+			if err := app.Init(cmd.Context()); err != nil {
+				return err
+			}
+
+			cfg := app.GetConfig()
+			if cfg == nil {
+				return fmt.Errorf("config is not initialized")
+			}
+
 			argsTunnelIDs, err := cmd.Flags().GetUintSlice(flagTunnelIds)
 			if err != nil {
 				return err
@@ -44,10 +59,10 @@ $ %s start --tunnel-creator 0xABC123   # start relaying data from tunnels create
 
 			// setup metrics server
 			if metricsListenAddr == "" {
-				metricsListenAddr = app.Config.Global.MetricsListenAddr
+				metricsListenAddr = cfg.Global.MetricsListenAddr
 			}
 			if metricsListenAddr != "" {
-				if err := relayermetrics.StartMetricsServer(cmd.Context(), app.Log, metricsListenAddr); err != nil {
+				if err := relayermetrics.StartMetricsServer(cmd.Context(), app.GetLog(), metricsListenAddr); err != nil {
 					return err
 				}
 			}

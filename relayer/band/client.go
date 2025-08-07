@@ -15,6 +15,7 @@ import (
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	"github.com/bandprotocol/falcon/relayer/band/types"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 var _ Client = &client{}
@@ -45,7 +46,7 @@ type Client interface {
 type client struct {
 	Context     cosmosclient.Context
 	QueryClient QueryClient
-	Log         *zap.Logger
+	Log         logger.ZapLogger
 	Config      *Config
 	Subscribers []subscriber.Subscriber
 
@@ -53,7 +54,7 @@ type client struct {
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(queryClient QueryClient, log *zap.Logger, bandChainCfg *Config) Client {
+func NewClient(queryClient QueryClient, log logger.ZapLogger, bandChainCfg *Config) Client {
 	encodingConfig := MakeEncodingConfig()
 	ctx := cosmosclient.Context{}.
 		WithCodec(encodingConfig.Marshaler).

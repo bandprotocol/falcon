@@ -13,32 +13,29 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 
 	falcon "github.com/bandprotocol/falcon/relayer"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 )
 
 const (
 	defaultCoinType = 60
+	appName         = "falcon"
 
-	PassphraseEnvKey = "PASSPHRASE"
+	EnvPassphrase = "passphrase"
 )
 
 var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 
 // NewRootCmd returns the root command for falcon.
-func NewRootCmd(log *zap.Logger) *cobra.Command {
-	passphrase := os.Getenv(PassphraseEnvKey)
-	homePath := defaultHome
-	app := falcon.NewApp("falcon", log, nil, passphrase, nil)
-
+func NewRootCmd() *cobra.Command {
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
-		Use: app.Name,
+		Use: appName,
 		Short: fmt.Sprintf(
 			"%s relays tss tunnel messages from BandChain to destination chains/smart contracts",
-			app.Name,
+			appName,
 		),
 		Long: fmt.Sprintf(`This application has:
    1. Configuration Management: Handles the configuration of the program.
@@ -48,77 +45,27 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 
    NOTE: Most of the commands have aliases that make typing them much quicker 
          (i.e. '%s tx', '%s q', etc...)`,
-			app.Name, app.Name,
+			appName, appName,
 		),
 	}
 
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) (err error) {
-		// set up store
-		app.Store, err = store.NewFileSystem(homePath)
-		if err != nil {
-			return err
-		}
+	registerCommonFlags(rootCmd, defaultHome)
 
-		// load configuration
-		app.Config, err = app.Store.GetConfig()
-		if err != nil {
-			return err
-		}
-
-		// retrieve log level from config
-		configLogLevel := ""
-		if app.Config != nil {
-			configLogLevel = app.Config.Global.LogLevel
-		}
-
-		// init log object
-		app.Log, err = initLogger(configLogLevel)
-		if err != nil {
-			return err
-		}
-
-		return app.Init(rootCmd.Context())
-	}
-
-	rootCmd.PersistentPostRun = func(cmd *cobra.Command, _ []string) {
-		// Force syncing the logs before exit, if anything is buffered.
-		// check error of log.Sync() https://github.com/uber-go/zap/issues/991#issuecomment-962098428
-		if err := app.Log.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
-			fmt.Fprintf(os.Stderr, "failed to sync logs: %v\n", err)
-		}
-	}
-
-	// Register --home flag
-	rootCmd.PersistentFlags().StringVar(&homePath, flagHome, defaultHome, "set home directory")
-	if err := viper.BindPFlag(flagHome, rootCmd.PersistentFlags().Lookup(flagHome)); err != nil {
-		panic(err)
-	}
-
-	// Register --log-format flag
-	rootCmd.PersistentFlags().String("log-format", "auto", "log output format (auto, logfmt, json, or console)")
-	if err := viper.BindPFlag("log-format", rootCmd.PersistentFlags().Lookup("log-format")); err != nil {
-		panic(err)
-	}
-
-	// Register --log-level flag
-	rootCmd.PersistentFlags().String("log-level", "", "log level format (info, debug, warn, error, panic or fatal)")
-	if err := viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
-		panic(err)
-	}
+	ac := &AppCreator{}
 
 	// Register subcommands
 	rootCmd.AddCommand(
-		ConfigCmd(app),
-		ChainsCmd(app),
-		KeysCmd(app),
+		ConfigCmd(ac.NewApp, defaultHome),
+		ChainsCmd(ac.NewApp, defaultHome),
+		KeysCmd(ac.NewApp, defaultHome),
 
 		lineBreakCommand(),
-		TransactionCmd(app),
-		QueryCmd(app),
-		StartCmd(app),
+		TransactionCmd(ac.NewApp, defaultHome),
+		QueryCmd(ac.NewApp, defaultHome),
+		StartCmd(ac.NewApp, defaultHome),
 
 		lineBreakCommand(),
-		VersionCmd(app),
+		VersionCmd(defaultHome),
 	)
 
 	return rootCmd
@@ -129,7 +76,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 func Execute() error {
 	cobra.EnableCommandSorting = false
 
-	rootCmd := NewRootCmd(nil)
+	rootCmd := NewRootCmd()
 	rootCmd.SilenceUsage = true
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -188,5 +135,41 @@ func withUsage(inner cobra.PositionalArgs) cobra.PositionalArgs {
 		}
 
 		return nil
+	}
+}
+
+// createApp creates a new application instance.
+func createApp(
+	cmd *cobra.Command,
+	appCreator falcon.AppCreator,
+	defaultHome string,
+) (falcon.Application, error) {
+	// bind flags to the Context's Viper so we can get flags.
+	vp := viper.New()
+	if err := vp.BindEnv(EnvPassphrase); err != nil {
+		return nil, err
+	}
+
+	if err := vp.BindPFlags(cmd.Flags()); err != nil {
+		return nil, err
+	}
+
+	home := vp.GetString(FlagHome)
+	if home == "" {
+		home = defaultHome
+	}
+
+	store, err := store.NewFileSystem(home)
+	if err != nil {
+		return nil, err
+	}
+
+	return appCreator(store, vp)
+}
+
+// syncLog syncs the log to the specific output at the end of the program.
+func syncLog(log logger.ZapLogger) {
+	if err := log.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
+		fmt.Fprintf(os.Stderr, "failed to sync logs: %v\n", err)
 	}
 }

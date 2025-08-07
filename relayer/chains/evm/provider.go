@@ -19,6 +19,7 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
@@ -37,7 +38,7 @@ type EVMChainProvider struct {
 	TunnelRouterAddress gethcommon.Address
 	TunnelRouterABI     abi.ABI
 
-	Log *zap.Logger
+	Log logger.ZapLogger
 
 	Wallet wallet.Wallet
 }
@@ -47,7 +48,7 @@ func NewEVMChainProvider(
 	chainName string,
 	client Client,
 	cfg *EVMChainProviderConfig,
-	log *zap.Logger,
+	log logger.ZapLogger,
 	wallet wallet.Wallet,
 ) (*EVMChainProvider, error) {
 	// load abis here

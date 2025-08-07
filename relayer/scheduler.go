@@ -11,11 +11,12 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
-	Log                    *zap.Logger
+	Log                    logger.ZapLogger
 	CheckingPacketInterval time.Duration
 	SyncTunnelsInterval    time.Duration
 	PenaltySkipRounds      uint
@@ -30,7 +31,7 @@ type Scheduler struct {
 
 // NewScheduler creates a new Scheduler
 func NewScheduler(
-	log *zap.Logger,
+	log logger.ZapLogger,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
 	penaltySkipRounds uint,

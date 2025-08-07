@@ -8,6 +8,8 @@ import (
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
+
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // Subscription is an object for handling the subscription to the event.
@@ -16,7 +18,7 @@ type Subscription struct {
 	subscriptionQuery string
 	timeout           time.Duration
 	rpcClient         rpcclient.Client
-	log               *zap.Logger
+	log               logger.ZapLogger
 	stopCh            chan struct{}
 	eventCh           chan coretypes.ResultEvent
 	onEventReceived   func(ctx context.Context, msg coretypes.ResultEvent)
@@ -28,7 +30,7 @@ func NewSubscription(
 	subscriptionQuery string,
 	onEventReceived func(ctx context.Context, msg coretypes.ResultEvent),
 	timeout time.Duration,
-	log *zap.Logger,
+	log logger.ZapLogger,
 ) *Subscription {
 	return &Subscription{
 		name:              name,
