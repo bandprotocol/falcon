@@ -30,8 +30,6 @@ var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
 
 // NewRootCmd returns the root command for falcon.
 func NewRootCmd() *cobra.Command {
-	homePath := defaultHome
-
 	// RootCmd represents the base command when called without any subcommands
 	rootCmd := &cobra.Command{
 		Use: appName,
@@ -49,24 +47,6 @@ func NewRootCmd() *cobra.Command {
          (i.e. '%s tx', '%s q', etc...)`,
 			appName, appName,
 		),
-	}
-
-	// Register --home flag
-	rootCmd.PersistentFlags().StringVar(&homePath, FlagHome, defaultHome, "set home directory")
-	if err := viper.BindPFlag(FlagHome, rootCmd.PersistentFlags().Lookup(FlagHome)); err != nil {
-		panic(err)
-	}
-
-	// Register --log-format flag
-	rootCmd.PersistentFlags().String(FlagLogFormat, "auto", "log output format (auto, logfmt, json, or console)")
-	if err := viper.BindPFlag(FlagLogFormat, rootCmd.PersistentFlags().Lookup(FlagLogFormat)); err != nil {
-		panic(err)
-	}
-
-	// Register --log-level flag
-	rootCmd.PersistentFlags().String(FlagLogLevel, "", "log level format (info, debug, warn, error, panic or fatal)")
-	if err := viper.BindPFlag(FlagLogLevel, rootCmd.PersistentFlags().Lookup(FlagLogLevel)); err != nil {
-		panic(err)
 	}
 
 	ac := &AppCreator{}
@@ -172,7 +152,7 @@ func createApp(
 		return nil, err
 	}
 
-	home := vp.GetString(FlagHome)
+	home := vp.GetString(flagHome)
 	if home == "" {
 		home = defaultHome
 	}
@@ -182,7 +162,7 @@ func createApp(
 		return nil, err
 	}
 
-	logLevel := vp.GetString(FlagLogLevel)
+	logLevel := vp.GetString(flagLogLevel)
 	if logLevel == "" && store != nil {
 		cfg, err := store.GetConfig()
 		if err != nil {
@@ -194,7 +174,7 @@ func createApp(
 		}
 	}
 
-	logFormat := vp.GetString(FlagLogFormat)
+	logFormat := vp.GetString(flagLogFormat)
 
 	log, err := initLogger(logLevel, logFormat)
 	if err != nil {

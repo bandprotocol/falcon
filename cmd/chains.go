@@ -19,6 +19,8 @@ func ChainsCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command
 		Short:   "Manage chain configurations",
 	}
 
+	registerCommonFlags(cmd)
+
 	cmd.AddCommand(
 		chainsAddCmd(appCreator, defaultHome),
 		chainsDeleteCmd(appCreator, defaultHome),
@@ -56,7 +58,6 @@ chains add evm chains/eth.toml`),
 			return app.AddChainConfig(chainName, filePath)
 		},
 	}
-
 	return cmd
 }
 

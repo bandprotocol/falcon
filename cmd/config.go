@@ -20,10 +20,13 @@ func ConfigCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command
 		Short:   "Manage global configuration file",
 	}
 
+	registerCommonFlags(cmd)
+
 	cmd.AddCommand(
 		configShowCmd(appCreator, defaultHome),
 		configInitCmd(appCreator, defaultHome),
 	)
+
 	return cmd
 }
 

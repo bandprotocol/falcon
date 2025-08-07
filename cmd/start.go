@@ -77,6 +77,8 @@ start --tunnel-creator 0xABC123   # start relaying data from tunnels created by 
 		},
 	}
 
+	registerCommonFlags(cmd)
+
 	cmd.Flags().String(
 		flagMetricsListenAddr,
 		"",
