@@ -111,11 +111,13 @@ $ %s k a eth test-key`, app.Name, app.Name)),
 				return err
 			}
 
-			remoteSignerKey, err := cmd.Flags().GetString(flagRemoteKey)
-			if err != nil {
-				return err
+			if cmd.Flags().Changed(flagRemoteKey) {
+				remoteSignerKey, err := cmd.Flags().GetString(flagRemoteKey)
+				if err != nil {
+					return err
+				}
+				input.RemoteSigner.Key = &remoteSignerKey
 			}
-			input.RemoteSigner.Key = &remoteSignerKey
 
 			if err := validateAddKeyInput(input); err != nil {
 				return err
