@@ -33,7 +33,7 @@ var txStatusFromString = map[string]TxStatus{
 	"Timeout": TX_STATUS_TIMEOUT,
 }
 
-// need to manually create `tx_status` type in a database first
+// Scan manually creates `tx_status` type in a database first
 // by "CREATE TYPE tx_status AS ENUM ('Pending', 'Success', 'Failed', 'Timeout')"
 func (t *TxStatus) Scan(value interface{}) error {
 	tx, ok := txStatusFromString[value.(string)]
@@ -44,4 +44,5 @@ func (t *TxStatus) Scan(value interface{}) error {
 	return nil
 }
 
+// Value converts TxStatus to a driver.Value (string form).
 func (t TxStatus) Value() (driver.Value, error) { return t.String(), nil }

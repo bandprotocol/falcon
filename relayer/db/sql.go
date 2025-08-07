@@ -4,6 +4,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -43,7 +44,7 @@ func NewSQL(driverName, dbPath string) (SQL, error) {
 		}
 
 	default:
-		return SQL{}, err
+		return SQL{}, gorm.ErrUnsupportedDriver
 	}
 
 	if err = db.AutoMigrate(&Transaction{}, &SignalPrice{}); err != nil {
@@ -56,32 +57,21 @@ func NewSQL(driverName, dbPath string) (SQL, error) {
 // AddOrUpdateTransaction inserts a new Transaction record if none exists with the same TxHash.
 // If an existing record is in PENDING state and the new transaction has progressed to a non-PENDING status.
 func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
-	var queryTransaction Transaction
-
-	err := sql.db.Where(&Transaction{TxHash: transaction.TxHash}).First(&queryTransaction).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// Insert transaction if not found
-			return sql.db.Create(transaction).Error
-		}
-		return err
-	}
-
-	// If the existing transaction is pending and the new status is not pending, update it
-	if queryTransaction.Status == chainstypes.TX_STATUS_PENDING &&
-		transaction.Status != chainstypes.TX_STATUS_PENDING {
-		if err := sql.db.
-			Where(&Transaction{TxHash: transaction.TxHash}).
-			Updates(&Transaction{
-				Status:            transaction.Status,
-				GasUsed:           transaction.GasUsed,
-				EffectiveGasPrice: transaction.EffectiveGasPrice,
-				BalanceDelta:      transaction.BalanceDelta,
-				Timestamp:         transaction.Timestamp,
-			}).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return sql.db.
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "tx_hash"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"status", "gas_used", "effective_gas_price", "balance_delta", "timestamp",
+			}),
+			Where: clause.Where{
+				Exprs: []clause.Expression{
+					clause.Expr{
+						SQL:  "status = ? AND EXCLUDED.status <> ?",
+						Vars: []interface{}{chainstypes.TX_STATUS_PENDING, chainstypes.TX_STATUS_PENDING},
+					},
+				},
+			},
+		}).
+		Create(transaction).
+		Error
 }
