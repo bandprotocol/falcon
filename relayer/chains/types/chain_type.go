@@ -65,13 +65,14 @@ func (c ChainType) MarshalText() ([]byte, error) {
 	return []byte(c.String()), nil
 }
 
-// need to manually create `chain_type` type in a database first
+// Scan manually creates `chain_type` type in a database first
 // by "CREATE TYPE chain_type AS ENUM ('evm')"
 func (c *ChainType) Scan(value interface{}) error {
 	*c = ToChainType(value.(string))
 	return nil
 }
 
+// Value converts ChainType to a driver.Value (string form).
 func (c ChainType) Value() (driver.Value, error) { return c.String(), nil }
 
 // ToChainType converts a string to a ChainType.
