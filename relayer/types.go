@@ -53,7 +53,7 @@ type Application interface {
 		account uint,
 		index uint,
 	) (*chainstypes.Key, error)
-	AddRemoteSignerKey(chainName string, keyName string, address string, url string) (*chainstypes.Key, error)
+	AddRemoteSignerKey(chainName string, keyName string, address string, url string, key *string) (*chainstypes.Key, error)
 	DeleteKey(chainName string, keyName string) error
 	ListKeys(chainName string) ([]*chainstypes.Key, error)
 	ExportKey(chainName string, keyName string) (string, error)
