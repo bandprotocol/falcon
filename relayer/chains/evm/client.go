@@ -6,12 +6,13 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/bandprotocol/falcon/relayer/logger"
 	ethereum "github.com/ethereum/go-ethereum"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"go.uber.org/zap"
+
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 var _ Client = &client{}

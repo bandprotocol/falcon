@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/bandprotocol/falcon/relayer/logger"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	"go.uber.org/zap"
+
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // Subscription is an object for handling the subscription to the event.
