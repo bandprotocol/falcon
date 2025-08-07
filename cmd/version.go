@@ -47,7 +47,5 @@ func VersionCmd(defaultHome string) *cobra.Command {
 		},
 	}
 
-	registerCommonFlags(versionCmd, defaultHome)
-
 	return versionCmd
 }

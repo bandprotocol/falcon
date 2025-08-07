@@ -49,6 +49,8 @@ func NewRootCmd() *cobra.Command {
 		),
 	}
 
+	registerCommonFlags(rootCmd, defaultHome)
+
 	ac := &AppCreator{}
 
 	// Register subcommands

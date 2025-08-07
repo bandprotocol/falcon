@@ -50,8 +50,6 @@ func KeysCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Command {
 		Short:   "Manage keys held by the relayer for each chain",
 	}
 
-	registerCommonFlags(cmd, defaultHome)
-
 	cmd.AddCommand(
 		keysAddCmd(appCreator, defaultHome),
 		keysDeleteCmd(appCreator, defaultHome),
