@@ -181,10 +181,12 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 }
 
 func (s *KeysTestSuite) TestAddRemoteSignerKey() {
+	testKey := "testKey"
 	type Input struct {
 		keyName string
 		addr    string
 		url     string
+		key     *string
 	}
 	testcases := []struct {
 		name  string
@@ -198,6 +200,17 @@ func (s *KeysTestSuite) TestAddRemoteSignerKey() {
 				keyName: "remotekey",
 				addr:    testAddress,
 				url:     "http://127.0.0.1:8545",
+				key:     &testKey,
+			},
+			out: chaintypes.NewKey("", testAddress, ""),
+		},
+		{
+			name: "nil key",
+			input: Input{
+				keyName: "nilkey",
+				addr:    testAddress,
+				url:     "http://127.0.0.1:8545",
+				key:     nil,
 			},
 			out: chaintypes.NewKey("", testAddress, ""),
 		},
@@ -209,6 +222,7 @@ func (s *KeysTestSuite) TestAddRemoteSignerKey() {
 				tc.input.keyName,
 				tc.input.addr,
 				tc.input.url,
+				tc.input.key,
 			)
 
 			s.Require().NoError(err)

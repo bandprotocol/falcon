@@ -102,28 +102,31 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 	s.Require().NoError(err)
 	validAddr := crypto.PubkeyToAddress(priv.PublicKey).Hex()
 
+	testKey := "testKey"
+
 	tests := []struct {
 		name      string
 		keyName   string
 		addr      string
 		url       string
+		key       *string
 		setup     func(w *geth.GethWallet)
 		wantErr   bool
 		errSubstr string
 	}{
-		{"first remote succeeds", "remote1", validAddr, "http://example.com", nil, false, ""},
+		{"first remote succeeds", "remote1", validAddr, "http://example.com", &testKey, nil, false, ""},
 		{
-			"duplicate name fails", "dup", validAddr, "http://x",
+			"duplicate name fails", "dup", validAddr, "http://x", &testKey,
 			func(w *geth.GethWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("dup", validAddr, "http://x"))
+				s.Require().NoError(w.SaveRemoteSignerKey("dup", validAddr, "http://x", &testKey))
 			},
 			true, "key name exists",
 		},
-		{"invalid address fails", "bad", "not-an-addr", "url", nil, true, "invalid address"},
+		{"invalid address fails", "bad", "not-an-addr", "url", &testKey, nil, true, "invalid address"},
 		{
-			"duplicate address fails", "another", validAddr, "http://y",
+			"duplicate address fails", "another", validAddr, "http://y", &testKey,
 			func(w *geth.GethWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("orig", validAddr, "http://orig"))
+				s.Require().NoError(w.SaveRemoteSignerKey("orig", validAddr, "http://orig", &testKey))
 			},
 			true, "address exists",
 		},
@@ -137,7 +140,7 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 				w, _ = geth.NewGethWallet(s.passphrase, home, s.chainName)
 			}
 
-			err := w.SaveRemoteSignerKey(tc.keyName, tc.addr, tc.url)
+			err := w.SaveRemoteSignerKey(tc.keyName, tc.addr, tc.url, tc.key)
 			if tc.wantErr {
 				s.Error(err)
 				s.Contains(err.Error(), tc.errSubstr)
@@ -163,6 +166,8 @@ func (s *WalletTestSuite) TestDeleteKey() {
 	s.Require().NoError(err)
 	addrHex := crypto.PubkeyToAddress(priv.PublicKey).Hex()
 
+	testKey := "testKey"
+
 	tests := []struct {
 		name      string
 		setup     func(w *geth.GethWallet)
@@ -181,7 +186,7 @@ func (s *WalletTestSuite) TestDeleteKey() {
 		{
 			"delete remote succeeds",
 			func(w *geth.GethWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("bob", addrHex, "http://u"))
+				s.Require().NoError(w.SaveRemoteSignerKey("bob", addrHex, "http://u", &testKey))
 			},
 			"bob", false, "",
 		},

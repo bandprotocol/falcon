@@ -74,18 +74,18 @@ func (mr *MockChainProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyH
 }
 
 // AddRemoteSignerKey mocks base method.
-func (m *MockChainProvider) AddRemoteSignerKey(keyName, addr, url string) (*types0.Key, error) {
+func (m *MockChainProvider) AddRemoteSignerKey(keyName, addr, url string, key *string) (*types0.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url)
+	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url, key)
 	ret0, _ := ret[0].(*types0.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddRemoteSignerKey indicates an expected call of AddRemoteSignerKey.
-func (mr *MockChainProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url any) *gomock.Call {
+func (mr *MockChainProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url, key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockChainProvider)(nil).AddRemoteSignerKey), keyName, addr, url)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockChainProvider)(nil).AddRemoteSignerKey), keyName, addr, url, key)
 }
 
 // DeleteKey mocks base method.
@@ -287,18 +287,18 @@ func (mr *MockKeyProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyHex
 }
 
 // AddRemoteSignerKey mocks base method.
-func (m *MockKeyProvider) AddRemoteSignerKey(keyName, addr, url string) (*types0.Key, error) {
+func (m *MockKeyProvider) AddRemoteSignerKey(keyName, addr, url string, key *string) (*types0.Key, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url)
+	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url, key)
 	ret0, _ := ret[0].(*types0.Key)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddRemoteSignerKey indicates an expected call of AddRemoteSignerKey.
-func (mr *MockKeyProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url any) *gomock.Call {
+func (mr *MockKeyProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url, key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockKeyProvider)(nil).AddRemoteSignerKey), keyName, addr, url)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockKeyProvider)(nil).AddRemoteSignerKey), keyName, addr, url, key)
 }
 
 // DeleteKey mocks base method.

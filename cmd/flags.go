@@ -10,6 +10,7 @@ const (
 	flagWalletIndex       = "index"
 	flagRemoteAddress     = "remote-address"
 	flagRemoteUrl         = "remote-url"
+	flagRemoteKey         = "remote-key"
 	flagMetricsListenAddr = "metrics-listen-addr"
 	flagTunnelCreator     = "tunnel-creator"
 	flagTunnelIds         = "tunnel-ids"
