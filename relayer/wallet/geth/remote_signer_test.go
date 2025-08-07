@@ -36,10 +36,12 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockClient = mocks.NewMockKmsEvmServiceClient(s.ctrl)
 
+	testKey := "testKey"
 	rs, err := geth.NewRemoteSigner(
 		name,
 		common.HexToAddress(address),
 		url,
+		&testKey,
 	)
 	s.Require().NoError(err)
 

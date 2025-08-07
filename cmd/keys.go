@@ -39,6 +39,7 @@ type AddKeyInput struct {
 type RemoteSignerInput struct {
 	Address string
 	Url     string
+	Key     *string
 }
 
 // KeysCmd represents the keys command
@@ -122,6 +123,14 @@ keys add eth test-key`),
 				return err
 			}
 
+			if cmd.Flags().Changed(flagRemoteKey) {
+				remoteSignerKey, err := cmd.Flags().GetString(flagRemoteKey)
+				if err != nil {
+					return err
+				}
+				input.RemoteSigner.Key = &remoteSignerKey
+			}
+
 			if err := validateAddKeyInput(input); err != nil {
 				return err
 			}
@@ -147,6 +156,7 @@ keys add eth test-key`),
 					keyName,
 					input.RemoteSigner.Address,
 					input.RemoteSigner.Url,
+					input.RemoteSigner.Key,
 				)
 				if err != nil {
 					return err
@@ -183,6 +193,7 @@ keys add eth test-key`),
 
 	cmd.Flags().String(flagRemoteAddress, "", "address of the remote signer key")
 	cmd.Flags().String(flagRemoteUrl, "", "URL endpoint of the kms service")
+	cmd.Flags().String(flagRemoteKey, "", "key for authenticating with the remote KMS signer service")
 
 	return cmd
 }
