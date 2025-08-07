@@ -24,10 +24,7 @@ type AppOptions interface {
 
 // AppCreator is a function that allows us to lazily initialize an
 // application using various configurations.
-type AppCreator func(
-	store store.Store,
-	appOpt AppOptions,
-) (Application, error)
+type AppCreator func(store store.Store, appOpt AppOptions) (Application, error)
 
 // Application is an interface that wraps the basic methods of the application.
 type Application interface {
