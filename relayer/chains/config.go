@@ -26,7 +26,7 @@ type ChainProviderConfigs map[string]ChainProviderConfig
 type ChainProviderConfig interface {
 	NewChainProvider(
 		chainName string,
-		log logger.Logger,
+		log logger.ZapLogger,
 		wallet wallet.Wallet,
 	) (ChainProvider, error)
 

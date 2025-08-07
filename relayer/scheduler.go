@@ -16,7 +16,7 @@ import (
 
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
-	Log                    logger.Logger
+	Log                    logger.ZapLogger
 	CheckingPacketInterval time.Duration
 	SyncTunnelsInterval    time.Duration
 	PenaltySkipRounds      uint
@@ -31,7 +31,7 @@ type Scheduler struct {
 
 // NewScheduler creates a new Scheduler
 func NewScheduler(
-	log logger.Logger,
+	log logger.ZapLogger,
 	checkingPacketInterval time.Duration,
 	syncTunnelsInterval time.Duration,
 	penaltySkipRounds uint,

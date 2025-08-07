@@ -41,14 +41,14 @@ type client struct {
 	QueryTimeout   time.Duration
 	ExecuteTimeout time.Duration
 
-	Log logger.Logger
+	Log logger.ZapLogger
 
 	selectedEndpoint string
 	client           *ethclient.Client
 }
 
 // NewClient creates a new EVM client from config file and load keys.
-func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger) *client {
+func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.ZapLogger) *client {
 	return &client{
 		ChainName:      chainName,
 		Endpoints:      cfg.Endpoints,

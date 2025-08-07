@@ -38,7 +38,7 @@ type EVMChainProvider struct {
 	TunnelRouterAddress gethcommon.Address
 	TunnelRouterABI     abi.ABI
 
-	Log logger.Logger
+	Log logger.ZapLogger
 
 	Wallet wallet.Wallet
 }
@@ -48,7 +48,7 @@ func NewEVMChainProvider(
 	chainName string,
 	client Client,
 	cfg *EVMChainProviderConfig,
-	log logger.Logger,
+	log logger.ZapLogger,
 	wallet wallet.Wallet,
 ) (*EVMChainProvider, error) {
 	// load abis here

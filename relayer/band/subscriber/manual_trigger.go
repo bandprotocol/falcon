@@ -22,7 +22,7 @@ type ManualTriggerSubscriber struct {
 
 // NewManualTriggerSubscriber creates a new ManualTriggerSubscriber.
 func NewManualTriggerSubscriber(
-	log logger.Logger,
+	log logger.ZapLogger,
 	tunnelIDCh chan<- uint64,
 	timeout time.Duration,
 ) *ManualTriggerSubscriber {
@@ -53,7 +53,7 @@ func NewManualTriggerSubscriber(
 // onHandleManualTriggeredEvent handles the manual triggered event.
 func onHandleManualTriggeredEvent(
 	tunnelIDCh chan<- uint64,
-	log logger.Logger,
+	log logger.ZapLogger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
 		attrs := msg.Events

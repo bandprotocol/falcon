@@ -6,8 +6,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Logger is an interface that wraps the basic methods of the logger.
-type Logger interface {
+// ZapLogger is an interface that implements the basic methods of the zap logger.
+type ZapLogger interface {
 	Debug(msg string, fields ...zap.Field)
 	Info(msg string, fields ...zap.Field)
 	Warn(msg string, fields ...zap.Field)
@@ -16,6 +16,6 @@ type Logger interface {
 	Panic(msg string, fields ...zap.Field)
 
 	Sync() error
-	With(fields ...zap.Field) Logger
+	With(fields ...zap.Field) ZapLogger
 	ToStdLog() *log.Logger
 }

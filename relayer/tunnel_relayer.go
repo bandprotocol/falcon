@@ -28,7 +28,7 @@ const (
 
 // TunnelRelayer is a relayer that listens to the tunnel and relays the packet
 type TunnelRelayer struct {
-	Log                    logger.Logger
+	Log                    logger.ZapLogger
 	TunnelID               uint64
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
@@ -41,7 +41,7 @@ type TunnelRelayer struct {
 
 // NewTunnelRelayer creates a new TunnelRelayer
 func NewTunnelRelayer(
-	log logger.Logger,
+	log logger.ZapLogger,
 	tunnelID uint64,
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,

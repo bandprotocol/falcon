@@ -21,7 +21,7 @@ var _ Application = &App{}
 
 // App is the main application struct.
 type App struct {
-	Log    logger.Logger
+	Log    logger.ZapLogger
 	Config *config.Config
 	Store  store.Store
 
@@ -32,7 +32,7 @@ type App struct {
 
 // NewApp creates a new App instance.
 func NewApp(
-	log logger.Logger,
+	log logger.ZapLogger,
 	config *config.Config,
 	passphrase string,
 	store store.Store,
@@ -439,7 +439,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 }
 
 // GetLog retrieves the log of the application.
-func (a *App) GetLog() logger.Logger {
+func (a *App) GetLog() logger.ZapLogger {
 	return a.Log
 }
 

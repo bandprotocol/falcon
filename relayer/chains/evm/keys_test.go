@@ -29,7 +29,7 @@ type KeysTestSuite struct {
 	suite.Suite
 
 	chainProvider *evm.EVMChainProvider
-	log           logger.Logger
+	log           logger.ZapLogger
 	homePath      string
 	wallet        wallet.Wallet
 }

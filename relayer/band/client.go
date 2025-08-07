@@ -46,7 +46,7 @@ type Client interface {
 type client struct {
 	Context     cosmosclient.Context
 	QueryClient QueryClient
-	Log         logger.Logger
+	Log         logger.ZapLogger
 	Config      *Config
 	Subscribers []subscriber.Subscriber
 
@@ -54,7 +54,7 @@ type client struct {
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(queryClient QueryClient, log logger.Logger, bandChainCfg *Config) Client {
+func NewClient(queryClient QueryClient, log logger.ZapLogger, bandChainCfg *Config) Client {
 	encodingConfig := MakeEncodingConfig()
 	ctx := cosmosclient.Context{}.
 		WithCodec(encodingConfig.Marshaler).

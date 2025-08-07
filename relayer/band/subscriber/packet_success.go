@@ -22,7 +22,7 @@ type PacketSuccessSubscriber struct {
 
 // NewPacketSuccessSubscriber creates a new PacketSuccessSubscriber.
 func NewPacketSuccessSubscriber(
-	log logger.Logger,
+	log logger.ZapLogger,
 	tunnelIDCh chan<- uint64,
 	timeout time.Duration,
 ) *PacketSuccessSubscriber {
@@ -53,7 +53,7 @@ func NewPacketSuccessSubscriber(
 // onHandlePacketSuccessEvent handles the produce packet success event.
 func onHandlePacketSuccessEvent(
 	tunnelIDCh chan<- uint64,
-	log logger.Logger,
+	log logger.ZapLogger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
 		attrs := msg.Events

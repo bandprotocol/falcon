@@ -209,7 +209,7 @@ func InitPrometheusMetrics() {
 // accepting connections on the given listener.
 // Any HTTP logging will be written at info level to the given logger.
 // The server will be forcefully shut down when ctx finishes.
-func StartMetricsServer(ctx context.Context, log logger.Logger, metricsListenAddr string) error {
+func StartMetricsServer(ctx context.Context, log logger.ZapLogger, metricsListenAddr string) error {
 	ln, err := net.Listen("tcp", metricsListenAddr)
 	if err != nil {
 		log.Error(

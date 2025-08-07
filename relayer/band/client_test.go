@@ -32,7 +32,7 @@ type ClientTestSuite struct {
 	ctx             context.Context
 	bandQueryClient *mocks.MockQueryClient
 	client          band.Client
-	log             logger.Logger
+	log             logger.ZapLogger
 }
 
 func TestClientTestSuite(t *testing.T) {

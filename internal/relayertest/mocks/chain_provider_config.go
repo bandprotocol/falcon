@@ -57,7 +57,7 @@ func (mr *MockChainProviderConfigMockRecorder) GetChainType() *gomock.Call {
 }
 
 // NewChainProvider mocks base method.
-func (m *MockChainProviderConfig) NewChainProvider(chainName string, log logger.Logger, arg2 wallet.Wallet) (chains.ChainProvider, error) {
+func (m *MockChainProviderConfig) NewChainProvider(chainName string, log logger.ZapLogger, arg2 wallet.Wallet) (chains.ChainProvider, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, arg2)
 	ret0, _ := ret[0].(chains.ChainProvider)

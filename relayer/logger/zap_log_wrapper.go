@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var _ Logger = (*ZapLogWrapper)(nil)
+var _ ZapLogger = (*ZapLogWrapper)(nil)
 
 // ZapLogWrapper is a wrapper around the zap logger so that it align with an Logger interface.
 // Note: zap.Logger doesn't implement Logger.With in which return *zap.Logger itself (external package)
@@ -20,7 +20,7 @@ func NewZapLogWrapper(inner *zap.Logger) *ZapLogWrapper {
 }
 
 // With returns a new Logger with the given fields.
-func (w *ZapLogWrapper) With(fields ...zap.Field) Logger {
+func (w *ZapLogWrapper) With(fields ...zap.Field) ZapLogger {
 	return NewZapLogWrapper(w.inner.With(fields...))
 }
 
