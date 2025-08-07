@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"fmt"
+	"github.com/spf13/cast"
 
 	"github.com/bandprotocol/falcon/relayer"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -17,25 +17,15 @@ func (a *AppCreator) NewApp(
 	store store.Store,
 	opts relayer.AppOptions,
 ) (relayer.Application, error) {
-	passphrase, err := getOptString(opts, EnvPassphrase)
-	if err != nil {
-		return nil, err
-	}
+	passphrase := cast.ToString(opts.Get(EnvPassphrase))
 
 	cfg, err := store.GetConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	logLevel, err := getOptString(opts, flagLogLevel)
-	if err != nil {
-		return nil, err
-	}
-
-	logFormat, err := getOptString(opts, flagLogFormat)
-	if err != nil {
-		return nil, err
-	}
+	logLevel := cast.ToString(opts.Get(FlagLogLevel))
+	logFormat := cast.ToString(opts.Get(FlagLogFormat))
 
 	log, err := initLogger(logLevel, logFormat)
 	if err != nil {
@@ -45,18 +35,4 @@ func (a *AppCreator) NewApp(
 	logWrapper := logger.NewZapLogWrapper(log)
 	app := relayer.NewApp(logWrapper, cfg, passphrase, store)
 	return app, nil
-}
-
-func getOptString(opts relayer.AppOptions, key string) (string, error) {
-	res := ""
-	opt := opts.Get(key)
-	if opt != nil {
-		var ok bool
-		res, ok = opt.(string)
-		if !ok {
-			return "", fmt.Errorf("%s require a string or empty string", key)
-		}
-	}
-
-	return res, nil
 }

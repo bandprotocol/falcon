@@ -152,7 +152,7 @@ func createApp(
 		return nil, err
 	}
 
-	home := vp.GetString(flagHome)
+	home := vp.GetString(FlagHome)
 	if home == "" {
 		home = defaultHome
 	}

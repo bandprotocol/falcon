@@ -3,9 +3,10 @@ package cmd
 import "github.com/spf13/cobra"
 
 const (
-	flagHome              = "home"
-	flagLogLevel          = "log-level"
-	flagLogFormat         = "log-format"
+	FlagHome      = "home"
+	FlagLogLevel  = "log-level"
+	FlagLogFormat = "log-format"
+
 	flagFile              = "file"
 	flagPrivateKey        = "private-key"
 	flagMnemonic          = "mnemonic"
@@ -22,7 +23,7 @@ const (
 
 // registerCommonFlags registers the common flags for the command.
 func registerCommonFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().String(flagHome, defaultHome, "set home directory")
-	cmd.PersistentFlags().String(flagLogLevel, "", "log level format (info, debug, warn, error, panic or fatal)")
-	cmd.PersistentFlags().String(flagLogFormat, "auto", "log output format (auto, logfmt, json, or console)")
+	cmd.PersistentFlags().String(FlagHome, defaultHome, "set home directory")
+	cmd.PersistentFlags().String(FlagLogLevel, "", "log level format (info, debug, warn, error, panic or fatal)")
+	cmd.PersistentFlags().String(FlagLogFormat, "auto", "log output format (auto, logfmt, json, or console)")
 }
