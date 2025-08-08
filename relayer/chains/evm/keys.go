@@ -27,11 +27,13 @@ func (cp *EVMChainProvider) AddKeyByMnemonic(
 	index uint,
 ) (*chainstypes.Key, error) {
 	var err error
+	generatedMnemonic := ""
 	if mnemonic == "" {
 		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
 		if err != nil {
 			return nil, err
 		}
+		generatedMnemonic = mnemonic
 	}
 
 	// Generate private key using mnemonic
@@ -40,7 +42,7 @@ func (cp *EVMChainProvider) AddKeyByMnemonic(
 		return nil, err
 	}
 
-	return cp.finalizeKeyAddition(keyName, priv, mnemonic)
+	return cp.finalizeKeyAddition(keyName, priv, generatedMnemonic)
 }
 
 // AddKeyByPrivateKey adds a key using a raw private key.

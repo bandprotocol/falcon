@@ -750,7 +750,8 @@ func (cp *EVMChainProvider) saveTransaction(
 
 		blockTimestamp = time.Unix(int64(block.Time()), 0).UTC()
 
-		// find new balance
+		// Compute new balance
+		// Note: this may be incorrect if other transactions affected the user's balance during this period.
 		if oldBalance != nil {
 			newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
 			if err != nil {
