@@ -183,7 +183,6 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 						"expected generated mnemonic to be returned when none is provided",
 					)
 				}
-
 			}
 		})
 	}
