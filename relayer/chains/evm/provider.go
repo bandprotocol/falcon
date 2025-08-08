@@ -204,6 +204,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		var checkTxErr error
 		var txStatus chainstypes.TxStatus
+		savedOnce := false
 	checkTxLogic:
 		for time.Since(createdAt) < cp.Config.WaitingTxDuration {
 			result, err := cp.CheckConfirmedTx(ctx, txHash)
@@ -218,8 +219,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				checkTxErr = err
 				txStatus = chainstypes.TX_STATUS_PENDING
 				// update in db as pending
-				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+				if !savedOnce {
+					if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
+						log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+					} else {
+						savedOnce = true
+					}
 				}
 				time.Sleep(cp.Config.CheckingTxInterval)
 				continue
@@ -276,8 +281,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				break checkTxLogic
 			case chainstypes.TX_STATUS_PENDING:
 				// update db as pending
-				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-					log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+				if !savedOnce {
+					if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
+						log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+					} else {
+						savedOnce = true
+					}
 				}
 
 				log.Debug(
@@ -725,12 +734,12 @@ func (cp *EVMChainProvider) saveTransaction(
 		return nil
 	}
 
-	signalPrices := make([]db.SignalPrice, 0)
+	var signalPrices []db.SignalPrice
 	for _, p := range packet.SignalPrices {
 		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
 	}
 
-	timestamp := uint64(0)
+	var blockTimestamp time.Time
 	balanceDelta := decimal.NullDecimal{}
 
 	if txResult.Status == chainstypes.TX_STATUS_SUCCESS || txResult.Status == chainstypes.TX_STATUS_FAILED {
@@ -738,7 +747,8 @@ func (cp *EVMChainProvider) saveTransaction(
 		if err != nil {
 			return fmt.Errorf("failed to get block: %w", err)
 		}
-		timestamp = block.Time()
+
+		blockTimestamp = time.Unix(int64(block.Time()), 0).UTC()
 
 		// find new balance
 		if oldBalance != nil {
@@ -762,7 +772,7 @@ func (cp *EVMChainProvider) saveTransaction(
 		txResult.EffectiveGasPrice,
 		balanceDelta,
 		signalPrices,
-		time.Unix(int64(timestamp), 0).UTC(),
+		blockTimestamp,
 	)
 
 	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
+	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
@@ -30,6 +31,7 @@ type AppCreator func(store store.Store, appOpt AppOptions) (Application, error)
 type Application interface {
 	Init(ctx context.Context) error
 	InitTargetChain(chainName string) error
+	InitDatabase(dbPath string) (db.Database, error)
 
 	GetConfig() *config.Config
 	SaveConfig(cfg *config.Config) error

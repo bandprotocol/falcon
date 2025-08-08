@@ -65,8 +65,9 @@ func (c ChainType) MarshalText() ([]byte, error) {
 	return []byte(c.String()), nil
 }
 
-// Scan manually creates `chain_type` type in a database first
-// by "CREATE TYPE chain_type AS ENUM ('evm')"
+// Scan scans string value into ChainType, implements sql.Scanner interface.
+// (needs to manually creates `chain_type` type in a database first
+// by "CREATE TYPE chain_type AS ENUM ('evm')")
 func (c *ChainType) Scan(value interface{}) error {
 	*c = ToChainType(value.(string))
 	return nil
