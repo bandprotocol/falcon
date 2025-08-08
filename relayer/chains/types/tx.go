@@ -33,8 +33,9 @@ var txStatusFromString = map[string]TxStatus{
 	"Timeout": TX_STATUS_TIMEOUT,
 }
 
-// Scan manually creates `tx_status` type in a database first
-// by "CREATE TYPE tx_status AS ENUM ('Pending', 'Success', 'Failed', 'Timeout')"
+// Scan scans string value into TxStatus, implements sql.Scanner interface.
+// (need to manually creates `tx_status` type in a database first
+// by "CREATE TYPE tx_status AS ENUM ('Pending', 'Success', 'Failed', 'Timeout')")
 func (t *TxStatus) Scan(value interface{}) error {
 	tx, ok := txStatusFromString[value.(string)]
 	if !ok {

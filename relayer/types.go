@@ -8,6 +8,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
+	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
@@ -29,6 +30,7 @@ type AppCreator func(store store.Store, appOpt AppOptions) (Application, error)
 // Application is an interface that wraps the basic methods of the application.
 type Application interface {
 	Init(ctx context.Context) error
+	InitDatabase(dbPath string) (db.Database, error)
 
 	GetConfig() *config.Config
 	SaveConfig(cfg *config.Config) error
@@ -50,7 +52,13 @@ type Application interface {
 		account uint,
 		index uint,
 	) (*chainstypes.Key, error)
-	AddRemoteSignerKey(chainName string, keyName string, address string, url string, key *string) (*chainstypes.Key, error)
+	AddRemoteSignerKey(
+		chainName string,
+		keyName string,
+		address string,
+		url string,
+		key *string,
+	) (*chainstypes.Key, error)
 	DeleteKey(chainName string, keyName string) error
 	ListKeys(chainName string) ([]*chainstypes.Key, error)
 	ExportKey(chainName string, keyName string) (string, error)

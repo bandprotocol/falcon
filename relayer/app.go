@@ -111,6 +111,12 @@ func (a *App) initTargetChains() error {
 	return nil
 }
 
+// InitDatabase initializes the application’s database connection.
+func (a *App) InitDatabase(dbPath string) (db.Database, error) {
+	driver := strings.Split(dbPath, ":")[0]
+	return db.NewSQL(driver, dbPath)
+}
+
 // GetConfig retrieves the configuration from the application's store.
 func (a *App) GetConfig() *config.Config {
 	return a.Config
@@ -371,7 +377,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 	var err error
 	dbPath := a.Config.Global.DBPath
 	if dbPath != "" {
-		database, err = a.initDatabase(dbPath)
+		database, err = a.InitDatabase(dbPath)
 		if err != nil {
 			return err
 		}
@@ -479,9 +485,4 @@ func (a *App) getChainProvider(chainName string) (chains.ChainProvider, error) {
 	}
 
 	return cp, nil
-}
-
-func (a *App) initDatabase(dbPath string) (db.Database, error) {
-	driver := strings.Split(dbPath, ":")[0]
-	return db.NewSQL(driver, dbPath)
 }
