@@ -130,10 +130,8 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (add
 		return "", err
 	}
 
-	if err := w.saveSignerRecord(name, SignerRecord{
-		Address: addr,
-		Type:    LocalSignerType,
-	}); err != nil {
+	signerRecord := NewSignerRecord(addr, LocalSignerType)
+	if err := w.saveSignerRecord(name, signerRecord); err != nil {
 		return "", err
 	}
 
@@ -159,16 +157,13 @@ func (w *GethWallet) SaveRemoteSignerKey(name, address, url string, key *string)
 	}
 
 	// save the signer
-	if err := w.saveSignerRecord(name, SignerRecord{
-		Address: address,
-		Type:    RemoteSignerType,
-	}); err != nil {
+	signerRecord := NewSignerRecord(address, RemoteSignerType)
+	if err := w.saveSignerRecord(name, signerRecord); err != nil {
 		return err
 	}
-	if err := w.saveRemoteSignerRecord(name, RemoteSignerRecord{
-		Url: url,
-		Key: key,
-	}); err != nil {
+
+	remoteSignerRecord := NewRemoteSignerRecord(url, key)
+	if err := w.saveRemoteSignerRecord(name, remoteSignerRecord); err != nil {
 		return err
 	}
 
