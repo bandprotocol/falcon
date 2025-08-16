@@ -406,16 +406,20 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 	}
 
 	// start the tunnel relayers
-	scheduler := NewScheduler(
-		a.Log,
-		a.Config.Global.CheckingPacketInterval,
-		a.Config.Global.SyncTunnelsInterval,
-		a.Config.Global.PenaltySkipRounds,
-		a.BandClient,
-		a.TargetChains,
-	)
+	scheduler := NewScheduler(a.Log, a.Config, a.BandClient, a.TargetChains, tunnelCreator)
 
-	return scheduler.Start(ctx, tunnelIDs, tunnelCreator, a.Config.BandChain.Timeout)
+	// if tunnelIDs is provided, set the tunnels to the scheduler
+	if len(tunnelIDs) > 0 {
+		tunnels, err := a.getTunnelsByIDs(ctx, tunnelIDs)
+		if err != nil {
+			return err
+		}
+
+		scheduler = scheduler.WithTunnels(tunnels)
+	}
+
+	isSyncTunnels := len(tunnelIDs) == 0
+	return scheduler.Start(ctx, isSyncTunnels)
 }
 
 // Relay relays the packet from the source chain to the destination chain.
@@ -485,4 +489,23 @@ func (a *App) getChainProvider(chainName string) (chains.ChainProvider, error) {
 	}
 
 	return cp, nil
+}
+
+// getTunnelsByIDs retrieves the tunnels by given tunnel IDs.
+func (a *App) getTunnelsByIDs(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
+	var tunnels []bandtypes.Tunnel
+	for _, tunnelID := range tunnelIDs {
+		tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
+		if err != nil {
+			a.Log.Error("Cannot get tunnel from BandChain",
+				zap.Error(err),
+				zap.Uint64("tunnel_id", tunnelID),
+			)
+			return nil, err
+		}
+
+		tunnels = append(tunnels, *tunnel)
+	}
+
+	return tunnels, nil
 }
