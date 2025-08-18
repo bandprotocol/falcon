@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package kms.v1;
+package fkms.v1;
 
-option go_package = "github.com/bandprotocol/falcon/proto/kms/v1;kmsv1";
+option go_package = "github.com/bandprotocol/falcon/proto/fkms/v1;fkmsv1";
 
-service KmsEvmService {
+service FkmsService {
   rpc SignEvm(SignEvmRequest) returns (SignEvmResponse);
   rpc GetSignerAddresses(GetSignerAddressesRequest) returns (GetSignerAddressesResponse);
 }

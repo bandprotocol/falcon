@@ -182,15 +182,15 @@ func (mr *MockWalletMockRecorder) SavePrivateKey(name, privKey any) *gomock.Call
 }
 
 // SaveRemoteSignerKey mocks base method.
-func (m *MockWallet) SaveRemoteSignerKey(name, addr, url string) error {
+func (m *MockWallet) SaveRemoteSignerKey(name, addr, url string, key *string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveRemoteSignerKey", name, addr, url)
+	ret := m.ctrl.Call(m, "SaveRemoteSignerKey", name, addr, url, key)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SaveRemoteSignerKey indicates an expected call of SaveRemoteSignerKey.
-func (mr *MockWalletMockRecorder) SaveRemoteSignerKey(name, addr, url any) *gomock.Call {
+func (mr *MockWalletMockRecorder) SaveRemoteSignerKey(name, addr, url, key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveRemoteSignerKey", reflect.TypeOf((*MockWallet)(nil).SaveRemoteSignerKey), name, addr, url)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveRemoteSignerKey", reflect.TypeOf((*MockWallet)(nil).SaveRemoteSignerKey), name, addr, url, key)
 }
