@@ -39,10 +39,11 @@ func NewApp(
 	store store.Store,
 ) *App {
 	app := App{
-		Log:        log,
-		Config:     config,
-		Store:      store,
-		Passphrase: passphrase,
+		Log:          log,
+		Config:       config,
+		Store:        store,
+		Passphrase:   passphrase,
+		TargetChains: make(chains.ChainProviders),
 	}
 	return &app
 }
@@ -83,32 +84,49 @@ func (a *App) connectBandClient(ctx context.Context) error {
 
 // initTargetChains initializes the target chains.
 func (a *App) initTargetChains() error {
-	a.TargetChains = make(chains.ChainProviders)
 	fmt.Println("initTargetChains:", time.Now())
 
-	for chainName, chainConfig := range a.Config.TargetChains {
-		fmt.Println("initWallet:", time.Now())
-		wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
-		if err != nil {
-			a.Log.Error("Wallet registry not found",
-				zap.Error(err),
-				zap.String("chain_name", chainName),
-			)
+	for chainName := range a.Config.TargetChains {
+		if err := a.InitTargetChain(chainName); err != nil {
 			return err
 		}
-
-		fmt.Println("NewChainProvider:", chainName, time.Now())
-		cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet)
-		if err != nil {
-			a.Log.Error("Cannot create chain provider",
-				zap.Error(err),
-				zap.String("chain_name", chainName),
-			)
-			return err
-		}
-
-		a.TargetChains[chainName] = cp
 	}
+
+	return nil
+}
+
+// InitTargetChain initializes the given target chain.
+func (a *App) InitTargetChain(chainName string) error {
+	if a.Config == nil {
+		return fmt.Errorf("config is not initialized")
+	}
+
+	chainConfig, ok := a.Config.TargetChains[chainName]
+	if !ok {
+		return fmt.Errorf("chain config not found: %s", chainName)
+	}
+
+	fmt.Println("initWallet:", time.Now())
+	wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
+	if err != nil {
+		a.Log.Error("Wallet registry not found",
+			zap.Error(err),
+			zap.String("chain_name", chainName),
+		)
+		return err
+	}
+
+	fmt.Println("NewChainProvider:", chainName, time.Now())
+	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet)
+	if err != nil {
+		a.Log.Error("Cannot create chain provider",
+			zap.Error(err),
+			zap.String("chain_name", chainName),
+		)
+		return err
+	}
+
+	a.TargetChains[chainName] = cp
 
 	return nil
 }

@@ -83,12 +83,12 @@ keys add eth test-key`),
 			fmt.Println("[after createApp] time: ", time.Now())
 			defer syncLog(app.GetLog())
 
-			if err := app.Init(cmd.Context()); err != nil {
-				return err
-			}
-
 			chainName := args[0]
 			keyName := args[1]
+
+			if err := app.InitTargetChain(chainName); err != nil {
+				return err
+			}
 
 			input := &AddKeyInput{}
 			input.Mnemonic, err = cmd.Flags().GetString(flagMnemonic)
