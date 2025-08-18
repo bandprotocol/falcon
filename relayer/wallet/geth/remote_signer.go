@@ -18,10 +18,10 @@ var _ wallet.Signer = (*RemoteSigner)(nil)
 
 // RemoteSigner is signer that uses KMS service to sign data.
 type RemoteSigner struct {
-	Name      string
-	Address   common.Address
-	KmsClient fkmsv1.FkmsServiceClient
-	Key       *string
+	Name       string
+	Address    common.Address
+	FkmsClient fkmsv1.FkmsServiceClient
+	Key        *string
 }
 
 // NewRemoteSigner creates a new RemoteSigner instance.
@@ -31,13 +31,13 @@ func NewRemoteSigner(name string, address common.Address, url string, key *strin
 		return nil, fmt.Errorf("failed to connect to remote signer at %s: %w", url, err)
 	}
 
-	kmsClient := fkmsv1.NewFkmsServiceClient(conn)
+	fkmsClient := fkmsv1.NewFkmsServiceClient(conn)
 
 	return &RemoteSigner{
-		Name:      name,
-		Address:   address,
-		KmsClient: kmsClient,
-		Key:       key,
+		Name:       name,
+		Address:    address,
+		FkmsClient: fkmsClient,
+		Key:        key,
 	}, nil
 }
 
@@ -63,7 +63,7 @@ func (r *RemoteSigner) Sign(data []byte) ([]byte, error) {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))
 	}
 
-	res, err := r.KmsClient.SignEvm(
+	res, err := r.FkmsClient.SignEvm(
 		ctx,
 		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},
 	)

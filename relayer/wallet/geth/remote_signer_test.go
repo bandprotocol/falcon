@@ -47,7 +47,7 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 
 	s.rs = rs
 
-	s.rs.KmsClient = s.mockClient
+	s.rs.FkmsClient = s.mockClient
 }
 
 func (s *RemoteSignerTestSuite) TestExportPrivateKey() {
