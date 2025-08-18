@@ -127,11 +127,13 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (add
 	}
 
 	// save the signer
+	fmt.Println("import ECDSA", time.Now())
 	_, err = w.Store.ImportECDSA(privKey, w.Passphrase)
 	if err != nil {
 		return "", err
 	}
 
+	fmt.Println("start saveSignerRecord", time.Now())
 	if err := w.saveSignerRecord(name, SignerRecord{
 		Address: addr,
 		Type:    LocalSignerType,
@@ -139,6 +141,7 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (add
 		return "", err
 	}
 
+	fmt.Println("finish saveSignerRecord", time.Now())
 	return addr, nil
 }
 
