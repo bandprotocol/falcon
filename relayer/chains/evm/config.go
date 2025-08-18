@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -34,8 +35,10 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 	log logger.ZapLogger,
 	wallet wallet.Wallet,
 ) (chains.ChainProvider, error) {
+	fmt.Println("NewClient:", time.Now())
 	client := NewClient(chainName, cpc, log)
 
+	fmt.Println("EVMChainProviderConfig.NewEVMChainProvider", time.Now())
 	return NewEVMChainProvider(chainName, client, cpc, log, wallet)
 }
 

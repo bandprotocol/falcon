@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -51,6 +52,7 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 		return nil, err
 	}
 
+	fmt.Println("assign signer into map:", time.Now())
 	signers := make(map[string]wallet.Signer)
 	for name, signerRecord := range signerRecords {
 		gethAddr, err := HexToETHAddress(signerRecord.Address)

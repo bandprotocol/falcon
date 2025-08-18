@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -72,10 +73,14 @@ func keysAddCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Comman
 k add eth test-key
 keys add eth test-key`),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			fmt.Println("[start] time: ", time.Now())
+
 			app, err := createApp(cmd, appCreator, defaultHome)
 			if err != nil {
 				return err
 			}
+
+			fmt.Println("[after createApp] time: ", time.Now())
 			defer syncLog(app.GetLog())
 
 			if err := app.Init(cmd.Context()); err != nil {
