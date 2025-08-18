@@ -291,3 +291,11 @@ falcon start
 ``` shell
 falcon start 1 2 3
 ```
+
+## Generate Go Protobuf Code
+Falcon uses gRPC and Protocol Buffers for its internal APIs.
+If you modify any .proto files under the proto/ directory, regenerate the Go code by running:
+
+```sh
+make proto
+```
