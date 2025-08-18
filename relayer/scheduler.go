@@ -59,7 +59,7 @@ func NewScheduler(
 
 // WithTunnelIDs sets the tunnel IDs to the scheduler.
 func (s *Scheduler) WithTunnels(tunnels []bandtypes.Tunnel) *Scheduler {
-	validTunnels := s.validateTunnels(tunnels)
+	validTunnels := s.filterTunnels(tunnels)
 	s.setTunnelRelayer(validTunnels)
 
 	return s
@@ -171,7 +171,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 
 	newTunnels := tunnels[min(s.bandLatestTunnel, len(tunnels)):]
 
-	validTunnels := s.validateTunnels(newTunnels)
+	validTunnels := s.filterTunnels(newTunnels)
 	if len(validTunnels) == 0 {
 		s.Log.Info("No new tunnels to sync")
 		return
@@ -257,8 +257,8 @@ func (s *Scheduler) isSupportedTunnel(tunnel bandtypes.Tunnel) bool {
 	return true
 }
 
-// validateTunnels validates the tunnel and returns the valid tunnels.
-func (s *Scheduler) validateTunnels(tunnels []bandtypes.Tunnel) []bandtypes.Tunnel {
+// filterTunnels selects only the supported tunnel and returns the valid tunnels.
+func (s *Scheduler) filterTunnels(tunnels []bandtypes.Tunnel) []bandtypes.Tunnel {
 	var validTunnels []bandtypes.Tunnel
 	for _, tunnel := range tunnels {
 		if !s.isSupportedTunnel(tunnel) {
