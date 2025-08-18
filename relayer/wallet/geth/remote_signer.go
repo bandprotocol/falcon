@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
-	kmsv1 "github.com/bandprotocol/falcon/proto/kms/v1"
+	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
@@ -20,7 +20,7 @@ var _ wallet.Signer = (*RemoteSigner)(nil)
 type RemoteSigner struct {
 	Name      string
 	Address   common.Address
-	KmsClient kmsv1.KmsEvmServiceClient
+	KmsClient fkmsv1.FkmsServiceClient
 	Key       *string
 }
 
@@ -31,7 +31,7 @@ func NewRemoteSigner(name string, address common.Address, url string, key *strin
 		return nil, fmt.Errorf("failed to connect to remote signer at %s: %w", url, err)
 	}
 
-	kmsClient := kmsv1.NewKmsEvmServiceClient(conn)
+	kmsClient := fkmsv1.NewFkmsServiceClient(conn)
 
 	return &RemoteSigner{
 		Name:      name,
@@ -65,7 +65,7 @@ func (r *RemoteSigner) Sign(data []byte) ([]byte, error) {
 
 	res, err := r.KmsClient.SignEvm(
 		ctx,
-		&kmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},
+		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},
 	)
 	if err != nil {
 		return []byte{}, err
