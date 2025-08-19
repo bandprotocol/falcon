@@ -57,7 +57,7 @@ func NewScheduler(
 	}
 }
 
-// WithTunnelIDs sets the tunnel IDs to the scheduler.
+// WithTunnels sets the tunnel relayer to the scheduler from the given tunnels.
 func (s *Scheduler) WithTunnels(tunnels []bandtypes.Tunnel) *Scheduler {
 	validTunnels := s.filterTunnels(tunnels)
 	s.setTunnelRelayer(validTunnels)
