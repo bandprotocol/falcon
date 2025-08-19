@@ -9,7 +9,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
-	kmsv1 "github.com/bandprotocol/falcon/proto/kms/v1"
+	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -24,7 +24,7 @@ type RemoteSignerTestSuite struct {
 	suite.Suite
 
 	ctrl       *gomock.Controller
-	mockClient *mocks.MockKmsEvmServiceClient
+	mockClient *mocks.MockFkmsServiceClient
 	rs         *geth.RemoteSigner
 }
 
@@ -34,7 +34,7 @@ func TestRemoteSignerTestSuite(t *testing.T) {
 
 func (s *RemoteSignerTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
-	s.mockClient = mocks.NewMockKmsEvmServiceClient(s.ctrl)
+	s.mockClient = mocks.NewMockFkmsServiceClient(s.ctrl)
 
 	testKey := "testKey"
 	rs, err := geth.NewRemoteSigner(
@@ -47,7 +47,7 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 
 	s.rs = rs
 
-	s.rs.KmsClient = s.mockClient
+	s.rs.FkmsClient = s.mockClient
 }
 
 func (s *RemoteSignerTestSuite) TestExportPrivateKey() {
@@ -73,9 +73,9 @@ func (s *RemoteSignerTestSuite) TestSign() {
 		EXPECT().
 		SignEvm(
 			gomock.Any(),
-			&kmsv1.SignEvmRequest{Address: strings.ToLower(address), Message: payload},
+			&fkmsv1.SignEvmRequest{Address: strings.ToLower(address), Message: payload},
 		).
-		Return(&kmsv1.SignEvmResponse{Signature: expected}, nil)
+		Return(&fkmsv1.SignEvmResponse{Signature: expected}, nil)
 
 	sig, err := s.rs.Sign(payload)
 	s.Require().NoError(err)
