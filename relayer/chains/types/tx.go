@@ -37,7 +37,17 @@ var txStatusFromString = map[string]TxStatus{
 // (need to manually creates `tx_status` type in a database first
 // by "CREATE TYPE tx_status AS ENUM ('Pending', 'Success', 'Failed', 'Timeout')")
 func (t *TxStatus) Scan(value interface{}) error {
-	tx, ok := txStatusFromString[value.(string)]
+	var str string
+	switch v := value.(type) {
+	case string:
+		str = v
+	case []byte:
+		str = string(v)
+	default:
+		return fmt.Errorf("TxStatus.Scan: expected string or []byte, got %T", value)
+	}
+
+	tx, ok := txStatusFromString[str]
 	if !ok {
 		return fmt.Errorf("invalid tx status")
 	}
