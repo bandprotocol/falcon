@@ -55,6 +55,20 @@ release:
 		goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		release --clean
 
+PROTOC        := protoc
+PROTO_DIR     := proto
+OUT_DIR       := .
+
+
+.PHONY: proto
+#? proto: Generate Go code from protobuf definitions
+proto:
+	@echo "Generating protobuf code..."
+	@$(PROTOC) \
+		--go_out=$(OUT_DIR) --go_opt=paths=source_relative \
+		--go-grpc_out=$(OUT_DIR) --go-grpc_opt=paths=source_relative \
+		$(PROTO_DIR)/**/**/*.proto
+
 mocks:
 	@go install go.uber.org/mock/mockgen@latest
 	sh ./scripts/mockgen.sh

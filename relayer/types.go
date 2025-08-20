@@ -30,6 +30,7 @@ type AppCreator func(store store.Store, appOpt AppOptions) (Application, error)
 // Application is an interface that wraps the basic methods of the application.
 type Application interface {
 	Init(ctx context.Context) error
+	InitTargetChain(chainName string) error
 	InitDatabase(dbPath string) (db.Database, error)
 
 	GetConfig() *config.Config

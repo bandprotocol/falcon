@@ -61,13 +61,9 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 		var signer wallet.Signer
 		switch signerType := signerRecord.Type; signerType {
 		case LocalSignerType:
-			accs, err := store.Find(accounts.Account{Address: gethAddr})
-			if err != nil {
-				return nil, err
-			}
-
 			// need to export the key due to no direct access to the private key
-			b, err := store.Export(accs, passphrase, passphrase)
+			acc := accounts.Account{Address: gethAddr}
+			b, err := store.Export(acc, passphrase, passphrase)
 			if err != nil {
 				return nil, err
 			}

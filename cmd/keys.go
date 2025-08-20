@@ -78,12 +78,12 @@ keys add eth test-key`),
 			}
 			defer syncLog(app.GetLog())
 
-			if err := app.Init(cmd.Context()); err != nil {
-				return err
-			}
-
 			chainName := args[0]
 			keyName := args[1]
+
+			if err := app.InitTargetChain(chainName); err != nil {
+				return err
+			}
 
 			input, err := parseKeysAddInputFromFlag(cmd)
 			if err != nil {
@@ -147,14 +147,13 @@ keys delete eth test-key`),
 			if err != nil {
 				return err
 			}
-			defer syncLog(app.GetLog())
+			chainName := args[0]
+			keyName := args[1]
 
-			if err := app.Init(cmd.Context()); err != nil {
+			if err := app.InitTargetChain(chainName); err != nil {
 				return err
 			}
 
-			chainName := args[0]
-			keyName := args[1]
 			return app.DeleteKey(chainName, keyName)
 		},
 	}
@@ -179,11 +178,11 @@ keys list eth`),
 			}
 			defer syncLog(app.GetLog())
 
-			if err := app.Init(cmd.Context()); err != nil {
+			chainName := args[0]
+			if err := app.InitTargetChain(chainName); err != nil {
 				return err
 			}
 
-			chainName := args[0]
 			keys, err := app.ListKeys(chainName)
 			if err != nil {
 				return err
@@ -219,12 +218,12 @@ keys export eth test-key`),
 			}
 			defer syncLog(app.GetLog())
 
-			if err := app.Init(cmd.Context()); err != nil {
-				return err
-			}
-
 			chainName := args[0]
 			keyName := args[1]
+
+			if err := app.InitTargetChain(chainName); err != nil {
+				return err
+			}
 
 			privateKey, err := app.ExportKey(chainName, keyName)
 			if err != nil {
@@ -256,12 +255,12 @@ keys show eth test-key`),
 			}
 			defer syncLog(app.GetLog())
 
-			if err := app.Init(cmd.Context()); err != nil {
-				return err
-			}
-
 			chainName := args[0]
 			keyName := args[1]
+
+			if err := app.InitTargetChain(chainName); err != nil {
+				return err
+			}
 
 			address, err := app.ShowKey(chainName, keyName)
 			if err != nil {
