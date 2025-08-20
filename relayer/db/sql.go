@@ -1,7 +1,9 @@
 package db
 
 import (
-	"gorm.io/driver/mysql"
+	"fmt"
+	"strings"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -19,8 +21,8 @@ type SQL struct {
 }
 
 // NewSQL opens a new Gorm connection using the given driverName and dbPath.
-// Supported drivers: "postgresql", "mysql", "sqlite", "sqlite3".
-func NewSQL(driverName, dbPath string) (SQL, error) {
+// Supported drivers: "postgresql", "sqlite".
+func NewSQL(dbPath string) (SQL, error) {
 	var db *gorm.DB
 	var err error
 
@@ -29,19 +31,31 @@ func NewSQL(driverName, dbPath string) (SQL, error) {
 		Logger:                 logger.Default.LogMode(logger.Silent),
 	}
 
+	driverName, path, err := parseDbPath(dbPath)
+	if err != nil {
+		return SQL{}, err
+	}
+
 	switch driverName {
 	case "postgresql":
 		db, err = gorm.Open(postgres.Open(dbPath), cfg)
 		if err != nil {
 			return SQL{}, err
 		}
-	case "mysql":
-		db, err = gorm.Open(mysql.Open(dbPath), cfg)
-		if err != nil {
+
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := ensureEnumTxStatus(tx); err != nil {
+				return err
+			}
+			if err := ensureEnumChainType(tx); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
 			return SQL{}, err
 		}
-	case "sqlite", "sqlite3":
-		db, err = gorm.Open(sqlite.Open(dbPath), cfg)
+	case "sqlite":
+		db, err = gorm.Open(sqlite.Open(path), cfg)
 		if err != nil {
 			return SQL{}, err
 		}
@@ -55,6 +69,63 @@ func NewSQL(driverName, dbPath string) (SQL, error) {
 	}
 
 	return SQL{db: db}, nil
+}
+
+// parseDbPath splits "<driver>:<dsn>" into driver and DSN.
+// Keeps colons inside DSN (uses SplitN). For SQLiite
+// Example: "postgresql:postgres://u:p@host:5432/db" -> ("postgresql", "postgres://u:p@host:5432/db")
+// Example: "sqlite:///myfile.db" -> myfile.db
+func parseDbPath(dbPath string) (string, string, error) {
+	parts := strings.SplitN(dbPath, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid db path")
+	}
+
+	driver := parts[0]
+	path := parts[1]
+	if driver == "sqlite" {
+		path = strings.TrimPrefix(path, "///")
+	}
+
+	return driver, path, nil
+}
+
+// ensureEnumChainType creates the chain_type and values if needed.
+func ensureEnumChainType(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Create the enum type if it doesn't exist
+		if err := tx.Exec(`
+			DO $$
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chain_type') THEN
+					CREATE TYPE chain_type AS ENUM ('evm');
+				END IF;
+			END
+			$$;`).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// ensureEnumTxStatus creates the enum tx_status and values if needed.
+func ensureEnumTxStatus(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Create the enum type if it doesn't exist
+		if err := tx.Exec(`
+			DO $$
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tx_status') THEN
+					CREATE TYPE tx_status AS ENUM ('Pending', 'Success', 'Failed', 'Timeout');
+				END IF;
+			END
+			$$;`).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // AddOrUpdateTransaction inserts a new Transaction record if none exists with the same TxHash.

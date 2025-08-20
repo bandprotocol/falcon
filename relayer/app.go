@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -130,8 +129,7 @@ func (a *App) initTargetChains() error {
 
 // InitDatabase initializes the application’s database connection.
 func (a *App) InitDatabase(dbPath string) (db.Database, error) {
-	driver := strings.Split(dbPath, ":")[0]
-	return db.NewSQL(driver, dbPath)
+	return db.NewSQL(dbPath)
 }
 
 // GetConfig retrieves the configuration from the application's store.
