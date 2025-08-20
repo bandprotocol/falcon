@@ -69,13 +69,8 @@ func (c ChainType) MarshalText() ([]byte, error) {
 // (needs to manually creates `chain_type` type in a database first
 // by "CREATE TYPE chain_type AS ENUM ('evm')")
 func (c *ChainType) Scan(value interface{}) error {
-	var str string
-	switch v := value.(type) {
-	case string:
-		str = v
-	case []byte:
-		str = string(v)
-	default:
+	str, ok := value.(string)
+	if !ok {
 		return fmt.Errorf("ChainType.Scan: expected string, got %T", value)
 	}
 
