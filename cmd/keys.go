@@ -85,51 +85,8 @@ keys add eth test-key`),
 				return err
 			}
 
-			input := &AddKeyInput{}
-			input.Mnemonic, err = cmd.Flags().GetString(flagMnemonic)
+			input, err := parseKeysAddInputFromFlag(cmd)
 			if err != nil {
-				return err
-			}
-
-			input.PrivateKey, err = cmd.Flags().GetString(flagPrivateKey)
-			if err != nil {
-				return err
-			}
-
-			input.CoinType, err = cmd.Flags().GetUint64(flagCoinType)
-			if err != nil {
-				return err
-			}
-
-			input.Account, err = cmd.Flags().GetUint64(flagWalletAccount)
-			if err != nil {
-				return err
-			}
-
-			input.Index, err = cmd.Flags().GetUint64(flagWalletIndex)
-			if err != nil {
-				return err
-			}
-
-			input.RemoteSigner.Address, err = cmd.Flags().GetString(flagRemoteAddress)
-			if err != nil {
-				return err
-			}
-
-			input.RemoteSigner.Url, err = cmd.Flags().GetString(flagRemoteUrl)
-			if err != nil {
-				return err
-			}
-
-			if cmd.Flags().Changed(flagRemoteKey) {
-				remoteSignerKey, err := cmd.Flags().GetString(flagRemoteKey)
-				if err != nil {
-					return err
-				}
-				input.RemoteSigner.Key = &remoteSignerKey
-			}
-
-			if err := validateAddKeyInput(input); err != nil {
 				return err
 			}
 
@@ -142,34 +99,13 @@ keys add eth test-key`),
 				}
 			}
 
-			var key *chainstypes.Key
-			if input.PrivateKey != "" {
-				key, err = app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
-				if err != nil {
-					return err
-				}
-			} else if input.RemoteSigner.Address != "" && input.RemoteSigner.Url != "" {
-				key, err = app.AddRemoteSignerKey(
-					chainName,
-					keyName,
-					input.RemoteSigner.Address,
-					input.RemoteSigner.Url,
-					input.RemoteSigner.Key,
-				)
-				if err != nil {
-					return err
-				}
-			} else {
-				key, err = app.AddKeyByMnemonic(
-					chainName, keyName,
-					input.Mnemonic,
-					uint32(input.CoinType),
-					uint(input.Account),
-					uint(input.Index),
-				)
-				if err != nil {
-					return err
-				}
+			if err := validateAddKeyInput(input); err != nil {
+				return err
+			}
+
+			key, err := addKey(app, chainName, keyName, input)
+			if err != nil {
+				return err
 			}
 
 			out, err := json.MarshalIndent(key, "", "  ")
@@ -342,20 +278,22 @@ keys show eth test-key`),
 
 // validateAddKeyInput checks that the AddKeyInput is valid.
 func validateAddKeyInput(input *AddKeyInput) error {
+	hasPrivateKey := input.PrivateKey != ""
+	hasMnemonic := input.Mnemonic != ""
+	hasRemoteSigner := input.RemoteSigner.Address != "" || input.RemoteSigner.Url != ""
+
 	// if a private key is provided, no other input should be present
-	if input.PrivateKey != "" &&
-		(input.Mnemonic != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "") {
+	if hasPrivateKey && (hasMnemonic || hasRemoteSigner) {
 		return fmt.Errorf("private key cannot be provided with mnemonic or remote signer")
 	}
 
 	// if a mnemonic is provided, no other input should be present
-	if input.Mnemonic != "" &&
-		(input.PrivateKey != "" || input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "") {
+	if hasMnemonic && (hasPrivateKey || hasRemoteSigner) {
 		return fmt.Errorf("mnemonic cannot be provided with private key or remote signer")
 	}
 
 	// if any remote-signer field is provided, it must be the only input
-	if input.RemoteSigner.Address != "" || input.RemoteSigner.Url != "" {
+	if hasRemoteSigner {
 		// both address and URL cannot be empty
 		if input.RemoteSigner.Address == "" {
 			return fmt.Errorf("remote signer address cannot be empty")
@@ -484,4 +422,88 @@ func showHuhPrompt() (input *AddKeyInput, err error) {
 	}
 
 	return input, nil
+}
+
+// parseKeysAddInputFromFlag parses the key addition input from the command line flags.
+func parseKeysAddInputFromFlag(cmd *cobra.Command) (*AddKeyInput, error) {
+	input := &AddKeyInput{}
+
+	var err error
+	input.Mnemonic, err = cmd.Flags().GetString(flagMnemonic)
+	if err != nil {
+		return nil, err
+	}
+
+	input.PrivateKey, err = cmd.Flags().GetString(flagPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	input.CoinType, err = cmd.Flags().GetUint64(flagCoinType)
+	if err != nil {
+		return nil, err
+	}
+
+	input.Account, err = cmd.Flags().GetUint64(flagWalletAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	input.Index, err = cmd.Flags().GetUint64(flagWalletIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	input.RemoteSigner.Address, err = cmd.Flags().GetString(flagRemoteAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	input.RemoteSigner.Url, err = cmd.Flags().GetString(flagRemoteUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	if cmd.Flags().Changed(flagRemoteKey) {
+		remoteSignerKey, err := cmd.Flags().GetString(flagRemoteKey)
+		if err != nil {
+			return nil, err
+		}
+		input.RemoteSigner.Key = &remoteSignerKey
+	}
+
+	return input, nil
+}
+
+// addKey adds a new key to the keychain.
+func addKey(
+	app relayer.Application,
+	chainName string,
+	keyName string,
+	input *AddKeyInput,
+) (*chainstypes.Key, error) {
+	if input == nil {
+		return nil, fmt.Errorf("invalid input: input is nil")
+	}
+
+	// Add key to the keychain
+	if input.PrivateKey != "" {
+		return app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
+	} else if input.RemoteSigner.Address != "" && input.RemoteSigner.Url != "" {
+		return app.AddRemoteSignerKey(
+			chainName,
+			keyName,
+			input.RemoteSigner.Address,
+			input.RemoteSigner.Url,
+			input.RemoteSigner.Key,
+		)
+	} else {
+		return app.AddKeyByMnemonic(
+			chainName, keyName,
+			input.Mnemonic,
+			uint32(input.CoinType),
+			uint(input.Account),
+			uint(input.Index),
+		)
+	}
 }

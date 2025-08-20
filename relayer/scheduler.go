@@ -11,6 +11,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
@@ -20,66 +21,62 @@ type Scheduler struct {
 	CheckingPacketInterval time.Duration
 	SyncTunnelsInterval    time.Duration
 	PenaltySkipRounds      uint
+	SubscriptionTimeout    time.Duration
 
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
 
-	tunnelIDCh       chan uint64
+	relayTunnelIDCh  chan uint64
 	tunnelRelayers   map[uint64]*TunnelRelayer
 	bandLatestTunnel int
+	tunnelCreator    string
 }
 
 // NewScheduler creates a new Scheduler
 func NewScheduler(
 	log logger.ZapLogger,
-	checkingPacketInterval time.Duration,
-	syncTunnelsInterval time.Duration,
-	penaltySkipRounds uint,
+	config *config.Config,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
+	tunnelCreator string,
 ) *Scheduler {
-	tunnelIDCh := make(chan uint64, 1000)
+	relayTunnelIDCh := make(chan uint64, 1000)
 
 	return &Scheduler{
 		Log:                    log,
-		CheckingPacketInterval: checkingPacketInterval,
-		SyncTunnelsInterval:    syncTunnelsInterval,
-		PenaltySkipRounds:      penaltySkipRounds,
+		CheckingPacketInterval: config.Global.CheckingPacketInterval,
+		SyncTunnelsInterval:    config.Global.SyncTunnelsInterval,
+		PenaltySkipRounds:      config.Global.PenaltySkipRounds,
+		SubscriptionTimeout:    config.BandChain.Timeout,
 		BandClient:             bandClient,
 		ChainProviders:         chainProviders,
-		tunnelIDCh:             tunnelIDCh,
+		relayTunnelIDCh:        relayTunnelIDCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
+		tunnelCreator:          tunnelCreator,
 	}
 }
 
-// Start starts all tunnel relayers
-func (s *Scheduler) Start(
-	ctx context.Context,
-	tunnelIDs []uint64,
-	tunnelCreator string,
-	subscriptionTimeout time.Duration,
-) error {
-	subscribers := []subscriber.Subscriber{
-		subscriber.NewPacketSuccessSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
-		subscriber.NewManualTriggerSubscriber(s.Log, s.tunnelIDCh, subscriptionTimeout),
-	}
-	s.BandClient.SetSubscribers(subscribers)
+// WithTunnels sets the tunnel relayer to the scheduler from the given tunnels.
+func (s *Scheduler) WithTunnels(tunnels []bandtypes.Tunnel) *Scheduler {
+	validTunnels := s.filterTunnels(tunnels)
+	s.setTunnelRelayer(validTunnels)
 
-	if err := s.BandClient.Subscribe(ctx); err != nil {
-		s.Log.Error("Failed to subscribe to BandChain", zap.Error(err))
+	return s
+}
+
+// Start starts all tunnel relayers
+func (s *Scheduler) Start(ctx context.Context, isSyncTunnels bool) error {
+	if err := s.initialize(ctx); err != nil {
 		return err
 	}
 
-	s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
-
-	// listen events from BandChain
-	for _, subscriber := range subscribers {
-		go subscriber.HandleEvent(ctx)
+	// execute first time
+	if isSyncTunnels {
+		s.SyncTunnels(ctx)
+	} else {
+		s.Execute(ctx)
 	}
-
-	// handle trigger relayer event from packet handler
-	go s.HandleTriggerTunnelRelayer(ctx)
 
 	ticker := time.NewTicker(s.CheckingPacketInterval)
 	defer ticker.Stop()
@@ -94,9 +91,8 @@ func (s *Scheduler) Start(
 
 			return nil
 		case <-syncTunnelTicker.C:
-			// sync tunnels only when no specific tunnel IDs are provided
-			if len(tunnelIDs) == 0 {
-				s.SyncTunnels(ctx, tunnelIDs, tunnelCreator)
+			if isSyncTunnels {
+				s.SyncTunnels(ctx)
 			}
 		case <-ticker.C:
 			s.Execute(ctx)
@@ -165,68 +161,61 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 
 // SyncTunnels synchronizes the Bandchain's tunnels with the latest tunnels.
 // If tunnel creator is provided, only tunnels created by that address will be synchronized.
-func (s *Scheduler) SyncTunnels(ctx context.Context, tunnelIDs []uint64, tunnelCreator string) {
+func (s *Scheduler) SyncTunnels(ctx context.Context) {
 	s.Log.Info("Start syncing tunnels from Bandchain")
-	tunnels, err := s.getTunnels(ctx, tunnelIDs)
+	tunnels, err := s.BandClient.GetTunnels(ctx)
 	if err != nil {
 		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
 		return
 	}
 
-	if s.bandLatestTunnel == len(tunnels) {
+	newTunnels := tunnels[min(s.bandLatestTunnel, len(tunnels)):]
+
+	validTunnels := s.filterTunnels(newTunnels)
+	if len(validTunnels) == 0 {
 		s.Log.Info("No new tunnels to sync")
 		return
 	}
 
-	var newTunnelIDs []uint64
-	for i := s.bandLatestTunnel; i < len(tunnels); i++ {
-		chainProvider, ok := s.ChainProviders[tunnels[i].TargetChainID]
-		if !ok {
-			s.Log.Warn(
-				"Chain name not found in config",
-				zap.String("chain_name", tunnels[i].TargetChainID),
-				zap.Uint64("tunnel_id", tunnels[i].ID),
-			)
-			continue
-		}
-
-		// if tunnel creator is provided, check if the tunnel matches the creator
-		if tunnelCreator != "" && tunnels[i].Creator != tunnelCreator {
-			continue
-		}
-
-		tr := NewTunnelRelayer(
-			s.Log,
-			tunnels[i].ID,
-			s.CheckingPacketInterval,
-			s.BandClient,
-			chainProvider,
-		)
-
-		newTunnelIDs = append(newTunnelIDs, tunnels[i].ID)
-		s.tunnelRelayers[tunnels[i].ID] = &tr
-
-		// update the metric for the number of tunnels per destination chain
-		relayermetrics.IncTunnelsPerDestinationChain(tunnels[i].TargetChainID)
-
-		s.Log.Info(
-			"New tunnel synchronized successfully",
-			zap.String("chain_name", tunnels[i].TargetChainID),
-			zap.Uint64("tunnel_id", tunnels[i].ID),
-		)
-	}
+	s.setTunnelRelayer(validTunnels)
+	s.bandLatestTunnel = len(tunnels)
 
 	// update the valid tunnel IDs in the packet handler
-	for _, tunnelID := range newTunnelIDs {
-		s.tunnelIDCh <- tunnelID
+	for _, tunnel := range validTunnels {
+		go func() {
+			tr := s.tunnelRelayers[tunnel.ID]
+			_ = s.TriggerTunnelRelayer(ctx, tr)
+		}()
 	}
-
-	s.bandLatestTunnel = len(tunnels)
 }
 
-// HandleTriggerTunnelRelayer triggers the tunnel relayer from the received tunnelID.
-func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
-	for tunnelID := range s.tunnelIDCh {
+// initialize initializes the scheduler and execute subroutines.
+func (s *Scheduler) initialize(ctx context.Context) error {
+	subscribers := []subscriber.Subscriber{
+		subscriber.NewPacketSuccessSubscriber(s.Log, s.relayTunnelIDCh, s.SubscriptionTimeout),
+		subscriber.NewManualTriggerSubscriber(s.Log, s.relayTunnelIDCh, s.SubscriptionTimeout),
+	}
+	s.BandClient.SetSubscribers(subscribers)
+
+	if err := s.BandClient.Subscribe(ctx); err != nil {
+		s.Log.Error("Failed to subscribe to BandChain", zap.Error(err))
+		return err
+	}
+
+	// listen events from BandChain
+	for _, subscriber := range subscribers {
+		go subscriber.HandleEvent(ctx)
+	}
+
+	// handle trigger relayer event from packet handler
+	go s.handleTriggerTunnelRelayer(ctx)
+
+	return nil
+}
+
+// handleTriggerTunnelRelayer triggers the tunnel relayer from the received tunnelID.
+func (s *Scheduler) handleTriggerTunnelRelayer(ctx context.Context) {
+	for tunnelID := range s.relayTunnelIDCh {
 		tunnelRelayer, ok := s.tunnelRelayers[tunnelID]
 		if !ok {
 			continue
@@ -255,22 +244,58 @@ func (s *Scheduler) HandleTriggerTunnelRelayer(ctx context.Context) {
 	}
 }
 
-// getTunnels retrieves the list of tunnels by given tunnel IDs. If no tunnel ID is provided,
-// get all tunnels
-func (s *Scheduler) getTunnels(ctx context.Context, tunnelIDs []uint64) ([]bandtypes.Tunnel, error) {
-	if len(tunnelIDs) == 0 {
-		return s.BandClient.GetTunnels(ctx)
+// isSupportedTunnel checks if the tunnel is supported by the scheduler.
+func (s *Scheduler) isSupportedTunnel(tunnel bandtypes.Tunnel) bool {
+	if _, ok := s.ChainProviders[tunnel.TargetChainID]; !ok {
+		return false
 	}
 
-	tunnels := make([]bandtypes.Tunnel, 0, len(tunnelIDs))
-	for _, tunnelID := range tunnelIDs {
-		tunnel, err := s.BandClient.GetTunnel(ctx, tunnelID)
-		if err != nil {
-			return nil, err
+	if s.tunnelCreator != "" && tunnel.Creator != s.tunnelCreator {
+		return false
+	}
+
+	return true
+}
+
+// filterTunnels selects only the supported tunnel and returns the valid tunnels.
+func (s *Scheduler) filterTunnels(tunnels []bandtypes.Tunnel) []bandtypes.Tunnel {
+	var validTunnels []bandtypes.Tunnel
+	for _, tunnel := range tunnels {
+		if !s.isSupportedTunnel(tunnel) {
+			s.Log.Warn(
+				"The program does not support this tunnel",
+				zap.String("chain_name", tunnel.TargetChainID),
+				zap.Uint64("tunnel_id", tunnel.ID),
+			)
+			continue
 		}
 
-		tunnels = append(tunnels, *tunnel)
+		validTunnels = append(validTunnels, tunnel)
 	}
 
-	return tunnels, nil
+	return validTunnels
+}
+
+// setTunnelRelayer sets the tunnel relayer from the given tunnels.
+func (s *Scheduler) setTunnelRelayer(tunnels []bandtypes.Tunnel) {
+	for _, tunnel := range tunnels {
+		chainProvider := s.ChainProviders[tunnel.TargetChainID]
+		tr := NewTunnelRelayer(
+			s.Log,
+			tunnel.ID,
+			s.CheckingPacketInterval,
+			s.BandClient,
+			chainProvider,
+		)
+
+		s.tunnelRelayers[tunnel.ID] = &tr
+
+		// update the metric for the number of tunnels per destination chain
+		relayermetrics.IncTunnelsPerDestinationChain(tunnel.TargetChainID)
+		s.Log.Info(
+			"New tunnel is set into the scheduler",
+			zap.String("chain_name", tunnel.TargetChainID),
+			zap.Uint64("tunnel_id", tunnel.ID),
+		)
+	}
 }

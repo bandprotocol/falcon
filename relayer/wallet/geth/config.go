@@ -12,10 +12,26 @@ type SignerRecord struct {
 	Type    string `toml:"type"`
 }
 
+// NewSignerRecord creates a new SignerRecord.
+func NewSignerRecord(address string, signerType string) SignerRecord {
+	return SignerRecord{
+		Address: address,
+		Type:    signerType,
+	}
+}
+
 // RemoteSignerRecord is remote signer's information.
 type RemoteSignerRecord struct {
 	Url string  `toml:"url"`
 	Key *string `toml:"key"`
+}
+
+// NewRemoteSignerRecord creates a new RemoteSignerRecord.
+func NewRemoteSignerRecord(url string, key *string) RemoteSignerRecord {
+	return RemoteSignerRecord{
+		Url: url,
+		Key: key,
+	}
 }
 
 // LoadSignerRecord loads all files in `path/*.toml` into SignerRecord.

@@ -21,11 +21,12 @@ func HexToETHAddress(s string) (common.Address, error) {
 // ExtractKeyName returns the filename (the key name) without its extension, or an error if empty.
 func ExtractKeyName(filePath string) (string, error) {
 	fileName := path.Base(filePath)
-	ext := path.Ext(fileName)
-	keyName := strings.TrimSuffix(fileName, ext)
+
+	keyName := strings.TrimSuffix(fileName, path.Ext(fileName))
 	if keyName == "" {
 		return "", fmt.Errorf("wrong keyname format")
 	}
+
 	return keyName, nil
 }
 
