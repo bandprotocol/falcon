@@ -72,7 +72,7 @@ func NewSQL(dbPath string) (SQL, error) {
 }
 
 // parseDbPath splits "<driver>:<dsn>" into driver and DSN.
-// Keeps colons inside DSN (uses SplitN). For SQLiite
+// Keeps colons inside DSN (uses SplitN). For SQLite
 // Example: "postgresql:postgres://u:p@host:5432/db" -> ("postgresql", "postgres://u:p@host:5432/db")
 // Example: "sqlite:///myfile.db" -> myfile.db
 func parseDbPath(dbPath string) (string, string, error) {
