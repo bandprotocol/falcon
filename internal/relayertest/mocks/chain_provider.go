@@ -16,6 +16,7 @@ import (
 
 	types "github.com/bandprotocol/falcon/relayer/band/types"
 	types0 "github.com/bandprotocol/falcon/relayer/chains/types"
+	db "github.com/bandprotocol/falcon/relayer/db"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -215,6 +216,18 @@ func (m *MockChainProvider) RelayPacket(ctx context.Context, packet *types.Packe
 func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, packet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, packet)
+}
+
+// SetDatabase mocks base method.
+func (m *MockChainProvider) SetDatabase(database db.Database) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetDatabase", database)
+}
+
+// SetDatabase indicates an expected call of SetDatabase.
+func (mr *MockChainProviderMockRecorder) SetDatabase(database any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDatabase", reflect.TypeOf((*MockChainProvider)(nil).SetDatabase), database)
 }
 
 // ShowKey mocks base method.

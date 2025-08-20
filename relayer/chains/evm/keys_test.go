@@ -122,7 +122,7 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				account:  0,
 				index:    0,
 			},
-			out: chaintypes.NewKey(testMnemonic, testAddress, ""),
+			out: chaintypes.NewKey("", testAddress, ""),
 		},
 		{
 			name: "success with different index",
@@ -133,7 +133,7 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 				account:  0,
 				index:    1,
 			},
-			out: chaintypes.NewKey(testMnemonic, "0x01AF9badF97c97C9444E0b7fa94b69b8CB3C28e7", ""),
+			out: chaintypes.NewKey("", "0x01AF9badF97c97C9444E0b7fa94b69b8CB3C28e7", ""),
 		},
 		{
 			name: "success with no mnemonic",
@@ -175,6 +175,13 @@ func (s *KeysTestSuite) TestAddKeyByMnemonic() {
 
 				if tc.out != nil {
 					s.Require().Equal(tc.out, key)
+				}
+
+				if tc.input.mnemonic == "" {
+					s.Require().NotEmpty(
+						key.Mnemonic,
+						"expected generated mnemonic to be returned when none is provided",
+					)
 				}
 			}
 		})

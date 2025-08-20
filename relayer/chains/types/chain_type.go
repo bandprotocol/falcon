@@ -1,6 +1,7 @@
-package chains
+package types
 
 import (
+	"database/sql/driver"
 	"encoding"
 	"fmt"
 	"reflect"
@@ -63,6 +64,22 @@ func DecodeChainTypeHook(from reflect.Type, to reflect.Type, data interface{}) (
 func (c ChainType) MarshalText() ([]byte, error) {
 	return []byte(c.String()), nil
 }
+
+// Scan scans string value into ChainType, implements sql.Scanner interface.
+// (needs to manually creates `chain_type` type in a database first
+// by "CREATE TYPE chain_type AS ENUM ('evm')")
+func (c *ChainType) Scan(value interface{}) error {
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("ChainType.Scan: expected string, got %T", value)
+	}
+
+	*c = ToChainType(str)
+	return nil
+}
+
+// Value converts ChainType to a driver.Value (string form).
+func (c ChainType) Value() (driver.Value, error) { return c.String(), nil }
 
 // ToChainType converts a string to a ChainType.
 func ToChainType(s string) ChainType {

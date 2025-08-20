@@ -13,6 +13,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 )
 
@@ -68,7 +69,7 @@ func TestParseChainProviderConfig(t *testing.T) {
 			out: &evm.EVMChainProviderConfig{
 				BaseChainProviderConfig: chains.BaseChainProviderConfig{
 					Endpoints: []string{"http://localhost:8545"},
-					ChainType: chains.ChainTypeEVM,
+					ChainType: chainstypes.ChainTypeEVM,
 				},
 			},
 		},

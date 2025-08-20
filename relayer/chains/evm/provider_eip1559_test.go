@@ -107,12 +107,14 @@ func (s *EIP1559ProviderTestSuite) TestRelayPacketSuccess() {
 		GasTipCap: s.gasInfo.GasPriorityFee,
 	}).Return(uint64(200_000), nil)
 
+	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil)
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
 	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-		Status:      gethtypes.ReceiptStatusSuccessful,
-		GasUsed:     21000,
-		BlockNumber: big.NewInt(100),
+		Status:            gethtypes.ReceiptStatusSuccessful,
+		GasUsed:           21000,
+		EffectiveGasPrice: big.NewInt(20000),
+		BlockNumber:       big.NewInt(100),
 	}, nil)
 
 	s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(105), nil)
@@ -135,12 +137,14 @@ func (s *EIP1559ProviderTestSuite) TestRelayPacketSuccessWithoutQueryMaxGasFee()
 		GasTipCap: big.NewInt(3_000_000_000),
 	}).Return(uint64(200_000), nil)
 
+	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil)
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
 	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
-		Status:      gethtypes.ReceiptStatusSuccessful,
-		GasUsed:     21000,
-		BlockNumber: big.NewInt(100),
+		Status:            gethtypes.ReceiptStatusSuccessful,
+		GasUsed:           21000,
+		EffectiveGasPrice: big.NewInt(20000),
+		BlockNumber:       big.NewInt(100),
 	}, nil)
 
 	s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(105), nil)
@@ -178,6 +182,8 @@ func (s *EIP1559ProviderTestSuite) TestRelayPacketFailedBroadcastTx() {
 		GasTipCap: s.gasInfo.GasPriorityFee,
 	}).Return(uint64(200_000), nil).Times(s.chainProvider.Config.MaxRetry)
 
+	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil).
+		Times(s.chainProvider.Config.MaxRetry)
 	s.client.EXPECT().
 		BroadcastTx(gomock.Any(), gomock.Any()).
 		Return("", fmt.Errorf("failed to broadcast an evm transaction")).
@@ -198,6 +204,8 @@ func (s *EIP1559ProviderTestSuite) TestRelayPacketFailedTxReceiptStatus() {
 		GasTipCap: s.gasInfo.GasPriorityFee,
 	}).Return(uint64(200_000), nil).Times(s.chainProvider.Config.MaxRetry)
 
+	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil).
+		Times(s.chainProvider.Config.MaxRetry)
 	txHash := "0xabc123"
 	s.client.EXPECT().
 		BroadcastTx(gomock.Any(), gomock.Any()).
@@ -207,9 +215,10 @@ func (s *EIP1559ProviderTestSuite) TestRelayPacketFailedTxReceiptStatus() {
 	s.client.EXPECT().
 		GetTxReceipt(gomock.Any(), txHash).
 		Return(&gethtypes.Receipt{
-			Status:      gethtypes.ReceiptStatusFailed,
-			GasUsed:     21000,
-			BlockNumber: big.NewInt(100),
+			Status:            gethtypes.ReceiptStatusFailed,
+			GasUsed:           21000,
+			EffectiveGasPrice: big.NewInt(20000),
+			BlockNumber:       big.NewInt(100),
 		}, nil).
 		Times(s.chainProvider.Config.MaxRetry)
 	s.MockDefaultResponses()

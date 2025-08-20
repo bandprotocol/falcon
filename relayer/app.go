@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
+	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
@@ -124,6 +125,11 @@ func (a *App) initTargetChains() error {
 	}
 
 	return nil
+}
+
+// InitDatabase initializes the application’s database connection.
+func (a *App) InitDatabase(dbPath string) (db.Database, error) {
+	return db.NewSQL(dbPath)
 }
 
 // GetConfig retrieves the configuration from the application's store.
@@ -381,6 +387,18 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 		return err
 	}
 
+	// init database
+	var database db.Database
+	var err error
+	dbPath := a.Config.Global.DBPath
+	if dbPath != "" {
+		database, err = a.InitDatabase(dbPath)
+		if err != nil {
+			return err
+		}
+		a.Log.Info("Connected to Database")
+	}
+
 	// initialize target chain providers
 	for chainName, chainProvider := range a.TargetChains {
 		if err := chainProvider.LoadSigners(); err != nil {
@@ -398,6 +416,8 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 			)
 			return err
 		}
+
+		chainProvider.SetDatabase(database)
 	}
 
 	// start the tunnel relayers

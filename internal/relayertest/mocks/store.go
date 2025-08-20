@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	chains "github.com/bandprotocol/falcon/relayer/chains"
+	types "github.com/bandprotocol/falcon/relayer/chains/types"
 	config "github.com/bandprotocol/falcon/relayer/config"
 	wallet "github.com/bandprotocol/falcon/relayer/wallet"
 	gomock "go.uber.org/mock/gomock"
@@ -88,7 +88,7 @@ func (mr *MockStoreMockRecorder) HasConfig() *gomock.Call {
 }
 
 // NewWallet mocks base method.
-func (m *MockStore) NewWallet(chainType chains.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
+func (m *MockStore) NewWallet(chainType types.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewWallet", chainType, chainName, passphrase)
 	ret0, _ := ret[0].(wallet.Wallet)

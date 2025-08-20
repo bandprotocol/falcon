@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/bandprotocol/falcon/relayer/chains"
+	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
@@ -13,5 +13,5 @@ type Store interface {
 	GetHashedPassphrase() ([]byte, error)
 	SavePassphrase(passphrase string) error
 	ValidatePassphrase(passphrase string) error
-	NewWallet(chainType chains.ChainType, chainName, passphrase string) (wallet.Wallet, error)
+	NewWallet(chainType chainstypes.ChainType, chainName, passphrase string) (wallet.Wallet, error)
 }
