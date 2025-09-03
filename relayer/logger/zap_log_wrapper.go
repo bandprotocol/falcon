@@ -25,7 +25,7 @@ func (w *ZapLogWrapper) With(fields ...any) Logger {
 
 // Debug logs a message at debug level.
 func (w *ZapLogWrapper) Debug(msg string, fields ...any) {
-	w.inner.Debugw(msg, fields)
+	w.inner.Debugw(msg, fields...)
 }
 
 // Info logs a message at info level.
