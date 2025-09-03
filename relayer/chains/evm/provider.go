@@ -165,12 +165,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 	retryCount := 1
 	for retryCount <= cp.Config.MaxRetry {
-		log.Info("Relaying a message", zap.Int("retry_count", retryCount))
+		log.Info("Relaying a message", "retry_count", retryCount)
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
 		if err != nil {
-			log.Error("CreateAndSignTx error", err, zap.Int("retry_count", retryCount))
+			log.Error("CreateAndSignTx error", err, "retry_count", retryCount)
 			retryCount += 1
 			continue
 		}
@@ -183,11 +183,11 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// submit the transaction, if failed, bump gas and retry
 		txHash, err := cp.Client.BroadcastTx(ctx, signedTx)
 		if err != nil {
-			log.Error("HandleRelay error", err, zap.Int("retry_count", retryCount))
+			log.Error("HandleRelay error", err, "retry_count", retryCount)
 			// bump gas and retry
 			gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
 			if err != nil {
-				log.Error("Cannot bump gas", err, zap.Int("retry_count", retryCount))
+				log.Error("Cannot bump gas", err, "retry_count", retryCount)
 			}
 
 			retryCount += 1
@@ -199,7 +199,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		log.Info(
 			"Submitted a message; checking transaction status",
 			"tx_hash", txHash,
-			zap.Int("retry_count", retryCount),
+			"retry_count", retryCount,
 		)
 
 		var checkTxErr error
@@ -213,7 +213,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 					"Failed to check tx status",
 					err,
 					"tx_hash", txHash,
-					zap.Int("retry_count", retryCount),
+					"retry_count", retryCount,
 				)
 
 				checkTxErr = err
@@ -221,7 +221,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				// update in db as pending
 				if !savedOnce {
 					if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-						log.Error("saveTransaction error", err, zap.Int("retry_count", retryCount))
+						log.Error("saveTransaction error", err, "retry_count", retryCount)
 					} else {
 						savedOnce = true
 					}
@@ -247,13 +247,13 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 				// update db as success
 				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-					log.Error("saveTransaction error", err, zap.Int("retry_count", retryCount))
+					log.Error("saveTransaction error", err, "retry_count", retryCount)
 				}
 
 				log.Info(
 					"Packet is successfully relayed",
 					"tx_hash", txHash,
-					zap.Int("retry_count", retryCount),
+					"retry_count", retryCount,
 				)
 				return nil
 			case chainstypes.TX_STATUS_FAILED:
@@ -269,21 +269,21 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				relayermetrics.ObserveGasUsed(packet.TunnelID, cp.ChainName, chainstypes.TX_STATUS_FAILED.String(), gasUsed.Decimal.InexactFloat64())
 
 				if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-					log.Error("saveTransaction error", err, zap.Int("retry_count", retryCount))
+					log.Error("saveTransaction error", err, "retry_count", retryCount)
 				}
 
 				log.Debug(
 					"Transaction failed during relay attempt",
 					err,
 					"tx_hash", txHash,
-					zap.Int("retry_count", retryCount),
+					"retry_count", retryCount,
 				)
 				break checkTxLogic
 			case chainstypes.TX_STATUS_PENDING:
 				// update db as pending
 				if !savedOnce {
 					if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, result); err != nil {
-						log.Error("saveTransaction error", err, zap.Int("retry_count", retryCount))
+						log.Error("saveTransaction error", err, "retry_count", retryCount)
 					} else {
 						savedOnce = true
 					}
@@ -293,7 +293,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 					"Waiting for tx to be mined",
 					err,
 					"tx_hash", txHash,
-					zap.Int("retry_count", retryCount),
+					"retry_count", retryCount,
 				)
 
 				time.Sleep(cp.Config.CheckingTxInterval)
@@ -304,7 +304,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, txStatus.String())
 
 		if err := cp.saveTransaction(ctx, freeSigner.GetAddress(), balance, packet, NewTxResult(txHash, chainstypes.TX_STATUS_TIMEOUT, decimal.NullDecimal{}, decimal.NullDecimal{}, nil)); err != nil {
-			log.Error("saveTransaction error", err, zap.Int("retry_count", retryCount))
+			log.Error("saveTransaction error", err, "retry_count", retryCount)
 		}
 
 		log.Error(
@@ -312,13 +312,13 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			zap.Error(checkTxErr),
 			"status", txStatus.String(),
 			"tx_hash", txHash,
-			zap.Int("retry_count", retryCount),
+			"retry_count", retryCount,
 		)
 
 		// bump gas and retry
 		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
 		if err != nil {
-			log.Error("Cannot bump gas", err, zap.Int("retry_count", retryCount))
+			log.Error("Cannot bump gas", err, "retry_count", retryCount)
 		}
 
 		retryCount += 1

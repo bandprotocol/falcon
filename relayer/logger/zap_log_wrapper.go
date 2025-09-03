@@ -9,7 +9,6 @@ import (
 var _ Logger = (*ZapLogWrapper)(nil)
 
 // ZapLogWrapper is a wrapper around the zap logger so that it align with an Logger interface.
-// Note: zap.Logger doesn't implement Logger.With in which return *zap.Logger itself (external package)
 type ZapLogWrapper struct {
 	inner *zap.SugaredLogger
 }
