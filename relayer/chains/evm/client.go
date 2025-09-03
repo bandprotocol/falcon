@@ -103,9 +103,9 @@ func (c *client) NonceAt(ctx context.Context, address gethcommon.Address) (uint6
 	if err != nil {
 		c.Log.Error(
 			"Failed to get nonce",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"evm_address", address.Hex(),
+			err,
 		)
 		return 0, fmt.Errorf("[EVMClient] failed to get nonce: %w", err)
 	}
@@ -120,7 +120,7 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 
 	blockHeight, err := c.client.BlockNumber(newCtx)
 	if err != nil {
-		c.Log.Error("Failed to get block height", err, "endpoint", c.selectedEndpoint)
+		c.Log.Error("Failed to get block height", "endpoint", c.selectedEndpoint, err)
 		return 0, fmt.Errorf("[EVMClient] failed to get block height: %w", err)
 	}
 
@@ -136,9 +136,9 @@ func (c *client) GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Bloc
 	if err != nil {
 		c.Log.Error(
 			"Failed to get block by height",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"height", height.String(),
+			err,
 		)
 		return nil, fmt.Errorf("[EVMClient] failed to get block by height: %w", err)
 	}
@@ -156,9 +156,9 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Re
 		// tend to be debug log, as it's normal to not have receipt for pending tx
 		c.Log.Debug(
 			"Failed to get tx receipt",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"tx_hash", txHash,
+			err,
 		)
 		return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
 	}
@@ -175,9 +175,9 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 	if err != nil {
 		c.Log.Error(
 			"Failed to get tx by hash",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"tx_hash", txHash,
+			err,
 		)
 		return nil, false, fmt.Errorf("[EVMClient] failed to get tx by hash: %w", err)
 	}
@@ -199,9 +199,9 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	if err != nil {
 		c.Log.Error(
 			"Failed to query contract",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"evm_address", gethAddr.Hex(),
+			err,
 		)
 		return nil, fmt.Errorf("[EVMClient] failed to query: %w", err)
 	}
@@ -218,9 +218,9 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	if err != nil {
 		c.Log.Error(
 			"Failed to estimate gas",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"evm_address", msg.To.Hex(),
+			err,
 		)
 		return 0, fmt.Errorf("[EVMClient] failed to estimate gas: %w", err)
 	}
@@ -237,8 +237,8 @@ func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 	if err != nil {
 		c.Log.Error(
 			"Failed to estimate gas price",
-			err,
 			"endpoint", c.selectedEndpoint,
+			err,
 		)
 		return nil, err
 	}
@@ -270,8 +270,8 @@ func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
 	if err != nil {
 		c.Log.Error(
 			"Failed to estimate gas tip cap",
-			err,
 			"endpoint", c.selectedEndpoint,
+			err,
 		)
 		return nil, err
 	}
@@ -298,9 +298,9 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 	if err := c.client.SendTransaction(newCtx, tx); err != nil {
 		c.Log.Error(
 			"Failed to broadcast tx",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"tx_hash", tx.Hash().Hex(),
+			err,
 		)
 
 		return "", fmt.Errorf("[EVMClient] failed to broadcast tx with error %s", err.Error())
@@ -319,8 +319,8 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			if err != nil {
 				c.Log.Debug(
 					"Failed to connect to EVM chain",
-					err,
 					"endpoint", endpoint,
+					err,
 				)
 				ch <- ClientConnectionResult{endpoint, nil, 0}
 				return
@@ -333,8 +333,8 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			if err != nil {
 				c.Log.Debug(
 					"Failed to get block height",
-					err,
 					"endpoint", endpoint,
+					err,
 				)
 				ch <- ClientConnectionResult{endpoint, client, 0}
 				return
@@ -342,9 +342,9 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 
 			c.Log.Debug(
 				"Get height of the given client",
-				err,
 				"endpoint", endpoint,
 				"block_number", blockHeight,
+				err,
 			)
 
 			ch <- ClientConnectionResult{endpoint, client, blockHeight}
@@ -391,9 +391,9 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address, bl
 	if err != nil {
 		c.Log.Error(
 			"Failed to query balance",
-			err,
 			"endpoint", c.selectedEndpoint,
 			"evm_address", gethAddr.Hex(),
+			err,
 		)
 		return nil, fmt.Errorf("[EVMClient] failed to query balance: %w", err)
 	}

@@ -319,7 +319,6 @@ func (c *client) SetSubscribers(subscribers []subscriber.Subscriber) {
 // Subscribe subscribes events from BandChain.
 func (c *client) Subscribe(ctx context.Context) error {
 	if c.selectedRPCEndpoint == "" {
-		c.Log.Error("selected rpcEndpoint is not set")
 		return fmt.Errorf("selected rpcEndpoint is not set")
 	}
 

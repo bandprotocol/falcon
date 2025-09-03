@@ -62,7 +62,3 @@ func (w *ZapLogWrapper) Sync() error {
 func (w *ZapLogWrapper) ToStdLog() *log.Logger {
 	return zap.NewStdLog(w.inner.Desugar())
 }
-
-type ZapLogField struct {
-	inner zap.Field
-}

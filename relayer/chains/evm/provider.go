@@ -308,10 +308,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		log.Error(
 			"Failed to relaying a packet with status and error",
-			checkTxErr,
 			"status", txStatus.String(),
 			"tx_hash", txHash,
 			"retry_count", retryCount,
+			checkTxErr,
 		)
 
 		// bump gas and retry
