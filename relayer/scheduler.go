@@ -129,8 +129,8 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
-			err,
 			"tunnel_id", tr.TunnelID,
+			err,
 		)
 
 		return RelayStatusFailed

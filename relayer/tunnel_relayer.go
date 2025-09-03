@@ -186,7 +186,7 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 
 	// Relay the packet to the target chain
 	if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
-		t.Log.Error("Failed to relay packet", err, "sequence", packet.Sequence)
+		t.Log.Error("Failed to relay packet", "sequence", packet.Sequence, err)
 		return err
 	}
 
@@ -204,7 +204,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		// get packet of the sequence
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
-			t.Log.Error("Failed to get packet", err, "sequence", seq)
+			t.Log.Error("Failed to get packet", "sequence", seq, err)
 			return nil, err
 		}
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
@@ -225,7 +225,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			continue
 		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
-			t.Log.Error("Failed to relay packet", err, "sequence", seq)
+			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 			return nil, err
 		}
 

@@ -94,8 +94,8 @@ func (a *App) InitTargetChain(chainName string) error {
 	wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
 	if err != nil {
 		a.Log.Error("Wallet registry not found",
-			err,
 			"chain_name", chainName,
+			err,
 		)
 		return err
 	}
@@ -103,8 +103,8 @@ func (a *App) InitTargetChain(chainName string) error {
 	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet)
 	if err != nil {
 		a.Log.Error("Cannot create chain provider",
-			err,
 			"chain_name", chainName,
+			err,
 		)
 		return err
 	}
@@ -401,16 +401,16 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 	for chainName, chainProvider := range a.TargetChains {
 		if err := chainProvider.LoadSigners(); err != nil {
 			a.Log.Error("Cannot load keys in target chain",
-				err,
 				"chain_name", chainName,
+				err,
 			)
 			return err
 		}
 
 		if err := chainProvider.Init(ctx); err != nil {
 			a.Log.Error("Cannot initialize chain provider",
-				err,
 				"chain_name", chainName,
+				err,
 			)
 			return err
 		}
@@ -459,8 +459,8 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 
 	if err := chainProvider.LoadSigners(); err != nil {
 		a.Log.Error("Cannot load keys in target chain",
-			err,
 			"chain_name", tunnel.TargetChainID,
+			err,
 		)
 		return err
 	}
@@ -511,8 +511,8 @@ func (a *App) getTunnelsByIDs(ctx context.Context, tunnelIDs []uint64) ([]bandty
 		tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 		if err != nil {
 			a.Log.Error("Cannot get tunnel from BandChain",
-				err,
 				"tunnel_id", tunnelID,
+				err,
 			)
 			return nil, err
 		}
