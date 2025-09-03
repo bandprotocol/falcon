@@ -13,7 +13,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
@@ -309,7 +308,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		log.Error(
 			"Failed to relaying a packet with status and error",
-			zap.Error(checkTxErr),
+			checkTxErr,
 			"status", txStatus.String(),
 			"tx_hash", txHash,
 			"retry_count", retryCount,
