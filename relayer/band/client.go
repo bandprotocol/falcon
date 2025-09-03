@@ -9,7 +9,6 @@ import (
 	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
-	"go.uber.org/zap"
 
 	bandtsstypes "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
@@ -46,7 +45,7 @@ type Client interface {
 type client struct {
 	Context     cosmosclient.Context
 	QueryClient QueryClient
-	Log         logger.ZapLogger
+	Log         logger.Logger
 	Config      *Config
 	Subscribers []subscriber.Subscriber
 
@@ -54,7 +53,7 @@ type client struct {
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(queryClient QueryClient, log logger.ZapLogger, bandChainCfg *Config) Client {
+func NewClient(queryClient QueryClient, log logger.Logger, bandChainCfg *Config) Client {
 	encodingConfig := MakeEncodingConfig()
 	ctx := cosmosclient.Context{}.
 		WithCodec(encodingConfig.Marshaler).
@@ -73,7 +72,7 @@ func NewClient(queryClient QueryClient, log logger.ZapLogger, bandChainCfg *Conf
 // periodic liveliness checks.
 func (c *client) Init(ctx context.Context) error {
 	if err := c.connect(true); err != nil {
-		c.Log.Error("Failed to connect to BandChain", zap.Error(err))
+		c.Log.Error("Failed to connect to BandChain", err)
 		return err
 	}
 
@@ -88,7 +87,7 @@ func (c *client) connect(onStartup bool) error {
 		// Create a new HTTP client for the specified node URI
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
 		if err != nil {
-			c.Log.Error("Failed to create HTTP client", zap.String("rpcEndpoint", rpcEndpoint), zap.Error(err))
+			c.Log.Error("Failed to create HTTP client", "rpcEndpoint", rpcEndpoint, err)
 			continue // Try the next endpoint if there's an error
 		}
 
@@ -102,7 +101,7 @@ func (c *client) connect(onStartup bool) error {
 
 		// Start the client to establish a connection
 		if err := client.Start(); err != nil {
-			c.Log.Error("Failed to start HTTP client", zap.String("rpcEndpoint", rpcEndpoint), zap.Error(err))
+			c.Log.Error("Failed to start HTTP client", "rpcEndpoint", rpcEndpoint, err)
 			return err
 		}
 
@@ -111,7 +110,7 @@ func (c *client) connect(onStartup bool) error {
 		c.Context.NodeURI = rpcEndpoint
 		c.QueryClient = NewBandQueryClient(c.Context)
 
-		c.Log.Info("Connected to BandChain", zap.String("endpoint", rpcEndpoint))
+		c.Log.Info("Connected to BandChain", "endpoint", rpcEndpoint)
 
 		return nil
 	}
@@ -134,15 +133,15 @@ func (c *client) startLivelinessCheck(ctx context.Context) {
 			if _, err := c.Context.Client.Status(ctx); err != nil {
 				c.Log.Error(
 					"BandChain client disconnected",
-					zap.String("rpcEndpoint", c.Context.NodeURI),
-					zap.Error(err),
+					"rpcEndpoint", c.Context.NodeURI,
+					err,
 				)
 				if err := c.connect(false); err != nil {
-					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", zap.Error(err))
+					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", err)
 				}
 
 				if err := c.Subscribe(ctx); err != nil {
-					c.Log.Error("Liveliness check: unable to subscribe BandChain", zap.Error(err))
+					c.Log.Error("Liveliness check: unable to subscribe BandChain", err)
 				}
 			}
 		}
@@ -328,8 +327,8 @@ func (c *client) Subscribe(ctx context.Context) error {
 		if err := subscriber.Subscribe(ctx, c.selectedRPCEndpoint); err != nil {
 			c.Log.Error(
 				"Failed to subscribe to events",
-				zap.String("rpcEndpoint", c.selectedRPCEndpoint),
-				zap.Error(err),
+				"rpcEndpoint", c.selectedRPCEndpoint,
+				err,
 			)
 			return err
 		}

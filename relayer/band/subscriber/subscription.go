@@ -7,7 +7,6 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	httpclient "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
@@ -18,7 +17,7 @@ type Subscription struct {
 	subscriptionQuery string
 	timeout           time.Duration
 	rpcClient         rpcclient.Client
-	log               logger.ZapLogger
+	log               logger.Logger
 	stopCh            chan struct{}
 	eventCh           chan coretypes.ResultEvent
 	onEventReceived   func(ctx context.Context, msg coretypes.ResultEvent)
@@ -30,7 +29,7 @@ func NewSubscription(
 	subscriptionQuery string,
 	onEventReceived func(ctx context.Context, msg coretypes.ResultEvent),
 	timeout time.Duration,
-	log logger.ZapLogger,
+	log logger.Logger,
 ) *Subscription {
 	return &Subscription{
 		name:              name,
@@ -56,8 +55,8 @@ func (s *Subscription) Subscribe(ctx context.Context, endpoint string) error {
 	if err := client.Start(); err != nil {
 		s.log.Error(
 			"Failed to start HTTP client",
-			zap.String("rpcEndpoint", endpoint),
-			zap.Error(err),
+			"rpcEndpoint", endpoint,
+			err,
 		)
 		return err
 	}
@@ -100,15 +99,15 @@ func (s *Subscription) unsubscribeAndStopPreviousClient(ctx context.Context) {
 	if err := s.rpcClient.Unsubscribe(unsubCtx, s.name, s.subscriptionQuery); err != nil {
 		s.log.Debug(
 			"Failed to unsubscribe from event",
-			zap.String("event_name", s.name),
-			zap.Error(err),
+			"event_name", s.name,
+			err,
 		)
 	}
 
 	if err := s.rpcClient.Stop(); err != nil {
 		s.log.Debug(
 			"Failed to stop HTTP client",
-			zap.Error(err),
+			err,
 		)
 	}
 

@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/subscriber"
@@ -17,7 +15,7 @@ import (
 
 // Scheduler is a struct to manage all tunnel relayers
 type Scheduler struct {
-	Log                    logger.ZapLogger
+	Log                    logger.Logger
 	CheckingPacketInterval time.Duration
 	SyncTunnelsInterval    time.Duration
 	PenaltySkipRounds      uint
@@ -34,7 +32,7 @@ type Scheduler struct {
 
 // NewScheduler creates a new Scheduler
 func NewScheduler(
-	log logger.ZapLogger,
+	log logger.Logger,
 	config *config.Config,
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
@@ -108,8 +106,8 @@ func (s *Scheduler) Execute(ctx context.Context) {
 		if tr.penaltySkipRemaining > 0 {
 			s.Log.Debug(
 				"Skipping tunnel execution due to penalty from previous failure.",
-				zap.Uint64("tunnel_id", tr.TunnelID),
-				zap.Uint("penalty_skip_remaining", tr.penaltySkipRemaining),
+				"tunnel_id", tr.TunnelID,
+				"penalty_skip_remaining", tr.penaltySkipRemaining,
 			)
 			tr.penaltySkipRemaining -= 1
 			continue
@@ -131,8 +129,8 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
-			zap.Error(err),
-			zap.Uint64("tunnel_id", tr.TunnelID),
+			err,
+			"tunnel_id", tr.TunnelID,
 		)
 
 		return RelayStatusFailed
@@ -153,7 +151,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 		// Record metrics for the finished task execution
 		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.FinishedTaskStatus)
 
-		s.Log.Info("Relay packet successfully", zap.Uint64("tunnel_id", tr.TunnelID))
+		s.Log.Info("Relay packet successfully", "tunnel_id", tr.TunnelID)
 	}
 
 	return relayStatus
@@ -165,7 +163,7 @@ func (s *Scheduler) SyncTunnels(ctx context.Context) {
 	s.Log.Info("Start syncing tunnels from Bandchain")
 	tunnels, err := s.BandClient.GetTunnels(ctx)
 	if err != nil {
-		s.Log.Error("Failed to fetch tunnels from BandChain", zap.Error(err))
+		s.Log.Error("Failed to fetch tunnels from BandChain", err)
 		return
 	}
 
@@ -198,7 +196,7 @@ func (s *Scheduler) initialize(ctx context.Context) error {
 	s.BandClient.SetSubscribers(subscribers)
 
 	if err := s.BandClient.Subscribe(ctx); err != nil {
-		s.Log.Error("Failed to subscribe to BandChain", zap.Error(err))
+		s.Log.Error("Failed to subscribe to BandChain", err)
 		return err
 	}
 
@@ -221,12 +219,12 @@ func (s *Scheduler) handleTriggerTunnelRelayer(ctx context.Context) {
 			continue
 		}
 
-		s.Log.Info("Received trigger relayer event", zap.Uint64("tunnel_id", tunnelID))
+		s.Log.Info("Received trigger relayer event", "tunnel_id", tunnelID)
 
 		if tunnelRelayer.penaltySkipRemaining > 0 {
 			s.Log.Info(
 				"Skipping tunnel execution due to penalty from previous failure",
-				zap.Uint64("tunnel_id", tunnelID),
+				"tunnel_id", tunnelID,
 			)
 			continue
 		}
@@ -236,8 +234,8 @@ func (s *Scheduler) handleTriggerTunnelRelayer(ctx context.Context) {
 			if status != RelayStatusSuccess {
 				s.Log.Info(
 					"relay tunnel not success",
-					zap.Uint64("tunnel_id", tunnelID),
-					zap.String("status", string(status)),
+					"tunnel_id", tunnelID,
+					"status", string(status),
 				)
 			}
 		}()
@@ -264,8 +262,8 @@ func (s *Scheduler) filterTunnels(tunnels []bandtypes.Tunnel) []bandtypes.Tunnel
 		if !s.isSupportedTunnel(tunnel) {
 			s.Log.Warn(
 				"The program does not support this tunnel",
-				zap.String("chain_name", tunnel.TargetChainID),
-				zap.Uint64("tunnel_id", tunnel.ID),
+				"chain_name", tunnel.TargetChainID,
+				"tunnel_id", tunnel.ID,
 			)
 			continue
 		}
@@ -294,8 +292,8 @@ func (s *Scheduler) setTunnelRelayer(tunnels []bandtypes.Tunnel) {
 		relayermetrics.IncTunnelsPerDestinationChain(tunnel.TargetChainID)
 		s.Log.Info(
 			"New tunnel is set into the scheduler",
-			zap.String("chain_name", tunnel.TargetChainID),
-			zap.Uint64("tunnel_id", tunnel.ID),
+			"chain_name", tunnel.TargetChainID,
+			"tunnel_id", tunnel.ID,
 		)
 	}
 }

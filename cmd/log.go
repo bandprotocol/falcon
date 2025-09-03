@@ -11,7 +11,7 @@ import (
 )
 
 // newLogger creates a new root logger with the given log format and log level.
-func newLogger(format string, logLevel string) (*zap.Logger, error) {
+func newLogger(format string, logLevel string) (*zap.SugaredLogger, error) {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = func(ts time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
@@ -50,11 +50,11 @@ func newLogger(format string, logLevel string) (*zap.Logger, error) {
 		logger = logger.WithOptions(zap.AddCaller())
 	}
 
-	return logger, nil
+	return logger.Sugar(), nil
 }
 
 // initLogger initializes the logger with the given default log level.
-func initLogger(logLevel string, logFormat string) (log *zap.Logger, err error) {
+func initLogger(logLevel string, logFormat string) (log *zap.SugaredLogger, err error) {
 	// initialize logger only if user run command "start" or log level is "debug"
 	if os.Args[1] == "start" || logLevel == "debug" {
 		log, err = newLogger(logFormat, logLevel)
@@ -62,7 +62,7 @@ func initLogger(logLevel string, logFormat string) (log *zap.Logger, err error) 
 			return nil, err
 		}
 	} else {
-		log = zap.NewNop()
+		log = zap.NewNop().Sugar()
 	}
 
 	return log, nil

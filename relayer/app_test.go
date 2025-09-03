@@ -44,7 +44,7 @@ type AppTestSuite struct {
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
 func (s *AppTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
-	log := logger.NewZapLogWrapper(zap.NewNop())
+	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 
 	// mock objects.
 	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)

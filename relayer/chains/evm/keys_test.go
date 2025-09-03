@@ -29,13 +29,13 @@ type KeysTestSuite struct {
 	suite.Suite
 
 	chainProvider *evm.EVMChainProvider
-	log           logger.ZapLogger
+	log           logger.Logger
 	homePath      string
 	wallet        wallet.Wallet
 }
 
 func (s *KeysTestSuite) loadChainProvider() {
-	s.log = logger.NewZapLogWrapper(zap.NewNop())
+	s.log = logger.NewZapLogWrapper(zap.NewNop().Sugar())
 
 	chainName := "testnet"
 	client := evm.NewClient(chainName, evmCfg, s.log)

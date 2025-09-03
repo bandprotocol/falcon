@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	"github.com/bandprotocol/falcon/relayer/band"
@@ -28,7 +26,7 @@ const (
 
 // TunnelRelayer is a relayer that listens to the tunnel and relays the packet
 type TunnelRelayer struct {
-	Log                    logger.ZapLogger
+	Log                    logger.Logger
 	TunnelID               uint64
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
@@ -41,14 +39,14 @@ type TunnelRelayer struct {
 
 // NewTunnelRelayer creates a new TunnelRelayer
 func NewTunnelRelayer(
-	log logger.ZapLogger,
+	log logger.Logger,
 	tunnelID uint64,
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,
 	targetChainProvider chains.ChainProvider,
 ) TunnelRelayer {
 	return TunnelRelayer{
-		Log:                    log.With(zap.Uint64("tunnel_id", tunnelID)),
+		Log:                    log.With("tunnel_id", tunnelID),
 		TunnelID:               tunnelID,
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
@@ -95,7 +93,7 @@ func (t *TunnelRelayer) CheckAndRelay(
 		if seq == 0 {
 			break
 		}
-		t.Log.Debug("Next packet sequence to relay", zap.Uint64("sequence", seq))
+		t.Log.Debug("Next packet sequence to relay", "sequence", seq)
 		// get packet of the sequence
 		packet, err := t.getTunnelPacket(ctx, seq)
 		if err != nil {
@@ -123,7 +121,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// Query tunnel info from BandChain
 	tunnelInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 	if err != nil {
-		t.Log.Error("Failed to get tunnel", zap.Error(err))
+		t.Log.Error("Failed to get tunnel", err)
 		return 0, err
 	}
 
@@ -140,7 +138,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		tunnelInfo.TargetAddress,
 	)
 	if err != nil {
-		t.Log.Error("Failed to get target contract info", zap.Error(err))
+		t.Log.Error("Failed to get target contract info", err)
 		return 0, err
 	}
 
@@ -157,7 +155,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	latestSeq := targetContractInfo.LatestSequence
 	nextSeq := latestSeq + 1
 	if tunnelInfo.LatestSequence < nextSeq {
-		t.Log.Debug("No new packet to relay", zap.Uint64("sequence", latestSeq))
+		t.Log.Debug("No new packet to relay", "sequence", latestSeq)
 		return 0, nil
 	}
 
@@ -184,17 +182,17 @@ func (t *TunnelRelayer) updateRelayerMetrics(
 
 // relayPacket relays the packet to the target chain.
 func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) error {
-	t.Log.Info("Relaying packet", zap.Uint64("sequence", packet.Sequence))
+	t.Log.Info("Relaying packet", "sequence", packet.Sequence)
 
 	// Relay the packet to the target chain
 	if err := t.TargetChainProvider.RelayPacket(ctx, packet); err != nil {
-		t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", packet.Sequence))
+		t.Log.Error("Failed to relay packet", err, "sequence", packet.Sequence)
 		return err
 	}
 
 	// Increment the metric for successfully relayed packets
 	relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
-	t.Log.Info("Successfully relayed packet", zap.Uint64("sequence", packet.Sequence))
+	t.Log.Info("Successfully relayed packet", "sequence", packet.Sequence)
 
 	return nil
 }
@@ -206,7 +204,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		// get packet of the sequence
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
-			t.Log.Error("Failed to get packet", zap.Error(err), zap.Uint64("sequence", seq))
+			t.Log.Error("Failed to get packet", err, "sequence", seq)
 			return nil, err
 		}
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
@@ -220,14 +218,14 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		if signing.SigningStatus == tsstypes.SIGNING_STATUS_WAITING {
 			t.Log.Debug(
 				"The current packet must wait for the completion of the EVM signature",
-				zap.Uint64("sequence", seq),
+				"sequence", seq,
 			)
 			// wait 1 secs for each block
 			time.Sleep(time.Second)
 			continue
 		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
-			t.Log.Error("Failed to relay packet", zap.Error(err), zap.Uint64("sequence", seq))
+			t.Log.Error("Failed to relay packet", err, "sequence", seq)
 			return nil, err
 		}
 

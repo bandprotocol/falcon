@@ -61,7 +61,7 @@ func (s *SenderTestSuite) SetupTest() {
 
 	s.chainName = "testnet"
 
-	log := logger.NewZapLogWrapper(zap.NewNop())
+	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 	s.Require().NoError(err)
 
 	client := evm.NewClient(s.chainName, evmCfg, log)
@@ -82,7 +82,7 @@ func (s *SenderTestSuite) SetupTest() {
 }
 
 func (s *SenderTestSuite) TestLoadFreeSenders() {
-	log := logger.NewZapLogWrapper(zap.NewNop())
+	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 
 	client := evm.NewClient(s.chainName, evmCfg, log)
 
