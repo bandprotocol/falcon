@@ -204,15 +204,30 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
 		}
 
-		txResult, err := cp.waitForTx(ctx, txHash, createdAt, log, retryCount)
-		if err != nil {
-			log.Error(
-				"Failed to relaying a packet with status and error",
-				zap.Error(err),
-				zap.String("status", txResult.Status.String()),
+		txResult := cp.WaitForTx(ctx, txHash, log)
+
+		switch txResult.Status {
+		case types.TX_STATUS_SUCCESS:
+			log.Info(
+				"Packet is successfully relayed",
 				zap.String("tx_hash", txHash),
 				zap.Int("retry_count", retryCount),
 			)
+			return nil
+		case types.TX_STATUS_FAILED:
+			err = fmt.Errorf("transaction reverted on-chain")
+		case types.TX_STATUS_TIMEOUT:
+			err = fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
+				cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
+		}
+
+		log.Error(
+			"Failed to relaying a packet with status and error",
+			zap.Error(err),
+			zap.String("status", txResult.Status.String()),
+			zap.String("tx_hash", txHash),
+			zap.Int("retry_count", retryCount),
+		)
 
 		// bump gas and retry
 		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
@@ -222,10 +237,6 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
 		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
-
-		if txResult.Status == types.TX_STATUS_SUCCESS {
-			return nil
-		}
 	}
 
 	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
@@ -256,14 +267,13 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	return signedTx, nil
 }
 
-// waitForTx polls tx status until success/failed or timeout, saving the first pending snapshot.
-func (cp *EVMChainProvider) waitForTx(
+// WaitForTx polls tx status until success/failed or timeout, saving the first pending snapshot.
+func (cp *EVMChainProvider) WaitForTx(
 	ctx context.Context,
 	txHash string,
-	createdAt time.Time,
 	log logger.ZapLogger,
-	retryCount int,
-) (TxResult, error) {
+) TxResult {
+	createdAt := time.Now()
 	for time.Since(createdAt) <= cp.Config.WaitingTxDuration {
 		result, err := cp.CheckConfirmedTx(ctx, txHash)
 		if err != nil {
@@ -274,48 +284,29 @@ func (cp *EVMChainProvider) waitForTx(
 			)
 		}
 
+		if result.Status == types.TX_STATUS_PENDING {
+			time.Sleep(cp.Config.CheckingTxInterval)
+		}
+
 		switch result.Status {
-		case types.TX_STATUS_SUCCESS:
-			log.Info(
-				"Packet is successfully relayed",
-				zap.String("tx_hash", txHash),
-				zap.Int("retry_count", retryCount),
-			)
-			return result, nil
-		case types.TX_STATUS_FAILED:
-			log.Debug(
-				"Transaction failed during relay attempt",
-				zap.Error(err),
-				zap.String("tx_hash", txHash),
-				zap.Int("retry_count", retryCount),
-			)
-			return result, err
+		case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
+			return result
 		case types.TX_STATUS_PENDING:
 			log.Debug(
 				"Waiting for tx to be mined",
-				zap.Error(err),
 				zap.String("tx_hash", txHash),
 			)
 			time.Sleep(cp.Config.CheckingTxInterval)
 		}
 	}
 
-	err := fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
-		cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
-
-	log.Debug(
-		"Transaction timeout during relay attempt",
-		zap.Error(err),
-		zap.String("tx_hash", txHash),
-		zap.Int("retry_count", retryCount),
-	)
 	return NewTxResult(
 		txHash,
 		types.TX_STATUS_TIMEOUT,
 		decimal.NullDecimal{},
 		decimal.NullDecimal{},
 		nil,
-	), err
+	)
 }
 
 // handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.
