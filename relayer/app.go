@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"go.uber.org/zap"
-
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -22,7 +20,7 @@ var _ Application = &App{}
 
 // App is the main application struct.
 type App struct {
-	Log    logger.ZapLogger
+	Log    logger.Logger
 	Config *config.Config
 	Store  store.Store
 
@@ -33,7 +31,7 @@ type App struct {
 
 // NewApp creates a new App instance.
 func NewApp(
-	log logger.ZapLogger,
+	log logger.Logger,
 	config *config.Config,
 	passphrase string,
 	store store.Store,
@@ -75,7 +73,7 @@ func (a *App) initBandClient() {
 func (a *App) connectBandClient(ctx context.Context) error {
 	// connect to BandChain
 	if err := a.BandClient.Init(ctx); err != nil {
-		a.Log.Error("Cannot connect to BandChain", zap.Error(err))
+		a.Log.Error("Cannot connect to BandChain", err)
 		return err
 	}
 
@@ -96,8 +94,8 @@ func (a *App) InitTargetChain(chainName string) error {
 	wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
 	if err != nil {
 		a.Log.Error("Wallet registry not found",
-			zap.Error(err),
-			zap.String("chain_name", chainName),
+			"chain_name", chainName,
+			err,
 		)
 		return err
 	}
@@ -105,8 +103,8 @@ func (a *App) InitTargetChain(chainName string) error {
 	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet)
 	if err != nil {
 		a.Log.Error("Cannot create chain provider",
-			zap.Error(err),
-			zap.String("chain_name", chainName),
+			"chain_name", chainName,
+			err,
 		)
 		return err
 	}
@@ -187,7 +185,7 @@ func (a *App) QueryTunnelInfo(ctx context.Context, tunnelID uint64) (*types.Tunn
 
 	cp, ok := a.TargetChains[bandChainInfo.TargetChainID]
 	if !ok {
-		a.Log.Debug("Target chain provider not found", zap.String("chain_id", bandChainInfo.TargetChainID))
+		a.Log.Debug("Target chain provider not found", "chain_id", bandChainInfo.TargetChainID)
 		return types.NewTunnel(bandChainInfo, nil), nil
 	}
 
@@ -403,16 +401,16 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 	for chainName, chainProvider := range a.TargetChains {
 		if err := chainProvider.LoadSigners(); err != nil {
 			a.Log.Error("Cannot load keys in target chain",
-				zap.Error(err),
-				zap.String("chain_name", chainName),
+				"chain_name", chainName,
+				err,
 			)
 			return err
 		}
 
 		if err := chainProvider.Init(ctx); err != nil {
 			a.Log.Error("Cannot initialize chain provider",
-				zap.Error(err),
-				zap.String("chain_name", chainName),
+				"chain_name", chainName,
+				err,
 			)
 			return err
 		}
@@ -444,7 +442,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 		return err
 	}
 
-	a.Log.Debug("Query tunnel info on BandChain", zap.Uint64("tunnel_id", tunnelID))
+	a.Log.Debug("Query tunnel info on BandChain", "tunnel_id", tunnelID)
 	tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 	if err != nil {
 		return err
@@ -461,8 +459,8 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 
 	if err := chainProvider.LoadSigners(); err != nil {
 		a.Log.Error("Cannot load keys in target chain",
-			zap.Error(err),
-			zap.String("chain_name", tunnel.TargetChainID),
+			"chain_name", tunnel.TargetChainID,
+			err,
 		)
 		return err
 	}
@@ -481,7 +479,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 }
 
 // GetLog retrieves the log of the application.
-func (a *App) GetLog() logger.ZapLogger {
+func (a *App) GetLog() logger.Logger {
 	return a.Log
 }
 
@@ -513,8 +511,8 @@ func (a *App) getTunnelsByIDs(ctx context.Context, tunnelIDs []uint64) ([]bandty
 		tunnel, err := a.BandClient.GetTunnel(ctx, tunnelID)
 		if err != nil {
 			a.Log.Error("Cannot get tunnel from BandChain",
-				zap.Error(err),
-				zap.Uint64("tunnel_id", tunnelID),
+				"tunnel_id", tunnelID,
+				err,
 			)
 			return nil, err
 		}

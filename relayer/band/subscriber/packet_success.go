@@ -7,7 +7,6 @@ import (
 	"time"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	"go.uber.org/zap"
 
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -22,7 +21,7 @@ type PacketSuccessSubscriber struct {
 
 // NewPacketSuccessSubscriber creates a new PacketSuccessSubscriber.
 func NewPacketSuccessSubscriber(
-	log logger.ZapLogger,
+	log logger.Logger,
 	tunnelIDCh chan<- uint64,
 	timeout time.Duration,
 ) *PacketSuccessSubscriber {
@@ -34,7 +33,7 @@ func NewPacketSuccessSubscriber(
 		tunneltypes.AttributeKeyTunnelID,
 	)
 
-	l := log.With(zap.String("subscriber", name))
+	l := log.With("subscriber", name)
 	onEventReceived := onHandlePacketSuccessEvent(tunnelIDCh, l)
 
 	subscription := NewSubscription(
@@ -53,7 +52,7 @@ func NewPacketSuccessSubscriber(
 // onHandlePacketSuccessEvent handles the produce packet success event.
 func onHandlePacketSuccessEvent(
 	tunnelIDCh chan<- uint64,
-	log logger.ZapLogger,
+	log logger.Logger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
 		attrs := msg.Events
@@ -77,8 +76,8 @@ func onHandlePacketSuccessEvent(
 			if err != nil {
 				log.Error(
 					"Failed to parse tunnel_id in the event produce_packet_success",
-					zap.String("tunnel_id", idStr),
-					zap.Error(err),
+					"tunnel_id", idStr,
+					err,
 				)
 				continue
 			}

@@ -36,7 +36,7 @@ type Application interface {
 	GetConfig() *config.Config
 	SaveConfig(cfg *config.Config) error
 
-	GetLog() logger.ZapLogger
+	GetLog() logger.Logger
 	GetPassphrase() string
 	SavePassphrase(passphrase string) error
 

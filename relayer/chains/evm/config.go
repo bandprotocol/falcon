@@ -32,7 +32,7 @@ type EVMChainProviderConfig struct {
 // NewProvider creates a new EVM chain provider.
 func (cpc *EVMChainProviderConfig) NewChainProvider(
 	chainName string,
-	log logger.ZapLogger,
+	log logger.Logger,
 	wallet wallet.Wallet,
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log)

@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
@@ -209,7 +208,7 @@ func InitPrometheusMetrics() {
 // accepting connections on the given listener.
 // Any HTTP logging will be written at info level to the given logger.
 // The server will be forcefully shut down when ctx finishes.
-func StartMetricsServer(ctx context.Context, log logger.ZapLogger, metricsListenAddr string) error {
+func StartMetricsServer(ctx context.Context, log logger.Logger, metricsListenAddr string) error {
 	ln, err := net.Listen("tcp", metricsListenAddr)
 	if err != nil {
 		log.Error(
@@ -218,8 +217,8 @@ func StartMetricsServer(ctx context.Context, log logger.ZapLogger, metricsListen
 
 		return fmt.Errorf("failed to listen on metrics address %q: %w", metricsListenAddr, err)
 	}
-	log = log.With(zap.String("sys", "metricshttp"))
-	log.Info("Metrics server listening", zap.String("addr", metricsListenAddr))
+	log = log.With("sys", "metricshttp")
+	log.Info("Metrics server listening", "addr", metricsListenAddr)
 
 	// allow for the global telemetry enabled state to be set.
 	globalTelemetryEnabled = true

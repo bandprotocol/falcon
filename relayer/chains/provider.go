@@ -4,11 +4,10 @@ import (
 	"context"
 	"math/big"
 
-	"go.uber.org/zap"
-
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/db"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
@@ -75,7 +74,7 @@ type KeyProvider interface {
 
 // BaseChainProvider is a base object for connecting with the chain network.
 type BaseChainProvider struct {
-	log *zap.Logger
+	log logger.Logger
 
 	Config    ChainProviderConfig
 	ChainName string

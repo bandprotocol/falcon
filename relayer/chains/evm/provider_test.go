@@ -105,7 +105,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	log := logger.NewZapLogWrapper(zap.NewNop())
+	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, log, wallet)
 	s.Require().NoError(err)
 

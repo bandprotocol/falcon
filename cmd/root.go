@@ -168,7 +168,7 @@ func createApp(
 }
 
 // syncLog syncs the log to the specific output at the end of the program.
-func syncLog(log logger.ZapLogger) {
+func syncLog(log logger.Logger) {
 	if err := log.Sync(); err != nil && !errors.Is(err, syscall.ENOTTY) {
 		fmt.Fprintf(os.Stderr, "failed to sync logs: %v\n", err)
 	}

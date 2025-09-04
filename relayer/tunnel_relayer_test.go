@@ -48,7 +48,7 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 	s.ctx = context.Background()
 
 	tunnelRelayer := relayer.NewTunnelRelayer(
-		logger.NewZapLogWrapper(zap.NewNop()),
+		logger.NewZapLogWrapper(zap.NewNop().Sugar()),
 		defaultTunnelID,
 		defaultCheckingPacketInterval,
 		s.client,

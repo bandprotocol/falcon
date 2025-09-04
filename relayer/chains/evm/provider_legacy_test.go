@@ -56,7 +56,7 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	gethWallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	log := logger.NewZapLogWrapper(zap.NewNop())
+	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, log, gethWallet)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider

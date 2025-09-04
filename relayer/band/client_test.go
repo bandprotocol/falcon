@@ -32,7 +32,7 @@ type ClientTestSuite struct {
 	ctx             context.Context
 	bandQueryClient *mocks.MockQueryClient
 	client          band.Client
-	log             logger.ZapLogger
+	log             logger.Logger
 }
 
 func TestClientTestSuite(t *testing.T) {
@@ -44,7 +44,7 @@ func (s *ClientTestSuite) SetupTest() {
 	ctrl := gomock.NewController(s.T())
 
 	// mock objects.
-	s.log = logger.NewZapLogWrapper(zap.NewNop())
+	s.log = logger.NewZapLogWrapper(zap.NewNop().Sugar())
 	s.bandQueryClient = mocks.NewMockQueryClient(ctrl)
 	s.client = band.NewClient(
 		s.bandQueryClient,

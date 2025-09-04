@@ -7,7 +7,6 @@ import (
 	"time"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
-	"go.uber.org/zap"
 
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -22,7 +21,7 @@ type ManualTriggerSubscriber struct {
 
 // NewManualTriggerSubscriber creates a new ManualTriggerSubscriber.
 func NewManualTriggerSubscriber(
-	log logger.ZapLogger,
+	log logger.Logger,
 	tunnelIDCh chan<- uint64,
 	timeout time.Duration,
 ) *ManualTriggerSubscriber {
@@ -34,7 +33,7 @@ func NewManualTriggerSubscriber(
 		tunneltypes.AttributeKeyTunnelID,
 	)
 
-	l := log.With(zap.String("subscriber", name))
+	l := log.With("subscriber", name)
 	onEventReceived := onHandleManualTriggeredEvent(tunnelIDCh, l)
 
 	subscription := NewSubscription(
@@ -53,7 +52,7 @@ func NewManualTriggerSubscriber(
 // onHandleManualTriggeredEvent handles the manual triggered event.
 func onHandleManualTriggeredEvent(
 	tunnelIDCh chan<- uint64,
-	log logger.ZapLogger,
+	log logger.Logger,
 ) func(ctx context.Context, msg coretypes.ResultEvent) {
 	return func(ctx context.Context, msg coretypes.ResultEvent) {
 		attrs := msg.Events
@@ -77,8 +76,8 @@ func onHandleManualTriggeredEvent(
 			if err != nil {
 				log.Error(
 					"Failed to parse tunnel_id in the event manual_trigger",
-					zap.String("tunnel_id", idStr),
-					zap.Error(err),
+					"tunnel_id", idStr,
+					err,
 				)
 				continue
 			}
