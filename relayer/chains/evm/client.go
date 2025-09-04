@@ -344,7 +344,6 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 				"Get height of the given client",
 				"endpoint", endpoint,
 				"block_number", blockHeight,
-				err,
 			)
 
 			ch <- ClientConnectionResult{endpoint, client, blockHeight}
