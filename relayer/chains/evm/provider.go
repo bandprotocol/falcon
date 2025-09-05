@@ -266,7 +266,7 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	return signedTx, nil
 }
 
-// WaitForTx polls tx status until success/failed or timeout, saving the first pending snapshot.
+// WaitForTx polls tx status until success/failed or timeout
 func (cp *EVMChainProvider) WaitForTx(
 	ctx context.Context,
 	txHash string,
