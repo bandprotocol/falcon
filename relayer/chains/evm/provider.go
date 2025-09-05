@@ -13,7 +13,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
-	"go.uber.org/zap"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
@@ -164,7 +163,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 	}
 
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
-		log.Info("Relaying a message", zap.Int("retry_count", retryCount))
+		log.Info("Relaying a message", "retry_count", retryCount)
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
@@ -201,7 +200,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 
 		if err := cp.saveUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet); err != nil {
-			log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 
 		txResult := cp.WaitForTx(ctx, txHash, log)
@@ -210,8 +209,8 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		case types.TX_STATUS_SUCCESS:
 			log.Info(
 				"Packet is successfully relayed",
-				zap.String("tx_hash", txHash),
-				zap.Int("retry_count", retryCount),
+				"tx_hash", txHash,
+				"retry_count", retryCount,
 			)
 			return nil
 		case types.TX_STATUS_FAILED:
@@ -223,10 +222,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		log.Error(
 			"Failed to relaying a packet with status and error",
-			zap.Error(err),
-			zap.String("status", txResult.Status.String()),
-			zap.String("tx_hash", txHash),
-			zap.Int("retry_count", retryCount),
+			"status", txResult.Status.String(),
+			"tx_hash", txHash,
+			"retry_count", retryCount,
+			err,
 		)
 
 		// bump gas and retry
@@ -271,7 +270,7 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 func (cp *EVMChainProvider) WaitForTx(
 	ctx context.Context,
 	txHash string,
-	log logger.ZapLogger,
+	log logger.Logger,
 ) TxResult {
 	createdAt := time.Now()
 	for time.Since(createdAt) <= cp.Config.WaitingTxDuration {
@@ -279,8 +278,8 @@ func (cp *EVMChainProvider) WaitForTx(
 		if err != nil {
 			log.Debug(
 				"Failed to check tx status",
-				zap.Error(err),
-				zap.String("tx_hash", txHash),
+				"tx_hash", txHash,
+				err,
 			)
 		}
 
@@ -294,7 +293,7 @@ func (cp *EVMChainProvider) WaitForTx(
 		case types.TX_STATUS_PENDING:
 			log.Debug(
 				"Waiting for tx to be mined",
-				zap.String("tx_hash", txHash),
+				"tx_hash", txHash,
 			)
 			time.Sleep(cp.Config.CheckingTxInterval)
 		}
@@ -340,16 +339,16 @@ func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 	packet *bandtypes.Packet,
 	txResult TxResult,
 	retryCount int,
-	log logger.ZapLogger,
+	log logger.Logger,
 ) {
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
 		if err := cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult); err != nil {
-			log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 	default:
 		if err := cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet); err != nil {
-			log.Error("saveTransaction error", zap.Error(err), zap.Int("retry_count", retryCount))
+			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 	}
 }
