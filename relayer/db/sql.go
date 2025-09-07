@@ -42,18 +42,6 @@ func NewSQL(dbPath string) (SQL, error) {
 		if err != nil {
 			return SQL{}, err
 		}
-
-		if err := db.Transaction(func(tx *gorm.DB) error {
-			if err := ensureEnumTxStatus(tx); err != nil {
-				return err
-			}
-			if err := ensureEnumChainType(tx); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil {
-			return SQL{}, err
-		}
 	case "sqlite":
 		db, err = gorm.Open(sqlite.Open(path), cfg)
 		if err != nil {
@@ -62,10 +50,6 @@ func NewSQL(dbPath string) (SQL, error) {
 
 	default:
 		return SQL{}, gorm.ErrUnsupportedDriver
-	}
-
-	if err = db.AutoMigrate(&Transaction{}, &SignalPrice{}); err != nil {
-		return SQL{}, err
 	}
 
 	return SQL{db: db}, nil
@@ -88,44 +72,6 @@ func parseDbPath(dbPath string) (string, string, error) {
 	}
 
 	return driver, path, nil
-}
-
-// ensureEnumChainType creates the chain_type and values if needed.
-func ensureEnumChainType(db *gorm.DB) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		// Create the enum type if it doesn't exist
-		if err := tx.Exec(`
-			DO $$
-			BEGIN
-				IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'chain_type') THEN
-					CREATE TYPE chain_type AS ENUM ('evm');
-				END IF;
-			END
-			$$;`).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-// ensureEnumTxStatus creates the enum tx_status and values if needed.
-func ensureEnumTxStatus(db *gorm.DB) error {
-	return db.Transaction(func(tx *gorm.DB) error {
-		// Create the enum type if it doesn't exist
-		if err := tx.Exec(`
-			DO $$
-			BEGIN
-				IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tx_status') THEN
-					CREATE TYPE tx_status AS ENUM ('Pending', 'Success', 'Failed', 'Timeout');
-				END IF;
-			END
-			$$;`).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
 }
 
 // AddOrUpdateTransaction inserts a new Transaction record if none exists with the same TxHash.

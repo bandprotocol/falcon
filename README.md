@@ -299,3 +299,32 @@ If you modify any `.proto` files under the `proto/` directory, regenerate the Go
 ```sh
 make proto
 ```
+
+## Migrating SQL database 
+### Install
+```sh
+go install github.com/pressly/goose/v3/cmd/goose@latest
+# Ensure GOBIN (or $(go env GOPATH)/bin) is on your PATH
+```
+
+### Run 
+> Use `-dir` before the driver/DSN.
+> Supported drivers: `postgres`, `sqlite`.
+
+#### Up (apply all pending)
+```sh 
+# Postgres
+goose -dir relayer/db/migrations/postgres postgres "postgres://user:password@localhost:5432/falcon?sslmode=disable" up
+
+# SQLite
+goose -dir relayer/db/migrations/sqlite sqlite "gorm.db" up
+```
+
+#### Down (revert one step)
+```sh 
+# Postgres
+goose -dir relayer/db/migrations/postgres postgres "postgres://user:password@localhost:5432/falcon?sslmode=disable" down
+
+# SQLite
+goose -dir relayer/db/migrations/sqlite sqlite "gorm.db" down
+```
