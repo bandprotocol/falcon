@@ -283,10 +283,6 @@ func (cp *EVMChainProvider) WaitForTx(
 			)
 		}
 
-		if result.Status == types.TX_STATUS_PENDING {
-			time.Sleep(cp.Config.CheckingTxInterval)
-		}
-
 		switch result.Status {
 		case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
 			return result
