@@ -329,6 +329,7 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 	}
 }
 
+// handleSaveTransaction saves the transaction to the database based on its status.
 func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 	signerAddress string,
 	oldBalance *big.Int,
