@@ -19,9 +19,9 @@ CREATE TABLE transactions (
 
 CREATE TABLE signal_prices (
   transaction_id  INTEGER NOT NULL,
-  signal_price    TEXT    NOT NULL,
+  signal_id    TEXT    NOT NULL,
   price           INTEGER NOT NULL,
-  PRIMARY KEY (transaction_id, signal_price),
+  PRIMARY KEY (transaction_id, signal_id),
   FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
 );
 

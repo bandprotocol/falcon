@@ -80,17 +80,17 @@ func NewConfirmedTransaction(
 // SignalPrice represents the price of a signal for a given transaction.
 type SignalPrice struct {
 	TransactionID uint   `gorm:"primarykey"`
-	SignalPrice   string `gorm:"primarykey"`
+	SignalID      string `gorm:"primarykey"`
 	Price         uint64 `gorm:"not null"`
 }
 
 // NewSignalPrice creates a new SignalPrice instance.
 func NewSignalPrice(
-	signalPrice string,
+	signalID string,
 	price uint64,
 ) *SignalPrice {
 	return &SignalPrice{
-		SignalPrice: signalPrice,
-		Price:       price,
+		SignalID: signalID,
+		Price:    price,
 	}
 }

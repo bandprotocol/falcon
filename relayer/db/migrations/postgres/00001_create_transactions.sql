@@ -20,9 +20,9 @@ CREATE TABLE transactions (
 
 CREATE TABLE signal_prices (
   transaction_id  BIGINT NOT NULL,
-  signal_price    TEXT   NOT NULL,
+  signal_id       TEXT   NOT NULL,
   price           BIGINT NOT NULL,
-  PRIMARY KEY (transaction_id, signal_price),
+  PRIMARY KEY (transaction_id, signal_id),
   CONSTRAINT fk_signal_prices_tx
     FOREIGN KEY (transaction_id)
     REFERENCES transactions(id)
