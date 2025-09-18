@@ -27,8 +27,29 @@ type Transaction struct {
 	UpdatedAt      time.Time
 }
 
-// NewTransaction creates a new Transaction instance.
-func NewTransaction(
+// NewUnconfirmedTransaction creates a new pending Transaction instance.
+func NewUnconfirmedTransaction(
+	txHash string,
+	tunnelID uint64,
+	sequence uint64,
+	chainName string,
+	chainType types.ChainType,
+	status types.TxStatus,
+	signalPrices []SignalPrice,
+) *Transaction {
+	return &Transaction{
+		TxHash:       txHash,
+		TunnelID:     tunnelID,
+		Sequence:     sequence,
+		ChainName:    chainName,
+		ChainType:    chainType,
+		Status:       status,
+		SignalPrices: signalPrices,
+	}
+}
+
+// NewConfirmedTransaction creates a new Transaction instance.
+func NewConfirmedTransaction(
 	txHash string,
 	tunnelID uint64,
 	sequence uint64,
@@ -59,17 +80,17 @@ func NewTransaction(
 // SignalPrice represents the price of a signal for a given transaction.
 type SignalPrice struct {
 	TransactionID uint   `gorm:"primarykey"`
-	SignalPrice   string `gorm:"primarykey"`
+	SignalID      string `gorm:"primarykey"`
 	Price         uint64 `gorm:"not null"`
 }
 
 // NewSignalPrice creates a new SignalPrice instance.
 func NewSignalPrice(
-	signalPrice string,
+	signalID string,
 	price uint64,
 ) *SignalPrice {
 	return &SignalPrice{
-		SignalPrice: signalPrice,
-		Price:       price,
+		SignalID: signalID,
+		Price:    price,
 	}
 }
