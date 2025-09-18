@@ -31,13 +31,13 @@ func NewSQL(dbPath string) (SQL, error) {
 		Logger:                 logger.Default.LogMode(logger.Silent),
 	}
 
-	driverName, path, err := parseDbPath(dbPath)
+	driverName, path, err := splitDbPath(dbPath)
 	if err != nil {
 		return SQL{}, err
 	}
 
 	switch driverName {
-	case "postgresql":
+	case "postgres":
 		db, err = gorm.Open(postgres.Open(dbPath), cfg)
 		if err != nil {
 			return SQL{}, err
@@ -55,11 +55,11 @@ func NewSQL(dbPath string) (SQL, error) {
 	return SQL{db: db}, nil
 }
 
-// parseDbPath splits "<driver>:<dsn>" into driver and DSN.
+// splitDbPath splits "<driver>:<dsn>" into driver and DSN.
 // Keeps colons inside DSN (uses SplitN). For SQLite
 // Example: "postgresql:postgres://u:p@host:5432/db" -> ("postgresql", "postgres://u:p@host:5432/db")
 // Example: "sqlite:///myfile.db" -> myfile.db
-func parseDbPath(dbPath string) (string, string, error) {
+func splitDbPath(dbPath string) (string, string, error) {
 	parts := strings.SplitN(dbPath, ":", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid db path")
