@@ -24,6 +24,7 @@ const (
 	appName         = "falcon"
 
 	EnvPassphrase = "passphrase"
+	DbPath        = "db_path"
 )
 
 var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
@@ -147,6 +148,10 @@ func createApp(
 	// bind flags to the Context's Viper so we can get flags.
 	vp := viper.New()
 	if err := vp.BindEnv(EnvPassphrase); err != nil {
+		return nil, err
+	}
+
+	if err := vp.BindEnv(DbPath); err != nil {
 		return nil, err
 	}
 

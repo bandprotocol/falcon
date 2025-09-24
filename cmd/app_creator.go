@@ -18,6 +18,7 @@ func (a *AppCreator) NewApp(
 	opts relayer.AppOptions,
 ) (relayer.Application, error) {
 	passphrase := cast.ToString(opts.Get(EnvPassphrase))
+	dbPath := cast.ToString(opts.Get(DbPath))
 
 	cfg, err := store.GetConfig()
 	if err != nil {
@@ -33,6 +34,6 @@ func (a *AppCreator) NewApp(
 	}
 
 	logWrapper := logger.NewZapLogWrapper(log)
-	app := relayer.NewApp(logWrapper, cfg, passphrase, store)
+	app := relayer.NewApp(logWrapper, cfg, passphrase, dbPath, store)
 	return app, nil
 }

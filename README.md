@@ -164,8 +164,9 @@ falcon config init
 [global]
 log_level = 'info'
 checking_packet_interval = 60000000000
-max_checking_packet_penalty_duration = 3600000000000
-penalty_exponential_factor = 1.0
+sync_tunnels_interval = 300000000000
+penalty_skip_rounds = 3
+metrics_listen_addr = ''
 
 [bandchain]
 rpc_endpoints = ['http://localhost:26657']
@@ -300,18 +301,29 @@ If you modify any `.proto` files under the `proto/` directory, regenerate the Go
 make proto
 ```
 
-## Migrating SQL database 
-### Install
+## Database
+### Setup SQL database 
+  - As an environment variable via a `.env` file.
+    ``` shell
+    DB_PATH=postgresql://user:password@localhost:5432/mydatabase
+    ```
+  - Passed inline with commands that require it.
+    ``` shell
+    export DB_PATH=postgresql://user:password@localhost:5432/mydatabase
+    ```
+
+### Migrating SQL database 
+#### Install
 ```sh
 go install github.com/pressly/goose/v3/cmd/goose@latest
 # Ensure GOBIN (or $(go env GOPATH)/bin) is on your PATH
 ```
 
-### Run 
+#### Run 
 > Use `-dir` before the driver/DSN.
 > Supported drivers: `postgres`, `sqlite`.
 
-#### Up (apply all pending)
+##### Up (apply all pending)
 ```sh 
 # Postgres
 goose -dir relayer/db/migrations/postgres postgres "postgres://user:password@localhost:5432/falcon?sslmode=disable" up
@@ -320,7 +332,7 @@ goose -dir relayer/db/migrations/postgres postgres "postgres://user:password@loc
 goose -dir relayer/db/migrations/sqlite sqlite "gorm.db" up
 ```
 
-#### Down (revert one step)
+##### Down (revert one step)
 ```sh 
 # Postgres
 goose -dir relayer/db/migrations/postgres postgres "postgres://user:password@localhost:5432/falcon?sslmode=disable" down

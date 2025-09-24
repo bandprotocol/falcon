@@ -27,6 +27,7 @@ type App struct {
 	TargetChains chains.ChainProviders
 	BandClient   band.Client
 	Passphrase   string
+	DbPath       string
 }
 
 // NewApp creates a new App instance.
@@ -34,6 +35,7 @@ func NewApp(
 	log logger.Logger,
 	config *config.Config,
 	passphrase string,
+	dbPath string,
 	store store.Store,
 ) *App {
 	app := App{
@@ -41,6 +43,7 @@ func NewApp(
 		Config:       config,
 		Store:        store,
 		Passphrase:   passphrase,
+		DbPath:       dbPath,
 		TargetChains: make(chains.ChainProviders),
 	}
 	return &app
@@ -388,9 +391,8 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 	// init database
 	var database db.Database
 	var err error
-	dbPath := a.Config.Global.DBPath
-	if dbPath != "" {
-		database, err = a.InitDatabase(dbPath)
+	if a.DbPath != "" {
+		database, err = a.InitDatabase(a.DbPath)
 		if err != nil {
 			return err
 		}

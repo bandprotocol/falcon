@@ -38,7 +38,6 @@ type PrometheusMetrics struct {
 	TxsCount                   *prometheus.CounterVec
 	TxProcessTime              *prometheus.SummaryVec
 	GasUsed                    *prometheus.SummaryVec
-	PendingNewSigning          prometheus.Gauge
 }
 
 func updateMetrics(updateFn func()) {
@@ -124,16 +123,6 @@ func ObserveGasUsed(tunnelID uint64, destinationChain string, txStatus string, g
 	})
 }
 
-// IncreasePendingNewSigning increases the number of pending new signing in the ttl cache.
-func IncreasePendingNewSigning() {
-	updateMetrics(func() { metrics.PendingNewSigning.Inc() })
-}
-
-// DecreasePendingNewSigning decreases the number of pending new signing in the ttl cache.
-func DecreasePendingNewSigning() {
-	updateMetrics(func() { metrics.PendingNewSigning.Dec() })
-}
-
 func InitPrometheusMetrics() {
 	packetLabels := []string{"tunnel_id"}
 	tasksCountLabels := []string{"tunnel_id", "destination_chain", "task_status"}
@@ -197,10 +186,6 @@ func InitPrometheusMetrics() {
 				0.99: 0.001,
 			},
 		}, gasUsedLabels),
-		PendingNewSigning: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "falcon_pending_new_signing",
-			Help: "Number of pending new signing in the ttl cache",
-		}),
 	}
 }
 
