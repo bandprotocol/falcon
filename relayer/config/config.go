@@ -25,7 +25,6 @@ type GlobalConfig struct {
 	SyncTunnelsInterval    time.Duration `mapstructure:"sync_tunnels_interval"    toml:"sync_tunnels_interval"`
 	PenaltySkipRounds      uint          `mapstructure:"penalty_skip_rounds"      toml:"penalty_skip_rounds"`
 	MetricsListenAddr      string        `mapstructure:"metrics_listen_addr"      toml:"metrics_listen_addr"`
-	DBPath                 string        `mapstructure:"db_path"                  toml:"db_path"`
 }
 
 // Config defines the configuration for the falcon tunnel relayer.
