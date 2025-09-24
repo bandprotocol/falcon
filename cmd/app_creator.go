@@ -18,7 +18,7 @@ func (a *AppCreator) NewApp(
 	opts relayer.AppOptions,
 ) (relayer.Application, error) {
 	passphrase := cast.ToString(opts.Get(EnvPassphrase))
-	dbPath := cast.ToString(opts.Get(dbPath))
+	dbPath := cast.ToString(opts.Get(DbPath))
 
 	cfg, err := store.GetConfig()
 	if err != nil {

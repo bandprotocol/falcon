@@ -24,7 +24,7 @@ const (
 	appName         = "falcon"
 
 	EnvPassphrase = "passphrase"
-	dbPath        = "db_path"
+	DbPath        = "db_path"
 )
 
 var defaultHome = filepath.Join(os.Getenv("HOME"), ".falcon")
@@ -151,7 +151,7 @@ func createApp(
 		return nil, err
 	}
 
-	if err := vp.BindEnv(dbPath); err != nil {
+	if err := vp.BindEnv(DbPath); err != nil {
 		return nil, err
 	}
 
