@@ -8,6 +8,7 @@ import (
 
 	tsstypes "github.com/bandprotocol/falcon/internal/bandchain/tss"
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
+	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -35,6 +36,7 @@ type TunnelRelayer struct {
 	isTargetChainActive  bool
 	penaltySkipRemaining uint
 	mu                   *sync.Mutex
+	alert                alert.Alert
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -121,9 +123,18 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// Query tunnel info from BandChain
 	tunnelInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 	if err != nil {
+		alert.HandleAlert(
+			t.alert,
+			alert.GetTunnelError,
+			err.Error(),
+			t.TunnelID,
+			t.TargetChainProvider.GetChainName(),
+			t.Log,
+		)
 		t.Log.Error("Failed to get tunnel", err)
 		return 0, err
 	}
+	alert.HandleResolve(t.alert, alert.GetTunnelError, t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
 
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
@@ -138,9 +149,24 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		tunnelInfo.TargetAddress,
 	)
 	if err != nil {
+		alert.HandleAlert(
+			t.alert,
+			alert.GetContractTunnelInfoError,
+			err.Error(),
+			t.TunnelID,
+			t.TargetChainProvider.GetChainName(),
+			t.Log,
+		)
 		t.Log.Error("Failed to get target contract info", err)
 		return 0, err
 	}
+	alert.HandleResolve(
+		t.alert,
+		alert.GetContractTunnelInfoError,
+		t.TunnelID,
+		t.TargetChainProvider.GetChainName(),
+		t.Log,
+	)
 
 	t.updateRelayerMetrics(tunnelInfo, targetContractInfo)
 
@@ -204,9 +230,24 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		// get packet of the sequence
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
+			alert.HandleAlert(
+				t.alert,
+				alert.GetTunnelPacketError,
+				err.Error(),
+				t.TunnelID,
+				t.TargetChainProvider.GetChainName(),
+				t.Log,
+			)
 			t.Log.Error("Failed to get packet", "sequence", seq, err)
 			return nil, err
 		}
+		alert.HandleResolve(
+			t.alert,
+			alert.GetTunnelPacketError,
+			t.TunnelID,
+			t.TargetChainProvider.GetChainName(),
+			t.Log,
+		)
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
 		// If it is not success (Failed or Undefined), return error.
 		signing := packet.CurrentGroupSigning
@@ -225,9 +266,17 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			continue
 		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
+			alert.HandleAlert(t.alert, alert.PacketSigningStatusError, err.Error(), t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 			return nil, err
 		}
+		alert.HandleResolve(
+			t.alert,
+			alert.PacketSigningStatusError,
+			t.TunnelID,
+			t.TargetChainProvider.GetChainName(),
+			t.Log,
+		)
 
 		return packet, nil
 	}

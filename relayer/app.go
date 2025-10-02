@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -28,6 +29,8 @@ type App struct {
 	BandClient   band.Client
 	Passphrase   string
 	DbPath       string
+
+	Alert alert.Alert
 }
 
 // NewApp creates a new App instance.
@@ -37,6 +40,7 @@ func NewApp(
 	passphrase string,
 	dbPath string,
 	store store.Store,
+	alert alert.Alert,
 ) *App {
 	app := App{
 		Log:          log,
@@ -45,6 +49,7 @@ func NewApp(
 		Passphrase:   passphrase,
 		DbPath:       dbPath,
 		TargetChains: make(chains.ChainProviders),
+		Alert:        alert,
 	}
 	return &app
 }
@@ -103,7 +108,7 @@ func (a *App) InitTargetChain(chainName string) error {
 		return err
 	}
 
-	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet)
+	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet, a.Alert)
 	if err != nil {
 		a.Log.Error("Cannot create chain provider",
 			"chain_name", chainName,

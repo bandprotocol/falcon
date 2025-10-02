@@ -55,6 +55,8 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 		s.chainProvider,
 	)
 	s.tunnelRelayer = &tunnelRelayer
+
+	s.chainProvider.EXPECT().GetChainName().Return("").AnyTimes()
 }
 
 func TestTunnelRelayerTestSuite(t *testing.T) {
