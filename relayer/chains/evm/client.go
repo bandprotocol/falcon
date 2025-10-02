@@ -329,6 +329,26 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 			defer cancel()
 
+			syncProgress, err := client.SyncProgress(newCtx)
+			if err != nil {
+				c.Log.Debug(
+					"Failed to get sync progress",
+					"endpoint", endpoint,
+					err,
+				)
+				ch <- ClientConnectionResult{endpoint, client, 0}
+				return
+			}
+
+			if syncProgress != nil {
+				c.Log.Debug(
+					"Skipping client because it is not fully synced",
+					"endpoint", endpoint,
+				)
+				ch <- ClientConnectionResult{endpoint, client, 0}
+				return
+			}
+
 			blockHeight, err := client.BlockNumber(newCtx)
 			if err != nil {
 				c.Log.Debug(
