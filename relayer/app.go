@@ -426,7 +426,7 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 	}
 
 	// start the tunnel relayers
-	scheduler := NewScheduler(a.Log, a.Config, a.BandClient, a.TargetChains, tunnelCreator)
+	scheduler := NewScheduler(a.Log, a.Config, a.BandClient, a.TargetChains, tunnelCreator, a.Alert)
 
 	// if tunnelIDs is provided, set the tunnels to the scheduler
 	if len(tunnelIDs) > 0 {
@@ -478,6 +478,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 		a.Config.Global.CheckingPacketInterval,
 		a.BandClient,
 		chainProvider,
+		nil,
 	)
 
 	_, err = tr.CheckAndRelay(ctx, isForce)

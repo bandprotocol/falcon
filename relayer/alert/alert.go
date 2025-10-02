@@ -25,24 +25,27 @@ type Alert interface {
 	Resolve(topic string) error
 }
 
+// HandleAlert sends an alert with the given topic and detail, including tunnel ID and chain name.
 func HandleAlert(alert Alert, topic, detail string, tunnelID uint64, chainName string, log logger.Logger) {
 	if alert == nil {
 		return
 	}
-	if err := alert.Trigger(buildTopicWithTunnelIDAndChainName(topic, tunnelID, chainName), detail); err != nil {
+	if err := alert.Trigger(buildTopic(topic, tunnelID, chainName), detail); err != nil {
 		log.Debug("Failed to send alert", err)
 	}
 }
 
+// HandleResolve resolves an alert with the given topic, including tunnel ID and chain name.
 func HandleResolve(alert Alert, topic string, tunnelID uint64, chainName string, log logger.Logger) {
 	if alert == nil {
 		return
 	}
-	if err := alert.Resolve(buildTopicWithTunnelIDAndChainName(topic, tunnelID, chainName)); err != nil {
+	if err := alert.Resolve(buildTopic(topic, tunnelID, chainName)); err != nil {
 		log.Debug("Failed to resolve alert", err)
 	}
 }
 
-func buildTopicWithTunnelIDAndChainName(topic string, tunnelID uint64, chainName string) string {
+// buildTopic append the topic string with tunnel ID and chain name.
+func buildTopic(topic string, tunnelID uint64, chainName string) string {
 	return fmt.Sprintf("%s TUNNEL_ID-%d CHAIN-%s", topic, tunnelID, chainName)
 }

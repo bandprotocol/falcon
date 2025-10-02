@@ -32,11 +32,11 @@ type TunnelRelayer struct {
 	CheckingPacketInterval time.Duration
 	BandClient             band.Client
 	TargetChainProvider    chains.ChainProvider
+	Alert                  alert.Alert
 
 	isTargetChainActive  bool
 	penaltySkipRemaining uint
 	mu                   *sync.Mutex
-	alert                alert.Alert
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -46,6 +46,7 @@ func NewTunnelRelayer(
 	checkingPacketInterval time.Duration,
 	bandClient band.Client,
 	targetChainProvider chains.ChainProvider,
+	alert alert.Alert,
 ) TunnelRelayer {
 	return TunnelRelayer{
 		Log:                    log.With("tunnel_id", tunnelID),
@@ -53,6 +54,7 @@ func NewTunnelRelayer(
 		CheckingPacketInterval: checkingPacketInterval,
 		BandClient:             bandClient,
 		TargetChainProvider:    targetChainProvider,
+		Alert:                  alert,
 		isTargetChainActive:    false,
 		penaltySkipRemaining:   0,
 		mu:                     &sync.Mutex{},
@@ -124,7 +126,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	tunnelInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 	if err != nil {
 		alert.HandleAlert(
-			t.alert,
+			t.Alert,
 			alert.GetTunnelError,
 			err.Error(),
 			t.TunnelID,
@@ -134,7 +136,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		t.Log.Error("Failed to get tunnel", err)
 		return 0, err
 	}
-	alert.HandleResolve(t.alert, alert.GetTunnelError, t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
+	alert.HandleResolve(t.Alert, alert.GetTunnelError, t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
 
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
@@ -150,7 +152,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	)
 	if err != nil {
 		alert.HandleAlert(
-			t.alert,
+			t.Alert,
 			alert.GetContractTunnelInfoError,
 			err.Error(),
 			t.TunnelID,
@@ -161,7 +163,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		return 0, err
 	}
 	alert.HandleResolve(
-		t.alert,
+		t.Alert,
 		alert.GetContractTunnelInfoError,
 		t.TunnelID,
 		t.TargetChainProvider.GetChainName(),
@@ -231,7 +233,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		packet, err := t.BandClient.GetTunnelPacket(ctx, t.TunnelID, seq)
 		if err != nil {
 			alert.HandleAlert(
-				t.alert,
+				t.Alert,
 				alert.GetTunnelPacketError,
 				err.Error(),
 				t.TunnelID,
@@ -242,7 +244,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			return nil, err
 		}
 		alert.HandleResolve(
-			t.alert,
+			t.Alert,
 			alert.GetTunnelPacketError,
 			t.TunnelID,
 			t.TargetChainProvider.GetChainName(),
@@ -266,12 +268,12 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			continue
 		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
-			alert.HandleAlert(t.alert, alert.PacketSigningStatusError, err.Error(), t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
+			alert.HandleAlert(t.Alert, alert.PacketSigningStatusError, err.Error(), t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 			return nil, err
 		}
 		alert.HandleResolve(
-			t.alert,
+			t.Alert,
 			alert.PacketSigningStatusError,
 			t.TunnelID,
 			t.TargetChainProvider.GetChainName(),
