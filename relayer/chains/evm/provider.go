@@ -233,7 +233,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 
-		txResult, err := cp.WaitForTx(ctx, txHash, log)
+		txResult, err := cp.WaitForConfirmedTx(ctx, txHash, log)
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
 		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
@@ -251,9 +251,6 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			return nil
 		case types.TX_STATUS_FAILED:
 			err = fmt.Errorf("transaction reverted on-chain")
-		case types.TX_STATUS_TIMEOUT:
-			err = fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations: %v",
-				cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation, err)
 		}
 
 		lastErr = err
@@ -312,8 +309,9 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	return signedTx, nil
 }
 
-// WaitForTx polls tx status until success/failed or timeout
-func (cp *EVMChainProvider) WaitForTx(
+// WaitForConfirmedTx polls the transaction status until it reaches a confirmed result (success or failure).
+// Returns an error if the transaction cannot be confirmed within the configured TxWaitingDuration.
+func (cp *EVMChainProvider) WaitForConfirmedTx(
 	ctx context.Context,
 	txHash string,
 	log logger.Logger,
@@ -343,13 +341,20 @@ func (cp *EVMChainProvider) WaitForTx(
 		}
 	}
 
+	timeoutErr := fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
+		cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
+
+	if lastErr != nil {
+		timeoutErr = fmt.Errorf("%w: %v", timeoutErr, lastErr)
+	}
+
 	return NewTxResult(
 		txHash,
 		types.TX_STATUS_TIMEOUT,
 		decimal.NullDecimal{},
 		decimal.NullDecimal{},
 		nil,
-	), lastErr
+	), timeoutErr
 }
 
 // handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.
