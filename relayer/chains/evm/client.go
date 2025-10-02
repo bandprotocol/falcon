@@ -317,7 +317,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 		go func(endpoint string) {
 			client, err := ethclient.Dial(endpoint)
 			if err != nil {
-				c.Log.Debug(
+				c.Log.Warn(
 					"Failed to connect to EVM chain",
 					"endpoint", endpoint,
 					err,
@@ -329,9 +329,29 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 			defer cancel()
 
+			syncProgress, err := client.SyncProgress(newCtx)
+			if err != nil {
+				c.Log.Warn(
+					"Failed to get sync progress",
+					"endpoint", endpoint,
+					err,
+				)
+				ch <- ClientConnectionResult{endpoint, client, 0}
+				return
+			}
+
+			if syncProgress != nil {
+				c.Log.Warn(
+					"Skipping client because it is not fully synced",
+					"endpoint", endpoint,
+				)
+				ch <- ClientConnectionResult{endpoint, client, 0}
+				return
+			}
+
 			blockHeight, err := client.BlockNumber(newCtx)
 			if err != nil {
-				c.Log.Debug(
+				c.Log.Warn(
 					"Failed to get block height",
 					"endpoint", endpoint,
 					err,
