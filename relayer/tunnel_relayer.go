@@ -128,15 +128,14 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		alert.HandleAlert(
 			t.Alert,
 			alert.GetTunnelError,
-			err.Error(),
 			t.TunnelID,
 			t.TargetChainProvider.GetChainName(),
-			t.Log,
+			err.Error(),
 		)
 		t.Log.Error("Failed to get tunnel", err)
 		return 0, err
 	}
-	alert.HandleReset(t.Alert, alert.GetTunnelError, t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
+	alert.HandleReset(t.Alert, alert.GetTunnelError, t.TunnelID, t.TargetChainProvider.GetChainName())
 
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
@@ -154,10 +153,9 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		alert.HandleAlert(
 			t.Alert,
 			alert.GetContractTunnelInfoError,
-			err.Error(),
 			t.TunnelID,
 			t.TargetChainProvider.GetChainName(),
-			t.Log,
+			err.Error(),
 		)
 		t.Log.Error("Failed to get target contract info", err)
 		return 0, err
@@ -167,7 +165,6 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		alert.GetContractTunnelInfoError,
 		t.TunnelID,
 		t.TargetChainProvider.GetChainName(),
-		t.Log,
 	)
 
 	t.updateRelayerMetrics(tunnelInfo, targetContractInfo)
@@ -235,10 +232,9 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			alert.HandleAlert(
 				t.Alert,
 				alert.GetTunnelPacketError,
-				err.Error(),
 				t.TunnelID,
 				t.TargetChainProvider.GetChainName(),
-				t.Log,
+				err.Error(),
 			)
 			t.Log.Error("Failed to get packet", "sequence", seq, err)
 			return nil, err
@@ -248,7 +244,6 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			alert.GetTunnelPacketError,
 			t.TunnelID,
 			t.TargetChainProvider.GetChainName(),
-			t.Log,
 		)
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
 		// If it is not success (Failed or Undefined), return error.
@@ -268,7 +263,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			continue
 		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
-			alert.HandleAlert(t.Alert, alert.PacketSigningStatusError, err.Error(), t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
+			alert.HandleAlert(t.Alert, alert.PacketSigningStatusError, t.TunnelID, t.TargetChainProvider.GetChainName(), err.Error())
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 			return nil, err
 		}
@@ -277,7 +272,6 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			alert.PacketSigningStatusError,
 			t.TunnelID,
 			t.TargetChainProvider.GetChainName(),
-			t.Log,
 		)
 
 		return packet, nil

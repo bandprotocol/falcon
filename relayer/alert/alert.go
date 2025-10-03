@@ -2,8 +2,6 @@ package alert
 
 import (
 	"fmt"
-
-	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 const (
@@ -26,7 +24,7 @@ type Alert interface {
 }
 
 // HandleAlert handles triggering alert with the given topic and detail, including tunnel ID and chain name.
-func HandleAlert(alert Alert, topic, detail string, tunnelID uint64, chainName string, log logger.Logger) {
+func HandleAlert(alert Alert, topic string, tunnelID uint64, chainName string, detail string) {
 	if alert == nil {
 		return
 	}
@@ -34,7 +32,7 @@ func HandleAlert(alert Alert, topic, detail string, tunnelID uint64, chainName s
 }
 
 // HandleReset handles resetting alert with the given topic, including tunnel ID and chain name.
-func HandleReset(alert Alert, topic string, tunnelID uint64, chainName string, log logger.Logger) {
+func HandleReset(alert Alert, topic string, tunnelID uint64, chainName string) {
 	if alert == nil {
 		return
 	}
