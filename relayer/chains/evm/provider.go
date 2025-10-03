@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
+	"github.com/bandprotocol/falcon/relayer/alert"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
@@ -42,6 +43,8 @@ type EVMChainProvider struct {
 
 	Wallet wallet.Wallet
 	DB     db.Database
+
+	Alert alert.Alert
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -51,6 +54,7 @@ func NewEVMChainProvider(
 	cfg *EVMChainProviderConfig,
 	log logger.Logger,
 	wallet wallet.Wallet,
+	alert alert.Alert,
 ) (*EVMChainProvider, error) {
 	// load abis here
 	abi, err := abi.JSON(strings.NewReader(gasPriceTunnelRouterABI))
@@ -141,8 +145,16 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error("Connect client error", err)
+		alert.HandleAlert(
+			cp.Alert,
+			alert.ConnectClientError,
+			packet.TunnelID,
+			cp.ChainName,
+			err.Error(),
+		)
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
+	alert.HandleReset(cp.Alert, alert.ConnectClientError, packet.TunnelID, cp.ChainName)
 
 	// get a free signer
 	cp.Log.Debug("Waiting for a free signer...")
@@ -159,15 +171,27 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 	gasInfo, err := cp.EstimateGasFee(ctx)
 	if err != nil {
 		cp.Log.Error("Failed to estimate gas fee", err)
-		return fmt.Errorf("failed to estimate gas fee: %w", err)
+		alert.HandleAlert(
+			cp.Alert,
+			alert.EstimateGasFeeError,
+			packet.TunnelID,
+			cp.ChainName,
+			err.Error(),
+		)
+		return fmt.Errorf("[EVMProvider] failed to estimate gas fee: %w", err)
 	}
+	alert.HandleReset(cp.Alert, alert.EstimateGasFeeError, packet.TunnelID, cp.ChainName)
 
+	var lastErr error
+	var lastErrMsg string
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
 		if err != nil {
+			lastErr = err
+			lastErrMsg = alert.CreateAndSignTxError
 			log.Error("CreateAndSignTx error", "retry_count", retryCount, err)
 			retryCount += 1
 			continue
@@ -181,10 +205,14 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// submit the transaction, if failed, bump gas and retry
 		txHash, err := cp.Client.BroadcastTx(ctx, signedTx)
 		if err != nil {
+			lastErr = err
+			lastErrMsg = alert.BroadcastTxError
 			log.Error("HandleRelay error", "retry_count", retryCount, err)
 			// bump gas and retry
 			gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
 			if err != nil {
+				lastErr = err
+				lastErrMsg = alert.BumpGasError
 				log.Error("Cannot bump gas", "retry_count", retryCount, err)
 			}
 
@@ -203,7 +231,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 
-		txResult := cp.WaitForTx(ctx, txHash, log)
+		txResult, err := cp.WaitForConfirmedTx(ctx, txHash, log)
+
+		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
+		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
 
 		switch txResult.Status {
 		case types.TX_STATUS_SUCCESS:
@@ -212,14 +243,16 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				"tx_hash", txHash,
 				"retry_count", retryCount,
 			)
+			if lastErr != nil {
+				alert.HandleReset(cp.Alert, lastErrMsg, packet.TunnelID, cp.ChainName)
+			}
 			return nil
 		case types.TX_STATUS_FAILED:
 			err = fmt.Errorf("transaction reverted on-chain")
-		case types.TX_STATUS_TIMEOUT:
-			err = fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
-				cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
 		}
 
+		lastErr = err
+		lastErrMsg = alert.ConfirmSuccessTxError
 		log.Error(
 			"Failed to relaying a packet with status and error",
 			"status", txResult.Status.String(),
@@ -231,12 +264,19 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// bump gas and retry
 		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
 		if err != nil {
+			lastErr = err
+			lastErrMsg = alert.BumpGasError
 			log.Error("Cannot bump gas", "retry_count", retryCount, err)
 		}
-
-		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
-		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
 	}
+
+	alert.HandleAlert(
+		cp.Alert,
+		lastErrMsg,
+		packet.TunnelID,
+		cp.ChainName,
+		lastErr.Error(),
+	)
 
 	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
 }
@@ -266,16 +306,19 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	return signedTx, nil
 }
 
-// WaitForTx polls tx status until success/failed or timeout
-func (cp *EVMChainProvider) WaitForTx(
+// WaitForConfirmedTx polls the transaction status until it reaches a confirmed result (success or failure).
+// Returns an error if the transaction cannot be confirmed within the configured TxWaitingDuration.
+func (cp *EVMChainProvider) WaitForConfirmedTx(
 	ctx context.Context,
 	txHash string,
 	log logger.Logger,
-) TxResult {
+) (TxResult, error) {
 	createdAt := time.Now()
+	var lastErr error
 	for time.Since(createdAt) <= cp.Config.WaitingTxDuration {
 		result, err := cp.CheckConfirmedTx(ctx, txHash)
 		if err != nil {
+			lastErr = err
 			log.Debug(
 				"Failed to check tx status",
 				"tx_hash", txHash,
@@ -285,7 +328,7 @@ func (cp *EVMChainProvider) WaitForTx(
 
 		switch result.Status {
 		case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
-			return result
+			return result, nil
 		case types.TX_STATUS_PENDING:
 			log.Debug(
 				"Waiting for tx to be mined",
@@ -295,13 +338,20 @@ func (cp *EVMChainProvider) WaitForTx(
 		}
 	}
 
+	timeoutErr := fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
+		cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
+
+	if lastErr != nil {
+		timeoutErr = fmt.Errorf("%w: %v", timeoutErr, lastErr)
+	}
+
 	return NewTxResult(
 		txHash,
 		types.TX_STATUS_TIMEOUT,
 		decimal.NullDecimal{},
 		decimal.NullDecimal{},
 		nil,
-	)
+	), timeoutErr
 }
 
 // handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.

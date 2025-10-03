@@ -106,7 +106,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	s.Require().NoError(err)
 
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
-	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, log, wallet)
+	s.chainProvider, err = evm.NewEVMChainProvider(s.chainName, s.client, baseEVMCfg, log, wallet, nil)
 	s.Require().NoError(err)
 
 	s.chainProvider.Client = s.client

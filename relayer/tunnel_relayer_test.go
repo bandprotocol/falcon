@@ -53,8 +53,11 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 		defaultCheckingPacketInterval,
 		s.client,
 		s.chainProvider,
+		nil,
 	)
 	s.tunnelRelayer = &tunnelRelayer
+
+	s.chainProvider.EXPECT().GetChainName().Return("").AnyTimes()
 }
 
 func TestTunnelRelayerTestSuite(t *testing.T) {

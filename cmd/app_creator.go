@@ -34,6 +34,6 @@ func (a *AppCreator) NewApp(
 	}
 
 	logWrapper := logger.NewZapLogWrapper(log)
-	app := relayer.NewApp(logWrapper, cfg, passphrase, dbPath, store)
+	app := relayer.NewApp(logWrapper, cfg, passphrase, dbPath, store, nil)
 	return app, nil
 }
