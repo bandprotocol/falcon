@@ -136,7 +136,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		t.Log.Error("Failed to get tunnel", err)
 		return 0, err
 	}
-	alert.HandleResolve(t.Alert, alert.GetTunnelError, t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
+	alert.HandleReset(t.Alert, alert.GetTunnelError, t.TunnelID, t.TargetChainProvider.GetChainName(), t.Log)
 
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
@@ -162,7 +162,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		t.Log.Error("Failed to get target contract info", err)
 		return 0, err
 	}
-	alert.HandleResolve(
+	alert.HandleReset(
 		t.Alert,
 		alert.GetContractTunnelInfoError,
 		t.TunnelID,
@@ -243,7 +243,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			t.Log.Error("Failed to get packet", "sequence", seq, err)
 			return nil, err
 		}
-		alert.HandleResolve(
+		alert.HandleReset(
 			t.Alert,
 			alert.GetTunnelPacketError,
 			t.TunnelID,
@@ -272,7 +272,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 			return nil, err
 		}
-		alert.HandleResolve(
+		alert.HandleReset(
 			t.Alert,
 			alert.PacketSigningStatusError,
 			t.TunnelID,

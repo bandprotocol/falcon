@@ -155,7 +155,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
-	alert.HandleResolve(cp.Alert, alert.ConnectClientError, packet.TunnelID, cp.ChainName, cp.Log)
+	alert.HandleReset(cp.Alert, alert.ConnectClientError, packet.TunnelID, cp.ChainName, cp.Log)
 
 	// get a free signer
 	cp.Log.Debug("Waiting for a free signer...")
@@ -182,7 +182,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 		return fmt.Errorf("[EVMProvider] failed to estimate gas fee: %w", err)
 	}
-	alert.HandleResolve(cp.Alert, alert.EstimateGasFeeError, packet.TunnelID, cp.ChainName, cp.Log)
+	alert.HandleReset(cp.Alert, alert.EstimateGasFeeError, packet.TunnelID, cp.ChainName, cp.Log)
 
 	var lastErr error
 	var lastErrMsg string
@@ -246,7 +246,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				"retry_count", retryCount,
 			)
 			if lastErr != nil {
-				alert.HandleResolve(cp.Alert, lastErrMsg, packet.TunnelID, cp.ChainName, cp.Log)
+				alert.HandleReset(cp.Alert, lastErrMsg, packet.TunnelID, cp.ChainName, cp.Log)
 			}
 			return nil
 		case types.TX_STATUS_FAILED:

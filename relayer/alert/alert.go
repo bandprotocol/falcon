@@ -19,30 +19,26 @@ const (
 	PacketSigningStatusError   = "Failed tunnel packet signing status"
 )
 
-// Alert represents an object that can receive notifications when a new alert is fired or resolved.
+// Alert represents an object that triggers and resets alerts.
 type Alert interface {
-	Trigger(topic, detail string) error
-	Resolve(topic string) error
+	Trigger(topic, detail string)
+	Reset(topic string)
 }
 
-// HandleAlert sends an alert with the given topic and detail, including tunnel ID and chain name.
+// HandleAlert handles triggering alert with the given topic and detail, including tunnel ID and chain name.
 func HandleAlert(alert Alert, topic, detail string, tunnelID uint64, chainName string, log logger.Logger) {
 	if alert == nil {
 		return
 	}
-	if err := alert.Trigger(buildTopic(topic, tunnelID, chainName), detail); err != nil {
-		log.Debug("Failed to send alert", err)
-	}
+	alert.Trigger(buildTopic(topic, tunnelID, chainName), detail)
 }
 
-// HandleResolve resolves an alert with the given topic, including tunnel ID and chain name.
-func HandleResolve(alert Alert, topic string, tunnelID uint64, chainName string, log logger.Logger) {
+// HandleReset handles resetting alert with the given topic, including tunnel ID and chain name.
+func HandleReset(alert Alert, topic string, tunnelID uint64, chainName string, log logger.Logger) {
 	if alert == nil {
 		return
 	}
-	if err := alert.Resolve(buildTopic(topic, tunnelID, chainName)); err != nil {
-		log.Debug("Failed to resolve alert", err)
-	}
+	alert.Reset(buildTopic(topic, tunnelID, chainName))
 }
 
 // buildTopic append the topic string with tunnel ID and chain name.
