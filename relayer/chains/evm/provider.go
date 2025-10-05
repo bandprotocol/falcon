@@ -193,7 +193,6 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			lastErr = err
 			lastErrMsg = alert.CreateAndSignTxError
 			log.Error("CreateAndSignTx error", "retry_count", retryCount, err)
-			retryCount += 1
 			continue
 		}
 
@@ -231,13 +230,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 
-		txResult, err := cp.WaitForConfirmedTx(ctx, txHash, log)
+		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
 		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
 
-		switch txResult.Status {
-		case types.TX_STATUS_SUCCESS:
+		if txResult.Status == types.TX_STATUS_SUCCESS {
 			log.Info(
 				"Packet is successfully relayed",
 				"tx_hash", txHash,
@@ -247,11 +245,9 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				alert.HandleReset(cp.Alert, lastErrMsg, packet.TunnelID, cp.ChainName)
 			}
 			return nil
-		case types.TX_STATUS_FAILED:
-			err = fmt.Errorf("transaction reverted on-chain")
 		}
 
-		lastErr = err
+		lastErr = fmt.Errorf("%s", txResult.FailureReason)
 		lastErrMsg = alert.ConfirmSuccessTxError
 		log.Error(
 			"Failed to relaying a packet with status and error",
@@ -312,7 +308,7 @@ func (cp *EVMChainProvider) WaitForConfirmedTx(
 	ctx context.Context,
 	txHash string,
 	log logger.Logger,
-) (TxResult, error) {
+) TxResult {
 	createdAt := time.Now()
 	var lastErr error
 	for time.Since(createdAt) <= cp.Config.WaitingTxDuration {
@@ -328,7 +324,7 @@ func (cp *EVMChainProvider) WaitForConfirmedTx(
 
 		switch result.Status {
 		case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
-			return result, nil
+			return result
 		case types.TX_STATUS_PENDING:
 			log.Debug(
 				"Waiting for tx to be mined",
@@ -338,11 +334,11 @@ func (cp *EVMChainProvider) WaitForConfirmedTx(
 		}
 	}
 
-	timeoutErr := fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
+	failureReason := fmt.Sprintf("timed out waiting %s for tx %s to reach %d confirmations",
 		cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
 
 	if lastErr != nil {
-		timeoutErr = fmt.Errorf("%w: %v", timeoutErr, lastErr)
+		failureReason = fmt.Sprintf("%s: %v", failureReason, lastErr)
 	}
 
 	return NewTxResult(
@@ -351,7 +347,8 @@ func (cp *EVMChainProvider) WaitForConfirmedTx(
 		decimal.NullDecimal{},
 		decimal.NullDecimal{},
 		nil,
-	), timeoutErr
+		failureReason,
+	)
 }
 
 // handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.
@@ -413,6 +410,7 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 				decimal.NullDecimal{},
 				decimal.NullDecimal{},
 				nil,
+				err.Error(),
 			), fmt.Errorf(
 				"failed to get tx receipt: %w",
 				err,
@@ -424,7 +422,14 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	gasPrice := decimal.NewNullDecimal(decimal.New(int64(receipt.EffectiveGasPrice.Uint64()), 0))
 
 	if receipt.Status == gethtypes.ReceiptStatusFailed {
-		return NewTxResult(txHash, types.TX_STATUS_FAILED, gasUsed, gasPrice, receipt.BlockNumber), nil
+		return NewTxResult(
+			txHash,
+			types.TX_STATUS_FAILED,
+			gasUsed,
+			gasPrice,
+			receipt.BlockNumber,
+			"transaction reverted on-chain",
+		), nil
 	}
 
 	latestBlock, err := cp.Client.GetBlockHeight(ctx)
@@ -435,6 +440,7 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 				decimal.NullDecimal{},
 				decimal.NullDecimal{},
 				nil,
+				err.Error(),
 			), fmt.Errorf(
 				"failed to get latest block height: %w",
 				err,
@@ -449,10 +455,11 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 			decimal.NullDecimal{},
 			decimal.NullDecimal{},
 			nil,
+			"",
 		), nil
 	}
 
-	return NewTxResult(txHash, types.TX_STATUS_SUCCESS, gasUsed, gasPrice, receipt.BlockNumber), nil
+	return NewTxResult(txHash, types.TX_STATUS_SUCCESS, gasUsed, gasPrice, receipt.BlockNumber, ""), nil
 }
 
 // EstimateGasFee estimates the gas for the transaction.

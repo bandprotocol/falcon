@@ -23,6 +23,9 @@ type TxResult struct {
 	GasUsed           decimal.NullDecimal
 	EffectiveGasPrice decimal.NullDecimal
 	BlockNumber       *big.Int
+
+	// empty when Status == SUCCESS
+	FailureReason string
 }
 
 // NewTxResult creates a new TxResult instance.
@@ -32,6 +35,7 @@ func NewTxResult(
 	gasUsed decimal.NullDecimal,
 	effectiveGasPrice decimal.NullDecimal,
 	blockNumber *big.Int,
+	failureReason string,
 ) TxResult {
 	return TxResult{
 		TxHash:            txHash,
@@ -39,5 +43,6 @@ func NewTxResult(
 		GasUsed:           gasUsed,
 		EffectiveGasPrice: effectiveGasPrice,
 		BlockNumber:       blockNumber,
+		FailureReason:     failureReason,
 	}
 }

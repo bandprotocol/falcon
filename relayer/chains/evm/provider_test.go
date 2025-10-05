@@ -238,6 +238,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
 				decimal.NewNullDecimal(decimal.New(20000, 0)),
 				big.NewInt(100),
+				"",
 			),
 		},
 		{
@@ -256,6 +257,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
 				decimal.NewNullDecimal(decimal.New(20000, 0)),
 				big.NewInt(100),
+				"transaction reverted on-chain",
 			),
 		},
 		{
@@ -277,6 +279,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				decimal.NullDecimal{},
 				decimal.NullDecimal{},
 				nil,
+				"",
 			),
 		},
 	}
