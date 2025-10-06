@@ -9,7 +9,6 @@ const (
 	EstimateGasFeeError        = "Failed to estimate gas fee"
 	CreateAndSignTxError       = "Failed to create and sign transaction"
 	BroadcastTxError           = "Failed to broadcast transaction"
-	BumpGasError               = "Failed to bump gas"
 	ConfirmSuccessTxError      = "Failed to confirm success transaction"
 	GetTunnelError             = "Failed to get tunnel from BandChain"
 	GetTunnelPacketError       = "Failed to get tunnel packet from BandChain"
