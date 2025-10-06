@@ -85,6 +85,7 @@ func NewEVMChainProvider(
 		TunnelRouterABI:      abi,
 		Log:                  log.With("chain_name", chainName),
 		Wallet:               wallet,
+		Alert:                alert,
 		tunnelIDToLastErrMsg: make(map[uint64]string),
 	}, nil
 }
