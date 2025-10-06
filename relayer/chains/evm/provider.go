@@ -191,7 +191,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
 		if err != nil {
-			lastErr = fmt.Errorf("Create and sign tx error: %v", err)
+			lastErr = fmt.Errorf("create and sign tx error: %v", err)
 			log.Error("CreateAndSignTx error", "retry_count", retryCount, err)
 			continue
 		}
@@ -204,7 +204,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// submit the transaction, if failed, bump gas and retry
 		txHash, err := cp.Client.BroadcastTx(ctx, signedTx)
 		if err != nil {
-			lastErr = fmt.Errorf("Broadcast tx error: %v", err)
+			lastErr = fmt.Errorf("broadcast tx error: %v", err)
 			log.Error("HandleRelay error", "retry_count", retryCount, err)
 			// bump gas and retry
 			gasInfo, bumpGasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
