@@ -478,7 +478,7 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 		a.Config.Global.CheckingPacketInterval,
 		a.BandClient,
 		chainProvider,
-		nil,
+		a.Alert,
 	)
 
 	_, err = tr.CheckAndRelay(ctx, isForce)

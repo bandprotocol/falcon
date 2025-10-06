@@ -44,7 +44,8 @@ type EVMChainProvider struct {
 	Wallet wallet.Wallet
 	DB     db.Database
 
-	Alert alert.Alert
+	Alert                alert.Alert
+	tunnelIDToLastErrMsg map[uint64]string
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -76,14 +77,15 @@ func NewEVMChainProvider(
 	}
 
 	return &EVMChainProvider{
-		Config:              cfg,
-		ChainName:           chainName,
-		Client:              client,
-		GasType:             cfg.GasType,
-		TunnelRouterAddress: addr,
-		TunnelRouterABI:     abi,
-		Log:                 log.With("chain_name", chainName),
-		Wallet:              wallet,
+		Config:               cfg,
+		ChainName:            chainName,
+		Client:               client,
+		GasType:              cfg.GasType,
+		TunnelRouterAddress:  addr,
+		TunnelRouterABI:      abi,
+		Log:                  log.With("chain_name", chainName),
+		Wallet:               wallet,
+		tunnelIDToLastErrMsg: make(map[uint64]string),
 	}, nil
 }
 
@@ -183,6 +185,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 	alert.HandleReset(cp.Alert, alert.EstimateGasFeeError, packet.TunnelID, cp.ChainName)
 
 	var lastErr error
+	var bumpgasErr error
 	var lastErrMsg string
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
@@ -208,10 +211,8 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			lastErrMsg = alert.BroadcastTxError
 			log.Error("HandleRelay error", "retry_count", retryCount, err)
 			// bump gas and retry
-			gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
-			if err != nil {
-				lastErr = err
-				lastErrMsg = alert.BumpGasError
+			gasInfo, bumpgasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
+			if bumpgasErr != nil {
 				log.Error("Cannot bump gas", "retry_count", retryCount, err)
 			}
 
@@ -241,8 +242,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				"tx_hash", txHash,
 				"retry_count", retryCount,
 			)
-			if lastErr != nil {
+			lastErrMsg, ok := cp.tunnelIDToLastErrMsg[packet.TunnelID]
+			if ok {
 				alert.HandleReset(cp.Alert, lastErrMsg, packet.TunnelID, cp.ChainName)
+				delete(cp.tunnelIDToLastErrMsg, packet.TunnelID)
 			}
 			return nil
 		}
@@ -258,14 +261,18 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 
 		// bump gas and retry
-		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
-		if err != nil {
-			lastErr = err
-			lastErrMsg = alert.BumpGasError
+		gasInfo, bumpgasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
+		if bumpgasErr != nil {
 			log.Error("Cannot bump gas", "retry_count", retryCount, err)
 		}
 	}
 
+	if bumpgasErr != nil {
+		// add bump gas error detail to the latest error
+		lastErr = fmt.Errorf("%v; %v", lastErr, bumpgasErr)
+	}
+
+	cp.tunnelIDToLastErrMsg[packet.TunnelID] = lastErrMsg
 	alert.HandleAlert(
 		cp.Alert,
 		lastErrMsg,
