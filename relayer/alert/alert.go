@@ -7,9 +7,7 @@ import (
 const (
 	ConnectClientError         = "Failed to connect client"
 	EstimateGasFeeError        = "Failed to estimate gas fee"
-	CreateAndSignTxError       = "Failed to create and sign transaction"
-	BroadcastTxError           = "Failed to broadcast transaction"
-	ConfirmSuccessTxError      = "Failed to confirm success transaction"
+	RelayTxError               = "Failed to relay transaction"
 	GetTunnelError             = "Failed to get tunnel from BandChain"
 	GetTunnelPacketError       = "Failed to get tunnel packet from BandChain"
 	GetContractTunnelInfoError = "Failed to get tunnel info from contract"

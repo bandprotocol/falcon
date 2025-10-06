@@ -44,8 +44,7 @@ type EVMChainProvider struct {
 	Wallet wallet.Wallet
 	DB     db.Database
 
-	Alert                alert.Alert
-	tunnelIDToLastErrMsg map[uint64]string
+	Alert alert.Alert
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -77,16 +76,15 @@ func NewEVMChainProvider(
 	}
 
 	return &EVMChainProvider{
-		Config:               cfg,
-		ChainName:            chainName,
-		Client:               client,
-		GasType:              cfg.GasType,
-		TunnelRouterAddress:  addr,
-		TunnelRouterABI:      abi,
-		Log:                  log.With("chain_name", chainName),
-		Wallet:               wallet,
-		Alert:                alert,
-		tunnelIDToLastErrMsg: make(map[uint64]string),
+		Config:              cfg,
+		ChainName:           chainName,
+		Client:              client,
+		GasType:             cfg.GasType,
+		TunnelRouterAddress: addr,
+		TunnelRouterABI:     abi,
+		Log:                 log.With("chain_name", chainName),
+		Wallet:              wallet,
+		Alert:               alert,
 	}, nil
 }
 
@@ -186,16 +184,14 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 	alert.HandleReset(cp.Alert, alert.EstimateGasFeeError, packet.TunnelID, cp.ChainName)
 
 	var lastErr error
-	var bumpgasErr error
-	var lastErrMsg string
+	var bumpGasErr error
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
 		if err != nil {
-			lastErr = err
-			lastErrMsg = alert.CreateAndSignTxError
+			lastErr = fmt.Errorf("Create and sign tx error: %v", err)
 			log.Error("CreateAndSignTx error", "retry_count", retryCount, err)
 			continue
 		}
@@ -208,13 +204,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// submit the transaction, if failed, bump gas and retry
 		txHash, err := cp.Client.BroadcastTx(ctx, signedTx)
 		if err != nil {
-			lastErr = err
-			lastErrMsg = alert.BroadcastTxError
+			lastErr = fmt.Errorf("Broadcast tx error: %v", err)
 			log.Error("HandleRelay error", "retry_count", retryCount, err)
 			// bump gas and retry
-			gasInfo, bumpgasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
-			if bumpgasErr != nil {
-				log.Error("Cannot bump gas", "retry_count", retryCount, err)
+			gasInfo, bumpGasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
+			if bumpGasErr != nil {
+				log.Error("Cannot bump gas", "retry_count", retryCount, bumpGasErr)
 			}
 
 			continue
@@ -243,16 +238,11 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				"tx_hash", txHash,
 				"retry_count", retryCount,
 			)
-			lastErrMsg, ok := cp.tunnelIDToLastErrMsg[packet.TunnelID]
-			if ok {
-				alert.HandleReset(cp.Alert, lastErrMsg, packet.TunnelID, cp.ChainName)
-				delete(cp.tunnelIDToLastErrMsg, packet.TunnelID)
-			}
+			alert.HandleReset(cp.Alert, alert.RelayTxError, packet.TunnelID, cp.ChainName)
 			return nil
 		}
 
 		lastErr = fmt.Errorf("%s", txResult.FailureReason)
-		lastErrMsg = alert.ConfirmSuccessTxError
 		log.Error(
 			"Failed to relaying a packet with status and error",
 			"status", txResult.Status.String(),
@@ -262,21 +252,20 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 
 		// bump gas and retry
-		gasInfo, bumpgasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
-		if bumpgasErr != nil {
-			log.Error("Cannot bump gas", "retry_count", retryCount, err)
+		gasInfo, bumpGasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
+		if bumpGasErr != nil {
+			log.Error("Cannot bump gas", "retry_count", retryCount, bumpGasErr)
 		}
 	}
 
-	if bumpgasErr != nil {
+	if bumpGasErr != nil {
 		// add bump gas error detail to the latest error
-		lastErr = fmt.Errorf("%v; %v", lastErr, bumpgasErr)
+		lastErr = fmt.Errorf("%v; %v", lastErr, bumpGasErr)
 	}
 
-	cp.tunnelIDToLastErrMsg[packet.TunnelID] = lastErrMsg
 	alert.HandleAlert(
 		cp.Alert,
-		lastErrMsg,
+		alert.RelayTxError,
 		packet.TunnelID,
 		cp.ChainName,
 		lastErr.Error(),
