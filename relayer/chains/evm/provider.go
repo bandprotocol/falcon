@@ -309,8 +309,14 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	return signedTx, nil
 }
 
-// WaitForConfirmedTx polls the transaction status until it reaches a confirmed result (success or failure).
-// Returns an error if the transaction cannot be confirmed within the configured TxWaitingDuration.
+// WaitForConfirmedTx polls the transaction until it reaches a terminal state.
+// It NEVER returns an error. Instead, it always returns a TxResult where:
+//   - Status == TX_STATUS_SUCCESS or TX_STATUS_FAILED when confirmed.
+//   - Status == TX_STATUS_TIMEOUT if it did not reach the required confirmations
+//     within WaitingTxDuration (or the context was canceled); in this case,
+//     the result’s StatusReason/Fallback message is populated with details.
+//
+// The function sleeps for CheckingTxInterval between polls.
 func (cp *EVMChainProvider) WaitForConfirmedTx(
 	ctx context.Context,
 	txHash string,
@@ -411,17 +417,18 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 ) (TxResult, error) {
 	receipt, err := cp.Client.GetTxReceipt(ctx, txHash)
 	if err != nil {
+		err = fmt.Errorf(
+			"failed to get tx receipt: %w",
+			err,
+		)
 		return NewTxResult(
-				txHash,
-				types.TX_STATUS_PENDING,
-				decimal.NullDecimal{},
-				decimal.NullDecimal{},
-				nil,
-				err.Error(),
-			), fmt.Errorf(
-				"failed to get tx receipt: %w",
-				err,
-			)
+			txHash,
+			types.TX_STATUS_PENDING,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+			err.Error(),
+		), err
 	}
 
 	// calculate gas used and effective gas price
@@ -441,17 +448,18 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 
 	latestBlock, err := cp.Client.GetBlockHeight(ctx)
 	if err != nil {
+		err = fmt.Errorf(
+			"failed to get latest block height: %w",
+			err,
+		)
 		return NewTxResult(
-				txHash,
-				types.TX_STATUS_PENDING,
-				decimal.NullDecimal{},
-				decimal.NullDecimal{},
-				nil,
-				err.Error(),
-			), fmt.Errorf(
-				"failed to get latest block height: %w",
-				err,
-			)
+			txHash,
+			types.TX_STATUS_PENDING,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+			err.Error(),
+		), err
 	}
 
 	// if tx block is not confirmed and waiting too long return status with timeout
