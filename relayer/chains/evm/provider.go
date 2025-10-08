@@ -404,10 +404,7 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 ) (TxResult, error) {
 	receipt, err := cp.Client.GetTxReceipt(ctx, txHash)
 	if err != nil {
-		err = fmt.Errorf(
-			"failed to get tx receipt: %w",
-			err,
-		)
+		err = fmt.Errorf("failed to get tx receipt: %w", err)
 		return NewTxResult(
 			txHash,
 			types.TX_STATUS_PENDING,
@@ -435,10 +432,7 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 
 	latestBlock, err := cp.Client.GetBlockHeight(ctx)
 	if err != nil {
-		err = fmt.Errorf(
-			"failed to get latest block height: %w",
-			err,
-		)
+		err = fmt.Errorf("failed to get latest block height: %w", err)
 		return NewTxResult(
 			txHash,
 			types.TX_STATUS_PENDING,
