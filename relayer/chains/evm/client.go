@@ -11,6 +11,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
@@ -45,16 +46,18 @@ type client struct {
 
 	selectedEndpoint string
 	client           *ethclient.Client
+	alert            alert.Alert
 }
 
 // NewClient creates a new EVM client from config file and load keys.
-func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger) *client {
+func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger, alert alert.Alert) *client {
 	return &client{
 		ChainName:      chainName,
 		Endpoints:      cfg.Endpoints,
 		QueryTimeout:   cfg.QueryTimeout,
 		ExecuteTimeout: cfg.ExecuteTimeout,
 		Log:            log.With("chain_name", chainName),
+		alert:          alert,
 	}
 }
 
@@ -323,6 +326,13 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					err,
 				)
 				ch <- ClientConnectionResult{endpoint, nil, 0}
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
+						WithChainName(c.ChainName).
+						WithEndpoint(endpoint),
+					err.Error(),
+				)
 				return
 			}
 
@@ -337,6 +347,15 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					err,
 				)
 				ch <- ClientConnectionResult{endpoint, client, 0}
+
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
+						WithChainName(c.ChainName).
+						WithEndpoint(endpoint),
+					err.Error(),
+				)
+
 				return
 			}
 
@@ -346,6 +365,13 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"endpoint", endpoint,
 				)
 				ch <- ClientConnectionResult{endpoint, client, 0}
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
+						WithChainName(c.ChainName).
+						WithEndpoint(endpoint),
+					"Skipping client because it is not fully synced",
+				)
 				return
 			}
 
@@ -357,6 +383,13 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					err,
 				)
 				ch <- ClientConnectionResult{endpoint, client, 0}
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
+						WithChainName(c.ChainName).
+						WithEndpoint(endpoint),
+					err.Error(),
+				)
 				return
 			}
 
@@ -364,6 +397,12 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 				"Get height of the given client",
 				"endpoint", endpoint,
 				"block_number", blockHeight,
+			)
+			alert.HandleReset(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleClientErrorMsg).
+					WithChainName(c.ChainName).
+					WithEndpoint(endpoint),
 			)
 
 			ch <- ClientConnectionResult{endpoint, client, blockHeight}

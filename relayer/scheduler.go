@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
+	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
@@ -24,6 +25,8 @@ type Scheduler struct {
 	BandClient     band.Client
 	ChainProviders chains.ChainProviders
 
+	Alert alert.Alert
+
 	relayTunnelIDCh  chan uint64
 	tunnelRelayers   map[uint64]*TunnelRelayer
 	bandLatestTunnel int
@@ -37,6 +40,7 @@ func NewScheduler(
 	bandClient band.Client,
 	chainProviders chains.ChainProviders,
 	tunnelCreator string,
+	alert alert.Alert,
 ) *Scheduler {
 	relayTunnelIDCh := make(chan uint64, 1000)
 
@@ -48,6 +52,7 @@ func NewScheduler(
 		SubscriptionTimeout:    config.BandChain.Timeout,
 		BandClient:             bandClient,
 		ChainProviders:         chainProviders,
+		Alert:                  alert,
 		relayTunnelIDCh:        relayTunnelIDCh,
 		tunnelRelayers:         make(map[uint64]*TunnelRelayer),
 		bandLatestTunnel:       0,
@@ -284,6 +289,7 @@ func (s *Scheduler) setTunnelRelayer(tunnels []bandtypes.Tunnel) {
 			s.CheckingPacketInterval,
 			s.BandClient,
 			chainProvider,
+			s.Alert,
 		)
 
 		s.tunnelRelayers[tunnel.ID] = &tr

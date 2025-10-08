@@ -38,12 +38,12 @@ func (s *KeysTestSuite) loadChainProvider() {
 	s.log = logger.NewZapLogWrapper(zap.NewNop().Sugar())
 
 	chainName := "testnet"
-	client := evm.NewClient(chainName, evmCfg, s.log)
+	client := evm.NewClient(chainName, evmCfg, s.log, nil)
 
 	wallet, err := geth.NewGethWallet("", s.homePath, chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet)
+	chainProvider, err := evm.NewEVMChainProvider(chainName, client, evmCfg, s.log, wallet, nil)
 	s.Require().NoError(err)
 
 	s.chainProvider = chainProvider

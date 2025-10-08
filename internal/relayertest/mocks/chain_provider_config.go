@@ -12,6 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	alert "github.com/bandprotocol/falcon/relayer/alert"
 	chains "github.com/bandprotocol/falcon/relayer/chains"
 	types "github.com/bandprotocol/falcon/relayer/chains/types"
 	logger "github.com/bandprotocol/falcon/relayer/logger"
@@ -58,18 +59,18 @@ func (mr *MockChainProviderConfigMockRecorder) GetChainType() *gomock.Call {
 }
 
 // NewChainProvider mocks base method.
-func (m *MockChainProviderConfig) NewChainProvider(chainName string, log logger.Logger, wallet wallet.Wallet) (chains.ChainProvider, error) {
+func (m *MockChainProviderConfig) NewChainProvider(chainName string, log logger.Logger, wallet wallet.Wallet, alert alert.Alert) (chains.ChainProvider, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, wallet)
+	ret := m.ctrl.Call(m, "NewChainProvider", chainName, log, wallet, alert)
 	ret0, _ := ret[0].(chains.ChainProvider)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewChainProvider indicates an expected call of NewChainProvider.
-func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, wallet any) *gomock.Call {
+func (mr *MockChainProviderConfigMockRecorder) NewChainProvider(chainName, log, wallet, alert any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, wallet)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewChainProvider", reflect.TypeOf((*MockChainProviderConfig)(nil).NewChainProvider), chainName, log, wallet, alert)
 }
 
 // Validate mocks base method.

@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
+	"github.com/bandprotocol/falcon/relayer/alert"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
@@ -42,6 +43,8 @@ type EVMChainProvider struct {
 
 	Wallet wallet.Wallet
 	DB     db.Database
+
+	Alert alert.Alert
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -51,6 +54,7 @@ func NewEVMChainProvider(
 	cfg *EVMChainProviderConfig,
 	log logger.Logger,
 	wallet wallet.Wallet,
+	alert alert.Alert,
 ) (*EVMChainProvider, error) {
 	// load abis here
 	abi, err := abi.JSON(strings.NewReader(gasPriceTunnelRouterABI))
@@ -80,6 +84,7 @@ func NewEVMChainProvider(
 		TunnelRouterABI:     abi,
 		Log:                 log.With("chain_name", chainName),
 		Wallet:              wallet,
+		Alert:               alert,
 	}, nil
 }
 
@@ -141,8 +146,14 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error("Connect client error", err)
+		alert.HandleAlert(
+			cp.Alert,
+			alert.NewTopic(alert.ConnectMultipleClientErrorMsg).WithChainName(cp.ChainName),
+			err.Error(),
+		)
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.ConnectMultipleClientErrorMsg).WithChainName(cp.ChainName))
 
 	// get a free signer
 	cp.Log.Debug("Waiting for a free signer...")
@@ -159,17 +170,25 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 	gasInfo, err := cp.EstimateGasFee(ctx)
 	if err != nil {
 		cp.Log.Error("Failed to estimate gas fee", err)
-		return fmt.Errorf("failed to estimate gas fee: %w", err)
+		alert.HandleAlert(
+			cp.Alert,
+			alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithChainName(cp.ChainName),
+			err.Error(),
+		)
+		return fmt.Errorf("[EVMProvider] failed to estimate gas fee: %w", err)
 	}
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithChainName(cp.ChainName))
 
+	var lastErr error
+	var bumpGasErr error
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
 
 		// create and submit a transaction; if failed, retry, no need to bump gas.
 		signedTx, err := cp.createAndSignRelayTx(ctx, packet, freeSigner, gasInfo)
 		if err != nil {
+			lastErr = fmt.Errorf("create and sign tx error: %v", err)
 			log.Error("CreateAndSignTx error", "retry_count", retryCount, err)
-			retryCount += 1
 			continue
 		}
 
@@ -181,11 +200,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// submit the transaction, if failed, bump gas and retry
 		txHash, err := cp.Client.BroadcastTx(ctx, signedTx)
 		if err != nil {
+			lastErr = fmt.Errorf("broadcast tx error: %v", err)
 			log.Error("HandleRelay error", "retry_count", retryCount, err)
 			// bump gas and retry
-			gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
-			if err != nil {
-				log.Error("Cannot bump gas", "retry_count", retryCount, err)
+			gasInfo, bumpGasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
+			if bumpGasErr != nil {
+				log.Error("Cannot bump gas", "retry_count", retryCount, bumpGasErr)
 			}
 
 			continue
@@ -203,23 +223,25 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 
-		txResult := cp.WaitForTx(ctx, txHash, log)
+		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
 
-		switch txResult.Status {
-		case types.TX_STATUS_SUCCESS:
+		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
+		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
+
+		if txResult.Status == types.TX_STATUS_SUCCESS {
 			log.Info(
 				"Packet is successfully relayed",
 				"tx_hash", txHash,
 				"retry_count", retryCount,
 			)
+			alert.HandleReset(
+				cp.Alert,
+				alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+			)
 			return nil
-		case types.TX_STATUS_FAILED:
-			err = fmt.Errorf("transaction reverted on-chain")
-		case types.TX_STATUS_TIMEOUT:
-			err = fmt.Errorf("timed out waiting %s for tx %s to reach %d confirmations",
-				cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
 		}
 
+		lastErr = fmt.Errorf("%s", txResult.FailureReason)
 		log.Error(
 			"Failed to relaying a packet with status and error",
 			"status", txResult.Status.String(),
@@ -229,14 +251,22 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 
 		// bump gas and retry
-		gasInfo, err = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
-		if err != nil {
-			log.Error("Cannot bump gas", "retry_count", retryCount, err)
+		gasInfo, bumpGasErr = cp.BumpAndBoundGas(ctx, gasInfo, cp.Config.GasMultiplier)
+		if bumpGasErr != nil {
+			log.Error("Cannot bump gas", "retry_count", retryCount, bumpGasErr)
 		}
-
-		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
-		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
 	}
+
+	if bumpGasErr != nil {
+		// add bump gas error detail to the latest error
+		lastErr = fmt.Errorf("%v; %v", lastErr, bumpGasErr)
+	}
+
+	alert.HandleAlert(
+		cp.Alert,
+		alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+		lastErr.Error(),
+	)
 
 	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
 }
@@ -266,16 +296,25 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	return signedTx, nil
 }
 
-// WaitForTx polls tx status until success/failed or timeout
-func (cp *EVMChainProvider) WaitForTx(
+// WaitForConfirmedTx polls the transaction until it reaches a terminal state.
+// It NEVER returns an error. Instead, it always returns a TxResult where:
+//   - Status == TX_STATUS_SUCCESS or TX_STATUS_FAILED when confirmed.
+//   - Status == TX_STATUS_TIMEOUT if it did not reach the required confirmations
+//     within WaitingTxDuration (or the context was canceled); in this case,
+//     the result’s FailureReason field is populated with details.
+//
+// The function sleeps for CheckingTxInterval between polls.
+func (cp *EVMChainProvider) WaitForConfirmedTx(
 	ctx context.Context,
 	txHash string,
 	log logger.Logger,
 ) TxResult {
 	createdAt := time.Now()
+	var lastErr error
 	for time.Since(createdAt) <= cp.Config.WaitingTxDuration {
 		result, err := cp.CheckConfirmedTx(ctx, txHash)
 		if err != nil {
+			lastErr = err
 			log.Debug(
 				"Failed to check tx status",
 				"tx_hash", txHash,
@@ -295,12 +334,20 @@ func (cp *EVMChainProvider) WaitForTx(
 		}
 	}
 
+	failureReason := fmt.Sprintf("timed out waiting %s for tx %s to reach %d confirmations",
+		cp.Config.WaitingTxDuration, txHash, cp.Config.BlockConfirmation)
+
+	if lastErr != nil {
+		failureReason = fmt.Sprintf("%s: %v", failureReason, lastErr)
+	}
+
 	return NewTxResult(
 		txHash,
 		types.TX_STATUS_TIMEOUT,
 		decimal.NullDecimal{},
 		decimal.NullDecimal{},
 		nil,
+		failureReason,
 	)
 }
 
@@ -357,16 +404,15 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 ) (TxResult, error) {
 	receipt, err := cp.Client.GetTxReceipt(ctx, txHash)
 	if err != nil {
+		err = fmt.Errorf("failed to get tx receipt: %w", err)
 		return NewTxResult(
-				txHash,
-				types.TX_STATUS_PENDING,
-				decimal.NullDecimal{},
-				decimal.NullDecimal{},
-				nil,
-			), fmt.Errorf(
-				"failed to get tx receipt: %w",
-				err,
-			)
+			txHash,
+			types.TX_STATUS_PENDING,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+			err.Error(),
+		), err
 	}
 
 	// calculate gas used and effective gas price
@@ -374,21 +420,27 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	gasPrice := decimal.NewNullDecimal(decimal.New(int64(receipt.EffectiveGasPrice.Uint64()), 0))
 
 	if receipt.Status == gethtypes.ReceiptStatusFailed {
-		return NewTxResult(txHash, types.TX_STATUS_FAILED, gasUsed, gasPrice, receipt.BlockNumber), nil
+		return NewTxResult(
+			txHash,
+			types.TX_STATUS_FAILED,
+			gasUsed,
+			gasPrice,
+			receipt.BlockNumber,
+			"transaction reverted on-chain",
+		), nil
 	}
 
 	latestBlock, err := cp.Client.GetBlockHeight(ctx)
 	if err != nil {
+		err = fmt.Errorf("failed to get latest block height: %w", err)
 		return NewTxResult(
-				txHash,
-				types.TX_STATUS_PENDING,
-				decimal.NullDecimal{},
-				decimal.NullDecimal{},
-				nil,
-			), fmt.Errorf(
-				"failed to get latest block height: %w",
-				err,
-			)
+			txHash,
+			types.TX_STATUS_PENDING,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+			err.Error(),
+		), err
 	}
 
 	// if tx block is not confirmed and waiting too long return status with timeout
@@ -399,10 +451,11 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 			decimal.NullDecimal{},
 			decimal.NullDecimal{},
 			nil,
+			"",
 		), nil
 	}
 
-	return NewTxResult(txHash, types.TX_STATUS_SUCCESS, gasUsed, gasPrice, receipt.BlockNumber), nil
+	return NewTxResult(txHash, types.TX_STATUS_SUCCESS, gasUsed, gasPrice, receipt.BlockNumber, ""), nil
 }
 
 // EstimateGasFee estimates the gas for the transaction.

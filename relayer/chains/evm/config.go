@@ -3,6 +3,7 @@ package evm
 import (
 	"time"
 
+	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -34,10 +35,11 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 	chainName string,
 	log logger.Logger,
 	wallet wallet.Wallet,
+	alert alert.Alert,
 ) (chains.ChainProvider, error) {
-	client := NewClient(chainName, cpc, log)
+	client := NewClient(chainName, cpc, log, alert)
 
-	return NewEVMChainProvider(chainName, client, cpc, log, wallet)
+	return NewEVMChainProvider(chainName, client, cpc, log, wallet, alert)
 }
 
 // Validate validates the EVM chain provider configuration.

@@ -57,7 +57,7 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	s.Require().NoError(err)
 
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, log, gethWallet)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, log, gethWallet, nil)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider
 

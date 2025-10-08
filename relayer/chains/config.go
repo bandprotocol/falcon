@@ -3,6 +3,7 @@ package chains
 import (
 	"time"
 
+	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
@@ -29,6 +30,7 @@ type ChainProviderConfig interface {
 		chainName string,
 		log logger.Logger,
 		wallet wallet.Wallet,
+		alert alert.Alert,
 	) (ChainProvider, error)
 
 	GetChainType() types.ChainType
