@@ -301,7 +301,7 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 //   - Status == TX_STATUS_SUCCESS or TX_STATUS_FAILED when confirmed.
 //   - Status == TX_STATUS_TIMEOUT if it did not reach the required confirmations
 //     within WaitingTxDuration (or the context was canceled); in this case,
-//     the result’s StatusReason/Fallback message is populated with details.
+//     the result’s FailureReason field is populated with details.
 //
 // The function sleeps for CheckingTxInterval between polls.
 func (cp *EVMChainProvider) WaitForConfirmedTx(
