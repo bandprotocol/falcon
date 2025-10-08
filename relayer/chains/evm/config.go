@@ -37,7 +37,7 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 	wallet wallet.Wallet,
 	alert alert.Alert,
 ) (chains.ChainProvider, error) {
-	client := NewClient(chainName, cpc, log)
+	client := NewClient(chainName, cpc, log, alert)
 
 	return NewEVMChainProvider(chainName, client, cpc, log, wallet, alert)
 }

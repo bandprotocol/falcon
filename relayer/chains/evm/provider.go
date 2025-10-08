@@ -148,14 +148,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		cp.Log.Error("Connect client error", err)
 		alert.HandleAlert(
 			cp.Alert,
-			alert.ConnectClientError,
-			packet.TunnelID,
-			cp.ChainName,
+			alert.NewTopic(alert.ConnectMutipleClientError).WithChainName(cp.ChainName),
 			err.Error(),
 		)
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.ConnectClientError, packet.TunnelID, cp.ChainName)
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.ConnectMutipleClientError).WithChainName(cp.ChainName))
 
 	// get a free signer
 	cp.Log.Debug("Waiting for a free signer...")
@@ -174,14 +172,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		cp.Log.Error("Failed to estimate gas fee", err)
 		alert.HandleAlert(
 			cp.Alert,
-			alert.EstimateGasFeeError,
-			packet.TunnelID,
-			cp.ChainName,
+			alert.NewTopic(alert.EstimateGasFeeError).WithChainName(cp.ChainName),
 			err.Error(),
 		)
 		return fmt.Errorf("[EVMProvider] failed to estimate gas fee: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.EstimateGasFeeError, packet.TunnelID, cp.ChainName)
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.EstimateGasFeeError).WithChainName(cp.ChainName))
 
 	var lastErr error
 	var bumpGasErr error
@@ -238,7 +234,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				"tx_hash", txHash,
 				"retry_count", retryCount,
 			)
-			alert.HandleReset(cp.Alert, alert.RelayTxError, packet.TunnelID, cp.ChainName)
+			alert.HandleReset(
+				cp.Alert,
+				alert.NewTopic(alert.RelayTxError).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+			)
 			return nil
 		}
 
@@ -265,9 +264,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 	alert.HandleAlert(
 		cp.Alert,
-		alert.RelayTxError,
-		packet.TunnelID,
-		cp.ChainName,
+		alert.NewTopic(alert.RelayTxError).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
 		lastErr.Error(),
 	)
 

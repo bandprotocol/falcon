@@ -64,7 +64,7 @@ func (s *SenderTestSuite) SetupTest() {
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 	s.Require().NoError(err)
 
-	client := evm.NewClient(s.chainName, evmCfg, log)
+	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
 	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
@@ -84,7 +84,7 @@ func (s *SenderTestSuite) SetupTest() {
 func (s *SenderTestSuite) TestLoadFreeSenders() {
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 
-	client := evm.NewClient(s.chainName, evmCfg, log)
+	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
 	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
