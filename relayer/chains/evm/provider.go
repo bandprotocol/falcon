@@ -148,12 +148,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		cp.Log.Error("Connect client error", err)
 		alert.HandleAlert(
 			cp.Alert,
-			alert.NewTopic(alert.ConnectMutipleClientError).WithChainName(cp.ChainName),
+			alert.NewTopic(alert.ConnectMutipleClientErrorMsg).WithChainName(cp.ChainName),
 			err.Error(),
 		)
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.NewTopic(alert.ConnectMutipleClientError).WithChainName(cp.ChainName))
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.ConnectMutipleClientErrorMsg).WithChainName(cp.ChainName))
 
 	// get a free signer
 	cp.Log.Debug("Waiting for a free signer...")
@@ -172,12 +172,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		cp.Log.Error("Failed to estimate gas fee", err)
 		alert.HandleAlert(
 			cp.Alert,
-			alert.NewTopic(alert.EstimateGasFeeError).WithChainName(cp.ChainName),
+			alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithChainName(cp.ChainName),
 			err.Error(),
 		)
 		return fmt.Errorf("[EVMProvider] failed to estimate gas fee: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.NewTopic(alert.EstimateGasFeeError).WithChainName(cp.ChainName))
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithChainName(cp.ChainName))
 
 	var lastErr error
 	var bumpGasErr error
@@ -236,7 +236,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			)
 			alert.HandleReset(
 				cp.Alert,
-				alert.NewTopic(alert.RelayTxError).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+				alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
 			)
 			return nil
 		}
@@ -264,7 +264,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 	alert.HandleAlert(
 		cp.Alert,
-		alert.NewTopic(alert.RelayTxError).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+		alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
 		lastErr.Error(),
 	)
 

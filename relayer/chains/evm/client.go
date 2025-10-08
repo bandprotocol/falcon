@@ -328,7 +328,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 				ch <- ClientConnectionResult{endpoint, nil, 0}
 				alert.HandleAlert(
 					c.alert,
-					alert.NewTopic(alert.ConnectSingleClientError).
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
 						WithChainName(c.ChainName).
 						WithEndpoint(endpoint),
 					err.Error(),
@@ -350,7 +350,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 
 				alert.HandleAlert(
 					c.alert,
-					alert.NewTopic(alert.ConnectSingleClientError).
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
 						WithChainName(c.ChainName).
 						WithEndpoint(endpoint),
 					err.Error(),
@@ -367,7 +367,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 				ch <- ClientConnectionResult{endpoint, client, 0}
 				alert.HandleAlert(
 					c.alert,
-					alert.NewTopic(alert.ConnectSingleClientError).
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
 						WithChainName(c.ChainName).
 						WithEndpoint(endpoint),
 					"Skipping client because it is not fully synced",
@@ -385,7 +385,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 				ch <- ClientConnectionResult{endpoint, client, 0}
 				alert.HandleAlert(
 					c.alert,
-					alert.NewTopic(alert.ConnectSingleClientError).
+					alert.NewTopic(alert.ConnectSingleClientErrorMsg).
 						WithChainName(c.ChainName).
 						WithEndpoint(endpoint),
 					err.Error(),
@@ -400,7 +400,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			)
 			alert.HandleReset(
 				c.alert,
-				alert.NewTopic(alert.ConnectSingleClientError).
+				alert.NewTopic(alert.ConnectSingleClientErrorMsg).
 					WithChainName(c.ChainName).
 					WithEndpoint(endpoint),
 			)
