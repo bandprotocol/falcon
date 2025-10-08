@@ -148,12 +148,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		cp.Log.Error("Connect client error", err)
 		alert.HandleAlert(
 			cp.Alert,
-			alert.NewTopic(alert.ConnectMutipleClientErrorMsg).WithChainName(cp.ChainName),
+			alert.NewTopic(alert.ConnectMultipleClientErrorMsg).WithChainName(cp.ChainName),
 			err.Error(),
 		)
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.NewTopic(alert.ConnectMutipleClientErrorMsg).WithChainName(cp.ChainName))
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.ConnectMultipleClientErrorMsg).WithChainName(cp.ChainName))
 
 	// get a free signer
 	cp.Log.Debug("Waiting for a free signer...")

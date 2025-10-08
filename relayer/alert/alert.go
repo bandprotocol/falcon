@@ -1,7 +1,7 @@
 package alert
 
 const (
-	ConnectMutipleClientErrorMsg  = "Failed to connect chain client on all endpoints"
+	ConnectMultipleClientErrorMsg = "Failed to connect chain client on all endpoints"
 	ConnectSingleClientErrorMsg   = "Failed to connect chain client"
 	EstimateGasFeeErrorMsg        = "Failed to estimate gas fee"
 	RelayTxErrorMsg               = "Failed to relay transaction"
