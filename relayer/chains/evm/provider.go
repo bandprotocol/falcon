@@ -219,14 +219,14 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			"retry_count", retryCount,
 		)
 
-		if err := cp.saveUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet); err != nil {
+		if err := cp.saveUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet, freeSigner.GetAddress()); err != nil {
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 
 		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
-		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
+		cp.handleSaveDb(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
 
 		if txResult.Status == types.TX_STATUS_SUCCESS {
 			log.Info(
@@ -376,8 +376,8 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 	}
 }
 
-// handleSaveTransaction saves the transaction to the database based on its status.
-func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
+// handleSaveDb saves the information to the database based on its status.
+func (cp *EVMChainProvider) handleSaveDb(ctx context.Context,
 	signerAddress string,
 	oldBalance *big.Int,
 	packet *bandtypes.Packet,
@@ -385,13 +385,21 @@ func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 	retryCount int,
 	log logger.Logger,
 ) {
+	newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
+	if err != nil {
+		log.Error("failed to get balance", err)
+	} else {
+		if err := cp.DB.AddOrUpdateSenderBalance(db.NewSender(signerAddress, decimal.NewNullDecimal(decimal.NewFromBigInt(newBalance, 0)))); err != nil {
+			log.Error("saveSenderBalance error", "retry_count", retryCount, err)
+		}
+	}
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
-		if err := cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult); err != nil {
+		if err := cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, newBalance, packet, txResult); err != nil {
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 	default:
-		if err := cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet); err != nil {
+		if err := cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet, signerAddress); err != nil {
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 	}
@@ -776,6 +784,7 @@ func (cp *EVMChainProvider) saveUnconfirmedTransaction(
 	txHash string,
 	txStatus types.TxStatus,
 	packet *bandtypes.Packet,
+	sender string,
 ) error {
 	// db was disabled
 	if cp.DB == nil {
@@ -793,6 +802,7 @@ func (cp *EVMChainProvider) saveUnconfirmedTransaction(
 		packet.Sequence,
 		cp.ChainName,
 		types.ChainTypeEVM,
+		sender,
 		txStatus,
 		signalPrices,
 	)
@@ -809,6 +819,7 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 	ctx context.Context,
 	signerAddress string,
 	oldBalance *big.Int,
+	newBalance *big.Int,
 	packet *bandtypes.Packet,
 	txResult TxResult,
 ) error {
@@ -834,11 +845,7 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 
 	// Compute new balance
 	// Note: this may be incorrect if other transactions affected the user's balance during this period.
-	if oldBalance != nil {
-		newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
-		if err != nil {
-			return fmt.Errorf("failed to get balance: %w", err)
-		}
+	if oldBalance != nil && newBalance != nil {
 		diff := new(big.Int).Sub(newBalance, oldBalance)
 		balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
 	}
@@ -849,6 +856,7 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 		packet.Sequence,
 		cp.ChainName,
 		types.ChainTypeEVM,
+		signerAddress,
 		txResult.Status,
 		txResult.GasUsed,
 		txResult.EffectiveGasPrice,

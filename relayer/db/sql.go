@@ -95,3 +95,15 @@ func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 		Create(transaction).
 		Error
 }
+
+// AddOrUpdateSenderBalance inserts a new sender record or updates the existing balance.
+// If the sender already exists, its balance and updated_at are updated.
+func (sql SQL) AddOrUpdateSenderBalance(sender *Sender) error {
+	up := sql.db.Model(&Sender{}).
+		Where(&Sender{Address: sender.Address}).
+		Updates(&Sender{Balance: sender.Balance})
+	if up.RowsAffected == 0 {
+		return sql.db.Create(&sender).Error
+	}
+	return up.Error
+}

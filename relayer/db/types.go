@@ -10,12 +10,13 @@ import (
 
 // Transaction represents transaction information sent to the target chain contract that will be stored in the database.
 type Transaction struct {
-	ID                uint                `gorm:"primarykey"`
-	TxHash            string              `gorm:"unique"`
-	TunnelID          uint64              `gorm:"not null"`
-	Sequence          uint64              `gorm:"not null"`
-	ChainName         string              `gorm:"not null"`
-	ChainType         types.ChainType     `gorm:"type:chain_type;not null"`
+	ID                uint            `gorm:"primarykey"`
+	TxHash            string          `gorm:"unique"`
+	TunnelID          uint64          `gorm:"not null"`
+	Sequence          uint64          `gorm:"not null"`
+	ChainName         string          `gorm:"not null"`
+	ChainType         types.ChainType `gorm:"type:chain_type;not null"`
+	Sender            string
 	Status            types.TxStatus      `gorm:"type:tx_status;not null"`
 	GasUsed           decimal.NullDecimal `gorm:"type:decimal"`
 	EffectiveGasPrice decimal.NullDecimal `gorm:"type:decimal"`
@@ -34,6 +35,7 @@ func NewUnconfirmedTransaction(
 	sequence uint64,
 	chainName string,
 	chainType types.ChainType,
+	sender string,
 	status types.TxStatus,
 	signalPrices []SignalPrice,
 ) *Transaction {
@@ -43,6 +45,7 @@ func NewUnconfirmedTransaction(
 		Sequence:     sequence,
 		ChainName:    chainName,
 		ChainType:    chainType,
+		Sender:       sender,
 		Status:       status,
 		SignalPrices: signalPrices,
 	}
@@ -55,6 +58,7 @@ func NewConfirmedTransaction(
 	sequence uint64,
 	chainName string,
 	chainType types.ChainType,
+	sender string,
 	status types.TxStatus,
 	gasUsed decimal.NullDecimal,
 	effectiveGasPrice decimal.NullDecimal,
@@ -68,6 +72,7 @@ func NewConfirmedTransaction(
 		Sequence:          sequence,
 		ChainName:         chainName,
 		ChainType:         chainType,
+		Sender:            sender,
 		Status:            status,
 		GasUsed:           gasUsed,
 		EffectiveGasPrice: effectiveGasPrice,
@@ -92,5 +97,19 @@ func NewSignalPrice(
 	return &SignalPrice{
 		SignalID: signalID,
 		Price:    price,
+	}
+}
+
+type Sender struct {
+	Address   string              `gorm:"primarykey"`
+	Balance   decimal.NullDecimal `gorm:"type:decimal;not null"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func NewSender(address string, balance decimal.NullDecimal) *Sender {
+	return &Sender{
+		Address: address,
+		Balance: balance,
 	}
 }
