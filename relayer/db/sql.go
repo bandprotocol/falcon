@@ -36,8 +36,6 @@ func NewSQL(dbPath string) (SQL, error) {
 		return SQL{}, err
 	}
 
-	fmt.Println(driverName, path)
-
 	switch driverName {
 	case "postgres":
 		db, err = gorm.Open(postgres.Open(dbPath), cfg)
