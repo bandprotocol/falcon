@@ -226,7 +226,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
-		cp.handleSaveDb(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
+		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
 
 		if txResult.Status == types.TX_STATUS_SUCCESS {
 			log.Info(
@@ -376,8 +376,8 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 	}
 }
 
-// handleSaveDb saves transaction data to the database based on its status.
-func (cp *EVMChainProvider) handleSaveDb(ctx context.Context,
+// handleSaveTransaction saves the transaction to the database based on its status.
+func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 	signerAddress string,
 	oldBalance *big.Int,
 	packet *bandtypes.Packet,
@@ -385,21 +385,9 @@ func (cp *EVMChainProvider) handleSaveDb(ctx context.Context,
 	retryCount int,
 	log logger.Logger,
 ) {
-	if cp.DB == nil {
-		return
-	}
-
-	newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
-	if err != nil {
-		log.Error("failed to get balance", err)
-	} else {
-		if err := cp.DB.AddOrUpdateSenderBalance(db.NewSender(signerAddress, decimal.NewNullDecimal(decimal.NewFromBigInt(newBalance, 0)))); err != nil {
-			log.Error("saveSenderBalance error", "retry_count", retryCount, err)
-		}
-	}
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
-		if err := cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, newBalance, packet, txResult); err != nil {
+		if err := cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult); err != nil {
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 	default:
@@ -823,7 +811,6 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 	ctx context.Context,
 	signerAddress string,
 	oldBalance *big.Int,
-	newBalance *big.Int,
 	packet *bandtypes.Packet,
 	txResult TxResult,
 ) error {
@@ -849,7 +836,11 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 
 	// Compute new balance
 	// Note: this may be incorrect if other transactions affected the user's balance during this period.
-	if oldBalance != nil && newBalance != nil {
+	if oldBalance != nil {
+		newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
+		if err != nil {
+			return fmt.Errorf("failed to get balance: %w", err)
+		}
 		diff := new(big.Int).Sub(newBalance, oldBalance)
 		balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
 	}

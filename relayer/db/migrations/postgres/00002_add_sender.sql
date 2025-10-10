@@ -12,17 +12,7 @@ UPDATE transactions
   SET created_at = created_at AT TIME ZONE 'UTC',
       updated_at = updated_at AT TIME ZONE 'UTC';
 
--- Create new table for senders
-CREATE TABLE senders (
-  address TEXT PRIMARY KEY,
-  balance NUMERIC NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC'),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() AT TIME ZONE 'UTC')
-);
-
 -- +goose Down
-DROP TABLE IF EXISTS senders;
-
 ALTER TABLE transactions
   DROP COLUMN IF EXISTS sender;
 
