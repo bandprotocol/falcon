@@ -100,6 +100,8 @@ func NewSignalPrice(
 	}
 }
 
+// Sender represents an account or wallet address recorded in the database,
+// along with its latest known balance.
 type Sender struct {
 	Address   string              `gorm:"primarykey"`
 	Balance   decimal.NullDecimal `gorm:"type:decimal;not null"`
@@ -107,6 +109,7 @@ type Sender struct {
 	UpdatedAt time.Time
 }
 
+// NewSender creates a new Sender record with the given address and balance.
 func NewSender(address string, balance decimal.NullDecimal) *Sender {
 	return &Sender{
 		Address: address,

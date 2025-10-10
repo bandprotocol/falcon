@@ -376,7 +376,7 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 	}
 }
 
-// handleSaveDb saves the information to the database based on its status.
+// handleSaveDb saves transaction data to the database based on its status.
 func (cp *EVMChainProvider) handleSaveDb(ctx context.Context,
 	signerAddress string,
 	oldBalance *big.Int,
@@ -385,6 +385,10 @@ func (cp *EVMChainProvider) handleSaveDb(ctx context.Context,
 	retryCount int,
 	log logger.Logger,
 ) {
+	if cp.DB == nil {
+		return
+	}
+
 	newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
 	if err != nil {
 		log.Error("failed to get balance", err)
