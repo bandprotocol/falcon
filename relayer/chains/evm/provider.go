@@ -219,7 +219,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			"retry_count", retryCount,
 		)
 
-		if err := cp.saveUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet); err != nil {
+		if err := cp.saveUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet, freeSigner.GetAddress()); err != nil {
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 
@@ -391,7 +391,7 @@ func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 	default:
-		if err := cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet); err != nil {
+		if err := cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet, signerAddress); err != nil {
 			log.Error("saveTransaction error", "retry_count", retryCount, err)
 		}
 	}
@@ -776,6 +776,7 @@ func (cp *EVMChainProvider) saveUnconfirmedTransaction(
 	txHash string,
 	txStatus types.TxStatus,
 	packet *bandtypes.Packet,
+	sender string,
 ) error {
 	// db was disabled
 	if cp.DB == nil {
@@ -793,6 +794,7 @@ func (cp *EVMChainProvider) saveUnconfirmedTransaction(
 		packet.Sequence,
 		cp.ChainName,
 		types.ChainTypeEVM,
+		sender,
 		txStatus,
 		signalPrices,
 	)
@@ -849,6 +851,7 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 		packet.Sequence,
 		cp.ChainName,
 		types.ChainTypeEVM,
+		signerAddress,
 		txResult.Status,
 		txResult.GasUsed,
 		txResult.EffectiveGasPrice,

@@ -9,6 +9,7 @@ CREATE TABLE transactions (
   chain_name            TEXT NOT NULL,
   chain_type            TEXT NOT NULL CHECK (chain_type IN ('evm')),
   status                TEXT NOT NULL CHECK (status IN ('Pending','Success','Failed','Timeout')),
+  sender                TEXT,
   gas_used              DECIMAL NULL,
   effective_gas_price   DECIMAL NULL,
   balance_delta         DECIMAL NULL,
