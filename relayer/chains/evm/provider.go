@@ -220,7 +220,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 
 		if err := cp.saveUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet, freeSigner.GetAddress()); err != nil {
-			log.Error("saveTransaction error", "retry_count", retryCount, err)
+			log.Error("SaveTransaction error", "retry_count", retryCount, err)
 		}
 
 		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
@@ -388,11 +388,11 @@ func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
 		if err := cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult); err != nil {
-			log.Error("saveTransaction error", "retry_count", retryCount, err)
+			log.Error("SaveTransaction error", "retry_count", retryCount, err)
 		}
 	default:
 		if err := cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet, signerAddress); err != nil {
-			log.Error("saveTransaction error", "retry_count", retryCount, err)
+			log.Error("SaveTransaction error", "retry_count", retryCount, err)
 		}
 	}
 }
