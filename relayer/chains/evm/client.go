@@ -69,9 +69,13 @@ func (c *client) Connect(ctx context.Context) error {
 		return err
 	}
 
+	// only log when new endpoint is used
+	if c.selectedEndpoint != res.Endpoint {
+		c.Log.Info("Connected to EVM chain", "endpoint", res.Endpoint)
+	}
+
 	c.selectedEndpoint = res.Endpoint
 	c.client = res.Client
-	c.Log.Info("Connected to EVM chain", "endpoint", c.selectedEndpoint)
 
 	return nil
 }
