@@ -247,7 +247,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			"status", txResult.Status.String(),
 			"tx_hash", txHash,
 			"retry_count", retryCount,
-			err,
+			lastErr,
 		)
 
 		// bump gas and retry
