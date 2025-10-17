@@ -161,7 +161,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 	var receipt *TxReceipt
 	err := c.client.Client().CallContext(newCtx, &receipt, "eth_getTransactionReceipt", txHash)
 	if err == nil && receipt == nil {
-		// tend to be debug log, as it's normal to not have receipt for pending tx
+		// it's normal to not have receipt for pending tx
 		err = ethereum.NotFound
 	}
 
