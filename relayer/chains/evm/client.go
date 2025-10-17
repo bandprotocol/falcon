@@ -25,7 +25,7 @@ type Client interface {
 	NonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
 	GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Block, error)
-	GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error)
+	GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	EstimateGasPrice(ctx context.Context) (*big.Int, error)
@@ -154,13 +154,18 @@ func (c *client) GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Bloc
 }
 
 // GetTxReceipt returns the transaction receipt of the given transaction hash.
-func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Receipt, error) {
+func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	receipt, err := c.client.TransactionReceipt(newCtx, gethcommon.HexToHash(txHash))
+	var receipt *TxReceipt
+	err := c.client.Client().CallContext(newCtx, &receipt, "eth_getTransactionReceipt", txHash)
+	if err == nil && receipt == nil {
+		// it's normal to not have receipt for pending tx
+		err = ethereum.NotFound
+	}
+
 	if err != nil {
-		// tend to be debug log, as it's normal to not have receipt for pending tx
 		c.Log.Debug(
 			"Failed to get tx receipt",
 			"endpoint", c.selectedEndpoint,
@@ -169,7 +174,6 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Re
 		)
 		return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
 	}
-
 	return receipt, nil
 }
 

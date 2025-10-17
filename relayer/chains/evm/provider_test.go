@@ -224,7 +224,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 			preProcess: func() {
 				currentBlock := txBlock + int64(s.chainProvider.Config.BlockConfirmation) + 10
 
-				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
+				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&evm.TxReceipt{
 					Status:            gethtypes.ReceiptStatusSuccessful,
 					GasUsed:           21000,
 					EffectiveGasPrice: big.NewInt(20000),
@@ -244,7 +244,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 		{
 			name: "get tx receipt with failed status",
 			preProcess: func() {
-				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
+				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&evm.TxReceipt{
 					Status:            gethtypes.ReceiptStatusFailed,
 					GasUsed:           21000,
 					EffectiveGasPrice: big.NewInt(20000),
@@ -265,7 +265,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 			preProcess: func() {
 				currentBlock := txBlock + int64(s.chainProvider.Config.BlockConfirmation) - 1
 
-				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&gethtypes.Receipt{
+				s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&evm.TxReceipt{
 					Status:            gethtypes.ReceiptStatusSuccessful,
 					GasUsed:           21000,
 					EffectiveGasPrice: big.NewInt(20000),

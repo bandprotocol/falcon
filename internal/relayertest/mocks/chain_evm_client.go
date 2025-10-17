@@ -15,6 +15,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	evm "github.com/bandprotocol/falcon/relayer/chains/evm"
 	ethereum "github.com/ethereum/go-ethereum"
 	common "github.com/ethereum/go-ethereum/common"
 	types "github.com/ethereum/go-ethereum/core/types"
@@ -194,10 +195,10 @@ func (mr *MockEVMClientMockRecorder) GetBlockHeight(ctx any) *gomock.Call {
 }
 
 // GetTxReceipt mocks base method.
-func (m *MockEVMClient) GetTxReceipt(ctx context.Context, txHash string) (*types.Receipt, error) {
+func (m *MockEVMClient) GetTxReceipt(ctx context.Context, txHash string) (*evm.TxReceipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTxReceipt", ctx, txHash)
-	ret0, _ := ret[0].(*types.Receipt)
+	ret0, _ := ret[0].(*evm.TxReceipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
