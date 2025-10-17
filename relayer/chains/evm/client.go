@@ -174,7 +174,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 		)
 		return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
 	}
-	return receipt, err
+	return receipt, nil
 }
 
 // GetTxByHash returns the transaction of the given transaction hash.
