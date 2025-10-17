@@ -2,6 +2,8 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -167,10 +169,63 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*gethtypes.Re
 			"tx_hash", txHash,
 			err,
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
+		// return error if receipt is not found
+		if errors.Is(err, ethereum.NotFound) {
+			return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
+		}
+
+		// handle non-standard `blockTimestamp` in field Receipt.logs.blockTimestamp
+		// that hexutil.Uint64 cannot unmarshal
+		// Sonic testnet return this non-standard field in logs of tx receipt
+		// which causes unmarshal error. So, we need to strip it before unmarshalling.
+		c.Log.Debug(
+			"Start to get tx receipt with custom method to strip non-standard blockTimestamp",
+			"endpoint", c.selectedEndpoint,
+			"tx_hash", txHash,
+			err,
+		)
+
+		receipt, errFallback := c.getTxWithoutBlockTimestamp(newCtx, gethcommon.HexToHash(txHash))
+		if errFallback != nil {
+			return nil, fmt.Errorf(
+				"[EVMClient] failed to get tx receipt (primary): %w; (fallback): %w",
+				err,
+				errFallback,
+			)
+		}
+
+		return receipt, nil
 	}
 
 	return receipt, nil
+}
+
+// getTxWithoutBlockTimestamp gets a receipt and drops non-standard `blockTimestamp` from logs.
+// Copy from https://github.com/ethereum/go-ethereum/blob/master/ethclient/ethclient.go
+// TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+func (c *client) getTxWithoutBlockTimestamp(ctx context.Context, txHash gethcommon.Hash) (*gethtypes.Receipt, error) {
+	// fetch raw JSON as map
+	var raw map[string]any
+	if err := c.client.Client().CallContext(ctx, &raw, "eth_getTransactionReceipt", txHash); err != nil {
+		return nil, err
+	}
+
+	// delete logs[*].blockTimestamp
+	if logs, ok := raw["logs"].([]any); ok {
+		for i := range logs {
+			if m, ok := logs[i].(map[string]any); ok {
+				delete(m, "blockTimestamp")
+			}
+		}
+	}
+
+	// re-marshal and decode into go-ethereum gethtypes.Receipt
+	b, _ := json.Marshal(raw)
+	var rec gethtypes.Receipt
+	if err := json.Unmarshal(b, &rec); err != nil {
+		return nil, fmt.Errorf("decode receipt after strip blockTimestamp: %w", err)
+	}
+	return &rec, nil
 }
 
 // GetTxByHash returns the transaction of the given transaction hash.
