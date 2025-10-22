@@ -142,7 +142,6 @@ func (c *client) connect() error {
 		}
 
 		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint))
-		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllBandClientErrorMsg))
 	}
 
 	if res == nil {
