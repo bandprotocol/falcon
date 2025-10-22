@@ -1,16 +1,16 @@
 package alert
 
 const (
-	ConnectSingleBandClientErrorMsg    = "Failed to connect BandChain client"
-	ConnectMultipleBandClientErrorMsg  = "Failed to connect BandChain client on all endpoints"
-	ConnectSingleChainClientErrorMsg   = "Failed to connect chain client"
-	ConnectMultipleChainClientErrorMsg = "Failed to connect chain client on all endpoints"
-	EstimateGasFeeErrorMsg             = "Failed to estimate gas fee"
-	RelayTxErrorMsg                    = "Failed to relay transaction"
-	GetTunnelErrorMsg                  = "Failed to get tunnel from BandChain"
-	GetTunnelPacketErrorMsg            = "Failed to get tunnel packet from BandChain"
-	GetContractTunnelInfoErrorMsg      = "Failed to get tunnel info from contract"
-	PacketSigningStatusErrorMsg        = "Failed tunnel packet signing status"
+	ConnectSingleBandClientErrorMsg  = "Failed to connect BandChain client"
+	ConnectAllBandClientErrorMsg     = "Failed to connect BandChain client on all endpoints"
+	ConnectSingleChainClientErrorMsg = "Failed to connect chain client"
+	ConnectAllChainClientErrorMsg    = "Failed to connect chain client on all endpoints"
+	EstimateGasFeeErrorMsg           = "Failed to estimate gas fee"
+	RelayTxErrorMsg                  = "Failed to relay transaction"
+	GetTunnelErrorMsg                = "Failed to get tunnel from BandChain"
+	GetTunnelPacketErrorMsg          = "Failed to get tunnel packet from BandChain"
+	GetContractTunnelInfoErrorMsg    = "Failed to get tunnel info from contract"
+	PacketSigningStatusErrorMsg      = "Failed tunnel packet signing status"
 )
 
 // Alert represents an object that triggers and resets alerts.

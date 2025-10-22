@@ -142,27 +142,27 @@ func (c *client) connect() error {
 		}
 
 		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint))
+		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllBandClientErrorMsg))
 	}
 
-	if res != nil {
-		c.selectedRPCEndpoint = res.endpoint
-		c.Context.Client = res.httpclient
-		c.Context.NodeURI = res.endpoint
-		c.QueryClient = NewBandQueryClient(c.Context)
-
-		c.Log.Info("Connected to BandChain", "endpoint", res.endpoint)
-		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectMultipleBandClientErrorMsg))
-
-		return nil
+	if res == nil {
+		alert.HandleAlert(
+			c.alert,
+			alert.NewTopic(alert.ConnectAllBandClientErrorMsg),
+			fmt.Sprintf("Failed to connect to BandChain to all endpoints %s", c.Config.RpcEndpoints),
+		)
+		return fmt.Errorf("failed to connect to BandChain on all endpoints")
 	}
 
-	alert.HandleAlert(
-		c.alert,
-		alert.NewTopic(alert.ConnectMultipleBandClientErrorMsg),
-		fmt.Sprintf("Failed to connect to BandChain to all endpoints %s", c.Config.RpcEndpoints),
-	)
+	c.selectedRPCEndpoint = res.endpoint
+	c.Context.Client = res.httpclient
+	c.Context.NodeURI = res.endpoint
+	c.QueryClient = NewBandQueryClient(c.Context)
 
-	return fmt.Errorf("failed to connect to BandChain on all endpoints")
+	c.Log.Info("Connected to BandChain", "endpoint", res.endpoint)
+	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllBandClientErrorMsg))
+
+	return nil
 }
 
 // startLivelinessCheck starts the liveliness check for the BandChain.

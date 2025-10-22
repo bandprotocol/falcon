@@ -146,14 +146,8 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error("Connect client error", err)
-		alert.HandleAlert(
-			cp.Alert,
-			alert.NewTopic(alert.ConnectMultipleChainClientErrorMsg).WithChainName(cp.ChainName),
-			err.Error(),
-		)
 		return fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.NewTopic(alert.ConnectMultipleChainClientErrorMsg).WithChainName(cp.ChainName))
 
 	// get a free signer
 	cp.Log.Debug("Waiting for a free signer...")

@@ -433,8 +433,15 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 	}
 
 	if result.Client == nil {
+		alert.HandleAlert(
+			c.alert,
+			alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName),
+			fmt.Sprintf("failed to connect to EVM chain on all endpoints: %s", c.Endpoints),
+		)
 		return ClientConnectionResult{}, fmt.Errorf("[EVMClient] failed to connect to EVM chain")
 	}
+
+	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName))
 
 	return result, nil
 }
