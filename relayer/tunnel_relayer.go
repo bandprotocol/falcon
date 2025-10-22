@@ -127,7 +127,9 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	if err != nil {
 		alert.HandleAlert(
 			t.Alert,
-			alert.NewTopic(alert.GetTunnelErrorMsg).WithTunnelID(t.TunnelID),
+			alert.NewTopic(alert.GetTunnelErrorMsg).
+				WithTunnelID(t.TunnelID).
+				WithChainName(t.TargetChainProvider.GetChainName()),
 			err.Error(),
 		)
 		t.Log.Error("Failed to get tunnel", err)

@@ -50,6 +50,7 @@ func (s *ClientTestSuite) SetupTest() {
 		s.bandQueryClient,
 		s.log,
 		&band.Config{LivelinessCheckingInterval: 15 * time.Minute},
+		nil,
 	)
 	s.ctx = context.Background()
 }

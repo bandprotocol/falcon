@@ -12,6 +12,7 @@ import (
 
 	bandtsstypes "github.com/bandprotocol/falcon/internal/bandchain/bandtss"
 	tunneltypes "github.com/bandprotocol/falcon/internal/bandchain/tunnel"
+	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/band/subscriber"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -50,10 +51,11 @@ type client struct {
 	Subscribers []subscriber.Subscriber
 
 	selectedRPCEndpoint string
+	alert               alert.Alert
 }
 
 // NewClient creates a new BandChain client instance.
-func NewClient(queryClient QueryClient, log logger.Logger, bandChainCfg *Config) Client {
+func NewClient(queryClient QueryClient, log logger.Logger, bandChainCfg *Config, alert alert.Alert) Client {
 	encodingConfig := MakeEncodingConfig()
 	ctx := cosmosclient.Context{}.
 		WithCodec(encodingConfig.Marshaler).
@@ -65,13 +67,14 @@ func NewClient(queryClient QueryClient, log logger.Logger, bandChainCfg *Config)
 		Log:         log,
 		Config:      bandChainCfg,
 		Subscribers: []subscriber.Subscriber{},
+		alert:       alert,
 	}
 }
 
 // Init initializes the BandChain client by connecting to the chain and starting
 // periodic liveliness checks.
 func (c *client) Init(ctx context.Context) error {
-	if err := c.connect(true); err != nil {
+	if err := c.connect(); err != nil {
 		c.Log.Error("Failed to connect to BandChain", err)
 		return err
 	}
@@ -80,42 +83,86 @@ func (c *client) Init(ctx context.Context) error {
 	return nil
 }
 
+type clientConnectionResult struct {
+	httpclient *httpclient.HTTP
+	endpoint   string
+}
+
 // connect connects to the BandChain using the provided RPC endpoints.
-func (c *client) connect(onStartup bool) error {
+func (c *client) connect() error {
+	var res *clientConnectionResult
+	var maxBlockHeight int64
+
 	timeout := uint(c.Config.Timeout)
 	for _, rpcEndpoint := range c.Config.RpcEndpoints {
 		// Create a new HTTP client for the specified node URI
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
 		if err != nil {
 			c.Log.Error("Failed to create HTTP client", "rpcEndpoint", rpcEndpoint, err)
+			alert.HandleAlert(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint),
+				err.Error(),
+			)
 			continue // Try the next endpoint if there's an error
 		}
 
-		// skip status check on startup to avoid blocking relayer initialization
-		// perform status checks later to ensure endpoint health and rotation
-		if !onStartup {
-			if _, err := client.Status(context.Background()); err != nil {
-				continue
-			}
+		clientStatus, err := client.Status(context.Background())
+		if err != nil {
+			alert.HandleAlert(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint),
+				err.Error(),
+			)
+			continue
 		}
 
 		// Start the client to establish a connection
 		if err := client.Start(); err != nil {
+			alert.HandleAlert(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint),
+				err.Error(),
+			)
 			c.Log.Error("Failed to start HTTP client", "rpcEndpoint", rpcEndpoint, err)
-			return err
+			continue
 		}
 
-		c.selectedRPCEndpoint = rpcEndpoint
-		c.Context.Client = client
-		c.Context.NodeURI = rpcEndpoint
+		if res == nil || clientStatus.SyncInfo.LatestBlockHeight > maxBlockHeight {
+			if res != nil {
+				if err := res.httpclient.Stop(); err != nil {
+					c.Log.Error("Failed to stop HTTP client", "rpcEndpoint", res.endpoint, err)
+				}
+			}
+			maxBlockHeight = clientStatus.SyncInfo.LatestBlockHeight
+			res = &clientConnectionResult{
+				httpclient: client,
+				endpoint:   rpcEndpoint,
+			}
+		}
+
+		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint))
+	}
+
+	if res != nil {
+		c.selectedRPCEndpoint = res.endpoint
+		c.Context.Client = res.httpclient
+		c.Context.NodeURI = res.endpoint
 		c.QueryClient = NewBandQueryClient(c.Context)
 
-		c.Log.Info("Connected to BandChain", "endpoint", rpcEndpoint)
+		c.Log.Info("Connected to BandChain", "endpoint", res.endpoint)
+		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectMultipleBandClientErrorMsg))
 
 		return nil
 	}
 
-	return fmt.Errorf("failed to connect to BandChain")
+	alert.HandleAlert(
+		c.alert,
+		alert.NewTopic(alert.ConnectMultipleBandClientErrorMsg),
+		fmt.Sprintf("Failed to connect to BandChain to all endpoints %s", c.Config.RpcEndpoints),
+	)
+
+	return fmt.Errorf("failed to connect to BandChain on all endpoints")
 }
 
 // startLivelinessCheck starts the liveliness check for the BandChain.
@@ -136,7 +183,7 @@ func (c *client) startLivelinessCheck(ctx context.Context) {
 					"rpcEndpoint", c.Context.NodeURI,
 					err,
 				)
-				if err := c.connect(false); err != nil {
+				if err := c.connect(); err != nil {
 					c.Log.Error("Liveliness check: unable to reconnect to any endpoints", err)
 				}
 
