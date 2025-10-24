@@ -90,12 +90,13 @@ type clientConnectionResult struct {
 
 // connect connects to the BandChain using the provided RPC endpoints.
 func (c *client) connect() error {
-	var res *clientConnectionResult
+	var bestConnection *clientConnectionResult
 	var maxBlockHeight int64
-
 	timeout := uint(c.Config.Timeout)
+
+	// Try to connect to each endpoint and find the one with the highest block height
 	for _, rpcEndpoint := range c.Config.RpcEndpoints {
-		// Create a new HTTP client for the specified node URI
+		// Create HTTP client
 		client, err := httpclient.NewWithTimeout(rpcEndpoint, "/websocket", timeout)
 		if err != nil {
 			c.Log.Error("Failed to create HTTP client", "rpcEndpoint", rpcEndpoint, err)
@@ -104,11 +105,13 @@ func (c *client) connect() error {
 				alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint),
 				err.Error(),
 			)
-			continue // Try the next endpoint if there's an error
+			continue
 		}
 
+		// Get client status to check block height
 		clientStatus, err := client.Status(context.Background())
 		if err != nil {
+			c.Log.Error("Failed to get client status", "rpcEndpoint", rpcEndpoint, err)
 			alert.HandleAlert(
 				c.alert,
 				alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint),
@@ -117,48 +120,54 @@ func (c *client) connect() error {
 			continue
 		}
 
-		// Start the client to establish a connection
-		if err := client.Start(); err != nil {
-			alert.HandleAlert(
-				c.alert,
-				alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint),
-				err.Error(),
-			)
-			c.Log.Error("Failed to start HTTP client", "rpcEndpoint", rpcEndpoint, err)
-			continue
-		}
+		// Keep the connection with the highest block height
+		currentBlockHeight := clientStatus.SyncInfo.LatestBlockHeight
+		if bestConnection == nil || currentBlockHeight > maxBlockHeight {
+			// Start the client to establish connection
+			if err := client.Start(); err != nil {
+				c.Log.Error("Failed to start HTTP client", "rpcEndpoint", rpcEndpoint, err)
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint),
+					err.Error(),
+				)
+				continue
+			}
 
-		if res == nil || clientStatus.SyncInfo.LatestBlockHeight > maxBlockHeight {
-			if res != nil {
-				if err := res.httpclient.Stop(); err != nil {
-					c.Log.Error("Failed to stop HTTP client", "rpcEndpoint", res.endpoint, err)
+			// Close previous connection if exists
+			if bestConnection != nil {
+				if err := bestConnection.httpclient.Stop(); err != nil {
+					c.Log.Error("Failed to stop previous HTTP client", "rpcEndpoint", bestConnection.endpoint, err)
 				}
 			}
-			maxBlockHeight = clientStatus.SyncInfo.LatestBlockHeight
-			res = &clientConnectionResult{
+
+			maxBlockHeight = currentBlockHeight
+			bestConnection = &clientConnectionResult{
 				httpclient: client,
 				endpoint:   rpcEndpoint,
 			}
 		}
 
+		// Reset single endpoint alert on successful connection
 		alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectSingleBandClientErrorMsg).WithEndpoint(rpcEndpoint))
 	}
 
-	if res == nil {
-		alert.HandleAlert(
-			c.alert,
-			alert.NewTopic(alert.ConnectAllBandClientErrorMsg),
-			fmt.Sprintf("Failed to connect to BandChain to all endpoints %s", c.Config.RpcEndpoints),
+	// Check if we found any valid connection
+	if bestConnection == nil {
+		c.Log.Error("Failed to connect to BandChain on all endpoints", "endpoints", c.Config.RpcEndpoints)
+		alert.HandleAlert(c.alert, alert.NewTopic(alert.ConnectAllBandClientErrorMsg),
+			fmt.Sprintf("Failed to connect to BandChain on all endpoints %s", c.Config.RpcEndpoints),
 		)
 		return fmt.Errorf("failed to connect to BandChain on all endpoints")
 	}
 
-	c.selectedRPCEndpoint = res.endpoint
-	c.Context.Client = res.httpclient
-	c.Context.NodeURI = res.endpoint
+	// Setup the client with the best connection
+	c.selectedRPCEndpoint = bestConnection.endpoint
+	c.Context.Client = bestConnection.httpclient
+	c.Context.NodeURI = bestConnection.endpoint
 	c.QueryClient = NewBandQueryClient(c.Context)
 
-	c.Log.Info("Connected to BandChain", "endpoint", res.endpoint)
+	c.Log.Info("Connected to BandChain", "endpoint", bestConnection.endpoint, "blockHeight", maxBlockHeight)
 	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllBandClientErrorMsg))
 
 	return nil
