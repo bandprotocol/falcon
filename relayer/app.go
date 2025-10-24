@@ -74,7 +74,7 @@ func (a *App) Init(ctx context.Context) error {
 
 // initBandClient initializes BandChain client.
 func (a *App) initBandClient() {
-	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain)
+	a.BandClient = band.NewClient(nil, a.Log, &a.Config.BandChain, a.Alert)
 }
 
 // connectBandClient establishes connection to rpc endpoints.
