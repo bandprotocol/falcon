@@ -69,6 +69,11 @@ func (c *client) Connect(ctx context.Context) error {
 		return err
 	}
 
+	// Close existing client if it exists
+	if c.client != nil {
+		c.client.Close()
+	}
+
 	// only log when new endpoint is used
 	if c.selectedEndpoint != res.Endpoint {
 		c.Log.Info("Connected to EVM chain", "endpoint", res.Endpoint)
@@ -83,13 +88,12 @@ func (c *client) Connect(ctx context.Context) error {
 // StartLivelinessCheck starts the liveliness check for the EVM chain.
 func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			c.Log.Info("Stopping liveliness check")
-
-			ticker.Stop()
-
 			return
 		case <-ticker.C:
 			err := c.Connect(ctx)
@@ -354,7 +358,8 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"endpoint", endpoint,
 					err,
 				)
-				ch <- ClientConnectionResult{endpoint, client, 0}
+				client.Close() // Close client on error
+				ch <- ClientConnectionResult{endpoint, nil, 0}
 
 				alert.HandleAlert(
 					c.alert,
@@ -372,7 +377,8 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"Skipping client because it is not fully synced",
 					"endpoint", endpoint,
 				)
-				ch <- ClientConnectionResult{endpoint, client, 0}
+				client.Close() // Close client when not synced
+				ch <- ClientConnectionResult{endpoint, nil, 0}
 				alert.HandleAlert(
 					c.alert,
 					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
@@ -390,7 +396,8 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"endpoint", endpoint,
 					err,
 				)
-				ch <- ClientConnectionResult{endpoint, client, 0}
+				client.Close() // Close client on error
+				ch <- ClientConnectionResult{endpoint, nil, 0}
 				alert.HandleAlert(
 					c.alert,
 					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
