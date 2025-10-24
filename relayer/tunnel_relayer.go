@@ -135,7 +135,12 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		t.Log.Error("Failed to get tunnel", err)
 		return 0, err
 	}
-	alert.HandleReset(t.Alert, alert.NewTopic(alert.GetTunnelErrorMsg).WithTunnelID(t.TunnelID))
+	alert.HandleReset(
+		t.Alert,
+		alert.NewTopic(alert.GetTunnelErrorMsg).
+			WithTunnelID(t.TunnelID).
+			WithChainName(t.TargetChainProvider.GetChainName()),
+	)
 
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {

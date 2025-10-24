@@ -238,7 +238,7 @@ func (s *Scheduler) handleTriggerTunnelRelayer(ctx context.Context) {
 			status := s.TriggerTunnelRelayer(ctx, tunnelRelayer)
 			if status != RelayStatusSuccess {
 				s.Log.Info(
-					"Relay tunnel not success",
+					"Tunnel relay completed with non-success status",
 					"tunnel_id", tunnelID,
 					"status", string(status),
 				)
