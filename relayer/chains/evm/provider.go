@@ -166,12 +166,12 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		cp.Log.Error("Failed to estimate gas fee", err)
 		alert.HandleAlert(
 			cp.Alert,
-			alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithChainName(cp.ChainName),
+			alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
 			err.Error(),
 		)
 		return fmt.Errorf("[EVMProvider] failed to estimate gas fee: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithChainName(cp.ChainName))
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName))
 
 	var lastErr error
 	var bumpGasErr error
