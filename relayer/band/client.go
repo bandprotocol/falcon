@@ -161,6 +161,15 @@ func (c *client) connect() error {
 		return fmt.Errorf("failed to connect to BandChain on all endpoints")
 	}
 
+	// Close existing connection if reconnecting
+	if c.Context.Client != nil {
+		if httpClient, ok := c.Context.Client.(*httpclient.HTTP); ok {
+			if err := httpClient.Stop(); err != nil {
+				c.Log.Error("Failed to stop existing HTTP client", "rpcEndpoint", c.selectedRPCEndpoint, err)
+			}
+		}
+	}
+
 	// Setup the client with the best connection
 	c.selectedRPCEndpoint = bestConnection.endpoint
 	c.Context.Client = bestConnection.httpclient
@@ -176,13 +185,12 @@ func (c *client) connect() error {
 // startLivelinessCheck starts the liveliness check for the BandChain.
 func (c *client) startLivelinessCheck(ctx context.Context) {
 	ticker := time.NewTicker(c.Config.LivelinessCheckingInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			c.Log.Info("Stopping liveliness check")
-
-			ticker.Stop()
-
 			return
 		case <-ticker.C:
 			if _, err := c.Context.Client.Status(ctx); err != nil {

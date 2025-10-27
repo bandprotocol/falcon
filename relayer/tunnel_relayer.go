@@ -135,7 +135,12 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		t.Log.Error("Failed to get tunnel", err)
 		return 0, err
 	}
-	alert.HandleReset(t.Alert, alert.NewTopic(alert.GetTunnelErrorMsg).WithTunnelID(t.TunnelID))
+	alert.HandleReset(
+		t.Alert,
+		alert.NewTopic(alert.GetTunnelErrorMsg).
+			WithTunnelID(t.TunnelID).
+			WithChainName(t.TargetChainProvider.GetChainName()),
+	)
 
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
@@ -231,7 +236,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		if err != nil {
 			alert.HandleAlert(
 				t.Alert,
-				alert.NewTopic(alert.GetTunnelPacketErrorMsg).WithTunnelID(t.TunnelID),
+				alert.NewTopic(alert.GetTunnelPacketErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()),
 				err.Error(),
 			)
 			t.Log.Error("Failed to get packet", "sequence", seq, err)
@@ -239,7 +244,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		}
 		alert.HandleReset(
 			t.Alert,
-			alert.NewTopic(alert.GetTunnelPacketErrorMsg).WithTunnelID(t.TunnelID),
+			alert.NewTopic(alert.GetTunnelPacketErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()),
 		)
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
 		// If it is not success (Failed or Undefined), return error.
@@ -259,13 +264,13 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			continue
 		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
-			alert.HandleAlert(t.Alert, alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID), err.Error())
+			alert.HandleAlert(t.Alert, alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()), err.Error())
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 			return nil, err
 		}
 		alert.HandleReset(
 			t.Alert,
-			alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID),
+			alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()),
 		)
 
 		return packet, nil
