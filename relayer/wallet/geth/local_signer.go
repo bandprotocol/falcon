@@ -3,7 +3,9 @@ package geth
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -47,24 +49,40 @@ func NewLocalSigner(
 func (l *LocalSigner) loadPrivateKey() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-
 	if l.loaded {
 		return nil
 	}
+	start := time.Now()
+	fmt.Printf("Loading private key for LocalSigner:\n")
+	fmt.Printf("  Name: %s\n", l.Name)
+	fmt.Printf("  Address: %s\n", l.address.String())
 
 	acc := accounts.Account{Address: l.address}
+	exportStart := time.Now()
+	fmt.Printf("Starting keystore export...\n")
 	b, err := l.store.Export(acc, l.passphrase, l.passphrase)
+	exportDuration := time.Since(exportStart)
 	if err != nil {
+		fmt.Printf("Export failed after %v: %v\n", exportDuration, err)
 		return err
 	}
+	fmt.Printf("Export completed in %v\n", exportDuration)
 
+	decryptStart := time.Now()
+	fmt.Printf("Starting key decryption...\n")
 	gethKey, err := keystore.DecryptKey(b, l.passphrase)
+	decryptDuration := time.Since(decryptStart)
 	if err != nil {
+		fmt.Printf("Decryption failed after %v: %v\n", decryptDuration, err)
 		return err
 	}
+	fmt.Printf("Decryption completed in %v\n", decryptDuration)
 
 	l.privateKey = gethKey.PrivateKey
 	l.loaded = true
+
+	totalDuration := time.Since(start)
+	fmt.Printf("Private key loading completed for %s (%s) in %v\n", l.Name, l.address.String(), totalDuration)
 
 	return nil
 }
