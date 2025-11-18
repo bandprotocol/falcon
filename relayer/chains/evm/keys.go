@@ -3,6 +3,7 @@ package evm
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
@@ -26,23 +27,36 @@ func (cp *EVMChainProvider) AddKeyByMnemonic(
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
+	start := time.Now()
 	var err error
 	generatedMnemonic := ""
 	if mnemonic == "" {
+		mnemonicStart := time.Now()
 		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
 		if err != nil {
 			return nil, err
 		}
 		generatedMnemonic = mnemonic
+		fmt.Printf("Mnemonic generation took: %v\n", time.Since(mnemonicStart))
 	}
 
 	// Generate private key using mnemonic
+	keyGenStart := time.Now()
 	priv, err := generatePrivateKey(mnemonic, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Private key generation took: %v\n", time.Since(keyGenStart))
 
-	return cp.finalizeKeyAddition(keyName, priv, generatedMnemonic)
+	finalizeStart := time.Now()
+	result, err := cp.finalizeKeyAddition(keyName, priv, generatedMnemonic)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Key finalization took: %v\n", time.Since(finalizeStart))
+	fmt.Printf("Total AddKeyByMnemonic took: %v\n", time.Since(start))
+
+	return result, nil
 }
 
 // AddKeyByPrivateKey adds a key using a raw private key.
@@ -124,22 +138,31 @@ func generatePrivateKey(
 	account uint,
 	index uint,
 ) (*ecdsa.PrivateKey, error) {
+	start := time.Now()
 	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Wallet creation took: %v\n", time.Since(start))
 
+	pathStart := time.Now()
 	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
 	path := hdwallet.MustParseDerivationPath(hdPath)
+	fmt.Printf("Path parsing took: %v\n", time.Since(pathStart))
+
+	deriveStart := time.Now()
 	accs, err := wallet.Derive(path, true)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Key derivation took: %v\n", time.Since(deriveStart))
 
+	privateKeyStart := time.Now()
 	privatekey, err := wallet.PrivateKey(accs)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Private key extraction took: %v\n", time.Since(privateKeyStart))
 
 	return privatekey, nil
 }

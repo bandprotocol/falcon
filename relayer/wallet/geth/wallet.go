@@ -112,29 +112,43 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 
 // SavePrivateKey imports the ECDSA key into the keystore and writes its signer record.
 func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (addr string, err error) {
+	start := time.Now()
+
 	// check if the key name exists
+	checkKeyStart := time.Now()
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
+	fmt.Printf("Checking key name existence took: %v\n", time.Since(checkKeyStart))
 
 	// derive the Ethereum address from the pubkey and check exist or not
+	deriveAddrStart := time.Now()
 	addr = crypto.PubkeyToAddress(privKey.PublicKey).Hex()
+	fmt.Printf("Deriving address took: %v\n", time.Since(deriveAddrStart))
 
 	// check if the address is already added
+	checkAddrStart := time.Now()
 	if w.IsAddressExist(addr) {
 		return "", fmt.Errorf("address exists: %s", addr)
 	}
+	fmt.Printf("Checking address existence took: %v\n", time.Since(checkAddrStart))
 
 	// save the signer
+	importKeyStart := time.Now()
 	_, err = w.Store.ImportECDSA(privKey, w.Passphrase)
 	if err != nil {
 		return "", err
 	}
+	fmt.Printf("Importing ECDSA key took: %v\n", time.Since(importKeyStart))
 
+	saveRecordStart := time.Now()
 	signerRecord := NewSignerRecord(addr, LocalSignerType)
 	if err := w.saveSignerRecord(name, signerRecord); err != nil {
 		return "", err
 	}
+	fmt.Printf("Saving signer record took: %v\n", time.Since(saveRecordStart))
+
+	fmt.Printf("Total SavePrivateKey took: %v\n", time.Since(start))
 
 	return addr, nil
 }
