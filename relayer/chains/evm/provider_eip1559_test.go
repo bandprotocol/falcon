@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -64,7 +65,14 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
 	s.Require().NoError(err)
 
-	s.mockSigner = geth.NewLocalSigner("test", priv)
+	tmpDir := s.T().TempDir()
+	ks := keystore.NewKeyStore(tmpDir, keystore.StandardScryptN, keystore.StandardScryptP)
+
+	// Import the private key into the keystore
+	_, err = ks.ImportECDSA(priv, "")
+	s.Require().NoError(err)
+
+	s.mockSigner = geth.NewLocalSigner("test", crypto.PubkeyToAddress(priv.PublicKey), ks, "")
 
 	gethAddr, err := evm.HexToAddress(s.mockSigner.GetAddress())
 	s.Require().NoError(err)

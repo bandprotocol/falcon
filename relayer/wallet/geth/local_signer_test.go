@@ -3,6 +3,7 @@ package geth_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
@@ -22,11 +23,17 @@ type LocalSignerTestSuite struct {
 func TestLocalSignerTestSuite(t *testing.T) {
 	suite.Run(t, new(LocalSignerTestSuite))
 }
-
 func (s *LocalSignerTestSuite) SetupTest() {
 	priv, err := crypto.HexToECDSA(testPrivateKeyHex)
 	s.Require().NoError(err)
-	s.ls = geth.NewLocalSigner(testName, priv)
+	tmpDir := s.T().TempDir()
+	ks := keystore.NewKeyStore(tmpDir, keystore.StandardScryptN, keystore.StandardScryptP)
+
+	// Import the private key into the keystore
+	_, err = ks.ImportECDSA(priv, "")
+	s.Require().NoError(err)
+
+	s.ls = geth.NewLocalSigner(testName, crypto.PubkeyToAddress(priv.PublicKey), ks, "")
 }
 
 func (s *LocalSignerTestSuite) TestExportPrivateKey() {

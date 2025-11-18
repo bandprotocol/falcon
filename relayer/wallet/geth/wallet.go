@@ -74,29 +74,7 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 		var signer wallet.Signer
 		switch signerType := signerRecord.Type; signerType {
 		case LocalSignerType:
-			localSignerStart := time.Now()
-
-			// need to export the key due to no direct access to the private key
-			exportStart := time.Now()
-			acc := accounts.Account{Address: gethAddr}
-			b, err := store.Export(acc, passphrase, passphrase)
-			if err != nil {
-				return nil, err
-			}
-			fmt.Printf("Export key for %s took: %v\n", name, time.Since(exportStart))
-
-			decryptStart := time.Now()
-			gethKey, err := keystore.DecryptKey(b, passphrase)
-			if err != nil {
-				return nil, err
-			}
-			fmt.Printf("Decrypt key for %s took: %v\n", name, time.Since(decryptStart))
-
-			createSignerStart := time.Now()
-			signer = NewLocalSigner(name, gethKey.PrivateKey)
-			fmt.Printf("Create local signer for %s took: %v\n", name, time.Since(createSignerStart))
-
-			fmt.Printf("Total local signer processing for %s took: %v\n", name, time.Since(localSignerStart))
+			signer = NewLocalSigner(name, gethAddr, store, passphrase)
 		case RemoteSignerType:
 			remoteSignerRecord, ok := remoteSignerRecords[name]
 			if !ok {
