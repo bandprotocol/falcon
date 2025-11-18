@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/band"
@@ -90,15 +91,21 @@ func (a *App) connectBandClient(ctx context.Context) error {
 
 // InitTargetChain initializes the given target chain.
 func (a *App) InitTargetChain(chainName string) error {
+	start := time.Now()
+
 	if a.Config == nil {
 		return fmt.Errorf("config is not initialized")
 	}
+	a.Log.Debug("Config validation completed", "duration", time.Since(start))
 
+	configStart := time.Now()
 	chainConfig, ok := a.Config.TargetChains[chainName]
 	if !ok {
 		return fmt.Errorf("chain config not found: %s", chainName)
 	}
+	a.Log.Debug("Chain config retrieval completed", "chain_name", chainName, "duration", time.Since(configStart))
 
+	walletStart := time.Now()
 	wallet, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
 	if err != nil {
 		a.Log.Error("Wallet registry not found",
@@ -107,7 +114,9 @@ func (a *App) InitTargetChain(chainName string) error {
 		)
 		return err
 	}
+	a.Log.Debug("Wallet creation completed", "chain_name", chainName, "duration", time.Since(walletStart))
 
+	providerStart := time.Now()
 	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet, a.Alert)
 	if err != nil {
 		a.Log.Error("Cannot create chain provider",
@@ -116,6 +125,8 @@ func (a *App) InitTargetChain(chainName string) error {
 		)
 		return err
 	}
+	a.Log.Debug("Chain provider creation completed", "chain_name", chainName, "duration", time.Since(providerStart))
+	a.Log.Debug("InitTargetChain completed", "chain_name", chainName, "total_duration", time.Since(start))
 
 	a.TargetChains[chainName] = cp
 
@@ -293,16 +304,30 @@ func (a *App) AddKeyByMnemonic(
 	account uint,
 	index uint,
 ) (*chainstypes.Key, error) {
+	start := time.Now()
+
+	validateStart := time.Now()
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
+	a.Log.Debug("Passphrase validation completed", "duration", time.Since(validateStart))
 
+	providerStart := time.Now()
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
 	}
+	a.Log.Debug("Chain provider retrieval completed", "chain_name", chainName, "duration", time.Since(providerStart))
 
-	return cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
+	keyStart := time.Now()
+	key, err := cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
+	if err != nil {
+		return nil, err
+	}
+	a.Log.Debug("Key addition by mnemonic completed", "key_name", keyName, "duration", time.Since(keyStart))
+	a.Log.Debug("AddKeyByMnemonic completed", "key_name", keyName, "total_duration", time.Since(start))
+
+	return key, nil
 }
 
 // AddRemoteSignerKey adds a new remote signer key to the chain provider.

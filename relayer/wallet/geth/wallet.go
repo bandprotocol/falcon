@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -33,26 +34,38 @@ type GethWallet struct {
 
 // NewGethWallet creates a new NewGethWallet instance.
 func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) {
+	start := time.Now()
+
 	// create keystore
+	keystoreStart := time.Now()
 	keyStoreDir := path.Join(getEVMKeyStoreDir(homePath, chainName)...)
 	store := keystore.NewKeyStore(keyStoreDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	fmt.Printf("Keystore creation took: %v\n", time.Since(keystoreStart))
 
 	// load signer records
+	signerRecordStart := time.Now()
 	signerRecordDir := path.Join(getEVMSignerRecordDir(homePath, chainName)...)
 	signerRecords, err := LoadSignerRecord(signerRecordDir)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Loading signer records took: %v\n", time.Since(signerRecordStart))
 
 	// load remote signer records
+	remoteSignerStart := time.Now()
 	remoteSignerDir := path.Join(getEVMRemoteSignerRecordDir(homePath, chainName)...)
 	remoteSignerRecords, err := LoadRemoteSignerRecord(remoteSignerDir)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("Loading remote signer records took: %v\n", time.Since(remoteSignerStart))
 
+	// process signers
+	processSignersStart := time.Now()
 	signers := make(map[string]wallet.Signer)
 	for name, signerRecord := range signerRecords {
+		signerStart := time.Now()
+
 		gethAddr, err := HexToETHAddress(signerRecord.Address)
 		if err != nil {
 			return nil, err
@@ -61,19 +74,29 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 		var signer wallet.Signer
 		switch signerType := signerRecord.Type; signerType {
 		case LocalSignerType:
+			localSignerStart := time.Now()
+
 			// need to export the key due to no direct access to the private key
+			exportStart := time.Now()
 			acc := accounts.Account{Address: gethAddr}
 			b, err := store.Export(acc, passphrase, passphrase)
 			if err != nil {
 				return nil, err
 			}
+			fmt.Printf("Export key for %s took: %v\n", name, time.Since(exportStart))
 
+			decryptStart := time.Now()
 			gethKey, err := keystore.DecryptKey(b, passphrase)
 			if err != nil {
 				return nil, err
 			}
+			fmt.Printf("Decrypt key for %s took: %v\n", name, time.Since(decryptStart))
 
+			createSignerStart := time.Now()
 			signer = NewLocalSigner(name, gethKey.PrivateKey)
+			fmt.Printf("Create local signer for %s took: %v\n", name, time.Since(createSignerStart))
+
+			fmt.Printf("Total local signer processing for %s took: %v\n", name, time.Since(localSignerStart))
 		case RemoteSignerType:
 			remoteSignerRecord, ok := remoteSignerRecords[name]
 			if !ok {
@@ -94,7 +117,11 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 		}
 
 		signers[name] = signer
+		fmt.Printf("Processing signer %s took: %v\n", name, time.Since(signerStart))
 	}
+	fmt.Printf("Processing all signers took: %v\n", time.Since(processSignersStart))
+
+	fmt.Printf("Total NewGethWallet creation took: %v\n", time.Since(start))
 
 	return &GethWallet{
 		Passphrase: passphrase,
