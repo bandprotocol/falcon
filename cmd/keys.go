@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -72,46 +73,60 @@ func keysAddCmd(appCreator relayer.AppCreator, defaultHome string) *cobra.Comman
 k add eth test-key
 keys add eth test-key`),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			start := time.Now()
 			app, err := createApp(cmd, appCreator, defaultHome)
 			if err != nil {
 				return err
 			}
 			defer syncLog(app.GetLog())
+			fmt.Fprintf(cmd.ErrOrStderr(), "App creation took: %v\n", time.Since(start))
 
 			chainName := args[0]
 			keyName := args[1]
 
+			start = time.Now()
 			if err := app.InitTargetChain(chainName); err != nil {
 				return err
 			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Chain initialization took: %v\n", time.Since(start))
 
+			start = time.Now()
 			input, err := parseKeysAddInputFromFlag(cmd)
 			if err != nil {
 				return err
 			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Flag parsing took: %v\n", time.Since(start))
 
 			// if no private key, mnemonic, or remote signer info is provided, prompt interactively
 			if input.PrivateKey == "" && input.Mnemonic == "" && input.RemoteSigner.Address == "" &&
 				input.RemoteSigner.Url == "" {
+				start = time.Now()
 				input, err = showHuhPrompt()
 				if err != nil {
 					return err
 				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "Interactive prompt took: %v\n", time.Since(start))
 			}
 
+			start = time.Now()
 			if err := validateAddKeyInput(input); err != nil {
 				return err
 			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Input validation took: %v\n", time.Since(start))
 
+			start = time.Now()
 			key, err := addKey(app, chainName, keyName, input)
 			if err != nil {
 				return err
 			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Key addition took: %v\n", time.Since(start))
 
+			start = time.Now()
 			out, err := json.MarshalIndent(key, "", "  ")
 			if err != nil {
 				return err
 			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "JSON marshaling took: %v\n", time.Since(start))
 
 			fmt.Fprintln(cmd.OutOrStdout(), string(out))
 			return nil
