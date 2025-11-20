@@ -171,7 +171,10 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		)
 		return fmt.Errorf("[EVMProvider] failed to estimate gas fee: %w", err)
 	}
-	alert.HandleReset(cp.Alert, alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName))
+	alert.HandleReset(
+		cp.Alert,
+		alert.NewTopic(alert.EstimateGasFeeErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+	)
 
 	var lastErr error
 	var bumpGasErr error
@@ -215,12 +218,38 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		if err := cp.saveUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet, freeSigner.GetAddress()); err != nil {
 			log.Error("SaveTransaction error", "retry_count", retryCount, err)
+			cp.Alert.Trigger(
+				alert.NewTopic(alert.SaveDatabaseErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName).
+					GetFullTopic(),
+				err.Error(),
+			)
+		} else {
+			cp.Alert.Reset(alert.NewTopic(alert.SaveDatabaseErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName).
+				GetFullTopic())
 		}
 
 		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
-		cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, retryCount, log)
+		if err := cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, log); err != nil {
+			log.Error("SaveTransaction error", "retry_count", retryCount, err)
+			cp.Alert.Trigger(
+				alert.NewTopic(alert.SaveDatabaseErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName).
+					GetFullTopic(),
+				err.Error(),
+			)
+		} else {
+			cp.Alert.Reset(alert.NewTopic(alert.SaveDatabaseErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName).
+				GetFullTopic())
+		}
 
 		if txResult.Status == types.TX_STATUS_SUCCESS {
 			log.Info(
@@ -376,19 +405,16 @@ func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 	oldBalance *big.Int,
 	packet *bandtypes.Packet,
 	txResult TxResult,
-	retryCount int,
 	log logger.Logger,
-) {
+) error {
+	var err error
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
-		if err := cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult); err != nil {
-			log.Error("SaveTransaction error", "retry_count", retryCount, err)
-		}
+		err = cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult, log)
 	default:
-		if err := cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet, signerAddress); err != nil {
-			log.Error("SaveTransaction error", "retry_count", retryCount, err)
-		}
+		err = cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet, signerAddress)
 	}
+	return err
 }
 
 // CheckConfirmedTx checks the confirmed transaction status.
@@ -807,6 +833,7 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 	oldBalance *big.Int,
 	packet *bandtypes.Packet,
 	txResult TxResult,
+	log logger.Logger,
 ) error {
 	// db was disabled
 	if cp.DB == nil {
@@ -818,25 +845,26 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
 	}
 
-	var blockTimestamp time.Time
-	balanceDelta := decimal.NullDecimal{}
-
+	var blockTimestamp *time.Time
 	block, err := cp.Client.GetBlock(ctx, txResult.BlockNumber)
 	if err != nil {
-		return fmt.Errorf("failed to get block: %w", err)
+		log.Error("failed to get block info for ", "block_number", txResult.BlockNumber, err)
+	} else {
+		timestamp := time.Unix(int64(block.Time()), 0).UTC()
+		blockTimestamp = &timestamp
 	}
 
-	blockTimestamp = time.Unix(int64(block.Time()), 0).UTC()
-
+	balanceDelta := decimal.NullDecimal{}
 	// Compute new balance
 	// Note: this may be incorrect if other transactions affected the user's balance during this period.
 	if oldBalance != nil {
 		newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
 		if err != nil {
-			return fmt.Errorf("failed to get balance: %w", err)
+			log.Error("failed to get new balance after transaction", "block_number", txResult.BlockNumber, err)
+		} else {
+			diff := new(big.Int).Sub(newBalance, oldBalance)
+			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
 		}
-		diff := new(big.Int).Sub(newBalance, oldBalance)
-		balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
 	}
 
 	tx := db.NewConfirmedTransaction(

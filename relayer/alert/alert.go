@@ -11,6 +11,7 @@ const (
 	GetTunnelPacketErrorMsg          = "Failed to get tunnel packet from BandChain"
 	GetContractTunnelInfoErrorMsg    = "Failed to get tunnel info from contract"
 	PacketSigningStatusErrorMsg      = "Failed tunnel packet signing status"
+	SaveDatabaseErrorMsg             = "Failed to save to database"
 )
 
 // Alert represents an object that triggers and resets alerts.

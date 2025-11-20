@@ -23,7 +23,7 @@ type Transaction struct {
 	BalanceDelta      decimal.NullDecimal `gorm:"type:decimal"`
 
 	SignalPrices   []SignalPrice
-	BlockTimestamp time.Time `gorm:"default:NULL"`
+	BlockTimestamp *time.Time `gorm:"default:NULL"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -64,7 +64,7 @@ func NewConfirmedTransaction(
 	effectiveGasPrice decimal.NullDecimal,
 	balanceDelta decimal.NullDecimal,
 	signalPrices []SignalPrice,
-	blockTimestamp time.Time,
+	blockTimestamp *time.Time,
 ) *Transaction {
 	return &Transaction{
 		TxHash:            txHash,
