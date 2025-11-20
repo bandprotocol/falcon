@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -235,7 +236,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
-		if err := cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult, log); err != nil {
+		if err := cp.handleSaveTransaction(ctx, freeSigner.GetAddress(), balance, packet, txResult); err != nil {
 			log.Error("SaveTransaction error", "retry_count", retryCount, err)
 			cp.Alert.Trigger(
 				alert.NewTopic(alert.SaveDatabaseErrorMsg).
@@ -405,12 +406,11 @@ func (cp *EVMChainProvider) handleSaveTransaction(ctx context.Context,
 	oldBalance *big.Int,
 	packet *bandtypes.Packet,
 	txResult TxResult,
-	log logger.Logger,
 ) error {
 	var err error
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
-		err = cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult, log)
+		err = cp.saveConfirmedTransaction(ctx, signerAddress, oldBalance, packet, txResult)
 	default:
 		err = cp.saveUnconfirmedTransaction(txResult.TxHash, txResult.Status, packet, signerAddress)
 	}
@@ -833,12 +833,13 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 	oldBalance *big.Int,
 	packet *bandtypes.Packet,
 	txResult TxResult,
-	log logger.Logger,
 ) error {
 	// db was disabled
 	if cp.DB == nil {
 		return nil
 	}
+
+	var errs []error
 
 	var signalPrices []db.SignalPrice
 	for _, p := range packet.SignalPrices {
@@ -848,7 +849,7 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 	var blockTimestamp *time.Time
 	block, err := cp.Client.GetBlock(ctx, txResult.BlockNumber)
 	if err != nil {
-		log.Error("failed to get block info for ", "block_number", txResult.BlockNumber, err)
+		errs = append(errs, fmt.Errorf("get block %d: %w", txResult.BlockNumber, err))
 	} else {
 		timestamp := time.Unix(int64(block.Time()), 0).UTC()
 		blockTimestamp = &timestamp
@@ -860,7 +861,7 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 	if oldBalance != nil {
 		newBalance, err := cp.Client.GetBalance(ctx, gethcommon.HexToAddress(signerAddress), txResult.BlockNumber)
 		if err != nil {
-			log.Error("failed to get new balance after transaction", "block_number", txResult.BlockNumber, err)
+			errs = append(errs, fmt.Errorf("get balance at block %d: %w", txResult.BlockNumber, err))
 		} else {
 			diff := new(big.Int).Sub(newBalance, oldBalance)
 			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
@@ -883,7 +884,11 @@ func (cp *EVMChainProvider) saveConfirmedTransaction(
 	)
 
 	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
-		return fmt.Errorf("failed to save transaction to database: %w", err)
+		errs = append(errs, fmt.Errorf("failed to save transaction to database: %w", err))
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 
 	return nil
