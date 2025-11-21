@@ -423,39 +423,41 @@ func (cp *EVMChainProvider) prepareTransaction(
 		gasUsed = txResult.GasUsed
 		effectiveGasPrice = txResult.EffectiveGasPrice
 
-		block, err := cp.Client.GetBlock(context.Background(), txResult.BlockNumber)
-		if err != nil {
-			log.Error("Failed to get block", "retry_count", retryCount, err)
-			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
-				WithTunnelID(packet.TunnelID).
-				WithChainName(cp.ChainName), err.Error())
-		} else {
-			timestamp := time.Unix(int64(block.Time()), 0).UTC()
-			blockTimestamp = &timestamp
-			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
-				WithTunnelID(packet.TunnelID).
-				WithChainName(cp.ChainName))
-		}
-
-		// Compute new balance
-		// Note: this may be incorrect if other transactions affected the user's balance during this period.
-		if oldBalance != nil {
-			newBalance, err := cp.Client.GetBalance(
-				context.Background(),
-				gethcommon.HexToAddress(signerAddress),
-				txResult.BlockNumber,
-			)
+		if txResult.Status == types.TX_STATUS_SUCCESS || txResult.Status == types.TX_STATUS_FAILED {
+			block, err := cp.Client.GetBlock(context.Background(), txResult.BlockNumber)
 			if err != nil {
-				log.Error("Failed to get balance", "retry_count", retryCount, err)
-				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+				log.Error("Failed to get block", "retry_count", retryCount, err)
+				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
 					WithTunnelID(packet.TunnelID).
 					WithChainName(cp.ChainName), err.Error())
 			} else {
-				diff := new(big.Int).Sub(newBalance, oldBalance)
-				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
-				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+				timestamp := time.Unix(int64(block.Time()), 0).UTC()
+				blockTimestamp = &timestamp
+				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
 					WithTunnelID(packet.TunnelID).
 					WithChainName(cp.ChainName))
+			}
+
+			// Compute new balance
+			// Note: this may be incorrect if other transactions affected the user's balance during this period.
+			if oldBalance != nil {
+				newBalance, err := cp.Client.GetBalance(
+					context.Background(),
+					gethcommon.HexToAddress(signerAddress),
+					txResult.BlockNumber,
+				)
+				if err != nil {
+					log.Error("Failed to get balance", "retry_count", retryCount, err)
+					alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+						WithTunnelID(packet.TunnelID).
+						WithChainName(cp.ChainName), err.Error())
+				} else {
+					diff := new(big.Int).Sub(newBalance, oldBalance)
+					balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
+					alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+						WithTunnelID(packet.TunnelID).
+						WithChainName(cp.ChainName))
+				}
 			}
 		}
 	}

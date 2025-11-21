@@ -12,7 +12,7 @@ const (
 	GetContractTunnelInfoErrorMsg    = "Failed to get tunnel info from contract"
 	PacketSigningStatusErrorMsg      = "Failed tunnel packet signing status"
 	GetBlockErrorMsg                 = "Failed to get block from chain"
-	GetBalanceErrorMsg               = "Failed to prepare database transaction"
+	GetBalanceErrorMsg               = "Failed to get balance from chain"
 	SaveDatabaseErrorMsg             = "Failed to save to database"
 )
 
