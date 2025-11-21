@@ -194,15 +194,13 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 			balance, err = cp.Client.GetBalance(ctx, gethcommon.HexToAddress(freeSigner.GetAddress()), nil)
 			if err != nil {
 				log.Error("Failed to get balance", "retry_count", retryCount, err)
-				cp.Alert.Trigger(
-					alert.NewTopic(alert.GetBalanceErrorMsg).
-						WithTunnelID(packet.TunnelID).
-						WithChainName(cp.ChainName).
-						GetFullTopic(),
-					err.Error(),
-				)
+				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName), err.Error())
 			} else {
-				cp.Alert.Reset(alert.NewTopic(alert.GetBalanceErrorMsg).GetFullTopic())
+				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName))
 			}
 		}
 
@@ -428,17 +426,15 @@ func (cp *EVMChainProvider) prepareTransaction(
 		block, err := cp.Client.GetBlock(context.Background(), txResult.BlockNumber)
 		if err != nil {
 			log.Error("Failed to get block", "retry_count", retryCount, err)
-			cp.Alert.Trigger(
-				alert.NewTopic(alert.GetBlockErrorMsg).
-					WithTunnelID(packet.TunnelID).
-					WithChainName(cp.ChainName).
-					GetFullTopic(),
-				err.Error(),
-			)
+			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName), err.Error())
 		} else {
 			timestamp := time.Unix(int64(block.Time()), 0).UTC()
 			blockTimestamp = &timestamp
-			cp.Alert.Reset(alert.NewTopic(alert.GetBlockErrorMsg).GetFullTopic())
+			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName))
 		}
 
 		// Compute new balance
@@ -451,17 +447,15 @@ func (cp *EVMChainProvider) prepareTransaction(
 			)
 			if err != nil {
 				log.Error("Failed to get balance", "retry_count", retryCount, err)
-				cp.Alert.Trigger(
-					alert.NewTopic(alert.GetBalanceErrorMsg).
-						WithTunnelID(packet.TunnelID).
-						WithChainName(cp.ChainName).
-						GetFullTopic(),
-					err.Error(),
-				)
+				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName), err.Error())
 			} else {
 				diff := new(big.Int).Sub(newBalance, oldBalance)
 				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
-				cp.Alert.Reset(alert.NewTopic(alert.GetBalanceErrorMsg).GetFullTopic())
+				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName))
 			}
 		}
 	}
@@ -488,18 +482,13 @@ func (cp *EVMChainProvider) prepareTransaction(
 func (cp *EVMChainProvider) handleSaveTransaction(tx *db.Transaction, log logger.Logger, retryCount int) {
 	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
 		log.Error("Save transaction error", "retry_count", retryCount, err)
-		cp.Alert.Trigger(
-			alert.NewTopic(alert.SaveDatabaseErrorMsg).
-				WithTunnelID(tx.TunnelID).
-				WithChainName(cp.ChainName).
-				GetFullTopic(),
-			err.Error(),
-		)
-	} else {
-		cp.Alert.Reset(alert.NewTopic(alert.SaveDatabaseErrorMsg).
+		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
 			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName).
-			GetFullTopic())
+			WithChainName(cp.ChainName), err.Error())
+	} else {
+		alert.HandleReset(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
+			WithTunnelID(tx.TunnelID).
+			WithChainName(cp.ChainName))
 	}
 }
 
