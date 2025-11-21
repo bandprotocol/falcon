@@ -303,24 +303,6 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
 }
 
-func (cp *EVMChainProvider) handleSaveTransaction(tx *db.Transaction, log logger.Logger, retryCount int) {
-	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
-		log.Error("Save transaction error", "retry_count", retryCount, err)
-		cp.Alert.Trigger(
-			alert.NewTopic(alert.SaveDatabaseErrorMsg).
-				WithTunnelID(tx.TunnelID).
-				WithChainName(cp.ChainName).
-				GetFullTopic(),
-			err.Error(),
-		)
-	} else {
-		cp.Alert.Reset(alert.NewTopic(alert.SaveDatabaseErrorMsg).
-			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName).
-			GetFullTopic())
-	}
-}
-
 // createAndSignRelayTx creates and signs the relay transaction.
 func (cp *EVMChainProvider) createAndSignRelayTx(
 	ctx context.Context,
@@ -426,6 +408,33 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 	}
 }
 
+// prepareUnconfirmedTransaction prepares the unconfirmed transaction to be stored in the database.
+func (cp *EVMChainProvider) prepareUnconfirmedTransaction(
+	txHash string,
+	status types.TxStatus,
+	packet *bandtypes.Packet,
+	signerAddress string,
+) *db.Transaction {
+	var signalPrices []db.SignalPrice
+	for _, p := range packet.SignalPrices {
+		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
+	}
+
+	tx := db.NewUnconfirmedTransaction(
+		txHash,
+		packet.TunnelID,
+		packet.Sequence,
+		cp.ChainName,
+		types.ChainTypeEVM,
+		signerAddress,
+		status,
+		signalPrices,
+	)
+
+	return tx
+}
+
+// prepareConfirmedTransaction prepares the confirmed transaction to be stored in the database.
 func (cp *EVMChainProvider) prepareConfirmedTransaction(
 	signerAddress string,
 	packet *bandtypes.Packet,
@@ -434,10 +443,6 @@ func (cp *EVMChainProvider) prepareConfirmedTransaction(
 	log logger.Logger,
 	retryCount int,
 ) *db.Transaction {
-	if cp.DB == nil {
-		return nil
-	}
-
 	var signalPrices []db.SignalPrice
 
 	for _, p := range packet.SignalPrices {
@@ -504,34 +509,23 @@ func (cp *EVMChainProvider) prepareConfirmedTransaction(
 	return tx
 }
 
-func (cp *EVMChainProvider) prepareUnconfirmedTransaction(
-	txHash string,
-	status types.TxStatus,
-	packet *bandtypes.Packet,
-	signerAddress string,
-) *db.Transaction {
-	// db was disabled
-	if cp.DB == nil {
-		return nil
+// handleSaveTransaction saves the transaction to the database and triggers alert if any error occurs.
+func (cp *EVMChainProvider) handleSaveTransaction(tx *db.Transaction, log logger.Logger, retryCount int) {
+	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
+		log.Error("Save transaction error", "retry_count", retryCount, err)
+		cp.Alert.Trigger(
+			alert.NewTopic(alert.SaveDatabaseErrorMsg).
+				WithTunnelID(tx.TunnelID).
+				WithChainName(cp.ChainName).
+				GetFullTopic(),
+			err.Error(),
+		)
+	} else {
+		cp.Alert.Reset(alert.NewTopic(alert.SaveDatabaseErrorMsg).
+			WithTunnelID(tx.TunnelID).
+			WithChainName(cp.ChainName).
+			GetFullTopic())
 	}
-
-	var signalPrices []db.SignalPrice
-	for _, p := range packet.SignalPrices {
-		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
-	}
-
-	tx := db.NewUnconfirmedTransaction(
-		txHash,
-		packet.TunnelID,
-		packet.Sequence,
-		cp.ChainName,
-		types.ChainTypeEVM,
-		signerAddress,
-		status,
-		signalPrices,
-	)
-
-	return tx
 }
 
 // CheckConfirmedTx checks the confirmed transaction status.
