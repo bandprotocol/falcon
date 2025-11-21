@@ -105,7 +105,6 @@ func (s *LegacyProviderTestSuite) TestRelayPacketSuccess() {
 		GasPrice: s.gasInfo.GasPrice,
 	}).Return(uint64(200_000), nil).AnyTimes()
 
-	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil)
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
 	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&evm.TxReceipt{
@@ -133,7 +132,6 @@ func (s *LegacyProviderTestSuite) TestRelayPacketSuccessWithoutQueryMaxGasFee() 
 		GasPrice: big.NewInt(2_000_000_000),
 	}).Return(uint64(200_000), nil)
 
-	s.client.EXPECT().GetBalance(gomock.Any(), s.mockSignerAddress, nil).Return(big.NewInt(10000), nil)
 	txHash := "0xabc123"
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(txHash, nil)
 	s.client.EXPECT().GetTxReceipt(gomock.Any(), txHash).Return(&evm.TxReceipt{
