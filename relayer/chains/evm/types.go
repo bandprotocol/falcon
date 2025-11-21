@@ -37,7 +37,6 @@ type txResultMarshaling struct {
 
 // TxResult is the result of transaction.
 type TxResult struct {
-	TxHash            string
 	Status            types.TxStatus
 	GasUsed           decimal.NullDecimal
 	EffectiveGasPrice decimal.NullDecimal
@@ -49,7 +48,6 @@ type TxResult struct {
 
 // NewTxResult creates a new TxResult instance.
 func NewTxResult(
-	txHash string,
 	status types.TxStatus,
 	gasUsed decimal.NullDecimal,
 	effectiveGasPrice decimal.NullDecimal,
@@ -57,7 +55,6 @@ func NewTxResult(
 	failureReason string,
 ) TxResult {
 	return TxResult{
-		TxHash:            txHash,
 		Status:            status,
 		GasUsed:           gasUsed,
 		EffectiveGasPrice: effectiveGasPrice,
