@@ -28,31 +28,8 @@ type Transaction struct {
 	UpdatedAt      time.Time
 }
 
-// NewUnconfirmedTransaction creates a new pending Transaction instance.
-func NewUnconfirmedTransaction(
-	txHash string,
-	tunnelID uint64,
-	sequence uint64,
-	chainName string,
-	chainType types.ChainType,
-	sender string,
-	status types.TxStatus,
-	signalPrices []SignalPrice,
-) *Transaction {
-	return &Transaction{
-		TxHash:       txHash,
-		TunnelID:     tunnelID,
-		Sequence:     sequence,
-		ChainName:    chainName,
-		ChainType:    chainType,
-		Sender:       sender,
-		Status:       status,
-		SignalPrices: signalPrices,
-	}
-}
-
-// NewConfirmedTransaction creates a new Transaction instance.
-func NewConfirmedTransaction(
+// NewTransaction creates a new Transaction instance.
+func NewTransaction(
 	txHash string,
 	tunnelID uint64,
 	sequence uint64,

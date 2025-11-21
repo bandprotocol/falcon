@@ -233,7 +233,6 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(currentBlock), nil)
 			},
 			out: evm.NewTxResult(
-				txHash,
 				chaintypes.TX_STATUS_SUCCESS,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
 				decimal.NewNullDecimal(decimal.New(20000, 0)),
@@ -252,7 +251,6 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				}, nil)
 			},
 			out: evm.NewTxResult(
-				txHash,
 				chaintypes.TX_STATUS_FAILED,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
 				decimal.NewNullDecimal(decimal.New(20000, 0)),
@@ -274,7 +272,6 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 				s.client.EXPECT().GetBlockHeight(gomock.Any()).Return(uint64(currentBlock), nil)
 			},
 			out: evm.NewTxResult(
-				txHash,
 				chaintypes.TX_STATUS_PENDING,
 				decimal.NullDecimal{},
 				decimal.NullDecimal{},

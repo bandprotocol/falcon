@@ -230,7 +230,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		// save pending tx in db
 		if cp.DB != nil {
-			tx := cp.prepareUnconfirmedTransaction(txHash, types.TX_STATUS_PENDING, packet, freeSigner.GetAddress())
+			tx := cp.prepareTransaction(txHash, freeSigner.GetAddress(), packet, nil, balance, log, retryCount)
 			cp.handleSaveTransaction(tx, log, retryCount)
 		}
 
@@ -238,25 +238,15 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
 		if cp.DB != nil {
-			var tx *db.Transaction
-			switch txResult.Status {
-			case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
-				tx = cp.prepareConfirmedTransaction(
-					freeSigner.GetAddress(),
-					packet,
-					txResult,
-					balance,
-					log,
-					retryCount,
-				)
-			default:
-				tx = cp.prepareUnconfirmedTransaction(
-					txHash,
-					txResult.Status,
-					packet,
-					freeSigner.GetAddress(),
-				)
-			}
+			tx := cp.prepareTransaction(
+				txHash,
+				freeSigner.GetAddress(),
+				packet,
+				&txResult,
+				balance,
+				log,
+				retryCount,
+			)
 			cp.handleSaveTransaction(tx, log, retryCount)
 		}
 
@@ -374,7 +364,6 @@ func (cp *EVMChainProvider) WaitForConfirmedTx(
 	}
 
 	return NewTxResult(
-		txHash,
 		types.TX_STATUS_TIMEOUT,
 		decimal.NullDecimal{},
 		decimal.NullDecimal{},
@@ -408,37 +397,12 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 	}
 }
 
-// prepareUnconfirmedTransaction prepares the unconfirmed transaction to be stored in the database.
-func (cp *EVMChainProvider) prepareUnconfirmedTransaction(
+// prepareTransaction prepares the transaction to be stored in the database.
+func (cp *EVMChainProvider) prepareTransaction(
 	txHash string,
-	status types.TxStatus,
-	packet *bandtypes.Packet,
-	signerAddress string,
-) *db.Transaction {
-	var signalPrices []db.SignalPrice
-	for _, p := range packet.SignalPrices {
-		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
-	}
-
-	tx := db.NewUnconfirmedTransaction(
-		txHash,
-		packet.TunnelID,
-		packet.Sequence,
-		cp.ChainName,
-		types.ChainTypeEVM,
-		signerAddress,
-		status,
-		signalPrices,
-	)
-
-	return tx
-}
-
-// prepareConfirmedTransaction prepares the confirmed transaction to be stored in the database.
-func (cp *EVMChainProvider) prepareConfirmedTransaction(
 	signerAddress string,
 	packet *bandtypes.Packet,
-	txResult TxResult,
+	txResult *TxResult,
 	oldBalance *big.Int,
 	log logger.Logger,
 	retryCount int,
@@ -449,58 +413,69 @@ func (cp *EVMChainProvider) prepareConfirmedTransaction(
 		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
 	}
 
-	var blockTimestamp *time.Time
-	block, err := cp.Client.GetBlock(context.Background(), txResult.BlockNumber)
-	if err != nil {
-		log.Error("Failed to get block", "retry_count", retryCount, err)
-		cp.Alert.Trigger(
-			alert.NewTopic(alert.GetBlockErrorMsg).
-				WithTunnelID(packet.TunnelID).
-				WithChainName(cp.ChainName).
-				GetFullTopic(),
-			err.Error(),
-		)
-	} else {
-		timestamp := time.Unix(int64(block.Time()), 0).UTC()
-		blockTimestamp = &timestamp
-		cp.Alert.Reset(alert.NewTopic(alert.GetBlockErrorMsg).GetFullTopic())
-	}
-
+	txStatus := types.TX_STATUS_PENDING
+	gasUsed := decimal.NullDecimal{}
+	effectiveGasPrice := decimal.NullDecimal{}
 	balanceDelta := decimal.NullDecimal{}
-	// Compute new balance
-	// Note: this may be incorrect if other transactions affected the user's balance during this period.
-	if oldBalance != nil {
-		newBalance, err := cp.Client.GetBalance(
-			context.Background(),
-			gethcommon.HexToAddress(signerAddress),
-			txResult.BlockNumber,
-		)
+
+	var blockTimestamp *time.Time
+
+	if txResult != nil {
+		txStatus = txResult.Status
+		gasUsed = txResult.GasUsed
+		effectiveGasPrice = txResult.EffectiveGasPrice
+
+		block, err := cp.Client.GetBlock(context.Background(), txResult.BlockNumber)
 		if err != nil {
-			log.Error("Failed to get balance", "retry_count", retryCount, err)
+			log.Error("Failed to get block", "retry_count", retryCount, err)
 			cp.Alert.Trigger(
-				alert.NewTopic(alert.GetBalanceErrorMsg).
+				alert.NewTopic(alert.GetBlockErrorMsg).
 					WithTunnelID(packet.TunnelID).
 					WithChainName(cp.ChainName).
 					GetFullTopic(),
 				err.Error(),
 			)
 		} else {
-			diff := new(big.Int).Sub(newBalance, oldBalance)
-			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
-			cp.Alert.Reset(alert.NewTopic(alert.GetBalanceErrorMsg).GetFullTopic())
+			timestamp := time.Unix(int64(block.Time()), 0).UTC()
+			blockTimestamp = &timestamp
+			cp.Alert.Reset(alert.NewTopic(alert.GetBlockErrorMsg).GetFullTopic())
+		}
+
+		// Compute new balance
+		// Note: this may be incorrect if other transactions affected the user's balance during this period.
+		if oldBalance != nil {
+			newBalance, err := cp.Client.GetBalance(
+				context.Background(),
+				gethcommon.HexToAddress(signerAddress),
+				txResult.BlockNumber,
+			)
+			if err != nil {
+				log.Error("Failed to get balance", "retry_count", retryCount, err)
+				cp.Alert.Trigger(
+					alert.NewTopic(alert.GetBalanceErrorMsg).
+						WithTunnelID(packet.TunnelID).
+						WithChainName(cp.ChainName).
+						GetFullTopic(),
+					err.Error(),
+				)
+			} else {
+				diff := new(big.Int).Sub(newBalance, oldBalance)
+				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
+				cp.Alert.Reset(alert.NewTopic(alert.GetBalanceErrorMsg).GetFullTopic())
+			}
 		}
 	}
 
-	tx := db.NewConfirmedTransaction(
-		txResult.TxHash,
+	tx := db.NewTransaction(
+		txHash,
 		packet.TunnelID,
 		packet.Sequence,
 		cp.ChainName,
 		types.ChainTypeEVM,
 		signerAddress,
-		txResult.Status,
-		txResult.GasUsed,
-		txResult.EffectiveGasPrice,
+		txStatus,
+		gasUsed,
+		effectiveGasPrice,
 		balanceDelta,
 		signalPrices,
 		blockTimestamp,
@@ -537,7 +512,6 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	if err != nil {
 		err = fmt.Errorf("failed to get tx receipt: %w", err)
 		return NewTxResult(
-			txHash,
 			types.TX_STATUS_PENDING,
 			decimal.NullDecimal{},
 			decimal.NullDecimal{},
@@ -552,7 +526,6 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 
 	if receipt.Status == gethtypes.ReceiptStatusFailed {
 		return NewTxResult(
-			txHash,
 			types.TX_STATUS_FAILED,
 			gasUsed,
 			gasPrice,
@@ -565,7 +538,6 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	if err != nil {
 		err = fmt.Errorf("failed to get latest block height: %w", err)
 		return NewTxResult(
-			txHash,
 			types.TX_STATUS_PENDING,
 			decimal.NullDecimal{},
 			decimal.NullDecimal{},
@@ -577,7 +549,6 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	// if tx block is not confirmed and waiting too long return status with timeout
 	if receipt.BlockNumber.Uint64() > latestBlock-cp.Config.BlockConfirmation {
 		return NewTxResult(
-			txHash,
 			types.TX_STATUS_PENDING,
 			decimal.NullDecimal{},
 			decimal.NullDecimal{},
@@ -586,7 +557,7 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 		), nil
 	}
 
-	return NewTxResult(txHash, types.TX_STATUS_SUCCESS, gasUsed, gasPrice, receipt.BlockNumber, ""), nil
+	return NewTxResult(types.TX_STATUS_SUCCESS, gasUsed, gasPrice, receipt.BlockNumber, ""), nil
 }
 
 // EstimateGasFee estimates the gas for the transaction.
