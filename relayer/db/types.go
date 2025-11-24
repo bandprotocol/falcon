@@ -23,36 +23,13 @@ type Transaction struct {
 	BalanceDelta      decimal.NullDecimal `gorm:"type:decimal"`
 
 	SignalPrices   []SignalPrice
-	BlockTimestamp time.Time `gorm:"default:NULL"`
+	BlockTimestamp *time.Time `gorm:"default:NULL"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
 
-// NewUnconfirmedTransaction creates a new pending Transaction instance.
-func NewUnconfirmedTransaction(
-	txHash string,
-	tunnelID uint64,
-	sequence uint64,
-	chainName string,
-	chainType types.ChainType,
-	sender string,
-	status types.TxStatus,
-	signalPrices []SignalPrice,
-) *Transaction {
-	return &Transaction{
-		TxHash:       txHash,
-		TunnelID:     tunnelID,
-		Sequence:     sequence,
-		ChainName:    chainName,
-		ChainType:    chainType,
-		Sender:       sender,
-		Status:       status,
-		SignalPrices: signalPrices,
-	}
-}
-
-// NewConfirmedTransaction creates a new Transaction instance.
-func NewConfirmedTransaction(
+// NewTransaction creates a new Transaction instance.
+func NewTransaction(
 	txHash string,
 	tunnelID uint64,
 	sequence uint64,
@@ -64,7 +41,7 @@ func NewConfirmedTransaction(
 	effectiveGasPrice decimal.NullDecimal,
 	balanceDelta decimal.NullDecimal,
 	signalPrices []SignalPrice,
-	blockTimestamp time.Time,
+	blockTimestamp *time.Time,
 ) *Transaction {
 	return &Transaction{
 		TxHash:            txHash,
