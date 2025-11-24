@@ -228,7 +228,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 
 		// save pending tx in db
 		if cp.DB != nil {
-			tx := cp.prepareTransaction(txHash, freeSigner.GetAddress(), packet, nil, balance, log, retryCount)
+			tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, nil, balance, log, retryCount)
 			cp.handleSaveTransaction(tx, log, retryCount)
 		}
 
@@ -237,6 +237,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
 		if cp.DB != nil {
 			tx := cp.prepareTransaction(
+				ctx,
 				txHash,
 				freeSigner.GetAddress(),
 				packet,
@@ -397,6 +398,7 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 
 // prepareTransaction prepares the transaction to be stored in the database.
 func (cp *EVMChainProvider) prepareTransaction(
+	ctx context.Context,
 	txHash string,
 	signerAddress string,
 	packet *bandtypes.Packet,
@@ -442,7 +444,7 @@ func (cp *EVMChainProvider) prepareTransaction(
 			// Note: this may be incorrect if other transactions affected the user's balance during this period.
 			if oldBalance != nil {
 				newBalance, err := cp.Client.GetBalance(
-					context.Background(),
+					ctx,
 					gethcommon.HexToAddress(signerAddress),
 					txResult.BlockNumber,
 				)
