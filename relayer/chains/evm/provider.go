@@ -484,6 +484,10 @@ func (cp *EVMChainProvider) prepareTransaction(
 
 // handleSaveTransaction saves the transaction to the database and triggers alert if any error occurs.
 func (cp *EVMChainProvider) handleSaveTransaction(tx *db.Transaction, log logger.Logger, retryCount int) {
+	if cp.DB == nil {
+		log.Debug("Database is not set; skipping saving transaction")
+		return
+	}
 	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
 		log.Error("Save transaction error", "retry_count", retryCount, err)
 		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
