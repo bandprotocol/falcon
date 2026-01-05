@@ -9,8 +9,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
-
-	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 var _ Database = &SQL{}
@@ -75,7 +73,7 @@ func splitDbPath(dbPath string) (string, string, error) {
 }
 
 // AddOrUpdateTransaction inserts a new Transaction record if none exists with the same TxHash.
-// If an existing record is in PENDING state and the new transaction has progressed to a non-PENDING status.
+// If a record with the same TxHash exists, it updates the existing record with the new values.
 func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 	return sql.db.
 		Clauses(clause.OnConflict{
@@ -83,14 +81,6 @@ func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 			DoUpdates: clause.AssignmentColumns([]string{
 				"status", "gas_used", "effective_gas_price", "balance_delta", "block_timestamp", "updated_at",
 			}),
-			Where: clause.Where{
-				Exprs: []clause.Expression{
-					clause.Expr{
-						SQL:  "transactions.status = ? AND EXCLUDED.status <> ?",
-						Vars: []interface{}{chainstypes.TX_STATUS_PENDING, chainstypes.TX_STATUS_PENDING},
-					},
-				},
-			},
 		}).
 		Create(transaction).
 		Error
