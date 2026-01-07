@@ -428,7 +428,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight > result.BlockHeight {
+			if r.BlockHeight > result.BlockHeight || (r.Endpoint == c.selectedEndpoint && r.BlockHeight == result.BlockHeight) {
 				if result.Client != nil {
 					result.Client.Close()
 				}
