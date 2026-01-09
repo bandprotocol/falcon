@@ -38,6 +38,8 @@ type Client interface {
 
 // Client is the struct that handles interactions with the EVM chain.
 type client struct {
+	mu sync.RWMutex
+
 	ChainName      string
 	Endpoints      []string
 	QueryTimeout   time.Duration
@@ -60,6 +62,7 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger,
 		ExecuteTimeout: cfg.ExecuteTimeout,
 		Log:            log.With("chain_name", chainName),
 		alert:          alert,
+		clients:        make([]*ethclient.Client, len(cfg.Endpoints)),
 	}
 }
 
@@ -72,7 +75,9 @@ func (c *client) Connect(ctx context.Context) error {
 		}
 
 		wg.Add(1)
-		go func(endpoint string) {
+		go func(idx int, endpoint string) {
+			c.mu.Lock()
+			defer c.mu.Unlock()
 			defer wg.Done()
 			client, err := ethclient.Dial(endpoint)
 			if err != nil {
@@ -90,13 +95,25 @@ func (c *client) Connect(ctx context.Context) error {
 				)
 				return
 			}
+			alert.HandleReset(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+					WithChainName(c.ChainName).
+					WithEndpoint(endpoint),
+			)
 			c.clients[idx] = client
-		}(endpoint)
+		}(idx, endpoint)
 	}
 
 	wg.Wait()
 	res, err := c.getClientWithMaxHeight(ctx)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if err != nil {
+		c.selectedEndpoint = ""
+		c.selectedClient = nil
 		c.Log.Error("Failed to connect to EVM chain", err)
 		return err
 	}
@@ -357,6 +374,8 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 
 	for idx, endpoint := range c.Endpoints {
 		go func(idx int, endpoint string) {
+			c.mu.RLock()
+			defer c.mu.RUnlock()
 			client := c.clients[idx]
 
 			if client == nil {
@@ -374,7 +393,6 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"endpoint", endpoint,
 					err,
 				)
-				client.Close() // Close client on error
 				ch <- ClientConnectionResult{endpoint, nil, 0}
 
 				alert.HandleAlert(
@@ -393,7 +411,6 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"Skipping client because it is not fully synced",
 					"endpoint", endpoint,
 				)
-				client.Close() // Close client when not synced
 				ch <- ClientConnectionResult{endpoint, nil, 0}
 				alert.HandleAlert(
 					c.alert,
@@ -412,7 +429,6 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 					"endpoint", endpoint,
 					err,
 				)
-				client.Close() // Close client on error
 				ch <- ClientConnectionResult{endpoint, nil, 0}
 				alert.HandleAlert(
 					c.alert,
