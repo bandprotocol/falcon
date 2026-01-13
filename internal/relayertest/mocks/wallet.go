@@ -10,7 +10,6 @@
 package mocks
 
 import (
-	ecdsa "crypto/ecdsa"
 	reflect "reflect"
 
 	wallet "github.com/bandprotocol/falcon/relayer/wallet"
@@ -167,7 +166,7 @@ func (mr *MockWalletMockRecorder) GetSigners() *gomock.Call {
 }
 
 // SavePrivateKey mocks base method.
-func (m *MockWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (string, error) {
+func (m *MockWallet) SavePrivateKey(name, privKey string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SavePrivateKey", name, privKey)
 	ret0, _ := ret[0].(string)

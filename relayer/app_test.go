@@ -26,6 +26,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/types"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 type AppTestSuite struct {
@@ -36,6 +37,8 @@ type AppTestSuite struct {
 	chainProvider       *mocks.MockChainProvider
 	client              *mocks.MockClient
 	store               *mocks.MockStore
+	wallet              *mocks.MockWallet
+	ctrl                *gomock.Controller
 
 	passphrase       string
 	hashedPassphrase []byte
@@ -43,15 +46,16 @@ type AppTestSuite struct {
 
 // SetupTest sets up the test suite by creating a temporary directory and declare mock objects.
 func (s *AppTestSuite) SetupTest() {
-	ctrl := gomock.NewController(s.T())
+	s.ctrl = gomock.NewController(s.T())
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
 
 	// mock objects.
-	s.chainProviderConfig = mocks.NewMockChainProviderConfig(ctrl)
-	s.chainProvider = mocks.NewMockChainProvider(ctrl)
-	s.client = mocks.NewMockClient(ctrl)
+	s.chainProviderConfig = mocks.NewMockChainProviderConfig(s.ctrl)
+	s.chainProvider = mocks.NewMockChainProvider(s.ctrl)
+	s.client = mocks.NewMockClient(s.ctrl)
 	s.client.EXPECT().Init(gomock.Any()).Return(nil).AnyTimes()
-	s.store = mocks.NewMockStore(ctrl)
+	s.store = mocks.NewMockStore(s.ctrl)
+	s.wallet = mocks.NewMockWallet(s.ctrl)
 
 	cfg := config.Config{
 		BandChain: band.Config{
@@ -70,6 +74,7 @@ func (s *AppTestSuite) SetupTest() {
 	h.Write([]byte(s.passphrase))
 	s.hashedPassphrase = h.Sum(nil)
 	s.store.EXPECT().GetHashedPassphrase().Return(s.hashedPassphrase, nil).AnyTimes()
+	s.chainProviderConfig.EXPECT().GetChainType().Return(chainstypes.ChainTypeEVM).AnyTimes()
 
 	s.app = &relayer.App{
 		Log:    log,
@@ -479,12 +484,15 @@ func (s *AppTestSuite) TestAddKey() {
 			coinType:   60,
 			out:        chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""),
 			preprocess: func() {
-				s.chainProvider.EXPECT().
-					AddKeyByPrivateKey(
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				s.wallet.EXPECT().
+					SavePrivateKey(
 						"testkey",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 					).
-					Return(chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""), nil)
+					Return("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", nil)
 			},
 		},
 		{
@@ -494,12 +502,15 @@ func (s *AppTestSuite) TestAddKey() {
 			privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // anvil
 			coinType:   60,
 			preprocess: func() {
-				s.chainProvider.EXPECT().
-					AddKeyByPrivateKey(
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				s.wallet.EXPECT().
+					SavePrivateKey(
 						"testkey",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 					).
-					Return(nil, fmt.Errorf("add key error"))
+					Return("", fmt.Errorf("add key error"))
 			},
 			err: fmt.Errorf("add key error"),
 		},
@@ -550,7 +561,10 @@ func (s *AppTestSuite) TestDeleteKey() {
 			chainName: "testnet_evm",
 			keyName:   "testkey",
 			preprocess: func() {
-				s.chainProvider.EXPECT().
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				s.wallet.EXPECT().
 					DeleteKey("testkey").
 					Return(nil)
 			},
@@ -560,7 +574,10 @@ func (s *AppTestSuite) TestDeleteKey() {
 			chainName: "testnet_evm",
 			keyName:   "testkey",
 			preprocess: func() {
-				s.chainProvider.EXPECT().
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				s.wallet.EXPECT().
 					DeleteKey("testkey").
 					Return(fmt.Errorf("delete key error"))
 			},
@@ -607,8 +624,15 @@ func (s *AppTestSuite) TestExportKey() {
 			chainName: "testnet_evm",
 			keyName:   "testkey",
 			preprocess: func() {
-				s.chainProvider.EXPECT().
-					ExportPrivateKey("testkey").
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				signer := mocks.NewMockSigner(s.ctrl)
+				s.wallet.EXPECT().
+					GetSigner("testkey").
+					Return(signer, true)
+				signer.EXPECT().
+					ExportPrivateKey().
 					Return("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", nil)
 			},
 			out: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -618,8 +642,15 @@ func (s *AppTestSuite) TestExportKey() {
 			chainName: "testnet_evm",
 			keyName:   "testkey",
 			preprocess: func() {
-				s.chainProvider.EXPECT().
-					ExportPrivateKey("testkey").
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				signer := mocks.NewMockSigner(s.ctrl)
+				s.wallet.EXPECT().
+					GetSigner("testkey").
+					Return(signer, true)
+				signer.EXPECT().
+					ExportPrivateKey().
 					Return("", fmt.Errorf("export key error"))
 			},
 			err: fmt.Errorf("export key error"),
@@ -661,12 +692,26 @@ func (s *AppTestSuite) TestListKeys() {
 			name: "success",
 			in:   "testnet_evm",
 			preprocess: func() {
-				s.chainProvider.EXPECT().
-					ListKeys().
-					Return([]*chainstypes.Key{
-						chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "testkey1"),
-						chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92267", "testkey2"),
-					})
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				signer1 := mocks.NewMockSigner(s.ctrl)
+				signer2 := mocks.NewMockSigner(s.ctrl)
+				s.wallet.EXPECT().
+					GetSigners().
+					Return([]wallet.Signer{signer1, signer2})
+				signer1.EXPECT().
+					GetAddress().
+					Return("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+				signer1.EXPECT().
+					GetName().
+					Return("testkey1")
+				signer2.EXPECT().
+					GetAddress().
+					Return("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92267")
+				signer2.EXPECT().
+					GetName().
+					Return("testkey2")
 			},
 			out: []*chainstypes.Key{
 				chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", "testkey1"),
@@ -711,9 +756,16 @@ func (s *AppTestSuite) TestShowKey() {
 			chainName: "testnet_evm",
 			keyName:   "testkey",
 			preprocess: func() {
-				s.chainProvider.EXPECT().
-					ShowKey("testkey").
-					Return("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92267", nil)
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				signer := mocks.NewMockSigner(s.ctrl)
+				s.wallet.EXPECT().
+					GetSigner("testkey").
+					Return(signer, true)
+				signer.EXPECT().
+					GetAddress().
+					Return("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92267")
 			},
 			out: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92267",
 		},
@@ -722,12 +774,15 @@ func (s *AppTestSuite) TestShowKey() {
 			chainName: "testnet_evm",
 			keyName:   "testkey",
 			preprocess: func() {
-				s.chainProvider.EXPECT().
-					ShowKey("testkey").
-					Return("", fmt.Errorf("show key error"))
+				s.store.EXPECT().
+					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
+					Return(s.wallet, nil)
+				s.wallet.EXPECT().
+					GetSigner("testkey").
+					Return(nil, false)
 			},
 			out: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92267",
-			err: fmt.Errorf("show key error"),
+			err: fmt.Errorf("key name does not exist"),
 		},
 		{
 			name:      "chain name does not exist",
