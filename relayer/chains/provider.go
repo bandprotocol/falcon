@@ -50,24 +50,6 @@ type KeyProvider interface {
 		index uint,
 	) (*chainstypes.Key, error)
 
-	// AddKeyByPrivateKey adds a key using a private key.
-	AddKeyByPrivateKey(keyName string, privateKeyHex string) (*chainstypes.Key, error)
-
-	// AddRemoteSignerKey adds a key using a remote signer’s address and a Falcon KMS URL.
-	AddRemoteSignerKey(keyName string, addr string, url string, key *string) (*chainstypes.Key, error)
-
-	// DeleteKey deletes the key information and private key
-	DeleteKey(keyName string) error
-
-	// ExportPrivateKey exports private key of specified key name.
-	ExportPrivateKey(keyName string) (string, error)
-
-	// ListKeys lists all keys
-	ListKeys() []*chainstypes.Key
-
-	// ShowKey shows the address of the given key
-	ShowKey(keyName string) (string, error)
-
 	// LoadSigners loads signers to prepare to relay the packet
 	LoadSigners() error
 }

@@ -3,10 +3,12 @@ package evm_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/zap"
 
+	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -20,6 +22,24 @@ const (
 	testAddress    = "0x990Ec0f6dFc9e8eE20dec3Ab855D03007A9dD946"
 	testMnemonic   = "repeat sugar clarify visa chief soon walnut kangaroo rude parrot height piano spoil desk basket swim income catalog more plunge supreme above later worry"
 )
+
+var evmCfg = &evm.EVMChainProviderConfig{
+	BaseChainProviderConfig: chains.BaseChainProviderConfig{
+		Endpoints:           []string{"http://localhost:8545"},
+		ChainType:           chaintypes.ChainTypeEVM,
+		MaxRetry:            3,
+		ChainID:             31337,
+		TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+		QueryTimeout:        3 * time.Second,
+		ExecuteTimeout:      3 * time.Second,
+	},
+	BlockConfirmation:          5,
+	WaitingTxDuration:          time.Second * 3,
+	CheckingTxInterval:         time.Second,
+	LivelinessCheckingInterval: 15 * time.Minute,
+	GasType:                    evm.GasTypeEIP1559,
+	GasMultiplier:              1.1,
+}
 
 func TestKeysTestSuite(t *testing.T) {
 	suite.Run(t, new(KeysTestSuite))
@@ -87,7 +107,7 @@ func (s *KeysTestSuite) TestAddKeyByPrivateKey() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddKeyByPrivateKey(tc.input.keyName, tc.input.privKey)
+			key, err := chains.AddKeyByPrivateKey(s.wallet, tc.input.keyName, tc.input.privKey)
 
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())
@@ -226,7 +246,8 @@ func (s *KeysTestSuite) TestAddRemoteSignerKey() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
-			key, err := s.chainProvider.AddRemoteSignerKey(
+			key, err := chains.AddRemoteSignerKey(
+				s.wallet,
 				tc.input.keyName,
 				tc.input.addr,
 				tc.input.url,
@@ -241,13 +262,13 @@ func (s *KeysTestSuite) TestAddRemoteSignerKey() {
 
 func (s *KeysTestSuite) TestDeleteKey() {
 	// Add key to delete
-	_, err := s.chainProvider.AddKeyByPrivateKey(testKey, testPrivateKey)
+	_, err := chains.AddKeyByPrivateKey(s.wallet, testKey, testPrivateKey)
 	s.Require().NoError(err)
 
 	s.loadChainProvider()
 
 	// Delete the key
-	err = s.chainProvider.DeleteKey(testKey)
+	err = chains.DeleteKey(s.wallet, testKey)
 	s.Require().NoError(err)
 }
 
@@ -263,7 +284,7 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 			name:    "success",
 			keyName: testKey,
 			setup: func() {
-				_, err := s.chainProvider.AddKeyByPrivateKey(testKey, testPrivateKey)
+				_, err := chains.AddKeyByPrivateKey(s.wallet, testKey, testPrivateKey)
 				s.Require().NoError(err)
 			},
 		},
@@ -281,7 +302,7 @@ func (s *KeysTestSuite) TestExportPrivateKey() {
 				tc.setup()
 			}
 			s.loadChainProvider()
-			exported, err := s.chainProvider.ExportPrivateKey(tc.keyName)
+			exported, err := chains.ExportPrivateKey(s.wallet, tc.keyName)
 			if tc.wantErr {
 				s.Require().ErrorContains(err, tc.errSubstr)
 				return
@@ -327,7 +348,7 @@ func (s *KeysTestSuite) TestListKeys() {
 	s.loadChainProvider()
 
 	// List all keys
-	actual := s.chainProvider.ListKeys()
+	actual := chains.ListKeys(s.wallet)
 	s.Require().Equal(2, len(actual))
 
 	expected1 := chaintypes.NewKey("", key1.Address, keyName1)
@@ -362,7 +383,7 @@ func (s *KeysTestSuite) TestShowKey() {
 			name:    "success",
 			keyName: testKey,
 			setup: func() {
-				_, err := s.chainProvider.AddKeyByPrivateKey(testKey, testPrivateKey)
+				_, err := chains.AddKeyByPrivateKey(s.wallet, testKey, testPrivateKey)
 				s.Require().NoError(err)
 			},
 		},
@@ -380,7 +401,7 @@ func (s *KeysTestSuite) TestShowKey() {
 				tc.setup()
 			}
 			s.loadChainProvider()
-			address, err := s.chainProvider.ShowKey(tc.keyName)
+			address, err := chains.ShowKey(s.wallet, tc.keyName)
 			if tc.wantErr {
 				s.Require().ErrorContains(err, tc.errSubstr)
 				return
