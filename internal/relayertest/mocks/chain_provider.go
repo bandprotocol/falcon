@@ -59,65 +59,6 @@ func (mr *MockChainProviderMockRecorder) AddKeyByMnemonic(keyName, mnemonic, coi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByMnemonic", reflect.TypeOf((*MockChainProvider)(nil).AddKeyByMnemonic), keyName, mnemonic, coinType, account, index)
 }
 
-// AddKeyByPrivateKey mocks base method.
-func (m *MockChainProvider) AddKeyByPrivateKey(keyName, privateKeyHex string) (*types0.Key, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKeyByPrivateKey", keyName, privateKeyHex)
-	ret0, _ := ret[0].(*types0.Key)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddKeyByPrivateKey indicates an expected call of AddKeyByPrivateKey.
-func (mr *MockChainProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyHex any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByPrivateKey", reflect.TypeOf((*MockChainProvider)(nil).AddKeyByPrivateKey), keyName, privateKeyHex)
-}
-
-// AddRemoteSignerKey mocks base method.
-func (m *MockChainProvider) AddRemoteSignerKey(keyName, addr, url string, key *string) (*types0.Key, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url, key)
-	ret0, _ := ret[0].(*types0.Key)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddRemoteSignerKey indicates an expected call of AddRemoteSignerKey.
-func (mr *MockChainProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url, key any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockChainProvider)(nil).AddRemoteSignerKey), keyName, addr, url, key)
-}
-
-// DeleteKey mocks base method.
-func (m *MockChainProvider) DeleteKey(keyName string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteKey", keyName)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteKey indicates an expected call of DeleteKey.
-func (mr *MockChainProviderMockRecorder) DeleteKey(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKey", reflect.TypeOf((*MockChainProvider)(nil).DeleteKey), keyName)
-}
-
-// ExportPrivateKey mocks base method.
-func (m *MockChainProvider) ExportPrivateKey(keyName string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportPrivateKey", keyName)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ExportPrivateKey indicates an expected call of ExportPrivateKey.
-func (mr *MockChainProviderMockRecorder) ExportPrivateKey(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockChainProvider)(nil).ExportPrivateKey), keyName)
-}
-
 // GetChainName mocks base method.
 func (m *MockChainProvider) GetChainName() string {
 	m.ctrl.T.Helper()
@@ -144,20 +85,6 @@ func (m *MockChainProvider) Init(ctx context.Context) error {
 func (mr *MockChainProviderMockRecorder) Init(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockChainProvider)(nil).Init), ctx)
-}
-
-// ListKeys mocks base method.
-func (m *MockChainProvider) ListKeys() []*types0.Key {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListKeys")
-	ret0, _ := ret[0].([]*types0.Key)
-	return ret0
-}
-
-// ListKeys indicates an expected call of ListKeys.
-func (mr *MockChainProviderMockRecorder) ListKeys() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockChainProvider)(nil).ListKeys))
 }
 
 // LoadSigners mocks base method.
@@ -230,21 +157,6 @@ func (mr *MockChainProviderMockRecorder) SetDatabase(database any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDatabase", reflect.TypeOf((*MockChainProvider)(nil).SetDatabase), database)
 }
 
-// ShowKey mocks base method.
-func (m *MockChainProvider) ShowKey(keyName string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShowKey", keyName)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ShowKey indicates an expected call of ShowKey.
-func (mr *MockChainProviderMockRecorder) ShowKey(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowKey", reflect.TypeOf((*MockChainProvider)(nil).ShowKey), keyName)
-}
-
 // MockKeyProvider is a mock of KeyProvider interface.
 type MockKeyProvider struct {
 	ctrl     *gomock.Controller
@@ -284,79 +196,6 @@ func (mr *MockKeyProviderMockRecorder) AddKeyByMnemonic(keyName, mnemonic, coinT
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByMnemonic", reflect.TypeOf((*MockKeyProvider)(nil).AddKeyByMnemonic), keyName, mnemonic, coinType, account, index)
 }
 
-// AddKeyByPrivateKey mocks base method.
-func (m *MockKeyProvider) AddKeyByPrivateKey(keyName, privateKeyHex string) (*types0.Key, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKeyByPrivateKey", keyName, privateKeyHex)
-	ret0, _ := ret[0].(*types0.Key)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddKeyByPrivateKey indicates an expected call of AddKeyByPrivateKey.
-func (mr *MockKeyProviderMockRecorder) AddKeyByPrivateKey(keyName, privateKeyHex any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByPrivateKey", reflect.TypeOf((*MockKeyProvider)(nil).AddKeyByPrivateKey), keyName, privateKeyHex)
-}
-
-// AddRemoteSignerKey mocks base method.
-func (m *MockKeyProvider) AddRemoteSignerKey(keyName, addr, url string, key *string) (*types0.Key, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteSignerKey", keyName, addr, url, key)
-	ret0, _ := ret[0].(*types0.Key)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddRemoteSignerKey indicates an expected call of AddRemoteSignerKey.
-func (mr *MockKeyProviderMockRecorder) AddRemoteSignerKey(keyName, addr, url, key any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteSignerKey", reflect.TypeOf((*MockKeyProvider)(nil).AddRemoteSignerKey), keyName, addr, url, key)
-}
-
-// DeleteKey mocks base method.
-func (m *MockKeyProvider) DeleteKey(keyName string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteKey", keyName)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteKey indicates an expected call of DeleteKey.
-func (mr *MockKeyProviderMockRecorder) DeleteKey(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteKey", reflect.TypeOf((*MockKeyProvider)(nil).DeleteKey), keyName)
-}
-
-// ExportPrivateKey mocks base method.
-func (m *MockKeyProvider) ExportPrivateKey(keyName string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportPrivateKey", keyName)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ExportPrivateKey indicates an expected call of ExportPrivateKey.
-func (mr *MockKeyProviderMockRecorder) ExportPrivateKey(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPrivateKey", reflect.TypeOf((*MockKeyProvider)(nil).ExportPrivateKey), keyName)
-}
-
-// ListKeys mocks base method.
-func (m *MockKeyProvider) ListKeys() []*types0.Key {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListKeys")
-	ret0, _ := ret[0].([]*types0.Key)
-	return ret0
-}
-
-// ListKeys indicates an expected call of ListKeys.
-func (mr *MockKeyProviderMockRecorder) ListKeys() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListKeys", reflect.TypeOf((*MockKeyProvider)(nil).ListKeys))
-}
-
 // LoadSigners mocks base method.
 func (m *MockKeyProvider) LoadSigners() error {
 	m.ctrl.T.Helper()
@@ -369,19 +208,4 @@ func (m *MockKeyProvider) LoadSigners() error {
 func (mr *MockKeyProviderMockRecorder) LoadSigners() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadSigners", reflect.TypeOf((*MockKeyProvider)(nil).LoadSigners))
-}
-
-// ShowKey mocks base method.
-func (m *MockKeyProvider) ShowKey(keyName string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShowKey", keyName)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ShowKey indicates an expected call of ShowKey.
-func (mr *MockKeyProviderMockRecorder) ShowKey(keyName any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowKey", reflect.TypeOf((*MockKeyProvider)(nil).ShowKey), keyName)
 }

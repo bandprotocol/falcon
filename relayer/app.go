@@ -15,6 +15,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/store"
 	"github.com/bandprotocol/falcon/relayer/types"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 var _ Application = &App{}
@@ -107,7 +108,6 @@ func (a *App) InitTargetChain(chainName string) error {
 		)
 		return err
 	}
-
 	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet, a.Alert)
 	if err != nil {
 		a.Log.Error("Cannot create chain provider",
@@ -276,12 +276,12 @@ func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey st
 		return nil, err
 	}
 
-	cp, err := a.getChainProvider(chainName)
+	w, err := a.getWallet(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.AddKeyByPrivateKey(keyName, privateKey)
+	return chains.AddKeyByPrivateKey(w, keyName, privateKey)
 }
 
 // AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
@@ -313,12 +313,12 @@ func (a *App) AddRemoteSignerKey(
 	url string,
 	key *string,
 ) (*chainstypes.Key, error) {
-	cp, err := a.getChainProvider(chainName)
+	w, err := a.getWallet(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.AddRemoteSignerKey(keyName, addr, url, key)
+	return chains.AddRemoteSignerKey(w, keyName, addr, url, key)
 }
 
 // DeleteKey deletes the key from the chain provider.
@@ -327,12 +327,12 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return err
 	}
 
-	cp, err := a.getChainProvider(chainName)
+	w, err := a.getWallet(chainName)
 	if err != nil {
 		return err
 	}
 
-	return cp.DeleteKey(keyName)
+	return chains.DeleteKey(w, keyName)
 }
 
 // ExportKey exports the private key from the chain provider.
@@ -341,32 +341,32 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 		return "", err
 	}
 
-	cp, err := a.getChainProvider(chainName)
+	w, err := a.getWallet(chainName)
 	if err != nil {
 		return "", err
 	}
 
-	return cp.ExportPrivateKey(keyName)
+	return chains.ExportPrivateKey(w, keyName)
 }
 
 // ListKeys retrieves the list of keys from the chain provider.
 func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
-	cp, err := a.getChainProvider(chainName)
+	w, err := a.getWallet(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.ListKeys(), nil
+	return chains.ListKeys(w), nil
 }
 
 // ShowKey retrieves the key information from the chain provider.
 func (a *App) ShowKey(chainName string, keyName string) (string, error) {
-	cp, err := a.getChainProvider(chainName)
+	w, err := a.getWallet(chainName)
 	if err != nil {
 		return "", err
 	}
 
-	return cp.ShowKey(keyName)
+	return chains.ShowKey(w, keyName)
 }
 
 // QueryBalance retrieves the balance of the key from the chain provider.
@@ -510,6 +510,25 @@ func (a *App) getChainProvider(chainName string) (chains.ChainProvider, error) {
 	}
 
 	return cp, nil
+}
+
+// getWallet retrieves the wallet for the given chain name.
+func (a *App) getWallet(chainName string) (wallet.Wallet, error) {
+	if a.Config == nil {
+		return nil, fmt.Errorf("config is not initialized")
+	}
+
+	chainConfig, ok := a.Config.TargetChains[chainName]
+	if !ok {
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	w, err := a.Store.NewWallet(chainConfig.GetChainType(), chainName, a.Passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	return w, nil
 }
 
 // getTunnelsByIDs retrieves the tunnels by given tunnel IDs.
