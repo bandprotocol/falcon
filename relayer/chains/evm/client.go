@@ -16,6 +16,32 @@ import (
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
+type EVMClients struct {
+	mu      sync.RWMutex
+	clients map[string]*ethclient.Client
+}
+
+func NewEVMClients() EVMClients {
+	return EVMClients{
+		clients: make(map[string]*ethclient.Client),
+	}
+}
+
+func (ec *EVMClients) GetClient(endpoint string) (*ethclient.Client, bool) {
+	ec.mu.RLock()
+	defer ec.mu.RUnlock()
+
+	client, exists := ec.clients[endpoint]
+	return client, exists
+}
+
+func (ec *EVMClients) SetClient(endpoint string, client *ethclient.Client) {
+	ec.mu.Lock()
+	defer ec.mu.Unlock()
+
+	ec.clients[endpoint] = client
+}
+
 var _ Client = &client{}
 
 // Client is the interface that handles interactions with the EVM chain.
@@ -38,8 +64,6 @@ type Client interface {
 
 // Client is the struct that handles interactions with the EVM chain.
 type client struct {
-	mu sync.RWMutex
-
 	ChainName      string
 	Endpoints      []string
 	QueryTimeout   time.Duration
@@ -49,7 +73,7 @@ type client struct {
 
 	selectedEndpoint string
 	selectedClient   *ethclient.Client
-	clients          []*ethclient.Client
+	clients          EVMClients
 	alert            alert.Alert
 }
 
@@ -62,7 +86,7 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger,
 		ExecuteTimeout: cfg.ExecuteTimeout,
 		Log:            log.With("chain_name", chainName),
 		alert:          alert,
-		clients:        make([]*ethclient.Client, len(cfg.Endpoints)),
+		clients:        NewEVMClients(),
 	}
 }
 
@@ -70,14 +94,13 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger,
 func (c *client) Connect(ctx context.Context) error {
 	var wg sync.WaitGroup
 	for idx, endpoint := range c.Endpoints {
-		if c.clients[idx] != nil {
+		_, ok := c.clients.GetClient(endpoint)
+		if ok {
 			continue
 		}
 
 		wg.Add(1)
 		go func(idx int, endpoint string) {
-			c.mu.Lock()
-			defer c.mu.Unlock()
 			defer wg.Done()
 			client, err := ethclient.Dial(endpoint)
 			if err != nil {
@@ -101,15 +124,12 @@ func (c *client) Connect(ctx context.Context) error {
 					WithChainName(c.ChainName).
 					WithEndpoint(endpoint),
 			)
-			c.clients[idx] = client
+			c.clients.SetClient(endpoint, client)
 		}(idx, endpoint)
 	}
 
 	wg.Wait()
 	res, err := c.getClientWithMaxHeight(ctx)
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	if err != nil {
 		c.selectedEndpoint = ""
@@ -374,11 +394,9 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 
 	for idx, endpoint := range c.Endpoints {
 		go func(idx int, endpoint string) {
-			c.mu.RLock()
-			defer c.mu.RUnlock()
-			client := c.clients[idx]
+			client, ok := c.clients.GetClient(endpoint)
 
-			if client == nil {
+			if !ok {
 				ch <- ClientConnectionResult{endpoint, nil, 0}
 				return
 			}
