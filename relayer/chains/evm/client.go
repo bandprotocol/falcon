@@ -130,7 +130,6 @@ func (c *client) Connect(ctx context.Context) error {
 
 	wg.Wait()
 	res, err := c.getClientWithMaxHeight(ctx)
-
 	if err != nil {
 		c.selectedEndpoint = ""
 		c.selectedClient = nil
