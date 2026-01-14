@@ -35,7 +35,7 @@ func DeleteKey(w wallet.Wallet, keyName string) error {
 func ExportPrivateKey(w wallet.Wallet, keyName string) (string, error) {
 	signer, ok := w.GetSigner(keyName)
 	if !ok {
-		return "", fmt.Errorf("key name not exist: %s", keyName)
+		return "", fmt.Errorf("key name does not exist: %s", keyName)
 	}
 
 	return signer.ExportPrivateKey()
