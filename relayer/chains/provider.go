@@ -15,7 +15,6 @@ type ChainProviders map[string]ChainProvider
 
 // ChainProvider defines the interface for the chain interaction with the destination chain.
 type ChainProvider interface {
-	KeyProvider
 	// Init initialize to the chain.
 	Init(ctx context.Context) error
 
@@ -37,10 +36,7 @@ type ChainProvider interface {
 
 	// GetChainName retrieves the chain name from the chain provider.
 	GetChainName() string
-}
 
-// KeyProvider defines the interface for the key interaction with destination chain
-type KeyProvider interface {
 	// AddKeyByMnemonic adds a key using a mnemonic phrase.
 	AddKeyByMnemonic(
 		keyName string,
