@@ -16,17 +16,21 @@ import (
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
+// EVMClients holds Ethereum RPC clients and the selected endpoint.
 type EVMClients struct {
-	mu      sync.RWMutex
-	clients map[string]*ethclient.Client
+	mu               sync.RWMutex
+	selectedEndpoint string                       // Currently selected endpoint
+	clients          map[string]*ethclient.Client // Endpoint to client map
 }
 
+// NewEVMClients creates and returns a new EVMClients instance with no endpoints.
 func NewEVMClients() EVMClients {
 	return EVMClients{
 		clients: make(map[string]*ethclient.Client),
 	}
 }
 
+// GetClient returns the ethclient.Client for a given endpoint, and a boolean indicating if it exists.
 func (ec *EVMClients) GetClient(endpoint string) (*ethclient.Client, bool) {
 	ec.mu.RLock()
 	defer ec.mu.RUnlock()
@@ -35,11 +39,46 @@ func (ec *EVMClients) GetClient(endpoint string) (*ethclient.Client, bool) {
 	return client, exists
 }
 
+// SetClient sets the ethclient.Client for a given endpoint in the clients map.
 func (ec *EVMClients) SetClient(endpoint string, client *ethclient.Client) {
 	ec.mu.Lock()
 	defer ec.mu.Unlock()
 
 	ec.clients[endpoint] = client
+}
+
+// SetSelectedEndpoint sets the currently selected endpoint.
+func (ec *EVMClients) SetSelectedEndpoint(endpoint string) {
+	ec.mu.Lock()
+	defer ec.mu.Unlock()
+
+	ec.selectedEndpoint = endpoint
+}
+
+// GetSelectedEndpoint returns the currently selected endpoint.
+func (ec *EVMClients) GetSelectedEndpoint() string {
+	ec.mu.RLock()
+	defer ec.mu.RUnlock()
+
+	return ec.selectedEndpoint
+}
+
+// GetSelectedClient returns the ethclient.Client for the selected endpoint.
+// Returns an error if no endpoint is selected or if the selected client does not exist.
+func (ec *EVMClients) GetSelectedClient() (*ethclient.Client, error) {
+	ec.mu.RLock()
+	defer ec.mu.RUnlock()
+
+	if ec.selectedEndpoint == "" {
+		return nil, fmt.Errorf("no selected endpoint")
+	}
+
+	selectedClient, exists := ec.clients[ec.selectedEndpoint]
+	if !exists {
+		return nil, fmt.Errorf("selected endpoint client not found: %s", ec.selectedEndpoint)
+	}
+
+	return selectedClient, nil
 }
 
 var _ Client = &client{}
@@ -71,10 +110,8 @@ type client struct {
 
 	Log logger.Logger
 
-	selectedEndpoint string
-	selectedClient   *ethclient.Client
-	clients          EVMClients
-	alert            alert.Alert
+	clients EVMClients
+	alert   alert.Alert
 }
 
 // NewClient creates a new EVM client from config file and load keys.
@@ -93,14 +130,14 @@ func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger,
 // Connect connects to the EVM chain.
 func (c *client) Connect(ctx context.Context) error {
 	var wg sync.WaitGroup
-	for idx, endpoint := range c.Endpoints {
+	for _, endpoint := range c.Endpoints {
 		_, ok := c.clients.GetClient(endpoint)
 		if ok {
 			continue
 		}
 
 		wg.Add(1)
-		go func(idx int, endpoint string) {
+		go func(endpoint string) {
 			defer wg.Done()
 			client, err := ethclient.Dial(endpoint)
 			if err != nil {
@@ -125,25 +162,22 @@ func (c *client) Connect(ctx context.Context) error {
 					WithEndpoint(endpoint),
 			)
 			c.clients.SetClient(endpoint, client)
-		}(idx, endpoint)
+		}(endpoint)
 	}
 
 	wg.Wait()
 	res, err := c.getClientWithMaxHeight(ctx)
 	if err != nil {
-		c.selectedEndpoint = ""
-		c.selectedClient = nil
 		c.Log.Error("Failed to connect to EVM chain", err)
 		return err
 	}
 
 	// only log when new endpoint is used
-	if c.selectedEndpoint != res.Endpoint {
+	if c.clients.GetSelectedEndpoint() != res.Endpoint {
 		c.Log.Info("Connected to EVM chain", "endpoint", res.Endpoint)
 	}
 
-	c.selectedEndpoint = res.Endpoint
-	c.selectedClient = res.Client
+	c.clients.SetSelectedEndpoint(res.Endpoint)
 
 	return nil
 }
@@ -173,11 +207,17 @@ func (c *client) NonceAt(ctx context.Context, address gethcommon.Address) (uint6
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	nonce, err := c.selectedClient.NonceAt(newCtx, address, nil)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return 0, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	nonce, err := client.NonceAt(newCtx, address, nil)
 	if err != nil {
 		c.Log.Error(
 			"Failed to get nonce",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"evm_address", address.Hex(),
 			err,
 		)
@@ -192,9 +232,15 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	blockHeight, err := c.selectedClient.BlockNumber(newCtx)
+	client, err := c.clients.GetSelectedClient()
 	if err != nil {
-		c.Log.Error("Failed to get block height", "endpoint", c.selectedEndpoint, err)
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return 0, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	blockHeight, err := client.BlockNumber(newCtx)
+	if err != nil {
+		c.Log.Error("Failed to get block height", "endpoint", c.clients.GetSelectedEndpoint(), err)
 		return 0, fmt.Errorf("[EVMClient] failed to get block height: %w", err)
 	}
 
@@ -206,11 +252,17 @@ func (c *client) GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Bloc
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	block, err := c.selectedClient.BlockByNumber(newCtx, height)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	block, err := client.BlockByNumber(newCtx, height)
 	if err != nil {
 		c.Log.Error(
 			"Failed to get block by height",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"height", height.String(),
 			err,
 		)
@@ -225,8 +277,14 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
 	var receipt *TxReceipt
-	err := c.selectedClient.Client().CallContext(newCtx, &receipt, "eth_getTransactionReceipt", txHash)
+	err = client.Client().CallContext(newCtx, &receipt, "eth_getTransactionReceipt", txHash)
 	if err == nil && receipt == nil {
 		// it's normal to not have receipt for pending tx
 		err = ethereum.NotFound
@@ -235,7 +293,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 	if err != nil {
 		c.Log.Debug(
 			"Failed to get tx receipt",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"tx_hash", txHash,
 			err,
 		)
@@ -249,11 +307,17 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	tx, isPending, err := c.selectedClient.TransactionByHash(newCtx, gethcommon.HexToHash(txHash))
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, false, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	tx, isPending, err := client.TransactionByHash(newCtx, gethcommon.HexToHash(txHash))
 	if err != nil {
 		c.Log.Error(
 			"Failed to get tx by hash",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"tx_hash", txHash,
 			err,
 		)
@@ -273,11 +337,17 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	res, err := c.selectedClient.CallContract(newCtx, callMsg, nil)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	res, err := client.CallContract(newCtx, callMsg, nil)
 	if err != nil {
 		c.Log.Error(
 			"Failed to query contract",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"evm_address", gethAddr.Hex(),
 			err,
 		)
@@ -292,11 +362,17 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	gas, err := c.selectedClient.EstimateGas(newCtx, msg)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return 0, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	gas, err := client.EstimateGas(newCtx, msg)
 	if err != nil {
 		c.Log.Error(
 			"Failed to estimate gas",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"evm_address", msg.To.Hex(),
 			err,
 		)
@@ -311,11 +387,17 @@ func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	gasPrice, err := c.selectedClient.SuggestGasPrice(newCtx)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	gasPrice, err := client.SuggestGasPrice(newCtx)
 	if err != nil {
 		c.Log.Error(
 			"Failed to estimate gas price",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			err,
 		)
 		return nil, err
@@ -330,7 +412,13 @@ func (c *client) EstimateBaseFee(ctx context.Context) (*big.Int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	latestHeader, err := c.selectedClient.HeaderByNumber(newCtx, nil)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	latestHeader, err := client.HeaderByNumber(newCtx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -344,11 +432,17 @@ func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	gasTipCap, err := c.selectedClient.SuggestGasTipCap(newCtx)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	gasTipCap, err := client.SuggestGasTipCap(newCtx)
 	if err != nil {
 		c.Log.Error(
 			"Failed to estimate gas tip cap",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			err,
 		)
 		return nil, err
@@ -361,7 +455,7 @@ func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
 func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (string, error) {
 	c.Log.Debug(
 		"Broadcasting tx",
-		"endpoint", c.selectedEndpoint,
+		"endpoint", c.clients.GetSelectedEndpoint(),
 		"tx_hash", tx.Hash().Hex(),
 		"to", tx.To().Hex(),
 		"gas_fee_cap", tx.GasFeeCap().String(),
@@ -373,10 +467,16 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 	newCtx, cancel := context.WithTimeout(ctx, c.ExecuteTimeout)
 	defer cancel()
 
-	if err := c.selectedClient.SendTransaction(newCtx, tx); err != nil {
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return "", fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	if err := client.SendTransaction(newCtx, tx); err != nil {
 		c.Log.Error(
 			"Failed to broadcast tx",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"tx_hash", tx.Hash().Hex(),
 			err,
 		)
@@ -391,8 +491,8 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
-	for idx, endpoint := range c.Endpoints {
-		go func(idx int, endpoint string) {
+	for _, endpoint := range c.Endpoints {
+		go func(endpoint string) {
 			client, ok := c.clients.GetClient(endpoint)
 
 			if !ok {
@@ -470,14 +570,14 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			)
 
 			ch <- ClientConnectionResult{endpoint, client, blockHeight}
-		}(idx, endpoint)
+		}(endpoint)
 	}
 
 	var result ClientConnectionResult
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight > result.BlockHeight || (r.Endpoint == c.selectedEndpoint && r.BlockHeight == result.BlockHeight) {
+			if r.BlockHeight > result.BlockHeight || (r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
 				result = r
 			}
 		}
@@ -499,11 +599,11 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 
 // checkAndConnect checks if the client is connected to the EVM chain, if not connect it.
 func (c *client) CheckAndConnect(ctx context.Context) error {
-	if c.selectedClient != nil {
-		return nil
+	if _, err := c.clients.GetSelectedClient(); err != nil {
+		return c.Connect(ctx)
 	}
 
-	return c.Connect(ctx)
+	return nil
 }
 
 // GetBalance get the balance of specific account the EVM chain.
@@ -511,11 +611,17 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address, bl
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
-	res, err := c.selectedClient.BalanceAt(newCtx, gethAddr, blockNumber)
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+	}
+
+	res, err := client.BalanceAt(newCtx, gethAddr, blockNumber)
 	if err != nil {
 		c.Log.Error(
 			"Failed to query balance",
-			"endpoint", c.selectedEndpoint,
+			"endpoint", c.clients.GetSelectedEndpoint(),
 			"evm_address", gethAddr.Hex(),
 			err,
 		)
