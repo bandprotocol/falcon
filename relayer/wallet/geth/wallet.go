@@ -1,9 +1,9 @@
 package geth
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -106,14 +106,19 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 }
 
 // SavePrivateKey imports the ECDSA key into the keystore and writes its signer record.
-func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (addr string, err error) {
+func (w *GethWallet) SavePrivateKey(name string, privKey string) (addr string, err error) {
 	// check if the key name exists
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(privKey, "0x"))
+	if err != nil {
+		return "", err
+	}
+
 	// derive the Ethereum address from the pubkey and check exist or not
-	addr = crypto.PubkeyToAddress(privKey.PublicKey).Hex()
+	addr = crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 
 	// check if the address is already added
 	if w.IsAddressExist(addr) {
@@ -121,7 +126,7 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (add
 	}
 
 	// save the signer
-	_, err = w.Store.ImportECDSA(privKey, w.Passphrase)
+	_, err = w.Store.ImportECDSA(privateKey, w.Passphrase)
 	if err != nil {
 		return "", err
 	}

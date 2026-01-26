@@ -1,4 +1,4 @@
-package evm_test
+package chains_test
 
 import (
 	"testing"
@@ -69,15 +69,15 @@ func (s *SenderTestSuite) SetupTest() {
 	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
+	_, err = evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
 	s.Require().NoError(err)
 
 	// Add two mock keys to the chain provider
-	_, err = chainProvider.AddKeyByPrivateKey(keyName1, privateKey1)
+	_, err = chains.AddKeyByPrivateKey(wallet, keyName1, privateKey1)
 	s.Require().NoError(err)
 
 	testKey := "testKey"
-	_, err = chainProvider.AddRemoteSignerKey(keyName2, address2, url, &testKey)
+	_, err = chains.AddRemoteSignerKey(wallet, keyName2, address2, url, &testKey)
 	s.Require().NoError(err)
 }
 
