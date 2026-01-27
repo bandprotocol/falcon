@@ -90,7 +90,7 @@ type Client interface {
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	NonceAt(ctx context.Context, address gethcommon.Address) (uint64, error)
 	GetBlockHeight(ctx context.Context) (uint64, error)
-	GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Block, error)
+	GetHeaderBlock(ctx context.Context, height *big.Int) (*gethtypes.Header, error)
 	GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, error)
 	Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
@@ -247,8 +247,8 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	return blockHeight, nil
 }
 
-// GetBlock returns the blocks of the given block height
-func (c *client) GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Block, error) {
+// GetHeaderBlock returns the block header at the given height.
+func (c *client) GetHeaderBlock(ctx context.Context, height *big.Int) (*gethtypes.Header, error) {
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
@@ -258,18 +258,18 @@ func (c *client) GetBlock(ctx context.Context, height *big.Int) (*gethtypes.Bloc
 		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
 	}
 
-	block, err := client.BlockByNumber(newCtx, height)
+	header, err := client.HeaderByNumber(newCtx, height)
 	if err != nil {
 		c.Log.Error(
-			"Failed to get block by height",
+			"Failed to get headerblock by height",
 			"endpoint", c.clients.GetSelectedEndpoint(),
 			"height", height.String(),
 			err,
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to get block by height: %w", err)
+		return nil, fmt.Errorf("[EVMClient] failed to get header block by height: %w", err)
 	}
 
-	return block, nil
+	return header, nil
 }
 
 // GetTxReceipt returns the transaction receipt of the given transaction hash.
