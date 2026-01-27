@@ -261,7 +261,7 @@ func (c *client) GetHeaderBlock(ctx context.Context, height *big.Int) (*gethtype
 	header, err := client.HeaderByNumber(newCtx, height)
 	if err != nil {
 		c.Log.Error(
-			"Failed to get headerblock by height",
+			"Failed to get header block by height",
 			"endpoint", c.clients.GetSelectedEndpoint(),
 			"height", height.String(),
 			err,
