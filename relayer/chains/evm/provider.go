@@ -426,16 +426,16 @@ func (cp *EVMChainProvider) prepareTransaction(
 		effectiveGasPrice = txResult.EffectiveGasPrice
 
 		if txResult.Status == types.TX_STATUS_SUCCESS || txResult.Status == types.TX_STATUS_FAILED {
-			block, err := cp.Client.GetBlock(context.Background(), txResult.BlockNumber)
+			header, err := cp.Client.GetHeaderBlock(context.Background(), txResult.BlockNumber)
 			if err != nil {
-				log.Error("Failed to get block", "retry_count", retryCount, err)
-				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
+				log.Error("Failed to get header block", "retry_count", retryCount, err)
+				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetHeaderBlockErrorMsg).
 					WithTunnelID(packet.TunnelID).
 					WithChainName(cp.ChainName), err.Error())
 			} else {
-				timestamp := time.Unix(int64(block.Time()), 0).UTC()
+				timestamp := time.Unix(int64(header.Time), 0).UTC()
 				blockTimestamp = &timestamp
-				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBlockErrorMsg).
+				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetHeaderBlockErrorMsg).
 					WithTunnelID(packet.TunnelID).
 					WithChainName(cp.ChainName))
 			}

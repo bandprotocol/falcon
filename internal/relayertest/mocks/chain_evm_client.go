@@ -164,21 +164,6 @@ func (mr *MockEVMClientMockRecorder) GetBalance(ctx, gethAddr, blockNumber any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockEVMClient)(nil).GetBalance), ctx, gethAddr, blockNumber)
 }
 
-// GetBlock mocks base method.
-func (m *MockEVMClient) GetBlock(ctx context.Context, height *big.Int) (*types.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBlock", ctx, height)
-	ret0, _ := ret[0].(*types.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetBlock indicates an expected call of GetBlock.
-func (mr *MockEVMClientMockRecorder) GetBlock(ctx, height any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlock", reflect.TypeOf((*MockEVMClient)(nil).GetBlock), ctx, height)
-}
-
 // GetBlockHeight mocks base method.
 func (m *MockEVMClient) GetBlockHeight(ctx context.Context) (uint64, error) {
 	m.ctrl.T.Helper()
@@ -192,6 +177,21 @@ func (m *MockEVMClient) GetBlockHeight(ctx context.Context) (uint64, error) {
 func (mr *MockEVMClientMockRecorder) GetBlockHeight(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHeight", reflect.TypeOf((*MockEVMClient)(nil).GetBlockHeight), ctx)
+}
+
+// GetHeaderBlock mocks base method.
+func (m *MockEVMClient) GetHeaderBlock(ctx context.Context, height *big.Int) (*types.Header, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHeaderBlock", ctx, height)
+	ret0, _ := ret[0].(*types.Header)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHeaderBlock indicates an expected call of GetHeaderBlock.
+func (mr *MockEVMClientMockRecorder) GetHeaderBlock(ctx, height any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeaderBlock", reflect.TypeOf((*MockEVMClient)(nil).GetHeaderBlock), ctx, height)
 }
 
 // GetTxReceipt mocks base method.
