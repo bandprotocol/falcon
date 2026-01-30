@@ -474,7 +474,7 @@ func (s *AppTestSuite) TestAddKey() {
 		account    uint
 		index      uint
 		err        error
-		out        string
+		out        *chainstypes.Key
 		preprocess func()
 	}{
 		{
@@ -483,13 +483,13 @@ func (s *AppTestSuite) TestAddKey() {
 			keyName:    "testkey",
 			privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // anvil
 			coinType:   60,
-			out:        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+			out:        chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""),
 			preprocess: func() {
 				s.store.EXPECT().
 					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
 					Return(s.wallet, nil)
 				s.wallet.EXPECT().
-					SavePrivateKey(
+					SaveBySecret(
 						"testkey",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 					).
@@ -507,7 +507,7 @@ func (s *AppTestSuite) TestAddKey() {
 					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).
 					Return(s.wallet, nil)
 				s.wallet.EXPECT().
-					SavePrivateKey(
+					SaveBySecret(
 						"testkey",
 						"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 					).

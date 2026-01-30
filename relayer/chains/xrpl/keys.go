@@ -3,9 +3,7 @@ package xrpl
 import (
 	"fmt"
 
-	xrplwallet "github.com/Peersyst/xrpl-go/xrpl/wallet"
-	"github.com/bsv-blockchain/go-sdk/compat/bip39"
-
+	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
@@ -27,24 +25,16 @@ func (cp *XRPLChainProvider) AddKeyByMnemonic(
 	}
 
 	generatedMnemonic := ""
+	var err error
 	if mnemonic == "" {
-		entropy, err := bip39.NewEntropy(xrplMnemonicEntropyBits)
-		if err != nil {
-			return nil, err
-		}
-		mnemonic, err = bip39.NewMnemonic(entropy)
+		mnemonic, err = chains.GenerateMnemonic(xrplMnemonicEntropyBits)
 		if err != nil {
 			return nil, err
 		}
 		generatedMnemonic = mnemonic
 	}
 
-	w, err := xrplwallet.FromMnemonic(mnemonic)
-	if err != nil {
-		return nil, err
-	}
-
-	addr, err := cp.Wallet.SavePrivateKey(keyName, w.PrivateKey)
+	addr, err := cp.Wallet.SaveByMnemonic(keyName, mnemonic)
 	if err != nil {
 		return nil, err
 	}
