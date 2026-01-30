@@ -35,14 +35,14 @@ var CustomCfg = config.Config{
 	TargetChains: config.ChainProviderConfigs{
 		"testnet": &evm.EVMChainProviderConfig{
 			BaseChainProviderConfig: chains.BaseChainProviderConfig{
-				Endpoints:           []string{"http://localhost:8545"},
-				ChainType:           chainstypes.ChainTypeEVM,
-				MaxRetry:            3,
-				ChainID:             31337,
-				TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-				QueryTimeout:        3 * time.Second,
-				ExecuteTimeout:      3 * time.Second,
+				Endpoints:      []string{"http://localhost:8545"},
+				ChainType:      chainstypes.ChainTypeEVM,
+				MaxRetry:       3,
+				ChainID:        31337,
+				QueryTimeout:   3 * time.Second,
+				ExecuteTimeout: 3 * time.Second,
 			},
+			TunnelRouterAddress:        "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
 			BlockConfirmation:          5,
 			WaitingTxDuration:          time.Second * 3,
 			CheckingTxInterval:         time.Second,

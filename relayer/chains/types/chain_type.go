@@ -15,10 +15,12 @@ type ChainType int
 const (
 	ChainTypeUndefined ChainType = iota
 	ChainTypeEVM
+	ChainTypeXRPL
 )
 
 var chainTypeNameMap = map[ChainType]string{
-	ChainTypeEVM: "evm",
+	ChainTypeEVM:  "evm",
+	ChainTypeXRPL: "xrpl",
 }
 
 var nameToChainTypeMap map[string]ChainType
@@ -67,7 +69,7 @@ func (c ChainType) MarshalText() ([]byte, error) {
 
 // Scan scans string value into ChainType, implements sql.Scanner interface.
 // (needs to manually creates `chain_type` type in a database first
-// by "CREATE TYPE chain_type AS ENUM ('evm')")
+// by "CREATE TYPE chain_type AS ENUM ('evm', 'xrpl')")
 func (c *ChainType) Scan(value interface{}) error {
 	str, ok := value.(string)
 	if !ok {

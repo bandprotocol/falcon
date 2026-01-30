@@ -16,6 +16,7 @@ var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
 type EVMChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
+	TunnelRouterAddress        string        `mapstructure:"tunnel_router_address"        toml:"tunnel_router_address"`
 	BlockConfirmation          uint64        `mapstructure:"block_confirmation"           toml:"block_confirmation"`
 	WaitingTxDuration          time.Duration `mapstructure:"waiting_tx_duration"          toml:"waiting_tx_duration"`
 	LivelinessCheckingInterval time.Duration `mapstructure:"liveliness_checking_interval" toml:"liveliness_checking_interval"`
