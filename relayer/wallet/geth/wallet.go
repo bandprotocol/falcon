@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	toml "github.com/pelletier/go-toml/v2"
 
 	"github.com/bandprotocol/falcon/internal/os"
@@ -20,6 +21,8 @@ var _ wallet.Wallet = &GethWallet{}
 const (
 	LocalSignerType  = "local"
 	RemoteSignerType = "remote"
+
+	defaultEVMHDPath = "m/44'/60'/0'/0/0"
 )
 
 // GethWallet manages local and remote signers for a specific chain.
@@ -105,14 +108,14 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 	}, nil
 }
 
-// SavePrivateKey imports the ECDSA key into the keystore and writes its signer record.
-func (w *GethWallet) SavePrivateKey(name string, privKey string) (addr string, err error) {
+// SaveBySecret imports the ECDSA key into the keystore and writes its signer record.
+func (w *GethWallet) SaveBySecret(name string, secret string) (addr string, err error) {
 	// check if the key name exists
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
-	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(privKey, "0x"))
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
 	if err != nil {
 		return "", err
 	}
@@ -137,6 +140,31 @@ func (w *GethWallet) SavePrivateKey(name string, privKey string) (addr string, e
 	}
 
 	return addr, nil
+}
+
+// SaveByMnemonic derives the ECDSA key from the mnemonic and stores it as a local signer.
+func (w *GethWallet) SaveByMnemonic(name string, mnemonic string) (addr string, err error) {
+	if mnemonic == "" {
+		return "", fmt.Errorf("mnemonic is empty")
+	}
+
+	hdWallet, err := hdwallet.NewFromMnemonic(mnemonic)
+	if err != nil {
+		return "", err
+	}
+
+	derivationPath := hdwallet.MustParseDerivationPath(defaultEVMHDPath)
+	account, err := hdWallet.Derive(derivationPath, true)
+	if err != nil {
+		return "", err
+	}
+
+	privHex, err := hdWallet.PrivateKeyHex(account)
+	if err != nil {
+		return "", err
+	}
+
+	return w.SaveBySecret(name, privHex)
 }
 
 // SaveRemoteSignerKey registers a remote signer under the given name,

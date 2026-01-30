@@ -3,13 +3,25 @@ package chains
 import (
 	"fmt"
 
+	"github.com/bsv-blockchain/go-sdk/compat/bip39"
+
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
+// GenerateMnemonic creates a BIP-39 mnemonic with the requested entropy size.
+func GenerateMnemonic(bitSize int) (string, error) {
+	entropy, err := bip39.NewEntropy(bitSize)
+	if err != nil {
+		return "", err
+	}
+
+	return bip39.NewMnemonic(entropy)
+}
+
 // AddKeyByPrivateKey adds a key using a raw private key.
 func AddKeyByPrivateKey(w wallet.Wallet, keyName, privateKey string) (*chainstypes.Key, error) {
-	addr, err := w.SavePrivateKey(keyName, privateKey)
+	addr, err := w.SaveBySecret(keyName, privateKey)
 	if err != nil {
 		return nil, err
 	}

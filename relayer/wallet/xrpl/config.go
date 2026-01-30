@@ -8,19 +8,21 @@ import (
 
 // KeyRecord stores XRPL signer info on disk.
 type KeyRecord struct {
-	Type    string  `toml:"type"`
-	Address string  `toml:"address,omitempty"`
-	Url     string  `toml:"url,omitempty"`
-	Key     *string `toml:"key,omitempty"`
+	Type       string  `toml:"type"`
+	Address    string  `toml:"address,omitempty"`
+	Url        string  `toml:"url,omitempty"`
+	Key        *string `toml:"key,omitempty"`
+	SaveMethod string  `toml:"save_method,omitempty"`
 }
 
 // NewKeyRecord creates a new KeyRecord.
-func NewKeyRecord(signerType, address, url string, key *string) KeyRecord {
+func NewKeyRecord(signerType, address, url string, key *string, saveMethod string) KeyRecord {
 	return KeyRecord{
-		Type:    signerType,
-		Address: address,
-		Url:     url,
-		Key:     key,
+		Type:       signerType,
+		Address:    address,
+		Url:        url,
+		Key:        key,
+		SaveMethod: saveMethod,
 	}
 }
 

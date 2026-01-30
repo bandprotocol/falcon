@@ -17,6 +17,9 @@ var _ wallet.Wallet = &XRPLWallet{}
 const (
 	LocalSignerType  = "local"
 	RemoteSignerType = "remote"
+
+	SaveMethodSeed     = "seed"
+	SaveMethodMnemonic = "mnemonic"
 )
 
 // XRPLWallet manages local and remote signers for a specific chain.
@@ -50,7 +53,17 @@ func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) 
 				return nil, err
 			}
 
-			w, err := xrplwallet.FromSecret(secret)
+			var w xrplwallet.Wallet
+			var wptr *xrplwallet.Wallet
+			switch record.SaveMethod {
+			case SaveMethodMnemonic:
+				wptr, err = xrplwallet.FromMnemonic(secret)
+				w = *wptr
+			case SaveMethodSeed:
+				w, err = xrplwallet.FromSecret(secret)
+			default:
+				return nil, fmt.Errorf("unsupported save method %s for key %s", record.SaveMethod, name)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -85,13 +98,13 @@ func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) 
 	}, nil
 }
 
-// SavePrivateKey stores the secret in keyring and writes its record.
-func (w *XRPLWallet) SavePrivateKey(name string, privKey string) (addr string, err error) {
+// SaveBySecret stores the secret in keyring and writes its record.
+func (w *XRPLWallet) SaveBySecret(name string, secret string) (addr string, err error) {
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
-	privWallet, err := xrplwallet.FromSecret(privKey)
+	privWallet, err := xrplwallet.FromSecret(secret)
 	if err != nil {
 		return
 	}
@@ -107,11 +120,48 @@ func (w *XRPLWallet) SavePrivateKey(name string, privKey string) (addr string, e
 		return "", err
 	}
 
-	if err := setXRPLSecret(kr, w.ChainName, name, privKey); err != nil {
+	if err := setXRPLSecret(kr, w.ChainName, name, secret); err != nil {
 		return "", err
 	}
 
-	record := NewKeyRecord(LocalSignerType, "", "", nil)
+	record := NewKeyRecord(LocalSignerType, "", "", nil, SaveMethodSeed)
+	if err := w.saveKeyRecord(name, record); err != nil {
+		return "", err
+	}
+
+	return addr, nil
+}
+
+// SaveByMnemonic stores the mnemonic in keyring and writes its record.
+func (w *XRPLWallet) SaveByMnemonic(name string, mnemonic string) (addr string, err error) {
+	if _, ok := w.Signers[name]; ok {
+		return "", fmt.Errorf("key name exists: %s", name)
+	}
+	if mnemonic == "" {
+		return "", fmt.Errorf("mnemonic is empty")
+	}
+
+	mnWallet, err := xrplwallet.FromMnemonic(mnemonic)
+	if err != nil {
+		return "", err
+	}
+
+	addr = mnWallet.ClassicAddress.String()
+
+	if w.IsAddressExist(addr) {
+		return "", fmt.Errorf("address exists: %s", addr)
+	}
+
+	kr, err := openXRPLKeyring(w.Passphrase, w.HomePath, w.ChainName)
+	if err != nil {
+		return "", err
+	}
+
+	if err := setXRPLSecret(kr, w.ChainName, name, mnemonic); err != nil {
+		return "", err
+	}
+
+	record := NewKeyRecord(LocalSignerType, "", "", nil, SaveMethodMnemonic)
 	if err := w.saveKeyRecord(name, record); err != nil {
 		return "", err
 	}
@@ -133,7 +183,7 @@ func (w *XRPLWallet) SaveRemoteSignerKey(name, address, url string, key *string)
 		return fmt.Errorf("address exists: %s", address)
 	}
 
-	record := NewKeyRecord(RemoteSignerType, address, url, key)
+	record := NewKeyRecord(RemoteSignerType, address, url, key, "")
 	if err := w.saveKeyRecord(name, record); err != nil {
 		return err
 	}

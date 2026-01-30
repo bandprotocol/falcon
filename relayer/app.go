@@ -271,22 +271,22 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 }
 
 // AddKeyByPrivateKey adds a new key to the chain provider using a private key.
-func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (string, error) {
+func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*chainstypes.Key, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	w, err := a.getWallet(chainName)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	key, err := chains.AddKeyByPrivateKey(w, keyName, privateKey)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return key.Address, nil
+	return key, nil
 }
 
 // AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
@@ -297,22 +297,22 @@ func (a *App) AddKeyByMnemonic(
 	coinType uint32,
 	account uint,
 	index uint,
-) (string, string, error) {
+) (*chainstypes.Key, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	key, err := cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return key.Mnemonic, key.Address, nil
+	return key, nil
 }
 
 // AddRemoteSignerKey adds a new remote signer key to the chain provider.
@@ -322,14 +322,18 @@ func (a *App) AddRemoteSignerKey(
 	addr string,
 	url string,
 	key *string,
-) error {
+) (*chainstypes.Key, error) {
 	w, err := a.getWallet(chainName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = chains.AddRemoteSignerKey(w, keyName, addr, url, key)
-	return err
+	remoteKey, err := chains.AddRemoteSignerKey(w, keyName, addr, url, key)
+	if err != nil {
+		return nil, err
+	}
+
+	return remoteKey, nil
 }
 
 // DeleteKey deletes the key from the chain provider.
