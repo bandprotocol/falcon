@@ -166,18 +166,18 @@ func (mr *MockWalletMockRecorder) GetSigners() *gomock.Call {
 }
 
 // SaveByMnemonic mocks base method.
-func (m *MockWallet) SaveByMnemonic(name, mnemonic string) (string, error) {
+func (m *MockWallet) SaveByMnemonic(name, mnemonic string, coinType uint32, account, index uint) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveByMnemonic", name, mnemonic)
+	ret := m.ctrl.Call(m, "SaveByMnemonic", name, mnemonic, coinType, account, index)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SaveByMnemonic indicates an expected call of SaveByMnemonic.
-func (mr *MockWalletMockRecorder) SaveByMnemonic(name, mnemonic any) *gomock.Call {
+func (mr *MockWalletMockRecorder) SaveByMnemonic(name, mnemonic, coinType, account, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveByMnemonic", reflect.TypeOf((*MockWallet)(nil).SaveByMnemonic), name, mnemonic)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveByMnemonic", reflect.TypeOf((*MockWallet)(nil).SaveByMnemonic), name, mnemonic, coinType, account, index)
 }
 
 // SaveBySecret mocks base method.
