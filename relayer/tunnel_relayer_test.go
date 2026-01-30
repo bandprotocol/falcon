@@ -135,6 +135,14 @@ func createMockPacket(
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
+	var currentChainType chaintypes.ChainType
+	s.chainProvider.EXPECT().
+		ChainType().
+		DoAndReturn(func() chaintypes.ChainType {
+			return currentChainType
+		}).
+		AnyTimes()
+
 	testcases := []struct {
 		name        string
 		preprocess  func()
@@ -363,7 +371,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			if chainType == chaintypes.ChainTypeUndefined {
 				chainType = chaintypes.ChainTypeEVM
 			}
-			s.chainProvider.EXPECT().ChainType().Return(chainType).AnyTimes()
+			currentChainType = chainType
 
 			if tc.preprocess != nil {
 				tc.preprocess()

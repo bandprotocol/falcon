@@ -5,6 +5,7 @@ import (
 
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 
+	"github.com/bandprotocol/falcon/relayer/chains"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
@@ -27,7 +28,7 @@ func (cp *EVMChainProvider) AddKeyByMnemonic(
 	var err error
 	generatedMnemonic := ""
 	if mnemonic == "" {
-		mnemonic, err = hdwallet.NewMnemonic(mnemonicSize)
+		mnemonic, err = chains.GenerateMnemonic(mnemonicSize)
 		if err != nil {
 			return nil, err
 		}
@@ -40,7 +41,7 @@ func (cp *EVMChainProvider) AddKeyByMnemonic(
 		return nil, err
 	}
 
-	addr, err := cp.Wallet.SavePrivateKey(keyName, privHex)
+	addr, err := cp.Wallet.SaveBySecret(keyName, privHex)
 	if err != nil {
 		return nil, err
 	}

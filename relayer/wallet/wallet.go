@@ -8,7 +8,8 @@ type Signer interface {
 }
 
 type Wallet interface {
-	SavePrivateKey(name string, privKey string) (addr string, err error)
+	SaveBySecret(name string, secret string) (addr string, err error)
+	SaveByMnemonic(name string, mnemonic string) (addr string, err error)
 	SaveRemoteSignerKey(name, addr, url string, key *string) error
 	DeleteKey(name string) error
 	GetSigners() []Signer
