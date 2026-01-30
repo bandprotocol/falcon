@@ -7,7 +7,6 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/db"
-	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
@@ -37,6 +36,9 @@ type ChainProvider interface {
 	// GetChainName retrieves the chain name from the chain provider.
 	GetChainName() string
 
+	// GetChainType retrieves the chain type from the chain provider.
+	ChainType() chainstypes.ChainType
+
 	// AddKeyByMnemonic adds a key using a mnemonic phrase.
 	AddKeyByMnemonic(
 		keyName string,
@@ -48,15 +50,4 @@ type ChainProvider interface {
 
 	// LoadSigners loads signers to prepare to relay the packet
 	LoadSigners() error
-}
-
-// BaseChainProvider is a base object for connecting with the chain network.
-type BaseChainProvider struct {
-	log logger.Logger
-
-	Config    ChainProviderConfig
-	ChainName string
-	ChainID   string
-
-	debug bool
 }

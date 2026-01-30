@@ -59,6 +59,20 @@ func (mr *MockChainProviderMockRecorder) AddKeyByMnemonic(keyName, mnemonic, coi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByMnemonic", reflect.TypeOf((*MockChainProvider)(nil).AddKeyByMnemonic), keyName, mnemonic, coinType, account, index)
 }
 
+// ChainType mocks base method.
+func (m *MockChainProvider) ChainType() types0.ChainType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChainType")
+	ret0, _ := ret[0].(types0.ChainType)
+	return ret0
+}
+
+// ChainType indicates an expected call of ChainType.
+func (mr *MockChainProviderMockRecorder) ChainType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainType", reflect.TypeOf((*MockChainProvider)(nil).ChainType))
+}
+
 // GetChainName mocks base method.
 func (m *MockChainProvider) GetChainName() string {
 	m.ctrl.T.Helper()
@@ -155,57 +169,4 @@ func (m *MockChainProvider) SetDatabase(database db.Database) {
 func (mr *MockChainProviderMockRecorder) SetDatabase(database any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDatabase", reflect.TypeOf((*MockChainProvider)(nil).SetDatabase), database)
-}
-
-// MockKeyProvider is a mock of KeyProvider interface.
-type MockKeyProvider struct {
-	ctrl     *gomock.Controller
-	recorder *MockKeyProviderMockRecorder
-	isgomock struct{}
-}
-
-// MockKeyProviderMockRecorder is the mock recorder for MockKeyProvider.
-type MockKeyProviderMockRecorder struct {
-	mock *MockKeyProvider
-}
-
-// NewMockKeyProvider creates a new mock instance.
-func NewMockKeyProvider(ctrl *gomock.Controller) *MockKeyProvider {
-	mock := &MockKeyProvider{ctrl: ctrl}
-	mock.recorder = &MockKeyProviderMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockKeyProvider) EXPECT() *MockKeyProviderMockRecorder {
-	return m.recorder
-}
-
-// AddKeyByMnemonic mocks base method.
-func (m *MockKeyProvider) AddKeyByMnemonic(keyName, mnemonic string, coinType uint32, account, index uint) (*types0.Key, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKeyByMnemonic", keyName, mnemonic, coinType, account, index)
-	ret0, _ := ret[0].(*types0.Key)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddKeyByMnemonic indicates an expected call of AddKeyByMnemonic.
-func (mr *MockKeyProviderMockRecorder) AddKeyByMnemonic(keyName, mnemonic, coinType, account, index any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByMnemonic", reflect.TypeOf((*MockKeyProvider)(nil).AddKeyByMnemonic), keyName, mnemonic, coinType, account, index)
-}
-
-// LoadSigners mocks base method.
-func (m *MockKeyProvider) LoadSigners() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadSigners")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// LoadSigners indicates an expected call of LoadSigners.
-func (mr *MockKeyProviderMockRecorder) LoadSigners() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadSigners", reflect.TypeOf((*MockKeyProvider)(nil).LoadSigners))
 }
