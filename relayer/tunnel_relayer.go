@@ -36,7 +36,7 @@ type TunnelRelayer struct {
 
 	isTargetChainActive  bool
 	penaltySkipRemaining uint
-	lastRelayedSeq       uint64
+	lastRelayedSeq       *uint64
 	mu                   *sync.Mutex
 }
 
@@ -58,7 +58,7 @@ func NewTunnelRelayer(
 		Alert:                  alert,
 		isTargetChainActive:    false,
 		penaltySkipRemaining:   0,
-		lastRelayedSeq:         0,
+		lastRelayedSeq:         nil,
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -177,11 +177,12 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	var targetLatestSeq uint64
+	var targetLatestSeq *uint64
 
 	switch t.TargetChainProvider.ChainType() {
 	case chaintypes.ChainTypeEVM:
-		targetLatestSeq = targetContractInfo.LatestSequence
+		latestSeq := targetContractInfo.LatestSequence
+		targetLatestSeq = &latestSeq
 	case chaintypes.ChainTypeXRPL:
 		// For XRPL, we use the lastRelayedSeq to track the latest sequence
 		targetLatestSeq = t.lastRelayedSeq
@@ -198,15 +199,15 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 
 	// check that target contract always relays packets or not
 	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-		if t.lastRelayedSeq >= tunnelInfo.LatestSequence {
-			t.Log.Debug("No new packet to relay", "sequence", t.lastRelayedSeq)
+		if t.lastRelayedSeq == nil || (t.lastRelayedSeq != nil && *t.lastRelayedSeq >= tunnelInfo.LatestSequence) {
+			t.Log.Debug("No new packet to relay", "sequence", *t.lastRelayedSeq)
 			return 0, nil
 		}
 
 		return tunnelInfo.LatestSequence, nil
 	}
 
-	latestSeq := targetLatestSeq
+	latestSeq := *targetLatestSeq
 	nextSeq := latestSeq + 1
 	if tunnelInfo.LatestSequence < nextSeq {
 		t.Log.Debug("No new packet to relay", "sequence", latestSeq)
@@ -220,12 +221,14 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 func (t *TunnelRelayer) updateRelayerMetrics(
 	tunnelInfo *types.Tunnel,
 	targetContractInfo *chaintypes.Tunnel,
-	targetLatestSeq uint64,
+	targetLatestSeq *uint64,
 ) {
-	// update the metric for unrelayed packets based on the difference
-	// between the latest sequences on BandChain and the target chain
-	unrelayedPackets := tunnelInfo.LatestSequence - targetLatestSeq
-	relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPackets)
+	if targetLatestSeq != nil {
+		// update the metric for unrelayed packets based on the difference
+		// between the latest sequences on BandChain and the target chain
+		unrelayedPackets := tunnelInfo.LatestSequence - *targetLatestSeq
+		relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPackets)
+	}
 
 	// update the metric for the number of active target contracts
 	if targetContractInfo.IsActive && !t.isTargetChainActive {
@@ -249,7 +252,8 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 	relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 	t.Log.Info("Successfully relayed packet", "sequence", packet.Sequence)
 	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-		t.lastRelayedSeq = packet.Sequence
+		latestSeq := packet.Sequence
+		t.lastRelayedSeq = &latestSeq
 	}
 
 	return nil
