@@ -34,7 +34,7 @@ func (cp *XRPLChainProvider) AddKeyByMnemonic(
 		generatedMnemonic = mnemonic
 	}
 
-	addr, err := cp.Wallet.SaveByMnemonic(keyName, mnemonic)
+	addr, err := cp.Wallet.SaveByMnemonic(keyName, mnemonic, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}

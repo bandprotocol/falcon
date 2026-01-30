@@ -363,6 +363,17 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			relayStatus: relayer.RelayStatusSuccess,
 			chainType:   chaintypes.ChainTypeXRPL,
 		},
+		{
+			name: "xrpl not relays when last relayed sequence equal Band latest sequence",
+			preprocess: func() {
+				bandLatest := uint64(0)
+				s.mockGetTunnel(bandLatest)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+			},
+			err:         nil,
+			relayStatus: relayer.RelayStatusSkipped,
+			chainType:   chaintypes.ChainTypeXRPL,
+		},
 	}
 
 	for _, tc := range testcases {

@@ -20,6 +20,8 @@ const (
 
 	SaveMethodSeed     = "seed"
 	SaveMethodMnemonic = "mnemonic"
+
+	xrplDefaultCoinType = 144
 )
 
 // XRPLWallet manages local and remote signers for a specific chain.
@@ -133,9 +135,18 @@ func (w *XRPLWallet) SaveBySecret(name string, secret string) (addr string, err 
 }
 
 // SaveByMnemonic stores the mnemonic in keyring and writes its record.
-func (w *XRPLWallet) SaveByMnemonic(name string, mnemonic string) (addr string, err error) {
+func (w *XRPLWallet) SaveByMnemonic(
+	name string,
+	mnemonic string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (addr string, err error) {
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
+	}
+	if coinType != xrplDefaultCoinType || account != 0 || index != 0 {
+		return "", fmt.Errorf("xrpl mnemonic derivation only supports m/44'/144'/0'/0/0")
 	}
 	if mnemonic == "" {
 		return "", fmt.Errorf("mnemonic is empty")
