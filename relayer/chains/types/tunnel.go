@@ -12,10 +12,18 @@ type Tunnel struct {
 }
 
 // NewTunnel creates a new tunnel object.
-func NewTunnel(id uint64, targetAddress string, isActive bool) *Tunnel {
+func NewTunnel(
+	id uint64,
+	targetAddress string,
+	isActive bool,
+	latestSequence uint64,
+	balance *big.Int,
+) *Tunnel {
 	return &Tunnel{
-		ID:            id,
-		TargetAddress: targetAddress,
-		IsActive:      isActive,
+		ID:             id,
+		TargetAddress:  targetAddress,
+		IsActive:       isActive,
+		LatestSequence: latestSequence,
+		Balance:        balance,
 	}
 }

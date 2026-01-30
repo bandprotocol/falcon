@@ -133,13 +133,9 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 		return nil, fmt.Errorf("[EVMProvider] failed to query contract: %w", err)
 	}
 
-	return &types.Tunnel{
-		ID:             tunnelID,
-		TargetAddress:  tunnelDestinationAddr,
-		IsActive:       info.IsActive,
-		LatestSequence: info.LatestSequence,
-		Balance:        info.Balance,
-	}, nil
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, info.IsActive, info.LatestSequence, info.Balance)
+
+	return tunnel, nil
 }
 
 // RelayPacket relays the packet from the source chain to the destination chain.
@@ -853,6 +849,11 @@ func (cp *EVMChainProvider) QueryBalance(
 // GetChainName retrieves the chain name from the chain provider.
 func (cp *EVMChainProvider) GetChainName() string {
 	return cp.ChainName
+}
+
+// ChainType retrieves the chain type from the chain provider.
+func (cp *EVMChainProvider) ChainType() types.ChainType {
+	return types.ChainTypeEVM
 }
 
 // queryRelayerGasFee queries the relayer gas fee being set on tunnel router.

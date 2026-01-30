@@ -17,8 +17,6 @@ type BaseChainProviderConfig struct {
 	QueryTimeout   time.Duration   `mapstructure:"query_timeout"   toml:"query_timeout"`
 	ExecuteTimeout time.Duration   `mapstructure:"execute_timeout" toml:"execute_timeout"`
 	ChainID        uint64          `mapstructure:"chain_id"        toml:"chain_id"`
-
-	TunnelRouterAddress string `mapstructure:"tunnel_router_address" toml:"tunnel_router_address"`
 }
 
 // ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)

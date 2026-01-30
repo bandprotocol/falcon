@@ -488,22 +488,33 @@ func addKey(
 
 	// Add key to the keychain
 	if input.PrivateKey != "" {
-		return app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
+		address, err := app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+		return chainstypes.NewKey("", address, ""), nil
 	} else if input.RemoteSigner.Address != "" && input.RemoteSigner.Url != "" {
-		return app.AddRemoteSignerKey(
+		if err := app.AddRemoteSignerKey(
 			chainName,
 			keyName,
 			input.RemoteSigner.Address,
 			input.RemoteSigner.Url,
 			input.RemoteSigner.Key,
-		)
+		); err != nil {
+			return nil, err
+		}
+		return chainstypes.NewKey("", input.RemoteSigner.Address, ""), nil
 	} else {
-		return app.AddKeyByMnemonic(
+		mnemonic, address, err := app.AddKeyByMnemonic(
 			chainName, keyName,
 			input.Mnemonic,
 			uint32(input.CoinType),
 			uint(input.Account),
 			uint(input.Index),
 		)
+		if err != nil {
+			return nil, err
+		}
+		return chainstypes.NewKey(mnemonic, address, ""), nil
 	}
 }

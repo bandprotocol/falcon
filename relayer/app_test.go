@@ -336,7 +336,7 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 		false,
 		"0xc0ffee254729296a45a3885639AC7E10F9d54979",
 	)
-	mockTunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false)
+	mockTunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false, 0, nil)
 
 	testcases := []struct {
 		name       string
@@ -428,6 +428,7 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 		signalPrices,
 		signingInfo,
 		nil,
+		time.Now().Unix(),
 	)
 
 	// Set up the mock expectation
@@ -439,7 +440,7 @@ func (s *AppTestSuite) TestQueryTunnelPacketInfo() {
 	packet, err := s.app.QueryTunnelPacketInfo(context.Background(), 1, 1)
 
 	// Create the expected packet structure for comparison
-	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo, nil)
+	expected := bandtypes.NewPacket(1, 1, signalPrices, signingInfo, nil, time.Now().Unix())
 
 	// Assertions
 	s.Require().NoError(err)
@@ -473,7 +474,7 @@ func (s *AppTestSuite) TestAddKey() {
 		account    uint
 		index      uint
 		err        error
-		out        *chainstypes.Key
+		out        string
 		preprocess func()
 	}{
 		{
@@ -482,7 +483,7 @@ func (s *AppTestSuite) TestAddKey() {
 			keyName:    "testkey",
 			privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // anvil
 			coinType:   60,
-			out:        chainstypes.NewKey("", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", ""),
+			out:        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
 			preprocess: func() {
 				s.store.EXPECT().
 					NewWallet(chainstypes.ChainTypeEVM, "testnet_evm", s.passphrase).

@@ -271,17 +271,22 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 }
 
 // AddKeyByPrivateKey adds a new key to the chain provider using a private key.
-func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*chainstypes.Key, error) {
+func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (string, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	w, err := a.getWallet(chainName)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return chains.AddKeyByPrivateKey(w, keyName, privateKey)
+	key, err := chains.AddKeyByPrivateKey(w, keyName, privateKey)
+	if err != nil {
+		return "", err
+	}
+
+	return key.Address, nil
 }
 
 // AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
@@ -292,17 +297,22 @@ func (a *App) AddKeyByMnemonic(
 	coinType uint32,
 	account uint,
 	index uint,
-) (*chainstypes.Key, error) {
+) (string, string, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
-		return nil, err
+		return "", "", err
 	}
 
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 
-	return cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
+	key, err := cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
+	if err != nil {
+		return "", "", err
+	}
+
+	return key.Mnemonic, key.Address, nil
 }
 
 // AddRemoteSignerKey adds a new remote signer key to the chain provider.
@@ -312,13 +322,14 @@ func (a *App) AddRemoteSignerKey(
 	addr string,
 	url string,
 	key *string,
-) (*chainstypes.Key, error) {
+) error {
 	w, err := a.getWallet(chainName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return chains.AddRemoteSignerKey(w, keyName, addr, url, key)
+	_, err = chains.AddRemoteSignerKey(w, keyName, addr, url, key)
+	return err
 }
 
 // DeleteKey deletes the key from the chain provider.
