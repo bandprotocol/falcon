@@ -22,7 +22,7 @@ const (
 	LocalSignerType  = "local"
 	RemoteSignerType = "remote"
 
-	defaultEVMHDPath = "m/44'/60'/0'/0/0"
+	hdPathTemplate = "m/44'/%d'/%d'/0/%d"
 )
 
 // GethWallet manages local and remote signers for a specific chain.
@@ -143,7 +143,13 @@ func (w *GethWallet) SaveBySecret(name string, secret string) (addr string, err 
 }
 
 // SaveByMnemonic derives the ECDSA key from the mnemonic and stores it as a local signer.
-func (w *GethWallet) SaveByMnemonic(name string, mnemonic string) (addr string, err error) {
+func (w *GethWallet) SaveByMnemonic(
+	name string,
+	mnemonic string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (addr string, err error) {
 	if mnemonic == "" {
 		return "", fmt.Errorf("mnemonic is empty")
 	}
@@ -153,13 +159,14 @@ func (w *GethWallet) SaveByMnemonic(name string, mnemonic string) (addr string, 
 		return "", err
 	}
 
-	derivationPath := hdwallet.MustParseDerivationPath(defaultEVMHDPath)
-	account, err := hdWallet.Derive(derivationPath, true)
+	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
+	derivationPath := hdwallet.MustParseDerivationPath(hdPath)
+	ethAccount, err := hdWallet.Derive(derivationPath, true)
 	if err != nil {
 		return "", err
 	}
 
-	privHex, err := hdWallet.PrivateKeyHex(account)
+	privHex, err := hdWallet.PrivateKeyHex(ethAccount)
 	if err != nil {
 		return "", err
 	}
