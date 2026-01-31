@@ -12,11 +12,11 @@ var _ wallet.Signer = (*LocalSigner)(nil)
 // LocalSigner uses a local XRPL secret for signing.
 type LocalSigner struct {
 	Name   string
-	Wallet xrplwallet.Wallet
+	Wallet *xrplwallet.Wallet
 }
 
 // NewLocalSigner creates a new LocalSigner.
-func NewLocalSigner(name string, w xrplwallet.Wallet) *LocalSigner {
+func NewLocalSigner(name string, w *xrplwallet.Wallet) *LocalSigner {
 	return &LocalSigner{
 		Name:   name,
 		Wallet: w,

@@ -199,7 +199,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 
 	// check that target contract always relays packets or not
 	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-		if t.lastRelayedSeq == nil || (t.lastRelayedSeq != nil && *t.lastRelayedSeq >= tunnelInfo.LatestSequence) {
+		if t.lastRelayedSeq != nil && *t.lastRelayedSeq >= tunnelInfo.LatestSequence {
 			t.Log.Debug("No new packet to relay", "sequence", *t.lastRelayedSeq)
 			return 0, nil
 		}
@@ -223,6 +223,9 @@ func (t *TunnelRelayer) updateRelayerMetrics(
 	targetContractInfo *chaintypes.Tunnel,
 	targetLatestSeq *uint64,
 ) {
+	// Specifically for XRPL, if it is the first time relaying (targetLatestSeq is nil)
+	// dont't set unwelayed packets metrics
+	// because we don't know the latest sequence on the target chain
 	if targetLatestSeq != nil {
 		// update the metric for unrelayed packets based on the difference
 		// between the latest sequences on BandChain and the target chain

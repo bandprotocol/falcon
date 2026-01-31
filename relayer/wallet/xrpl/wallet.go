@@ -55,14 +55,14 @@ func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) 
 				return nil, err
 			}
 
-			var w xrplwallet.Wallet
 			var wptr *xrplwallet.Wallet
+			var w xrplwallet.Wallet
 			switch record.SaveMethod {
 			case SaveMethodMnemonic:
 				wptr, err = xrplwallet.FromMnemonic(secret)
-				w = *wptr
 			case SaveMethodSeed:
 				w, err = xrplwallet.FromSecret(secret)
+				wptr = &w
 			default:
 				return nil, fmt.Errorf("unsupported save method %s for key %s", record.SaveMethod, name)
 			}
@@ -70,7 +70,7 @@ func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) 
 				return nil, err
 			}
 
-			signer = NewLocalSigner(name, w)
+			signer = NewLocalSigner(name, wptr)
 		case RemoteSignerType:
 			if record.Address == "" {
 				return nil, fmt.Errorf("missing address for key %s", name)

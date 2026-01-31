@@ -122,6 +122,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
 
+		// If it is the first attempt or previous attempt failed due to sequence error, fetch the latest account sequence number.
 		if sequence == 0 {
 			sequence, err = cp.Client.GetAccountSequenceNumber(ctx, signer.GetAddress())
 			if err != nil {
