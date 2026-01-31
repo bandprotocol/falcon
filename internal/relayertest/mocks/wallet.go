@@ -10,7 +10,6 @@
 package mocks
 
 import (
-	ecdsa "crypto/ecdsa"
 	reflect "reflect"
 
 	wallet "github.com/bandprotocol/falcon/relayer/wallet"
@@ -166,19 +165,34 @@ func (mr *MockWalletMockRecorder) GetSigners() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSigners", reflect.TypeOf((*MockWallet)(nil).GetSigners))
 }
 
-// SavePrivateKey mocks base method.
-func (m *MockWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (string, error) {
+// SaveByMnemonic mocks base method.
+func (m *MockWallet) SaveByMnemonic(name, mnemonic string, coinType uint32, account, index uint) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SavePrivateKey", name, privKey)
+	ret := m.ctrl.Call(m, "SaveByMnemonic", name, mnemonic, coinType, account, index)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SavePrivateKey indicates an expected call of SavePrivateKey.
-func (mr *MockWalletMockRecorder) SavePrivateKey(name, privKey any) *gomock.Call {
+// SaveByMnemonic indicates an expected call of SaveByMnemonic.
+func (mr *MockWalletMockRecorder) SaveByMnemonic(name, mnemonic, coinType, account, index any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePrivateKey", reflect.TypeOf((*MockWallet)(nil).SavePrivateKey), name, privKey)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveByMnemonic", reflect.TypeOf((*MockWallet)(nil).SaveByMnemonic), name, mnemonic, coinType, account, index)
+}
+
+// SaveBySecret mocks base method.
+func (m *MockWallet) SaveBySecret(name, secret string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveBySecret", name, secret)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SaveBySecret indicates an expected call of SaveBySecret.
+func (mr *MockWalletMockRecorder) SaveBySecret(name, secret any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBySecret", reflect.TypeOf((*MockWallet)(nil).SaveBySecret), name, secret)
 }
 
 // SaveRemoteSignerKey mocks base method.

@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	privateKeyLabel = "Private key (provide an existing private key)"
+	privateKeyLabel = "Secret (XRPL seed or EVM private key)"
 	mnemonicLabel   = "Mnemonic (recover from an existing mnemonic phrase)"
-	defaultLabel    = "Generate new address (no private key or mnemonic needed)"
+	defaultLabel    = "Generate new address (no secret or mnemonic needed)"
 )
 
 const (
@@ -118,7 +118,7 @@ keys add eth test-key`),
 		},
 	}
 
-	cmd.Flags().String(flagPrivateKey, "", "add key with the given private key")
+	cmd.Flags().String(flagPrivateKey, "", "add key with the given secret (XRPL seed or EVM private key)")
 	cmd.Flags().String(flagMnemonic, "", "add key with the given mnemonic")
 	cmd.Flags().Uint64(flagCoinType, defaultCoinType, "coin type number for HD derivation")
 	cmd.Flags().Uint64(flagWalletAccount, 0, "account number in the HD derivation path")
@@ -306,7 +306,7 @@ func validateAddKeyInput(input *AddKeyInput) error {
 	return nil
 }
 
-// showHuhPrompt shows a prompt to the user to input a private key, mnemonic for generating or
+// showHuhPrompt shows a prompt to the user to input a secret, mnemonic for generating or
 // inserting a user's key.
 func showHuhPrompt() (input *AddKeyInput, err error) {
 	input = &AddKeyInput{}
@@ -392,7 +392,7 @@ func showHuhPrompt() (input *AddKeyInput, err error) {
 	switch selection {
 	case privateKeyResult:
 		privateKeyPrompt := huh.NewGroup(huh.NewInput().
-			Title("Enter your private key").
+			Title("Enter your secret (XRPL seed or EVM private key)").
 			Value(&input.PrivateKey))
 
 		form := huh.NewForm(privateKeyPrompt)
