@@ -246,6 +246,9 @@ func (t *TunnelRelayer) updateRelayerMetrics(
 	targetContractInfo *chaintypes.Tunnel,
 	targetLatestSeq *uint64,
 ) {
+	// Specifically for XRPL, if it is the first time relaying (targetLatestSeq is nil)
+	// dont't set unwelayed packets metrics
+	// because we don't know the latest sequence on the target chain
 	if targetLatestSeq != nil {
 		// update the metric for unrelayed packets based on the difference
 		// between the latest sequences on BandChain and the target chain
