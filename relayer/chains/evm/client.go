@@ -300,6 +300,43 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 		)
 		return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
 	}
+
+	if receipt.EffectiveGasPrice == nil {
+		tx, _, err := client.TransactionByHash(newCtx, gethcommon.HexToHash(txHash))
+		if err != nil {
+			c.Log.Debug(
+				"Failed to get tx by hash to retrieve EffectiveGasPrice",
+				"endpoint", c.clients.GetSelectedEndpoint(),
+				"tx_hash", txHash,
+			)
+			return nil, fmt.Errorf("[EVMClient] failed to get tx by hash to retrieve EffectiveGasPrice: %w", err)
+		}
+
+		// For EIP-1559 transactions, we need to calculate effective gas price using the block's base fee
+		// where the transaction was included, not the current block's base fee
+		if tx.Type() == gethtypes.DynamicFeeTxType && receipt.BlockNumber != nil {
+			blockHeader, err := client.HeaderByNumber(newCtx, receipt.BlockNumber)
+			if err != nil {
+				c.Log.Debug(
+					"Failed to get block header to calculate EffectiveGasPrice",
+					"endpoint", c.clients.GetSelectedEndpoint(),
+					"block_number", receipt.BlockNumber.String(),
+				)
+				return nil, fmt.Errorf("[EVMClient] failed to get block header: %w", err)
+			}
+
+			// effectiveGasPrice = min(tx.GasFeeCap, baseFee + tx.GasTipCap)
+			effectiveGasPrice := new(big.Int).Add(blockHeader.BaseFee, tx.GasTipCap())
+			if effectiveGasPrice.Cmp(tx.GasFeeCap()) > 0 {
+				effectiveGasPrice = tx.GasFeeCap()
+			}
+			receipt.EffectiveGasPrice = effectiveGasPrice
+		} else {
+			// For legacy transactions, use the gas price from the transaction
+			receipt.EffectiveGasPrice = tx.GasPrice()
+		}
+	}
+
 	return receipt, nil
 }
 
