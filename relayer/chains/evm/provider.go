@@ -276,6 +276,9 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		if bumpGasErr != nil {
 			log.Error("Cannot bump gas", "retry_count", retryCount, bumpGasErr)
 		}
+
+		// sleep for a while before next retry
+		time.Sleep(3 * time.Second)
 	}
 
 	if bumpGasErr != nil {
@@ -686,13 +689,14 @@ func (cp *EVMChainProvider) NewRelayTx(
 		GasTipCap: gasInfo.GasPriorityFee,
 	}
 
-	// calculate gas limit
-	gasLimit := cp.Config.GasLimit
-	if gasLimit == 0 {
-		gasLimit, err = cp.Client.EstimateGas(ctx, callMsg)
-		if err != nil {
-			return nil, err
-		}
+	gasLimit, err := cp.Client.EstimateGas(ctx, callMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	// apply gas limit cap
+	if cp.Config.GasLimit != 0 && gasLimit > cp.Config.GasLimit {
+		gasLimit = cp.Config.GasLimit
 	}
 
 	// set fee info
