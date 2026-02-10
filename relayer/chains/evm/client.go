@@ -343,7 +343,6 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 		"to":   gethAddr.Hex(),
 		"data": fmt.Sprintf("0x%x", data),
 	}, "latest")
-
 	if err != nil {
 		c.Log.Error(
 			"Failed to query contract",
