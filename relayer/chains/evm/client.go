@@ -329,11 +329,6 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
 func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error) {
-	callMsg := ethereum.CallMsg{
-		To:   &gethAddr,
-		Data: data,
-	}
-
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
@@ -343,7 +338,12 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
 	}
 
-	res, err := client.CallContract(newCtx, callMsg, nil)
+	var result string
+	err = client.Client().CallContext(newCtx, &result, "eth_call", map[string]interface{}{
+		"to":   gethAddr.Hex(),
+		"data": fmt.Sprintf("0x%x", data),
+	}, "latest")
+
 	if err != nil {
 		c.Log.Error(
 			"Failed to query contract",
@@ -354,7 +354,12 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 		return nil, fmt.Errorf("[EVMClient] failed to query: %w", err)
 	}
 
-	return res, nil
+	// Convert hex result to bytes
+	if len(result) < 2 || result[:2] != "0x" {
+		return nil, fmt.Errorf("[EVMClient] invalid hex result: %s", result)
+	}
+
+	return gethcommon.FromHex(result), nil
 }
 
 // EstimateGas estimates the gas amount being used to submit the given message.
@@ -502,42 +507,6 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 
 			newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 			defer cancel()
-
-			syncProgress, err := client.SyncProgress(newCtx)
-			if err != nil {
-				c.Log.Warn(
-					"Failed to get sync progress",
-					"endpoint", endpoint,
-					err,
-				)
-				ch <- ClientConnectionResult{endpoint, nil, 0}
-
-				alert.HandleAlert(
-					c.alert,
-					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
-						WithChainName(c.ChainName).
-						WithEndpoint(endpoint),
-					err.Error(),
-				)
-
-				return
-			}
-
-			if syncProgress != nil {
-				c.Log.Warn(
-					"Skipping client because it is not fully synced",
-					"endpoint", endpoint,
-				)
-				ch <- ClientConnectionResult{endpoint, nil, 0}
-				alert.HandleAlert(
-					c.alert,
-					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
-						WithChainName(c.ChainName).
-						WithEndpoint(endpoint),
-					"Skipping client because it is not fully synced",
-				)
-				return
-			}
 
 			blockHeight, err := client.BlockNumber(newCtx)
 			if err != nil {
