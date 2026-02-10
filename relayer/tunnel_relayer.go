@@ -110,6 +110,9 @@ func (t *TunnelRelayer) CheckAndRelay(
 		}
 
 		isPacketRelayed = true
+
+		// wait for a short time before checking for the next packet
+		time.Sleep(3 * time.Second)
 	}
 
 	if !isPacketRelayed {
