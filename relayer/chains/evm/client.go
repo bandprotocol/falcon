@@ -9,6 +9,7 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
@@ -329,6 +330,11 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 
 // Query queries the EVM chain, if never connected before, it will try to connect to the available one.
 func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []byte) ([]byte, error) {
+	callMsg := ethereum.CallMsg{
+		To:   &gethAddr,
+		Data: data,
+	}
+
 	newCtx, cancel := context.WithTimeout(ctx, c.QueryTimeout)
 	defer cancel()
 
@@ -339,10 +345,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	}
 
 	var result string
-	err = client.Client().CallContext(newCtx, &result, "eth_call", map[string]interface{}{
-		"to":   gethAddr.Hex(),
-		"data": fmt.Sprintf("0x%x", data),
-	}, "latest")
+	err = client.Client().CallContext(newCtx, &result, "eth_call", toCallArg(callMsg), "latest")
 	if err != nil {
 		c.Log.Error(
 			"Failed to query contract",
@@ -372,7 +375,8 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 		return 0, fmt.Errorf("[EVMClient] failed to get client: %w", err)
 	}
 
-	gas, err := client.EstimateGas(newCtx, msg)
+	var gasHex hexutil.Uint64
+	err = client.Client().CallContext(newCtx, &gasHex, "eth_estimateGas", toCallArg(msg))
 	if err != nil {
 		c.Log.Error(
 			"Failed to estimate gas",
@@ -383,7 +387,7 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 		return 0, fmt.Errorf("[EVMClient] failed to estimate gas: %w", err)
 	}
 
-	return gas, nil
+	return uint64(gasHex), nil
 }
 
 // EstimateGasPrice estimates the current gas price on the EVM chain.
@@ -597,4 +601,42 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address, bl
 	}
 
 	return res, nil
+}
+
+func toCallArg(msg ethereum.CallMsg) interface{} {
+	arg := map[string]any{
+		"from": msg.From,
+		"to":   msg.To,
+	}
+	if len(msg.Data) > 0 {
+		arg["data"] = hexutil.Bytes(msg.Data)
+	}
+	if msg.Value != nil {
+		arg["value"] = (*hexutil.Big)(msg.Value)
+	}
+	if msg.Gas != 0 {
+		arg["gas"] = hexutil.Uint64(msg.Gas)
+	}
+	if msg.GasPrice != nil {
+		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
+	}
+	if msg.GasFeeCap != nil {
+		arg["maxFeePerGas"] = (*hexutil.Big)(msg.GasFeeCap)
+	}
+	if msg.GasTipCap != nil {
+		arg["maxPriorityFeePerGas"] = (*hexutil.Big)(msg.GasTipCap)
+	}
+	if msg.AccessList != nil {
+		arg["accessList"] = msg.AccessList
+	}
+	if msg.BlobGasFeeCap != nil {
+		arg["maxFeePerBlobGas"] = (*hexutil.Big)(msg.BlobGasFeeCap)
+	}
+	if msg.BlobHashes != nil {
+		arg["blobVersionedHashes"] = msg.BlobHashes
+	}
+	if msg.AuthorizationList != nil {
+		arg["authorizationList"] = msg.AuthorizationList
+	}
+	return arg
 }
