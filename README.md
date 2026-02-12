@@ -233,15 +233,14 @@ falcon keys add testnet testkey
 There are 3 options for user to add key 
 ```
 Choose how to add a key
-> Secret (XRPL seed or EVM private key)
+> Private key (provide an existing private key)
   Mnemonic (recover from an existing mnemonic phrase)
-  Generate new address (no secret or mnemonic needed)
+  Generate new address (no private key or mnemonic needed)
 ```
 
-If you already have a secret and want to retrieve key from it, you can choose `Secret` option.
-XRPL uses a seed, while EVM chains use a private key.
+If you already have a private key and want to retrieve key from it, you can choose `Private key` option. 
 ```
-Enter your secret (XRPL seed or EVM private key)
+Enter your private key
 >
 ```
 

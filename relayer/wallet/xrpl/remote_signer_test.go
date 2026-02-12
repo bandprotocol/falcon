@@ -57,7 +57,7 @@ func TestRemoteSigner(t *testing.T) {
 		},
 	).Return(&fkmsv1.SignXrplResponse{TxBlob: expectedTxBlob}, nil)
 
-	signedBlob, err := signer.Sign(txHex, preSignPayload)
+	signedBlob, err := signer.Sign(txHex, *preSignPayload)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedTxBlob, signedBlob)
 }

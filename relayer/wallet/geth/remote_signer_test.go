@@ -10,6 +10,7 @@ import (
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -73,11 +74,11 @@ func (s *RemoteSignerTestSuite) TestSign() {
 		EXPECT().
 		SignEvm(
 			gomock.Any(),
-			&fkmsv1.SignEvmRequest{Address: strings.ToLower(address), TxMessage: payload},
+			&fkmsv1.SignEvmRequest{Address: strings.ToLower(address), TxMessage: payload, Tss: &fkmsv1.Tss{}},
 		).
 		Return(&fkmsv1.SignEvmResponse{Signature: expected}, nil)
 
-	sig, err := s.rs.Sign(payload, nil)
+	sig, err := s.rs.Sign(payload, wallet.PreSignPayload{})
 	s.Require().NoError(err)
 	s.Equal(expected, sig)
 }

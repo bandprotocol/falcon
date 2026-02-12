@@ -84,7 +84,7 @@ func (mr *MockSignerMockRecorder) GetName() *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockSigner) Sign(data []byte, preSignPayload *wallet.PreSignPayload) ([]byte, error) {
+func (m *MockSigner) Sign(data []byte, preSignPayload wallet.PreSignPayload) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Sign", data, preSignPayload)
 	ret0, _ := ret[0].([]byte)

@@ -740,7 +740,7 @@ func (cp *EVMChainProvider) CreateCalldata(tssMessage bytes.HexBytes, rAddress b
 func (cp *EVMChainProvider) signTx(
 	tx *gethtypes.Transaction,
 	signer wallet.Signer,
-	preSignPayload *wallet.PreSignPayload,
+	preSignPayload wallet.PreSignPayload,
 ) (*gethtypes.Transaction, error) {
 	var (
 		rlpEncoded []byte
