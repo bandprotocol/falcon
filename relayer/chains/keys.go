@@ -9,19 +9,46 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
-// GenerateMnemonic creates a BIP-39 mnemonic with the requested entropy size.
-func GenerateMnemonic(bitSize int) (string, error) {
-	entropy, err := bip39.NewEntropy(bitSize)
-	if err != nil {
-		return "", err
-	}
-
-	return bip39.NewMnemonic(entropy)
-}
-
 // AddKeyByPrivateKey adds a key using a raw private key.
 func AddKeyByPrivateKey(w wallet.Wallet, keyName, privateKey string) (*chainstypes.Key, error) {
-	addr, err := w.SaveBySecret(keyName, privateKey)
+	addr, err := w.SaveByPrivateKey(keyName, privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return chainstypes.NewKey("", addr, ""), nil
+}
+
+// AddKeyByMnemonic adds a key using a mnemonic phrase.
+func AddKeyByMnemonic(
+	w wallet.Wallet,
+	keyName string,
+	mnemonic string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (*chainstypes.Key, error) {
+	var err error
+	generatedMnemonic := ""
+	if mnemonic == "" {
+		mnemonic, err = generateMnemonic(256)
+		if err != nil {
+			return nil, err
+		}
+		generatedMnemonic = mnemonic
+	}
+
+	addr, err := w.SaveByMnemonic(keyName, mnemonic, coinType, account, index)
+	if err != nil {
+		return nil, err
+	}
+
+	return chainstypes.NewKey(generatedMnemonic, addr, ""), nil
+}
+
+// AddKeyByFamilySeed adds a key using a family seed.
+func AddKeyByFamilySeed(w wallet.Wallet, keyName, familySeed string) (*chainstypes.Key, error) {
+	addr, err := w.SaveByFamilySeed(keyName, familySeed)
 	if err != nil {
 		return nil, err
 	}
@@ -74,4 +101,14 @@ func ShowKey(w wallet.Wallet, keyName string) (string, error) {
 	}
 
 	return signer.GetAddress(), nil
+}
+
+// generateMnemonic creates a BIP-39 mnemonic with the requested entropy size.
+func generateMnemonic(bitSize int) (string, error) {
+	entropy, err := bip39.NewEntropy(bitSize)
+	if err != nil {
+		return "", err
+	}
+
+	return bip39.NewMnemonic(entropy)
 }

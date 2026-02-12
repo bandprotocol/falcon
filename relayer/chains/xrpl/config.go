@@ -1,7 +1,7 @@
 package xrpl
 
 import (
-	"fmt"
+	"time"
 
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -16,9 +16,9 @@ var _ chains.ChainProviderConfig = &XRPLChainProviderConfig{}
 type XRPLChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	OracleID   uint16 `mapstructure:"oracle_id"   toml:"oracle_id"`
-	Fee        string `mapstructure:"fee"         toml:"fee"`
-	PriceScale uint32 `mapstructure:"price_scale" toml:"price_scale"`
+	Fee           uint64        `mapstructure:"fee"         toml:"fee"`
+	PriceScale    uint8         `mapstructure:"price_scale" toml:"price_scale"`
+	NonceInterval time.Duration `mapstructure:"nonce_interval" toml:"nonce_interval"`
 }
 
 // NewChainProvider creates a new XRPL chain provider.
@@ -35,15 +35,6 @@ func (cpc *XRPLChainProviderConfig) NewChainProvider(
 
 // Validate validates the XRPL chain provider configuration.
 func (cpc *XRPLChainProviderConfig) Validate() error {
-	if len(cpc.Endpoints) == 0 {
-		return fmt.Errorf("endpoints is required")
-	}
-	if cpc.OracleID == 0 {
-		return fmt.Errorf("oracle_id is required")
-	}
-	if cpc.Fee == "" {
-		return fmt.Errorf("fee is required")
-	}
 	return nil
 }
 

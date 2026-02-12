@@ -289,6 +289,25 @@ func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey st
 	return key, nil
 }
 
+// AddKeyByFamilySeed adds a new key to the chain provider using a family seed.
+func (a *App) AddKeyByFamilySeed(chainName string, keyName string, familySeed string) (*chainstypes.Key, error) {
+	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
+		return nil, err
+	}
+
+	w, err := a.getWallet(chainName)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := chains.AddKeyByFamilySeed(w, keyName, familySeed)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
 // AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
 func (a *App) AddKeyByMnemonic(
 	chainName string,
@@ -302,12 +321,26 @@ func (a *App) AddKeyByMnemonic(
 		return nil, err
 	}
 
-	cp, err := a.getChainProvider(chainName)
+	chainConfig, ok := a.Config.TargetChains[chainName]
+	if !ok {
+		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
+	}
+
+	// Validate coin type based on chain type
+	chainType := chainConfig.GetChainType()
+	if chainType == chainstypes.ChainTypeEVM && coinType != 60 {
+		return nil, fmt.Errorf("EVM chains must use coin type 60, got %d", coinType)
+	}
+	if chainType == chainstypes.ChainTypeXRPL && coinType != 144 {
+		return nil, fmt.Errorf("XRPL chains must use coin type 144, got %d", coinType)
+	}
+
+	w, err := a.getWallet(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
+	key, err := chains.AddKeyByMnemonic(w, keyName, mnemonic, coinType, account, index)
 	if err != nil {
 		return nil, err
 	}

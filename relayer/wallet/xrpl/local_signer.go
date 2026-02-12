@@ -1,6 +1,8 @@
 package xrpl
 
 import (
+	"encoding/hex"
+
 	binarycodec "github.com/Peersyst/xrpl-go/binary-codec"
 	xrplwallet "github.com/Peersyst/xrpl-go/xrpl/wallet"
 
@@ -39,16 +41,21 @@ func (l *LocalSigner) GetAddress() (addr string) {
 }
 
 // Sign signs the provided transaction payload and returns the signed tx blob.
-func (l *LocalSigner) Sign(data []byte) ([]byte, error) {
+func (l *LocalSigner) Sign(data []byte, preSignPayload *wallet.PreSignPayload) ([]byte, error) {
 	tx, err := binarycodec.Decode(string(data))
 	if err != nil {
-		return nil, err
+		return []byte{}, err
 	}
 
 	txBlob, _, err := l.Wallet.Sign(tx)
 	if err != nil {
-		return nil, err
+		return []byte{}, err
 	}
 
-	return []byte(txBlob), nil
+	txBlobBytes, err := hex.DecodeString(txBlob)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return txBlobBytes, nil
 }

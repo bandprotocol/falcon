@@ -24,6 +24,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
+const testPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
 type LegacyProviderTestSuite struct {
 	suite.Suite
 	ctrl *gomock.Controller
@@ -74,7 +76,12 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	s.chainProvider.FreeSigners <- s.mockSigner
 
 	s.relayingPacket = mockPacket()
-	s.relayingCalldata, err = s.chainProvider.CreateCalldata(&s.relayingPacket)
+	evmSig := s.relayingPacket.CurrentGroupSigning.EVMSignature
+	s.relayingCalldata, err = s.chainProvider.CreateCalldata(
+		s.relayingPacket.CurrentGroupSigning.Message,
+		evmSig.RAddress,
+		evmSig.Signature,
+	)
 	s.Require().NoError(err)
 
 	s.gasInfo = evm.NewGasLegacyInfo(big.NewInt(10_000_000_000))

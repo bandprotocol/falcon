@@ -79,7 +79,10 @@ func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) 
 				return nil, fmt.Errorf("invalid address: %s", record.Address)
 			}
 
-			signer = NewRemoteSigner(name, record.Address, record.Url, record.Key)
+			signer, err = NewRemoteSigner(name, record.Address, record.Url, record.Key)
+			if err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf(
 				"unsupported signer type %s for chain %s, key %s",
@@ -100,13 +103,18 @@ func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) 
 	}, nil
 }
 
-// SaveBySecret stores the secret in keyring and writes its record.
-func (w *XRPLWallet) SaveBySecret(name string, secret string) (addr string, err error) {
+// SaveByPrivateKey does not support for XRPL
+func (w *XRPLWallet) SaveByPrivateKey(name string, privateKey string) (addr string, err error) {
+	return "", fmt.Errorf("XRPL does not support private key")
+}
+
+// SaveByFamilySeed stores the family seed in keyring and writes its record.
+func (w *XRPLWallet) SaveByFamilySeed(name string, familySeed string) (addr string, err error) {
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
-	privWallet, err := xrplwallet.FromSecret(secret)
+	privWallet, err := xrplwallet.FromSecret(familySeed)
 	if err != nil {
 		return
 	}
@@ -122,7 +130,7 @@ func (w *XRPLWallet) SaveBySecret(name string, secret string) (addr string, err 
 		return "", err
 	}
 
-	if err := setXRPLSecret(kr, w.ChainName, name, secret); err != nil {
+	if err := setXRPLSecret(kr, w.ChainName, name, familySeed); err != nil {
 		return "", err
 	}
 

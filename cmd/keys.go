@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	privateKeyLabel = "Secret (XRPL seed or EVM private key)"
+	privateKeyLabel = "Private key (provide an existing private key)"
+	familySeedLabel = "Family seed (provide an existing family seed)"
 	mnemonicLabel   = "Mnemonic (recover from an existing mnemonic phrase)"
 	defaultLabel    = "Generate new address (no secret or mnemonic needed)"
 )
@@ -28,6 +29,7 @@ const (
 // AddKeyInput is the input for adding a key to the keychain.
 type AddKeyInput struct {
 	PrivateKey   string
+	FamilySeed   string
 	Mnemonic     string
 	CoinType     uint64
 	Account      uint64
@@ -92,7 +94,7 @@ keys add eth test-key`),
 
 			// if no private key, mnemonic, or remote signer info is provided, prompt interactively
 			if input.PrivateKey == "" && input.Mnemonic == "" && input.RemoteSigner.Address == "" &&
-				input.RemoteSigner.Url == "" {
+				input.RemoteSigner.Url == "" && input.FamilySeed == "" {
 				input, err = showHuhPrompt()
 				if err != nil {
 					return err
@@ -118,7 +120,8 @@ keys add eth test-key`),
 		},
 	}
 
-	cmd.Flags().String(flagPrivateKey, "", "add key with the given secret (XRPL seed or EVM private key)")
+	cmd.Flags().String(flagPrivateKey, "", "add key with the given private key")
+	cmd.Flags().String(flagFamilySeed, "", "add key with the given family seed")
 	cmd.Flags().String(flagMnemonic, "", "add key with the given mnemonic")
 	cmd.Flags().Uint64(flagCoinType, defaultCoinType, "coin type number for HD derivation")
 	cmd.Flags().Uint64(flagWalletAccount, 0, "account number in the HD derivation path")
@@ -281,14 +284,20 @@ func validateAddKeyInput(input *AddKeyInput) error {
 	hasPrivateKey := input.PrivateKey != ""
 	hasMnemonic := input.Mnemonic != ""
 	hasRemoteSigner := input.RemoteSigner.Address != "" || input.RemoteSigner.Url != ""
+	hasFamilySeed := input.FamilySeed != ""
 
 	// if a private key is provided, no other input should be present
-	if hasPrivateKey && (hasMnemonic || hasRemoteSigner) {
+	if hasPrivateKey && (hasMnemonic || hasRemoteSigner || hasFamilySeed) {
 		return fmt.Errorf("private key cannot be provided with mnemonic or remote signer")
 	}
 
+	// if a family seed is provided, no other input should be present
+	if hasFamilySeed && (hasPrivateKey || hasMnemonic || hasRemoteSigner) {
+		return fmt.Errorf("family seed cannot be provided with private key or remote signer")
+	}
+
 	// if a mnemonic is provided, no other input should be present
-	if hasMnemonic && (hasPrivateKey || hasRemoteSigner) {
+	if hasMnemonic && (hasPrivateKey || hasRemoteSigner || hasFamilySeed) {
 		return fmt.Errorf("mnemonic cannot be provided with private key or remote signer")
 	}
 
@@ -306,7 +315,7 @@ func validateAddKeyInput(input *AddKeyInput) error {
 	return nil
 }
 
-// showHuhPrompt shows a prompt to the user to input a secret, mnemonic for generating or
+// showHuhPrompt shows a prompt to the user to input a private key, mnemonic for generating or
 // inserting a user's key.
 func showHuhPrompt() (input *AddKeyInput, err error) {
 	input = &AddKeyInput{}
@@ -392,7 +401,7 @@ func showHuhPrompt() (input *AddKeyInput, err error) {
 	switch selection {
 	case privateKeyResult:
 		privateKeyPrompt := huh.NewGroup(huh.NewInput().
-			Title("Enter your secret (XRPL seed or EVM private key)").
+			Title("Enter your private key").
 			Value(&input.PrivateKey))
 
 		form := huh.NewForm(privateKeyPrompt)
@@ -430,6 +439,11 @@ func parseKeysAddInputFromFlag(cmd *cobra.Command) (*AddKeyInput, error) {
 
 	var err error
 	input.Mnemonic, err = cmd.Flags().GetString(flagMnemonic)
+	if err != nil {
+		return nil, err
+	}
+
+	input.FamilySeed, err = cmd.Flags().GetString(flagFamilySeed)
 	if err != nil {
 		return nil, err
 	}

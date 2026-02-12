@@ -224,7 +224,7 @@ func (t *TunnelRelayer) updateRelayerMetrics(
 	targetLatestSeq *uint64,
 ) {
 	// Specifically for XRPL, if it is the first time relaying (targetLatestSeq is nil)
-	// dont't set unwelayed packets metrics
+	// don't set unrelayed packets metrics
 	// because we don't know the latest sequence on the target chain
 	if targetLatestSeq != nil {
 		// update the metric for unrelayed packets based on the difference
@@ -234,10 +234,11 @@ func (t *TunnelRelayer) updateRelayerMetrics(
 	}
 
 	// update the metric for the number of active target contracts
+	chainType := t.TargetChainProvider.ChainType().String()
 	if targetContractInfo.IsActive && !t.isTargetChainActive {
-		relayermetrics.IncActiveTargetContractsCount(tunnelInfo.TargetChainID)
+		relayermetrics.IncActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType)
 	} else if !targetContractInfo.IsActive && t.isTargetChainActive {
-		relayermetrics.DecActiveTargetContractsCount(tunnelInfo.TargetChainID)
+		relayermetrics.DecActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType)
 	}
 }
 

@@ -6,20 +6,38 @@ option go_package = "github.com/bandprotocol/falcon/proto/fkms/v1;fkmsv1";
 
 service FkmsService {
   rpc SignEvm(SignEvmRequest) returns (SignEvmResponse);
+  rpc SignXrpl(SignXrplRequest) returns (SignXrplResponse);
   rpc GetSignerAddresses(GetSignerAddressesRequest) returns (GetSignerAddressesResponse);
 }
 
 message SignEvmRequest {
-    string address = 1;
-    bytes message = 2;
+  string address = 1;
+  bytes tx_message = 2;
+  Tss tss = 3;
 }
 
 message SignEvmResponse {
-    bytes signature = 1;
+  bytes signature = 1;
+}
+
+message SignXrplRequest {
+  string address = 1;
+  bytes tx_message = 2;
+  Tss tss = 3;
+}
+
+message SignXrplResponse {
+  bytes tx_blob = 1;
 }
 
 message GetSignerAddressesRequest {}
 
 message GetSignerAddressesResponse {
   repeated string addresses = 1;
+}
+
+message Tss {
+  bytes message = 1;
+  bytes random_addr = 2;
+  bytes signature_s = 3;
 }

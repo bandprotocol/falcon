@@ -124,6 +124,7 @@ func (s *Scheduler) Execute(ctx context.Context) {
 // TriggerTunnelRelayer triggers the tunnel relayer to check and relay the packet
 func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer) (status RelayStatus) {
 	chainName := tr.TargetChainProvider.GetChainName()
+	chainType := tr.TargetChainProvider.ChainType().String()
 	startExecutionTaskTime := time.Now()
 
 	// checkAndRelay tunnel's packets and update penalty if it fails to do so.
@@ -131,7 +132,7 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 	if err != nil {
 		tr.penaltySkipRemaining = s.PenaltySkipRounds
 
-		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ErrorTaskStatus)
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, chainType, relayermetrics.ErrorTaskStatus)
 		s.Log.Error(
 			"Failed to execute, Penalty for the tunnel relayer",
 			"tunnel_id", tr.TunnelID,
@@ -144,17 +145,18 @@ func (s *Scheduler) TriggerTunnelRelayer(ctx context.Context, tr *TunnelRelayer)
 	switch relayStatus {
 	case RelayStatusExecuting:
 		// Record metrics for the executing task execution
-		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.ExecutingTaskStatus)
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, chainType, relayermetrics.ExecutingTaskStatus)
 	case RelayStatusSuccess:
 		// Record execution time of finished task (ms)
 		relayermetrics.ObserveFinishedTaskExecutionTime(
 			tr.TunnelID,
 			chainName,
+			chainType,
 			time.Since(startExecutionTaskTime).Milliseconds(),
 		)
 
 		// Record metrics for the finished task execution
-		relayermetrics.IncTasksCount(tr.TunnelID, chainName, relayermetrics.FinishedTaskStatus)
+		relayermetrics.IncTasksCount(tr.TunnelID, chainName, chainType, relayermetrics.FinishedTaskStatus)
 
 		s.Log.Info("Relay packet successfully", "tunnel_id", tr.TunnelID)
 	}
@@ -295,7 +297,7 @@ func (s *Scheduler) setTunnelRelayer(tunnels []bandtypes.Tunnel) {
 		s.tunnelRelayers[tunnel.ID] = &tr
 
 		// update the metric for the number of tunnels per destination chain
-		relayermetrics.IncTunnelsPerDestinationChain(tunnel.TargetChainID)
+		relayermetrics.IncTunnelsPerDestinationChain(tunnel.TargetChainID, chainProvider.ChainType().String())
 		s.Log.Info(
 			"New tunnel is set into the scheduler",
 			"chain_name", tunnel.TargetChainID,
