@@ -130,15 +130,25 @@ func createMockPacket(
 		signalPrices,
 		currentGroupSigning,
 		incomingGroupSigning,
+		time.Now().Unix(),
 	)
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
+	var currentChainType chaintypes.ChainType
+	s.chainProvider.EXPECT().
+		ChainType().
+		DoAndReturn(func() chaintypes.ChainType {
+			return currentChainType
+		}).
+		AnyTimes()
+
 	testcases := []struct {
 		name        string
 		preprocess  func()
 		err         error
 		relayStatus relayer.RelayStatus
+		chainType   chaintypes.ChainType
 	}{
 		{
 			name: "success",
@@ -162,6 +172,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
 			relayStatus: relayer.RelayStatusSuccess,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "failed to get tunnel on band client",
@@ -172,6 +183,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         fmt.Errorf("failed to get tunnel"),
 			relayStatus: relayer.RelayStatusFailed,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "failed to query chain tunnel info",
@@ -183,6 +195,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         fmt.Errorf("failed to query tunnel info"),
 			relayStatus: relayer.RelayStatusFailed,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "target chain not active",
@@ -192,6 +205,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         nil,
 			relayStatus: relayer.RelayStatusSkipped,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "no new packet to relay",
@@ -201,6 +215,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         nil,
 			relayStatus: relayer.RelayStatusSkipped,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "fail to get a new packet",
@@ -214,6 +229,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         fmt.Errorf("failed to get packet"),
 			relayStatus: relayer.RelayStatusFailed,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "fallen signing status of current group but incoming group success",
@@ -237,6 +253,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
 			},
 			relayStatus: relayer.RelayStatusSuccess,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "incoming group signing status fallen",
@@ -257,6 +274,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         fmt.Errorf(("signing status is not success")),
 			relayStatus: relayer.RelayStatusFailed,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "signing status is waiting",
@@ -296,6 +314,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         nil,
 			relayStatus: relayer.RelayStatusSuccess,
+			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
 			name: "failed to relay packet",
@@ -317,11 +336,54 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			},
 			err:         fmt.Errorf("failed to relay packet"),
 			relayStatus: relayer.RelayStatusFailed,
+			chainType:   chaintypes.ChainTypeEVM,
+		},
+		{
+			name: "xrpl relays latest sequence when behind",
+			preprocess: func() {
+				bandLatest := uint64(3)
+				s.mockGetTunnel(bandLatest)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					bandLatest,
+					int32(tss.SIGNING_STATUS_SUCCESS),
+					-1,
+				)
+				s.client.EXPECT().
+					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, bandLatest).
+					Return(packet, nil)
+				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
+
+				// Check and relay the packet for the second time
+				s.mockGetTunnel(bandLatest)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+			},
+			relayStatus: relayer.RelayStatusSuccess,
+			chainType:   chaintypes.ChainTypeXRPL,
+		},
+		{
+			name: "xrpl not relays when last relayed sequence equal Band latest sequence",
+			preprocess: func() {
+				bandLatest := uint64(0)
+				s.mockGetTunnel(bandLatest)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+			},
+			err:         nil,
+			relayStatus: relayer.RelayStatusSkipped,
+			chainType:   chaintypes.ChainTypeXRPL,
 		},
 	}
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
+			chainType := tc.chainType
+			if chainType == chaintypes.ChainTypeUndefined {
+				chainType = chaintypes.ChainTypeEVM
+			}
+			currentChainType = chainType
+
 			if tc.preprocess != nil {
 				tc.preprocess()
 			}

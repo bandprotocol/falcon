@@ -1,18 +1,11 @@
 package evm
 
 import (
-	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/chains"
 )
 
 // LoadSigners initializes the Signer channel with all configured wallet signers.
 func (cp *EVMChainProvider) LoadSigners() error {
-	signers := cp.Wallet.GetSigners()
-	signerChannel := make(chan wallet.Signer, len(signers))
-
-	for _, signer := range signers {
-		signerChannel <- signer
-	}
-
-	cp.FreeSigners = signerChannel
+	cp.FreeSigners = chains.LoadSigners(cp.Wallet)
 	return nil
 }

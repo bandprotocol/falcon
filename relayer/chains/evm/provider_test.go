@@ -28,19 +28,19 @@ import (
 
 var baseEVMCfg = &evm.EVMChainProviderConfig{
 	BaseChainProviderConfig: chains.BaseChainProviderConfig{
-		Endpoints:           []string{"http://localhost:8545"},
-		ChainType:           chaintypes.ChainTypeEVM,
-		MaxRetry:            3,
-		ChainID:             31337,
-		TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-		QueryTimeout:        3 * time.Second,
-		ExecuteTimeout:      3 * time.Second,
+		Endpoints:                  []string{"http://localhost:8545"},
+		ChainType:                  chaintypes.ChainTypeEVM,
+		MaxRetry:                   3,
+		ChainID:                    31337,
+		QueryTimeout:               3 * time.Second,
+		ExecuteTimeout:             3 * time.Second,
+		LivelinessCheckingInterval: 15 * time.Minute,
 	},
-	BlockConfirmation:          5,
-	WaitingTxDuration:          time.Second * 3,
-	CheckingTxInterval:         time.Second,
-	LivelinessCheckingInterval: 15 * time.Minute,
-	GasMultiplier:              1,
+	TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+	BlockConfirmation:   5,
+	WaitingTxDuration:   time.Second * 3,
+	CheckingTxInterval:  time.Second,
+	GasMultiplier:       1,
 }
 
 func mockPacket() bandtypes.Packet {
