@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	xrplwallet "github.com/Peersyst/xrpl-go/xrpl/wallet"
-	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
 func TestLocalSigner(t *testing.T) {

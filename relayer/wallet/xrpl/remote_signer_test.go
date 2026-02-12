@@ -3,12 +3,13 @@ package xrpl_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
+
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
 	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 )
 
 func TestRemoteSigner(t *testing.T) {
