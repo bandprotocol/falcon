@@ -139,6 +139,8 @@ func (w *XRPLWallet) SaveByFamilySeed(name string, familySeed string) (addr stri
 		return "", err
 	}
 
+	w.Signers[name] = NewLocalSigner(name, &privWallet)
+
 	return addr, nil
 }
 
@@ -185,6 +187,8 @@ func (w *XRPLWallet) SaveByMnemonic(
 		return "", err
 	}
 
+	w.Signers[name] = NewLocalSigner(name, mnWallet)
+
 	return addr, nil
 }
 
@@ -206,6 +210,12 @@ func (w *XRPLWallet) SaveRemoteSignerKey(name, address, url string, key *string)
 	if err := w.saveKeyRecord(name, record); err != nil {
 		return err
 	}
+
+	signer, err := NewRemoteSigner(name, address, url, key)
+	if err != nil {
+		return err
+	}
+	w.Signers[name] = signer
 
 	return nil
 }
@@ -229,6 +239,8 @@ func (w *XRPLWallet) DeleteKey(name string) error {
 	if err := w.deleteKeyRecord(name); err != nil {
 		return err
 	}
+
+	delete(w.Signers, name)
 
 	return nil
 }
