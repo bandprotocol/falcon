@@ -84,18 +84,18 @@ func (mr *MockSignerMockRecorder) GetName() *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockSigner) Sign(data []byte) ([]byte, error) {
+func (m *MockSigner) Sign(data []byte, preSignPayload *wallet.PreSignPayload) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Sign", data)
+	ret := m.ctrl.Call(m, "Sign", data, preSignPayload)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Sign indicates an expected call of Sign.
-func (mr *MockSignerMockRecorder) Sign(data any) *gomock.Call {
+func (mr *MockSignerMockRecorder) Sign(data, preSignPayload any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockSigner)(nil).Sign), data)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockSigner)(nil).Sign), data, preSignPayload)
 }
 
 // MockWallet is a mock of Wallet interface.
@@ -165,6 +165,21 @@ func (mr *MockWalletMockRecorder) GetSigners() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSigners", reflect.TypeOf((*MockWallet)(nil).GetSigners))
 }
 
+// SaveByFamilySeed mocks base method.
+func (m *MockWallet) SaveByFamilySeed(name, familySeed string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveByFamilySeed", name, familySeed)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SaveByFamilySeed indicates an expected call of SaveByFamilySeed.
+func (mr *MockWalletMockRecorder) SaveByFamilySeed(name, familySeed any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveByFamilySeed", reflect.TypeOf((*MockWallet)(nil).SaveByFamilySeed), name, familySeed)
+}
+
 // SaveByMnemonic mocks base method.
 func (m *MockWallet) SaveByMnemonic(name, mnemonic string, coinType uint32, account, index uint) (string, error) {
 	m.ctrl.T.Helper()
@@ -180,19 +195,19 @@ func (mr *MockWalletMockRecorder) SaveByMnemonic(name, mnemonic, coinType, accou
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveByMnemonic", reflect.TypeOf((*MockWallet)(nil).SaveByMnemonic), name, mnemonic, coinType, account, index)
 }
 
-// SaveBySecret mocks base method.
-func (m *MockWallet) SaveBySecret(name, secret string) (string, error) {
+// SaveByPrivateKey mocks base method.
+func (m *MockWallet) SaveByPrivateKey(name, privateKey string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveBySecret", name, secret)
+	ret := m.ctrl.Call(m, "SaveByPrivateKey", name, privateKey)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SaveBySecret indicates an expected call of SaveBySecret.
-func (mr *MockWalletMockRecorder) SaveBySecret(name, secret any) *gomock.Call {
+// SaveByPrivateKey indicates an expected call of SaveByPrivateKey.
+func (mr *MockWalletMockRecorder) SaveByPrivateKey(name, privateKey any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBySecret", reflect.TypeOf((*MockWallet)(nil).SaveBySecret), name, secret)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveByPrivateKey", reflect.TypeOf((*MockWallet)(nil).SaveByPrivateKey), name, privateKey)
 }
 
 // SaveRemoteSignerKey mocks base method.

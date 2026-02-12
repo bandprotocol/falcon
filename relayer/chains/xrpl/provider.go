@@ -2,6 +2,7 @@ package xrpl
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
@@ -28,10 +29,8 @@ var _ chains.ChainProvider = (*XRPLChainProvider)(nil)
 type XRPLChainProvider struct {
 	Config    *XRPLChainProviderConfig
 	ChainName string
-	// OracleAccount is derived from the XRPL wallet signers at runtime.
-	OracleAccount string
 
-	Client *Client
+	Client Client
 
 	Log logger.Logger
 
@@ -41,46 +40,39 @@ type XRPLChainProvider struct {
 	Alert alert.Alert
 
 	FreeSigners chan wallet.Signer
-
-	nonceInterval time.Duration
 }
 
 // NewXRPLChainProvider creates a new XRPL chain provider.
 func NewXRPLChainProvider(
 	chainName string,
-	client *Client,
+	client Client,
 	cfg *XRPLChainProviderConfig,
 	log logger.Logger,
 	wallet wallet.Wallet,
 	alert alert.Alert,
 ) (*XRPLChainProvider, error) {
-	if cfg.PriceScale == 0 {
-		cfg.PriceScale = 9
-	}
-	if cfg.PriceScale > uint32(ledger.PriceDataScaleMax) {
-		return nil, fmt.Errorf(
-			"price_scale %d exceeds max %d",
-			cfg.PriceScale,
-			ledger.PriceDataScaleMax,
-		)
+	// check that fee
+	if cfg.PriceScale > 10 {
+		return nil, fmt.Errorf("price_scale %d is invalid, valid scale is 0-10", cfg.PriceScale)
 	}
 
 	return &XRPLChainProvider{
-		Config:        cfg,
-		ChainName:     chainName,
-		Client:        client,
-		Log:           log.With("chain_name", chainName),
-		Wallet:        wallet,
-		Alert:         alert,
-		nonceInterval: time.Second,
+		Config:    cfg,
+		ChainName: chainName,
+		Client:    client,
+		Log:       log.With("chain_name", chainName),
+		Wallet:    wallet,
+		Alert:     alert,
 	}, nil
 }
 
 // Init connects to the XRPL chain.
 func (cp *XRPLChainProvider) Init(ctx context.Context) error {
-	if err := cp.Client.Connect(ctx); err != nil {
+	if err := cp.Client.Connect(); err != nil {
 		return err
 	}
+
+	go cp.Client.StartLivelinessCheck(ctx, cp.Config.LivelinessCheckingInterval)
 
 	return nil
 }
@@ -102,38 +94,39 @@ func (cp *XRPLChainProvider) QueryTunnelInfo(
 
 // RelayPacket relays the packet to XRPL OracleSet transaction.
 func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
-	if cp.FreeSigners == nil {
-		return fmt.Errorf("signers not loaded")
+	if err := cp.Client.CheckAndConnect(); err != nil {
+		return err
 	}
-	signer := <-cp.FreeSigners
-	defer func() {
-		cp.FreeSigners <- signer
-	}()
+
+	// get a free signer
+	cp.Log.Debug("Waiting for a free signer...")
+	freeSigner := <-cp.FreeSigners
+	defer func() { cp.FreeSigners <- freeSigner }()
 
 	log := cp.Log.With(
 		"tunnel_id", packet.TunnelID,
 		"sequence", packet.Sequence,
-		"signer_address", signer.GetAddress(),
+		"signer_address", freeSigner.GetAddress(),
 	)
 
 	var lastErr error
 	var err error
-	sequence := uint64(0)
+	sequence := uint32(0)
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
 
 		// If it is the first attempt or previous attempt failed due to sequence error, fetch the latest account sequence number.
 		if sequence == 0 {
-			sequence, err = cp.Client.GetAccountSequenceNumber(ctx, signer.GetAddress())
+			sequence, err = cp.Client.GetAccountSequenceNumber(ctx, freeSigner.GetAddress())
 			if err != nil {
 				log.Error("Get account sequence number error", "retry_count", retryCount, err)
 				lastErr = err
-				time.Sleep(cp.nonceInterval)
+				time.Sleep(cp.Config.NonceInterval)
 				continue
 			}
 		}
 
-		tx, err := cp.buildOracleSetTx(packet, signer.GetAddress(), sequence)
+		tx, err := cp.buildOracleSetTx(packet, freeSigner.GetAddress(), sequence)
 		if err != nil {
 			log.Error("Build OracleSet transaction error", "retry_count", retryCount, err)
 			lastErr = err
@@ -146,6 +139,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			continue
 		}
 
+		// use binarycodec.Encode instead of []byte to prevent type change when decode again
 		encodedTx, err := binarycodec.Encode(tx)
 		if err != nil {
 			log.Error("Encode transaction error", "retry_count", retryCount, err)
@@ -153,28 +147,73 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			continue
 		}
 
-		txBlobBytes, err := signer.Sign([]byte(encodedTx))
+		signing, err := chains.SelectSigning(packet)
+		if err != nil {
+			log.Error("Select signing error", "retry_count", retryCount, err)
+			lastErr = err
+			continue
+		}
+
+		preSignPayload := wallet.NewPreSignPayload(
+			signing.Message,
+			signing.EVMSignature.RAddress,
+			signing.EVMSignature.Signature,
+		)
+
+		txBlobBytes, err := freeSigner.Sign([]byte(encodedTx), preSignPayload)
 		if err != nil {
 			log.Error("Sign transaction error", "retry_count", retryCount, err)
 			lastErr = err
 			continue
 		}
 
-		txHash, err := cp.Client.BroadcastTx(ctx, string(txBlobBytes))
+		txBlobStr := hex.EncodeToString(txBlobBytes)
+
+		var balance *big.Int
+		if cp.DB != nil {
+			balance, err = cp.Client.GetBalance(ctx, freeSigner.GetAddress())
+			if err != nil {
+				log.Error("Failed to get balance", "retry_count", retryCount, err)
+				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName), err.Error())
+			} else {
+				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName))
+			}
+		}
+
+		txResult, err := cp.Client.BroadcastTx(ctx, txBlobStr)
 		if err != nil {
 			log.Error("Broadcast transaction error", "retry_count", retryCount, err)
 			lastErr = err
+
+			// save failed tx in db
+			if cp.DB != nil {
+				tx := cp.prepareTransaction(ctx, txResult, types.TX_STATUS_FAILED, freeSigner.GetAddress(), packet, balance, log, retryCount)
+				chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
+			}
 			continue
 		}
 
 		log.Info(
 			"Packet is successfully relayed",
-			"tx_hash", txHash,
+			"tx_hash", txResult.TxHash,
 			"retry_count", retryCount,
 		)
 
-		cp.saveRelayTx(packet, txHash)
-		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, types.TX_STATUS_SUCCESS.String())
+		// save success tx in db
+		if cp.DB != nil {
+			tx := cp.prepareTransaction(ctx, txResult, types.TX_STATUS_SUCCESS, freeSigner.GetAddress(), packet, balance, log, retryCount)
+			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
+		}
+
+		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, types.ChainTypeXRPL.String(), types.TX_STATUS_SUCCESS.String())
+		alert.HandleReset(
+			cp.Alert,
+			alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+		)
 
 		return nil
 	}
@@ -215,13 +254,13 @@ func (cp *XRPLChainProvider) LoadSigners() error {
 func (cp *XRPLChainProvider) buildOracleSetTx(
 	packet *bandtypes.Packet,
 	signerAddress string,
-	sequence uint64,
+	sequence uint32,
 ) (transaction.FlatTransaction, error) {
-	providerHex, err := stringToHex("Band Protocol", 0)
+	providerHex, err := StringToHex("Band Protocol", 0)
 	if err != nil {
 		return transaction.FlatTransaction{}, err
 	}
-	dataClassHex, err := stringToHex("currency", 0)
+	dataClassHex, err := StringToHex("currency", 0)
 	if err != nil {
 		return transaction.FlatTransaction{}, err
 	}
@@ -229,7 +268,7 @@ func (cp *XRPLChainProvider) buildOracleSetTx(
 	priceDataSeries := make([]ledger.PriceDataWrapper, 0, len(packet.SignalPrices))
 
 	for _, p := range packet.SignalPrices {
-		baseAsset, quoteAsset, err := parseAssetsFromSignal(p.SignalID)
+		baseAsset, quoteAsset, err := ParseAssetsFromSignal(p.SignalID)
 		if err != nil {
 			return transaction.FlatTransaction{}, err
 		}
@@ -239,7 +278,7 @@ func (cp *XRPLChainProvider) buildOracleSetTx(
 				BaseAsset:  baseAsset,
 				QuoteAsset: quoteAsset,
 				AssetPrice: p.Price,
-				Scale:      uint8(cp.Config.PriceScale),
+				Scale:      cp.Config.PriceScale,
 			},
 		})
 	}
@@ -248,52 +287,135 @@ func (cp *XRPLChainProvider) buildOracleSetTx(
 		BaseTx: transaction.BaseTx{
 			Account:         xrpltypes.Address(signerAddress),
 			TransactionType: transaction.OracleSetTx,
-			Sequence:        uint32(sequence),
-			Fee:             xrpltypes.XRPCurrencyAmount(12),
+			Sequence:        sequence,
+			Fee:             xrpltypes.XRPCurrencyAmount(cp.Config.Fee),
 		},
-		OracleDocumentID: uint32(cp.Config.OracleID),
+		OracleDocumentID: uint32(packet.TunnelID),
 		LastUpdatedTime:  uint32(time.Now().Unix()),
 		Provider:         providerHex,
 		AssetClass:       dataClassHex,
 		PriceDataSeries:  priceDataSeries,
 	}
 
-	return tx.Flatten(), nil
+	flattenedTx := tx.Flatten()
+
+	formattedPriceTx, err := FormatAssetPrice(flattenedTx)
+	if err != nil {
+		return transaction.FlatTransaction{}, err
+	}
+
+	flattenedTx["PriceDataSeries"] = formattedPriceTx
+
+	return flattenedTx, nil
 }
 
-func (cp *XRPLChainProvider) saveRelayTx(packet *bandtypes.Packet, txHash string) {
-	signalPrices := make([]db.SignalPrice, 0, len(packet.SignalPrices))
+func FormatAssetPrice(tx map[string]any) ([]map[string]any, error) {
+	// Look for the PriceDataSeries in the flattened map
+	priceDataSeries, ok := tx["PriceDataSeries"].([]map[string]any)
+	if !ok {
+		// If it's not there, it's either not an OracleSet or already empty
+		return nil, nil
+	}
+
+	for i, priceData := range priceDataSeries {
+		// Access the inner PriceData object
+		priceData, ok := priceData["PriceData"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("failed to get PriceData")
+		}
+
+		// Ensure AssetPrice is a uint64
+		// If it came from a JSON/Decimal source, it might be a string or float64
+		if rawPrice, ok := priceData["AssetPrice"]; ok {
+			var hexStr string
+			var err error
+			switch v := rawPrice.(type) {
+			case string:
+				hexStr, err = Uint64StrToHexStr(v)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert AssetPrice string at index %d: %w", i, err)
+				}
+			default:
+				return nil, fmt.Errorf("unexpected type for AssetPrice at index %d: %T", i, v)
+			}
+
+			// Re-assign as a clean uint64.
+			// The XRPL Binary Codec will encode this uint64 into the correct 8-byte big-endian format.
+
+			priceData["AssetPrice"] = hexStr
+		} else {
+			return nil, fmt.Errorf("failed to get AssetPrice")
+		}
+	}
+
+	return priceDataSeries, nil
+}
+
+// prepareTransaction prepares the transaction to be stored in the database.
+func (cp *XRPLChainProvider) prepareTransaction(
+	ctx context.Context,
+	txResult TxResult,
+	txStatus types.TxStatus,
+	signerAddress string,
+	packet *bandtypes.Packet,
+	oldBalance *big.Int,
+	log logger.Logger,
+	retryCount int,
+) *db.Transaction {
+	if txResult.TxHash == "" {
+		return nil
+	}
+
+	var signalPrices []db.SignalPrice
 	for _, p := range packet.SignalPrices {
 		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
 	}
 
+	fee := decimal.NullDecimal{}
+	balanceDelta := decimal.NullDecimal{}
+
+	// Convert fee from string to decimal
+	if txResult.Fee != "" {
+		feeDecimal, err := decimal.NewFromString(txResult.Fee)
+		if err != nil {
+			log.Error("Failed to parse fee", "fee", txResult.Fee, "retry_count", retryCount, err)
+		} else {
+			fee = decimal.NewNullDecimal(feeDecimal)
+		}
+	}
+
+	// Compute new balance
+	// Note: this may be incorrect if other transactions affected the user's balance during this period.
+	if oldBalance != nil {
+		newBalance, err := cp.Client.GetBalance(ctx, signerAddress)
+		if err != nil {
+			log.Error("Failed to get balance", "retry_count", retryCount, err)
+			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName), err.Error())
+		} else {
+			diff := new(big.Int).Sub(newBalance, oldBalance)
+			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
+			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName))
+		}
+	}
+
 	tx := db.NewTransaction(
-		txHash,
+		txResult.TxHash,
 		packet.TunnelID,
 		packet.Sequence,
 		cp.ChainName,
 		types.ChainTypeXRPL,
-		cp.OracleAccount,
-		types.TX_STATUS_SUCCESS,
-		decimal.NullDecimal{},
-		decimal.NullDecimal{},
-		decimal.NullDecimal{},
+		signerAddress,
+		txStatus,
+		decimal.NewNullDecimal(decimal.NewFromInt(1)), // gasUsed - XRPL doesn't have gas, using 1 as placeholder
+		fee,
+		balanceDelta,
 		signalPrices,
-		nil,
+		nil, // blockTimestamp - XRPL doesn't provide this easily
 	)
 
-	if cp.DB == nil {
-		return
-	}
-
-	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
-		cp.Log.Error("Save transaction error", err)
-		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
-			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName), err.Error())
-	} else {
-		alert.HandleReset(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
-			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName))
-	}
+	return tx
 }

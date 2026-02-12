@@ -44,21 +44,6 @@ func (m *MockChainProvider) EXPECT() *MockChainProviderMockRecorder {
 	return m.recorder
 }
 
-// AddKeyByMnemonic mocks base method.
-func (m *MockChainProvider) AddKeyByMnemonic(keyName, mnemonic string, coinType uint32, account, index uint) (*types0.Key, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddKeyByMnemonic", keyName, mnemonic, coinType, account, index)
-	ret0, _ := ret[0].(*types0.Key)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddKeyByMnemonic indicates an expected call of AddKeyByMnemonic.
-func (mr *MockChainProviderMockRecorder) AddKeyByMnemonic(keyName, mnemonic, coinType, account, index any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddKeyByMnemonic", reflect.TypeOf((*MockChainProvider)(nil).AddKeyByMnemonic), keyName, mnemonic, coinType, account, index)
-}
-
 // ChainType mocks base method.
 func (m *MockChainProvider) ChainType() types0.ChainType {
 	m.ctrl.T.Helper()

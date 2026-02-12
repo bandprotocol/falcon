@@ -3,10 +3,11 @@ package xrpl
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 )
 
-func stringToHex(str string, length int) (string, error) {
+func StringToHex(str string, length int) (string, error) {
 	encoded := strings.ToUpper(hex.EncodeToString([]byte(str)))
 	if length != 0 && len(encoded) > length {
 		return "", fmt.Errorf("hex string length %d exceeds expected length %d", len(encoded), length)
@@ -17,7 +18,7 @@ func stringToHex(str string, length int) (string, error) {
 	return encoded, nil
 }
 
-func parseAssetsFromSignal(signalID string) (string, string, error) {
+func ParseAssetsFromSignal(signalID string) (string, string, error) {
 	parts := strings.Split(signalID, ":")
 	core := parts[len(parts)-1]
 	assets := strings.Split(core, "-")
@@ -33,7 +34,7 @@ func parseAssetsFromSignal(signalID string) (string, string, error) {
 	baseAsset := base
 	if len(base) != 3 {
 		var err error
-		baseAsset, err = stringToHex(base, 40)
+		baseAsset, err = StringToHex(base, 40)
 		if err != nil {
 			return "", "", err
 		}
@@ -42,11 +43,21 @@ func parseAssetsFromSignal(signalID string) (string, string, error) {
 	quoteAsset := quote
 	if len(quote) != 3 {
 		var err error
-		quoteAsset, err = stringToHex(quote, 40)
+		quoteAsset, err = StringToHex(quote, 40)
 		if err != nil {
 			return "", "", err
 		}
 	}
 
 	return baseAsset, quoteAsset, nil
+}
+
+func Uint64StrToHexStr(uint64Str string) (string, error) {
+	n := new(big.Int)
+	n, ok := n.SetString(uint64Str, 10)
+	if !ok {
+		return "", fmt.Errorf("invalid numeric string: %s", uint64Str)
+	}
+
+	return fmt.Sprintf("%016X", n), nil
 }

@@ -39,15 +39,6 @@ type ChainProvider interface {
 	// GetChainType retrieves the chain type from the chain provider.
 	ChainType() chainstypes.ChainType
 
-	// AddKeyByMnemonic adds a key using a mnemonic phrase.
-	AddKeyByMnemonic(
-		keyName string,
-		mnemonic string,
-		coinType uint32,
-		account uint,
-		index uint,
-	) (*chainstypes.Key, error)
-
 	// LoadSigners loads signers to prepare to relay the packet
 	LoadSigners() error
 }

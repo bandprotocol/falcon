@@ -109,7 +109,7 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 }
 
 // SaveBySecret imports the ECDSA key into the keystore and writes its signer record.
-func (w *GethWallet) SaveBySecret(name string, secret string) (addr string, err error) {
+func (w *GethWallet) SaveByPrivateKey(name string, secret string) (addr string, err error) {
 	// check if the key name exists
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
@@ -142,6 +142,11 @@ func (w *GethWallet) SaveBySecret(name string, secret string) (addr string, err 
 	return addr, nil
 }
 
+// SaveByFamilySeed does not support for EVM chain
+func (w *GethWallet) SaveByFamilySeed(name string, familySeed string) (addr string, err error) {
+	return "", fmt.Errorf("EVM chain does not support family seed")
+}
+
 // SaveByMnemonic derives the ECDSA key from the mnemonic and stores it as a local signer.
 func (w *GethWallet) SaveByMnemonic(
 	name string,
@@ -171,7 +176,7 @@ func (w *GethWallet) SaveByMnemonic(
 		return "", err
 	}
 
-	return w.SaveBySecret(name, privHex)
+	return w.SaveByPrivateKey(name, privHex)
 }
 
 // SaveRemoteSignerKey registers a remote signer under the given name,

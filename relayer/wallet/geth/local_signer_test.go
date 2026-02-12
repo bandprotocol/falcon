@@ -50,7 +50,7 @@ func (s *LocalSignerTestSuite) TestGetAddress() {
 func (s *LocalSignerTestSuite) TestSign() {
 	data := []byte("hello world")
 
-	sig, err := s.ls.Sign(data)
+	sig, err := s.ls.Sign(data, nil)
 	s.Require().NoError(err)
 
 	hash := crypto.Keccak256(data)

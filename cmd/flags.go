@@ -8,7 +8,8 @@ const (
 	FlagLogFormat = "log-format"
 
 	flagFile              = "file"
-	flagPrivateKey        = "secret"
+	flagPrivateKey        = "private-key"
+	flagFamilySeed        = "family-seed"
 	flagMnemonic          = "mnemonic"
 	flagCoinType          = "coin-type"
 	flagWalletAccount     = "account"

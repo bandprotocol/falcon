@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -225,7 +226,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// save pending tx in db
 		if cp.DB != nil {
 			tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, nil, balance, log, retryCount)
-			cp.handleSaveTransaction(tx, log, retryCount)
+			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 		}
 
 		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
@@ -242,7 +243,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				log,
 				retryCount,
 			)
-			cp.handleSaveTransaction(tx, log, retryCount)
+			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 		}
 
 		if txResult.Status == types.TX_STATUS_SUCCESS {
@@ -298,7 +299,16 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	signer wallet.Signer,
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
-	calldata, err := cp.CreateCalldata(packet)
+	signing, err := chains.SelectSigning(packet)
+	if err != nil {
+		return nil, err
+	}
+
+	tssMessage := signing.Message
+	rAddress := signing.EVMSignature.RAddress
+	signature := signing.EVMSignature.Signature
+
+	calldata, err := cp.CreateCalldata(tssMessage, rAddress, signature)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create calldata: %w", err)
 	}
@@ -308,7 +318,7 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 		return nil, fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
 
-	signedTx, err := cp.signTx(tx, signer)
+	signedTx, err := cp.signTx(tx, signer, wallet.NewPreSignPayload(tssMessage, rAddress, signature))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign an evm transaction: %w", err)
 	}
@@ -373,7 +383,7 @@ func (cp *EVMChainProvider) WaitForConfirmedTx(
 // handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.
 func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, txResult TxResult) {
 	// increment the transactions count metric
-	relayermetrics.IncTxsCount(tunnelID, cp.ChainName, txResult.Status.String())
+	relayermetrics.IncTxsCount(tunnelID, cp.ChainName, types.ChainTypeEVM.String(), txResult.Status.String())
 
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
@@ -381,6 +391,7 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 		relayermetrics.ObserveTxProcessTime(
 			tunnelID,
 			cp.ChainName,
+			types.ChainTypeEVM.String(),
 			txResult.Status.String(),
 			time.Since(createdAt).Milliseconds(),
 		)
@@ -389,6 +400,7 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 		relayermetrics.ObserveGasUsed(
 			tunnelID,
 			cp.ChainName,
+			types.ChainTypeEVM.String(),
 			txResult.Status.String(),
 			txResult.GasUsed.Decimal.InexactFloat64(),
 		)
@@ -479,24 +491,6 @@ func (cp *EVMChainProvider) prepareTransaction(
 	)
 
 	return tx
-}
-
-// handleSaveTransaction saves the transaction to the database and triggers alert if any error occurs.
-func (cp *EVMChainProvider) handleSaveTransaction(tx *db.Transaction, log logger.Logger, retryCount int) {
-	if cp.DB == nil {
-		log.Debug("Database is not set; skipping saving transaction")
-		return
-	}
-	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
-		log.Error("Save transaction error", "retry_count", retryCount, err)
-		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
-			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName), err.Error())
-	} else {
-		alert.HandleReset(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
-			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName))
-	}
 }
 
 // CheckConfirmedTx checks the confirmed transaction status.
@@ -728,29 +722,17 @@ func (cp *EVMChainProvider) NewRelayTx(
 }
 
 // CreateCalldata creates the calldata for the relay transaction.
-func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, error) {
-	var signing *bandtypes.Signing
-
-	// get signing from packet; prefer to use signing from
-	// current group than incoming group
-	if packet.CurrentGroupSigning != nil {
-		signing = packet.CurrentGroupSigning
-	} else if packet.IncomingGroupSigning != nil {
-		signing = packet.IncomingGroupSigning
-	} else {
-		return nil, fmt.Errorf("missing signing")
-	}
-
-	rAddr, err := HexToAddress(signing.EVMSignature.RAddress.String())
+func (cp *EVMChainProvider) CreateCalldata(tssMessage bytes.HexBytes, rAddress bytes.HexBytes, signature bytes.HexBytes) ([]byte, error) {
+	rAddr, err := HexToAddress(rAddress.String())
 	if err != nil {
 		return nil, err
 	}
 
 	return cp.TunnelRouterABI.Pack(
 		"relay",
-		signing.Message.Bytes(),
+		tssMessage.Bytes(),
 		rAddr,
-		new(big.Int).SetBytes(signing.EVMSignature.Signature),
+		new(big.Int).SetBytes(signature),
 	)
 }
 
@@ -758,6 +740,7 @@ func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, er
 func (cp *EVMChainProvider) signTx(
 	tx *gethtypes.Transaction,
 	signer wallet.Signer,
+	preSignPayload *wallet.PreSignPayload,
 ) (*gethtypes.Transaction, error) {
 	var (
 		rlpEncoded []byte
@@ -810,7 +793,7 @@ func (cp *EVMChainProvider) signTx(
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
-	signature, err := signer.Sign(rlpEncoded)
+	signature, err := signer.Sign(rlpEncoded, preSignPayload)
 	if err != nil {
 		return nil, err
 	}

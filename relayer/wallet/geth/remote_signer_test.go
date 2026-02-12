@@ -73,11 +73,11 @@ func (s *RemoteSignerTestSuite) TestSign() {
 		EXPECT().
 		SignEvm(
 			gomock.Any(),
-			&fkmsv1.SignEvmRequest{Address: strings.ToLower(address), Message: payload},
+			&fkmsv1.SignEvmRequest{Address: strings.ToLower(address), TxMessage: payload},
 		).
 		Return(&fkmsv1.SignEvmResponse{Signature: expected}, nil)
 
-	sig, err := s.rs.Sign(payload)
+	sig, err := s.rs.Sign(payload, nil)
 	s.Require().NoError(err)
 	s.Equal(expected, sig)
 }

@@ -54,7 +54,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 		{
 			"duplicate name fails", "alice",
 			func(w *geth.GethWallet) {
-				_, err := w.SaveBySecret("alice", privHex)
+				_, err := w.SaveByPrivateKey("alice", privHex)
 				s.Require().NoError(err)
 			},
 			true, "key name exists",
@@ -62,7 +62,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 		{
 			"duplicate address fails", "bob",
 			func(w *geth.GethWallet) {
-				_, err := w.SaveBySecret("a", privHex)
+				_, err := w.SaveByPrivateKey("a", privHex)
 				s.Require().NoError(err)
 			},
 			true, "address exists",
@@ -78,7 +78,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 				w, _ = geth.NewGethWallet(s.passphrase, home, s.chainName)
 			}
 
-			gotAddr, err := w.SaveBySecret(tc.keyName, privHex)
+			gotAddr, err := w.SaveByPrivateKey(tc.keyName, privHex)
 			if tc.wantErr {
 				s.Error(err)
 				s.Contains(err.Error(), tc.errSubstr)
@@ -181,7 +181,7 @@ func (s *WalletTestSuite) TestDeleteKey() {
 		{
 			"delete local succeeds",
 			func(w *geth.GethWallet) {
-				_, err := w.SaveBySecret("alice", privHex)
+				_, err := w.SaveByPrivateKey("alice", privHex)
 				s.Require().NoError(err)
 			},
 			"alice", false, "",
