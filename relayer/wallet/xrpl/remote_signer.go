@@ -53,8 +53,8 @@ func (r *RemoteSigner) GetAddress() (addr string) {
 	return r.Address
 }
 
-// Sign is unsupported for XRPL remote signers.
-func (r *RemoteSigner) Sign(data []byte, preSignPayload *wallet.PreSignPayload) ([]byte, error) {
+// Sign requests the remote KMS to sign the data and returns the tx blob.
+func (r *RemoteSigner) Sign(data []byte, preSignPayload wallet.PreSignPayload) ([]byte, error) {
 	ctx := context.Background()
 	if r.Key != nil {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))

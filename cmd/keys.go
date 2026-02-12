@@ -288,17 +288,17 @@ func validateAddKeyInput(input *AddKeyInput) error {
 
 	// if a private key is provided, no other input should be present
 	if hasPrivateKey && (hasMnemonic || hasRemoteSigner || hasFamilySeed) {
-		return fmt.Errorf("private key cannot be provided with mnemonic or remote signer")
+		return fmt.Errorf("private key cannot be provided with mnemonic or remote signer or family seed")
 	}
 
 	// if a family seed is provided, no other input should be present
 	if hasFamilySeed && (hasPrivateKey || hasMnemonic || hasRemoteSigner) {
-		return fmt.Errorf("family seed cannot be provided with private key or remote signer")
+		return fmt.Errorf("family seed cannot be provided with private key or remote signer or mnemonic")
 	}
 
 	// if a mnemonic is provided, no other input should be present
 	if hasMnemonic && (hasPrivateKey || hasRemoteSigner || hasFamilySeed) {
-		return fmt.Errorf("mnemonic cannot be provided with private key or remote signer")
+		return fmt.Errorf("mnemonic cannot be provided with private key or remote signer or family seed")
 	}
 
 	// if any remote-signer field is provided, it must be the only input
@@ -511,6 +511,9 @@ func addKey(
 			input.RemoteSigner.Url,
 			input.RemoteSigner.Key,
 		)
+	} else if input.FamilySeed != "" {
+		return app.AddKeyByFamilySeed(
+			chainName, keyName, input.FamilySeed)
 	} else {
 		return app.AddKeyByMnemonic(
 			chainName, keyName,

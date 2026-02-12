@@ -201,8 +201,6 @@ func (c *client) GetBalance(ctx context.Context, account string) (*big.Int, erro
 		return nil, fmt.Errorf("failed to parse balance of %s (%s)", account, result.AccountData.Balance.String())
 	}
 
-	fmt.Println(b)
-
 	return b, nil
 }
 

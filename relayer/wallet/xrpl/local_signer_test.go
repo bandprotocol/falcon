@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
@@ -30,7 +31,7 @@ func TestLocalSigner(t *testing.T) {
 	// Valid XRPL transaction hex for binarycodec.Decode
 	txHex := "120000240000000A201B00000000614000000000000064684000000000000000732103AD23396EB905659472C15EE780A9001D48A5E784EF6E09E96BE0A43AF24647318114AD23396EB905659472C15EE780A9001D48A5E784"
 
-	signedBlob, err := signer.Sign([]byte(txHex), nil)
+	signedBlob, err := signer.Sign([]byte(txHex), wallet.PreSignPayload{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, signedBlob)
 }
