@@ -17,7 +17,6 @@ type XRPLChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
 	Fee           uint64        `mapstructure:"fee"         toml:"fee"`
-	PriceScale    uint8         `mapstructure:"price_scale" toml:"price_scale"`
 	NonceInterval time.Duration `mapstructure:"nonce_interval" toml:"nonce_interval"`
 }
 
@@ -30,7 +29,7 @@ func (cpc *XRPLChainProviderConfig) NewChainProvider(
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log, alert)
 
-	return NewXRPLChainProvider(chainName, client, cpc, log, wallet, alert)
+	return NewXRPLChainProvider(chainName, client, cpc, log, wallet, alert), nil
 }
 
 // Validate validates the XRPL chain provider configuration.

@@ -23,6 +23,12 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
+const (
+	provider   = "Band Protocol"
+	dataClass  = "currency"
+	priceScale = 9
+)
+
 var _ chains.ChainProvider = (*XRPLChainProvider)(nil)
 
 // XRPLChainProvider handles interactions with XRPL.
@@ -50,12 +56,7 @@ func NewXRPLChainProvider(
 	log logger.Logger,
 	wallet wallet.Wallet,
 	alert alert.Alert,
-) (*XRPLChainProvider, error) {
-	// check that fee
-	if cfg.PriceScale > 10 {
-		return nil, fmt.Errorf("price_scale %d is invalid, valid scale is 0-10", cfg.PriceScale)
-	}
-
+) *XRPLChainProvider {
 	return &XRPLChainProvider{
 		Config:    cfg,
 		ChainName: chainName,
@@ -63,7 +64,7 @@ func NewXRPLChainProvider(
 		Log:       log.With("chain_name", chainName),
 		Wallet:    wallet,
 		Alert:     alert,
-	}, nil
+	}
 }
 
 // Init connects to the XRPL chain.
@@ -194,6 +195,9 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 				tx := cp.prepareTransaction(ctx, txResult, types.TX_STATUS_FAILED, freeSigner.GetAddress(), packet, balance, log, retryCount)
 				chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 			}
+
+			// Set sequence to 0 to fetch the latest account sequence number in the next attempt
+			sequence = 0
 			continue
 		}
 
@@ -256,11 +260,11 @@ func (cp *XRPLChainProvider) buildOracleSetTx(
 	signerAddress string,
 	sequence uint32,
 ) (transaction.FlatTransaction, error) {
-	providerHex, err := StringToHex("Band Protocol", 0)
+	providerHex, err := StringToHex(provider, 0)
 	if err != nil {
 		return transaction.FlatTransaction{}, err
 	}
-	dataClassHex, err := StringToHex("currency", 0)
+	dataClassHex, err := StringToHex(dataClass, 0)
 	if err != nil {
 		return transaction.FlatTransaction{}, err
 	}
@@ -278,7 +282,7 @@ func (cp *XRPLChainProvider) buildOracleSetTx(
 				BaseAsset:  baseAsset,
 				QuoteAsset: quoteAsset,
 				AssetPrice: p.Price,
-				Scale:      cp.Config.PriceScale,
+				Scale:      priceScale,
 			},
 		})
 	}
@@ -317,15 +321,15 @@ func FormatAssetPrice(tx map[string]any) ([]map[string]any, error) {
 		return nil, nil
 	}
 
-	for i, priceData := range priceDataSeries {
+	for i, priceDataWrapper := range priceDataSeries {
 		// Access the inner PriceData object
-		priceData, ok := priceData["PriceData"].(map[string]any)
+		priceData, ok := priceDataWrapper["PriceData"].(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("failed to get PriceData")
+			return nil, fmt.Errorf("failed to get PriceData at index %d", i)
 		}
 
-		// Ensure AssetPrice is a uint64
-		// If it came from a JSON/Decimal source, it might be a string or float64
+		// Ensure AssetPrice is a uint64 hex string
+		// In Go, after transaction flattening, AssetPrice might be a uint64 or a string
 		if rawPrice, ok := priceData["AssetPrice"]; ok {
 			var hexStr string
 			var err error
@@ -335,16 +339,17 @@ func FormatAssetPrice(tx map[string]any) ([]map[string]any, error) {
 				if err != nil {
 					return nil, fmt.Errorf("failed to convert AssetPrice string at index %d: %w", i, err)
 				}
+			case uint64:
+				hexStr = fmt.Sprintf("%016X", v)
 			default:
 				return nil, fmt.Errorf("unexpected type for AssetPrice at index %d: %T", i, v)
 			}
 
-			// Re-assign as a clean uint64.
-			// The XRPL Binary Codec will encode this uint64 into the correct 8-byte big-endian format.
-
+			// Re-assign as a clean uint64 hex string.
+			// The XRPL Binary Codec will encode this into the correct 8-byte big-endian format.
 			priceData["AssetPrice"] = hexStr
 		} else {
-			return nil, fmt.Errorf("failed to get AssetPrice")
+			return nil, fmt.Errorf("failed to get AssetPrice at index %d", i)
 		}
 	}
 
