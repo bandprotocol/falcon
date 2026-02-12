@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
 func TestNewKeyRecord(t *testing.T) {
@@ -33,7 +34,7 @@ type = "local"
 address = "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2"
 save_method = "seed"
 `
-	err = os.WriteFile(filepath.Join(tmpDir, keyName+".toml"), []byte(content), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, keyName+".toml"), []byte(content), 0o600)
 	require.NoError(t, err)
 
 	records, err := xrpl.LoadKeyRecord(tmpDir)

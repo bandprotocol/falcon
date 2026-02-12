@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
 func TestXRPLWallet(t *testing.T) {
@@ -20,11 +21,11 @@ func TestXRPLWallet(t *testing.T) {
 
 	// Create necessary directories
 	metadataDir := filepath.Join(tmpHome, "keys", chainName, "metadata")
-	err = os.MkdirAll(metadataDir, 0755)
+	err = os.MkdirAll(metadataDir, 0o755)
 	require.NoError(t, err)
 
 	privDir := filepath.Join(tmpHome, "keys", chainName, "priv")
-	err = os.MkdirAll(privDir, 0755)
+	err = os.MkdirAll(privDir, 0o755)
 	require.NoError(t, err)
 
 	// Step 1: Initialize empty wallet
