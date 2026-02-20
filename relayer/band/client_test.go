@@ -252,6 +252,7 @@ func (s *ClientTestSuite) TestGetTSSTunnelPacket() {
 		expectedSignalPrices,
 		expectedCurrentGroupSigning,
 		nil,
+		time.Now().Unix(),
 	)
 
 	// actual result

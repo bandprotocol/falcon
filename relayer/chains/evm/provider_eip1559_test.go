@@ -74,7 +74,12 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	s.chainProvider.FreeSigners <- s.mockSigner
 
 	s.relayingPacket = mockPacket()
-	s.relayingCalldata, err = s.chainProvider.CreateCalldata(&s.relayingPacket)
+	evmSig := s.relayingPacket.CurrentGroupSigning.EVMSignature
+	s.relayingCalldata, err = s.chainProvider.CreateCalldata(
+		s.relayingPacket.CurrentGroupSigning.Message,
+		evmSig.RAddress,
+		evmSig.Signature,
+	)
 	s.Require().NoError(err)
 
 	s.gasInfo = evm.NewGasEIP1559Info(big.NewInt(10_000_000_000), big.NewInt(8_000_000_000))

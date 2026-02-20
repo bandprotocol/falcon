@@ -13,6 +13,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 )
 
 // ChainProviderConfigs is a collection of ChainProviderConfig interfaces (mapped by chainName)
@@ -64,6 +65,20 @@ func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProvide
 	switch chainType {
 	case chainstypes.ChainTypeEVM:
 		var newCfg evm.EVMChainProviderConfig
+
+		decoderConfig.Result = &newCfg
+		decoder, err := mapstructure.NewDecoder(&decoderConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := decoder.Decode(w); err != nil {
+			return nil, err
+		}
+
+		cfg = &newCfg
+	case chainstypes.ChainTypeXRPL:
+		var newCfg xrpl.XRPLChainProviderConfig
 
 		decoderConfig.Result = &newCfg
 		decoder, err := mapstructure.NewDecoder(&decoderConfig)

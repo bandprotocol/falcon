@@ -45,6 +45,7 @@ type Application interface {
 	GetChainConfig(chainName string) (chains.ChainProviderConfig, error)
 
 	AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*chainstypes.Key, error)
+	AddKeyByFamilySeed(chainName string, keyName string, familySeed string) (*chainstypes.Key, error)
 	AddKeyByMnemonic(
 		chainName string,
 		keyName string,

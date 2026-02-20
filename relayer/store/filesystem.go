@@ -13,6 +13,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
 var _ Store = &FileSystem{}
@@ -105,6 +106,8 @@ func (fs *FileSystem) NewWallet(chainType chainstypes.ChainType, chainName, pass
 	switch chainType {
 	case chainstypes.ChainTypeEVM:
 		return geth.NewGethWallet(passphrase, fs.HomePath, chainName)
+	case chainstypes.ChainTypeXRPL:
+		return xrpl.NewXRPLWallet(passphrase, fs.HomePath, chainName)
 	default:
 		return nil, fmt.Errorf("unsupported chain type: %s", chainType)
 	}

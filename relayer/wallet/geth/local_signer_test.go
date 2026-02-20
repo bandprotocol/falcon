@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -50,7 +51,7 @@ func (s *LocalSignerTestSuite) TestGetAddress() {
 func (s *LocalSignerTestSuite) TestSign() {
 	data := []byte("hello world")
 
-	sig, err := s.ls.Sign(data)
+	sig, err := s.ls.Sign(data, wallet.PreSignPayload{})
 	s.Require().NoError(err)
 
 	hash := crypto.Keccak256(data)

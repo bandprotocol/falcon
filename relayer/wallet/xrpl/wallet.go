@@ -1,0 +1,289 @@
+package xrpl
+
+import (
+	"fmt"
+	"path"
+
+	addresscodec "github.com/Peersyst/xrpl-go/address-codec"
+	xrplwallet "github.com/Peersyst/xrpl-go/xrpl/wallet"
+	toml "github.com/pelletier/go-toml/v2"
+
+	"github.com/bandprotocol/falcon/internal/os"
+	"github.com/bandprotocol/falcon/relayer/wallet"
+)
+
+var _ wallet.Wallet = &XRPLWallet{}
+
+const (
+	LocalSignerType  = "local"
+	RemoteSignerType = "remote"
+
+	SaveMethodSeed     = "seed"
+	SaveMethodMnemonic = "mnemonic"
+
+	xrplDefaultCoinType = 144
+)
+
+// XRPLWallet manages local and remote signers for a specific chain.
+type XRPLWallet struct {
+	Passphrase string
+	Signers    map[string]wallet.Signer
+	HomePath   string
+	ChainName  string
+}
+
+// NewXRPLWallet creates a new XRPLWallet instance.
+func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) {
+	keyRecordDir := path.Join(getXRPLKeyDir(homePath, chainName)...)
+	keyRecords, err := LoadKeyRecord(keyRecordDir)
+	if err != nil {
+		return nil, err
+	}
+
+	kr, err := openXRPLKeyring(passphrase, homePath, chainName)
+	if err != nil {
+		return nil, err
+	}
+
+	signers := make(map[string]wallet.Signer)
+	for name, record := range keyRecords {
+		var signer wallet.Signer
+		switch record.Type {
+		case LocalSignerType:
+			secret, err := getXRPLSecret(kr, chainName, name)
+			if err != nil {
+				return nil, err
+			}
+
+			var wptr *xrplwallet.Wallet
+			var w xrplwallet.Wallet
+			switch record.SaveMethod {
+			case SaveMethodMnemonic:
+				wptr, err = xrplwallet.FromMnemonic(secret)
+			case SaveMethodSeed:
+				w, err = xrplwallet.FromSecret(secret)
+				wptr = &w
+			default:
+				return nil, fmt.Errorf("unsupported save method %s for key %s", record.SaveMethod, name)
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			signer = NewLocalSigner(name, wptr)
+		case RemoteSignerType:
+			if record.Address == "" {
+				return nil, fmt.Errorf("missing address for key %s", name)
+			}
+			if !addresscodec.IsValidClassicAddress(record.Address) {
+				return nil, fmt.Errorf("invalid address: %s", record.Address)
+			}
+
+			signer, err = NewRemoteSigner(name, record.Address, record.Url, record.Key)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			return nil, fmt.Errorf(
+				"unsupported signer type %s for chain %s, key %s",
+				record.Type,
+				chainName,
+				name,
+			)
+		}
+
+		signers[name] = signer
+	}
+
+	return &XRPLWallet{
+		Passphrase: passphrase,
+		Signers:    signers,
+		HomePath:   homePath,
+		ChainName:  chainName,
+	}, nil
+}
+
+// SaveByPrivateKey does not support for XRPL
+func (w *XRPLWallet) SaveByPrivateKey(name string, privateKey string) (addr string, err error) {
+	return "", fmt.Errorf("XRPL does not support private key")
+}
+
+// SaveByFamilySeed stores the family seed in keyring and writes its record.
+func (w *XRPLWallet) SaveByFamilySeed(name string, familySeed string) (addr string, err error) {
+	if _, ok := w.Signers[name]; ok {
+		return "", fmt.Errorf("key name exists: %s", name)
+	}
+
+	privWallet, err := xrplwallet.FromSecret(familySeed)
+	if err != nil {
+		return
+	}
+
+	addr = privWallet.ClassicAddress.String()
+
+	if w.IsAddressExist(addr) {
+		return "", fmt.Errorf("address exists: %s", addr)
+	}
+
+	kr, err := openXRPLKeyring(w.Passphrase, w.HomePath, w.ChainName)
+	if err != nil {
+		return "", err
+	}
+
+	if err := setXRPLSecret(kr, w.ChainName, name, familySeed); err != nil {
+		return "", err
+	}
+
+	record := NewKeyRecord(LocalSignerType, "", "", nil, SaveMethodSeed)
+	if err := w.saveKeyRecord(name, record); err != nil {
+		return "", err
+	}
+
+	w.Signers[name] = NewLocalSigner(name, &privWallet)
+
+	return addr, nil
+}
+
+// SaveByMnemonic stores the mnemonic in keyring and writes its record.
+func (w *XRPLWallet) SaveByMnemonic(
+	name string,
+	mnemonic string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (addr string, err error) {
+	if _, ok := w.Signers[name]; ok {
+		return "", fmt.Errorf("key name exists: %s", name)
+	}
+	if coinType != xrplDefaultCoinType || account != 0 || index != 0 {
+		return "", fmt.Errorf("xrpl mnemonic derivation only supports m/44'/144'/0'/0/0")
+	}
+	if mnemonic == "" {
+		return "", fmt.Errorf("mnemonic is empty")
+	}
+
+	mnWallet, err := xrplwallet.FromMnemonic(mnemonic)
+	if err != nil {
+		return "", err
+	}
+
+	addr = mnWallet.ClassicAddress.String()
+
+	if w.IsAddressExist(addr) {
+		return "", fmt.Errorf("address exists: %s", addr)
+	}
+
+	kr, err := openXRPLKeyring(w.Passphrase, w.HomePath, w.ChainName)
+	if err != nil {
+		return "", err
+	}
+
+	if err := setXRPLSecret(kr, w.ChainName, name, mnemonic); err != nil {
+		return "", err
+	}
+
+	record := NewKeyRecord(LocalSignerType, "", "", nil, SaveMethodMnemonic)
+	if err := w.saveKeyRecord(name, record); err != nil {
+		return "", err
+	}
+
+	w.Signers[name] = NewLocalSigner(name, mnWallet)
+
+	return addr, nil
+}
+
+// SaveRemoteSignerKey registers a remote signer under the given name.
+func (w *XRPLWallet) SaveRemoteSignerKey(name, address, url string, key *string) error {
+	if _, ok := w.Signers[name]; ok {
+		return fmt.Errorf("key name exists: %s", name)
+	}
+
+	if !addresscodec.IsValidClassicAddress(address) {
+		return fmt.Errorf("invalid address: %s", address)
+	}
+
+	if w.IsAddressExist(address) {
+		return fmt.Errorf("address exists: %s", address)
+	}
+
+	record := NewKeyRecord(RemoteSignerType, address, url, key, "")
+	if err := w.saveKeyRecord(name, record); err != nil {
+		return err
+	}
+
+	signer, err := NewRemoteSigner(name, address, url, key)
+	if err != nil {
+		return err
+	}
+	w.Signers[name] = signer
+
+	return nil
+}
+
+// DeleteKey removes the signer named name, deleting its record.
+func (w *XRPLWallet) DeleteKey(name string) error {
+	if _, ok := w.Signers[name]; !ok {
+		return fmt.Errorf("key name does not exist: %s", name)
+	}
+
+	if _, ok := w.Signers[name].(*LocalSigner); ok {
+		kr, err := openXRPLKeyring(w.Passphrase, w.HomePath, w.ChainName)
+		if err != nil {
+			return err
+		}
+		if err := deleteXRPLSecret(kr, w.ChainName, name); err != nil {
+			return err
+		}
+	}
+
+	if err := w.deleteKeyRecord(name); err != nil {
+		return err
+	}
+
+	delete(w.Signers, name)
+
+	return nil
+}
+
+// GetSigners lists all signers.
+func (w *XRPLWallet) GetSigners() []wallet.Signer {
+	signers := make([]wallet.Signer, 0, len(w.Signers))
+	for _, signer := range w.Signers {
+		signers = append(signers, signer)
+	}
+
+	return signers
+}
+
+// GetSigner returns the signer with the given name and a flag indicating if it was found.
+func (w *XRPLWallet) GetSigner(name string) (wallet.Signer, bool) {
+	signer, ok := w.Signers[name]
+	return signer, ok
+}
+
+// IsAddressExist returns true if the given address is already added.
+func (w *XRPLWallet) IsAddressExist(address string) bool {
+	for _, signer := range w.Signers {
+		if signer.GetAddress() == address {
+			return true
+		}
+	}
+	return false
+}
+
+// saveKeyRecord writes the KeyRecord to the file.
+func (w *XRPLWallet) saveKeyRecord(name string, record KeyRecord) error {
+	b, err := toml.Marshal(record)
+	if err != nil {
+		return err
+	}
+
+	return os.Write(b, append(getXRPLKeyDir(w.HomePath, w.ChainName), fmt.Sprintf("%s.toml", name)))
+}
+
+// deleteKeyRecord deletes the KeyRecord file.
+func (w *XRPLWallet) deleteKeyRecord(name string) error {
+	dir := path.Join(getXRPLKeyDir(w.HomePath, w.ChainName)...)
+	filePath := path.Join(dir, fmt.Sprintf("%s.toml", name))
+	return os.DeletePath(filePath)
+}

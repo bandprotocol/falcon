@@ -13,6 +13,7 @@ type Packet struct {
 	SignalPrices         []SignalPrice `json:"signal_prices"`
 	CurrentGroupSigning  *Signing      `json:"current_group_signing"`
 	IncomingGroupSigning *Signing      `json:"incoming_group_signing"`
+	CreatedAt            int64         `json:"-"`
 }
 
 // NewPacket creates a new Packet instance.
@@ -22,6 +23,7 @@ func NewPacket(
 	signalPrices []SignalPrice,
 	currentGroupSigning *Signing,
 	incomingGroupSigning *Signing,
+	createdAt int64,
 ) *Packet {
 	return &Packet{
 		TunnelID:             tunnelID,
@@ -29,5 +31,6 @@ func NewPacket(
 		SignalPrices:         signalPrices,
 		CurrentGroupSigning:  currentGroupSigning,
 		IncomingGroupSigning: incomingGroupSigning,
+		CreatedAt:            createdAt,
 	}
 }
