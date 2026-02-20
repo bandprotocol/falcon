@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// StringToHex converts a string to a hex string of a specified length.
 func StringToHex(str string, length int) (string, error) {
 	encoded := strings.ToUpper(hex.EncodeToString([]byte(str)))
 	if length != 0 && len(encoded) > length {
@@ -18,40 +19,45 @@ func StringToHex(str string, length int) (string, error) {
 	return encoded, nil
 }
 
+// ParseAssetsFromSignal parses a signal ID into base, quote assets and then convert them to hex string if length != 3
 func ParseAssetsFromSignal(signalID string) (string, string, error) {
-	parts := strings.Split(signalID, ":")
-	core := parts[len(parts)-1]
-	assets := strings.Split(core, "-")
+	var pair string
+	parts := strings.SplitN(signalID, ":", 2)
+	if len(parts) < 2 || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid signal format (expected '<prefix>:<pair>'): %s", signalID)
+	} else {
+		pair = parts[1]
+	}
+	assets := strings.SplitN(pair, "-", 2)
 	if len(assets) != 2 {
-		return "", "", fmt.Errorf("invalid signal_id format: %s", signalID)
-	}
-	base := strings.TrimSpace(assets[0])
-	quote := strings.TrimSpace(assets[1])
-	if base == "" || quote == "" {
-		return "", "", fmt.Errorf("invalid signal_id format: %s", signalID)
+		return "", "", fmt.Errorf("invalid base/quote format (expected '<base>-<quote>'): %s", signalID)
 	}
 
-	baseAsset := base
-	if len(base) != 3 {
-		var err error
-		baseAsset, err = StringToHex(base, 40)
-		if err != nil {
-			return "", "", err
+	processAsset := func(asset string) (string, error) {
+		asset = strings.TrimSpace(asset)
+		if asset == "" {
+			return "", fmt.Errorf("asset cannot be empty")
 		}
-	}
-
-	quoteAsset := quote
-	if len(quote) != 3 {
-		var err error
-		quoteAsset, err = StringToHex(quote, 40)
-		if err != nil {
-			return "", "", err
+		if len(asset) == 3 {
+			return asset, nil
 		}
+		return StringToHex(asset, 40)
 	}
 
-	return baseAsset, quoteAsset, nil
+	base, err := processAsset(assets[0])
+	if err != nil {
+		return "", "", err
+	}
+
+	quote, err := processAsset(assets[1])
+	if err != nil {
+		return "", "", err
+	}
+
+	return base, quote, nil
 }
 
+// Uint64StrToHexStr converts a string to a hex string of exactly 16 characters.
 func Uint64StrToHexStr(uint64Str string) (string, error) {
 	n := new(big.Int)
 	n, ok := n.SetString(uint64Str, 10)
@@ -59,5 +65,16 @@ func Uint64StrToHexStr(uint64Str string) (string, error) {
 		return "", fmt.Errorf("invalid numeric string: %s", uint64Str)
 	}
 
-	return fmt.Sprintf("%016X", n), nil
+	// Check for negative values
+	if n.Sign() < 0 {
+		return "", fmt.Errorf("value must be non-negative: %s", uint64Str)
+	}
+
+	// Check if the value fits within 64 bits
+	if n.BitLen() > 64 {
+		return "", fmt.Errorf("value exceeds uint64 limit: %s", uint64Str)
+	}
+
+	// Convert to native uint64 and format to exactly 16 hex chars
+	return fmt.Sprintf("%016X", n.Uint64()), nil
 }

@@ -104,6 +104,8 @@ func TestUint64StrToHexStr(t *testing.T) {
 		{"Large uint64 max", "18446744073709551615", "FFFFFFFFFFFFFFFF", false},
 		{"Zero", "0", "0000000000000000", false},
 		{"Invalid non-numeric", "abc", "", true},
+		{"Negative", "-1", "", true},
+		{"Large uint64 max + 1", "18446744073709551616", "", true},
 	}
 
 	for _, tt := range tests {

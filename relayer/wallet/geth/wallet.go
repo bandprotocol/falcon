@@ -108,7 +108,7 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 	}, nil
 }
 
-// SaveBySecret imports the ECDSA key into the keystore and writes its signer record.
+// SaveByPrivateKey imports the ECDSA key into the keystore and writes its signer record.
 func (w *GethWallet) SaveByPrivateKey(name string, secret string) (addr string, err error) {
 	// check if the key name exists
 	if _, ok := w.Signers[name]; ok {
