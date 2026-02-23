@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -214,6 +215,7 @@ func (c *client) Autofill(tx *transaction.FlatTransaction) error {
 }
 
 // BroadcastTx submits a signed tx blob and returns its hash.
+// (Ignore tecINVALID_UPDATE_TIME error because it needs to update actual packet timestamp)
 func (c *client) BroadcastTx(ctx context.Context, txBlob string) (TxResult, error) {
 	client, err := c.getRPCClient()
 	if err != nil {
@@ -238,7 +240,7 @@ func (c *client) BroadcastTx(ctx context.Context, txBlob string) (TxResult, erro
 		return TxResult{}, fmt.Errorf("missing tx hash in submit response")
 	}
 
-	if result.EngineResultCode != 0 {
+	if !slices.Contains([]string{"tesSUCCESS", "tecINVALID_UPDATE_TIME"}, result.EngineResult) {
 		return TxResult{
 				TxHash: txHash,
 			}, fmt.Errorf(

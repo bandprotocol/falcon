@@ -295,7 +295,7 @@ func (cp *XRPLChainProvider) buildOracleSetTx(
 			Fee:             xrpltypes.XRPCurrencyAmount(cp.Config.Fee),
 		},
 		OracleDocumentID: uint32(packet.TunnelID),
-		LastUpdatedTime:  uint32(time.Now().Unix()),
+		LastUpdatedTime:  uint32(packet.CreatedAt),
 		Provider:         providerHex,
 		AssetClass:       dataClassHex,
 		PriceDataSeries:  priceDataSeries,
