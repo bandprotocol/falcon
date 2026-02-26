@@ -112,7 +112,8 @@ func (t *TunnelRelayer) CheckAndRelay(
 				"sequence", seq,
 				"validity_period", defaultLastSequenceValidityPeriod,
 			)
-			break
+			time.Sleep(3 * time.Second)
+			continue
 		}
 
 		t.Log.Debug("Next packet sequence to relay", "sequence", seq)
