@@ -322,6 +322,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
+			s.SetupTest()
 			if tc.preprocess != nil {
 				tc.preprocess()
 			}

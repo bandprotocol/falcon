@@ -25,6 +25,8 @@ const (
 	RelayStatusFailed    RelayStatus = "failed"
 )
 
+const defaultLastSequenceValidityPeriod = 5 * time.Minute
+
 // TunnelRelayer is a relayer that listens to the tunnel and relays the packet
 type TunnelRelayer struct {
 	Log                    logger.Logger
@@ -36,6 +38,8 @@ type TunnelRelayer struct {
 
 	isTargetChainActive  bool
 	penaltySkipRemaining uint
+	lastRelayedSequence  uint64
+	lastRelayedAt        time.Time
 	mu                   *sync.Mutex
 }
 
@@ -57,6 +61,8 @@ func NewTunnelRelayer(
 		Alert:                  alert,
 		isTargetChainActive:    false,
 		penaltySkipRemaining:   0,
+		lastRelayedSequence:    0,
+		lastRelayedAt:          time.Time{},
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -97,6 +103,18 @@ func (t *TunnelRelayer) CheckAndRelay(
 		if seq == 0 {
 			break
 		}
+
+		// skip if this sequence was already successfully relayed within the validity period
+		// once the validity period expires the sequence can be retried for recovery.
+		if t.shouldSkipSequence(seq) {
+			t.Log.Debug(
+				"Skip duplicate packet sequence within validity period",
+				"sequence", seq,
+				"validity_period", defaultLastSequenceValidityPeriod,
+			)
+			break
+		}
+
 		t.Log.Debug("Next packet sequence to relay", "sequence", seq)
 		// get packet of the sequence
 		packet, err := t.getTunnelPacket(ctx, seq)
@@ -195,6 +213,12 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	return nextSeq, nil
 }
 
+func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
+	return !t.lastRelayedAt.IsZero() &&
+		seq <= t.lastRelayedSequence &&
+		time.Since(t.lastRelayedAt) < defaultLastSequenceValidityPeriod
+}
+
 // updateRelayerMetrics updates the metrics for the relayer.
 func (t *TunnelRelayer) updateRelayerMetrics(
 	tunnelInfo *types.Tunnel,
@@ -224,6 +248,8 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 	}
 
 	// Increment the metric for successfully relayed packets
+	t.lastRelayedSequence = packet.Sequence
+	t.lastRelayedAt = time.Now()
 	relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 	t.Log.Info("Successfully relayed packet", "sequence", packet.Sequence)
 
