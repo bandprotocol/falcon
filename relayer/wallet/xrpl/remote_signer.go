@@ -2,12 +2,14 @@ package xrpl
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
+	// binarycodec "github.com/Peersyst/xrpl-go/binary-codec"
 	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
@@ -53,24 +55,42 @@ func (r *RemoteSigner) GetAddress() (addr string) {
 	return r.Address
 }
 
-// Sign requests the remote KMS to sign the data and returns the tx blob.
-func (r *RemoteSigner) Sign(data []byte, preSignPayload wallet.PreSignPayload) ([]byte, error) {
+// remoteSign requests the remote KMS to sign the data and returns the tx blob.
+func (r *RemoteSigner) remoteSign(signerPayload SignerPayload, tssPayload wallet.TssPayload) (string, error) {
 	ctx := context.Background()
 	if r.Key != nil {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))
 	}
 
-	res, err := r.FkmsClient.SignXrpl(
-		ctx,
-		&fkmsv1.SignXrplRequest{Address: r.Address, TxMessage: data, Tss: &fkmsv1.Tss{
-			Message:    preSignPayload.TssMessage,
-			RandomAddr: preSignPayload.RandomAddr,
-			SignatureS: preSignPayload.Signature,
-		}},
-	)
-	if err != nil {
-		return []byte{}, err
+	var signals []*fkmsv1.Signal
+	for _, signal := range signerPayload.SignalPrices {
+		signals = append(signals, &fkmsv1.Signal{
+			SignalId: signal.SignalID,
+			Price:    signal.Price,
+		})
 	}
 
-	return res.TxBlob, nil
+	res, err := r.FkmsClient.SignXrpl(
+		ctx,
+		&fkmsv1.SignXrplRequest{
+			SignerPayload: &fkmsv1.XrplSignerPayload{
+				Signals:         signals,
+				Account:         signerPayload.Account,
+				OracleId:        signerPayload.OracleId,
+				Fee:             signerPayload.Fee,
+				Sequence:        signerPayload.Sequence,
+				LastUpdatedTime: signerPayload.LastUpdatedTime,
+			},
+			Tss: &fkmsv1.Tss{
+				Message:    tssPayload.TssMessage,
+				RandomAddr: tssPayload.RandomAddr,
+				SignatureS: tssPayload.Signature,
+			},
+		},
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(res.TxBlob), nil
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	xrplwallet "github.com/Peersyst/xrpl-go/xrpl/wallet"
 	cmbytes "github.com/cometbft/cometbft/libs/bytes"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -20,6 +21,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
+	walletxrpl "github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
 type XRPLProviderTestSuite struct {
@@ -49,7 +51,7 @@ func (s *XRPLProviderTestSuite) SetupTest() {
 			ChainID:  1,
 			MaxRetry: 3,
 		},
-		Fee:           100,
+		Fee:           "100",
 		NonceInterval: time.Millisecond, // reduce wait time in tests
 	}
 
@@ -76,8 +78,9 @@ func (s *XRPLProviderTestSuite) TestInit_ConnectError() {
 
 func (s *XRPLProviderTestSuite) TestRelayPacket() {
 	// Setup test data
-	mockSigner := mocks.NewMockSigner(s.ctrl)
-	mockSigner.EXPECT().GetAddress().Return("rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2").AnyTimes()
+	seed := "sEdVeuhfwHB6dMxgSBccJ7ZYGyLfySa"
+	w, _ := xrplwallet.FromSecret(seed)
+	mockSigner := walletxrpl.NewLocalSigner("test-local-signer", &w)
 
 	s.chainProvider.FreeSigners = make(chan wallet.Signer, 1)
 	s.chainProvider.FreeSigners <- mockSigner
@@ -101,14 +104,10 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 
 	// s.client expectations
 	s.client.EXPECT().CheckAndConnect().Return(nil)
-	s.client.EXPECT().GetAccountSequenceNumber(gomock.Any(), "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2").Return(uint32(10), nil)
-	s.client.EXPECT().Autofill(gomock.Any()).Return(nil)
+	s.client.EXPECT().GetAccountSequenceNumber(gomock.Any(), mockSigner.GetAddress()).Return(uint32(10), nil)
 	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(
 		xrpl.TxResult{TxHash: "HASH", Fee: "100"}, nil,
 	)
-
-	// mockSigner expectations
-	mockSigner.EXPECT().Sign(gomock.Any(), gomock.Any()).Return([]byte("signed_tx"), nil)
 
 	// Execute
 	err := s.chainProvider.RelayPacket(context.Background(), packet)

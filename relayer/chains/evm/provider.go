@@ -23,6 +23,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
+	gethwallet "github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
 var _ chains.ChainProvider = (*EVMChainProvider)(nil)
@@ -318,7 +319,7 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 		return nil, fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
 
-	signedTx, err := cp.signTx(tx, signer, wallet.NewPreSignPayload(tssMessage, rAddress, signature))
+	signedTx, err := cp.signTx(tx, signer, wallet.NewTssPayload(tssMessage, rAddress, signature))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign an evm transaction: %w", err)
 	}
@@ -740,7 +741,7 @@ func (cp *EVMChainProvider) CreateCalldata(tssMessage bytes.HexBytes, rAddress b
 func (cp *EVMChainProvider) signTx(
 	tx *gethtypes.Transaction,
 	signer wallet.Signer,
-	preSignPayload wallet.PreSignPayload,
+	preSignPayload wallet.TssPayload,
 ) (*gethtypes.Transaction, error) {
 	var (
 		rlpEncoded []byte
@@ -793,7 +794,7 @@ func (cp *EVMChainProvider) signTx(
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
-	signature, err := signer.Sign(rlpEncoded, preSignPayload)
+	signature, err := gethwallet.SignEvmTx(signer, rlpEncoded, preSignPayload)
 	if err != nil {
 		return nil, err
 	}

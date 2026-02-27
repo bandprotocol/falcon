@@ -194,18 +194,19 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	var targetLatestSeq *uint64
-
-	switch t.TargetChainProvider.ChainType() {
-	case chaintypes.ChainTypeEVM:
-		latestSeq := targetContractInfo.LatestSequence
-		targetLatestSeq = &latestSeq
-	case chaintypes.ChainTypeXRPL:
-		// For XRPL, we use the lastRelayedSeq to track the latest sequence
-		targetLatestSeq = &t.lastRelayedSequence
+	latestSeq := targetContractInfo.LatestSequence
+	// always use lastRelayedSequence for XRPL
+	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
+		// use BandChain latest sequence - 1 to force relay Bandchain latest packet
+		// for the first time relaying
+		if (t.lastRelayedAt.Equal(time.Time{})) {
+			latestSeq = tunnelInfo.LatestSequence - 1
+		} else {
+			latestSeq = t.lastRelayedSequence
+		}
 	}
 
-	t.updateRelayerMetrics(tunnelInfo, targetContractInfo, targetLatestSeq)
+	t.updateRelayerMetrics(tunnelInfo, targetContractInfo, latestSeq)
 
 	// check if the target contract is active
 	t.isTargetChainActive = targetContractInfo.IsActive
@@ -214,17 +215,6 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		return 0, nil
 	}
 
-	// check that target contract always relays packets or not
-	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-		if t.lastRelayedSequence == 0 || (t.lastRelayedSequence != 0 && t.lastRelayedSequence >= tunnelInfo.LatestSequence) {
-			t.Log.Debug("No new packet to relay", "sequence", t.lastRelayedSequence)
-			return 0, nil
-		}
-
-		return tunnelInfo.LatestSequence, nil
-	}
-
-	latestSeq := *targetLatestSeq
 	nextSeq := latestSeq + 1
 	if tunnelInfo.LatestSequence < nextSeq {
 		t.Log.Debug("No new packet to relay", "sequence", latestSeq)
@@ -244,25 +234,25 @@ func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
 func (t *TunnelRelayer) updateRelayerMetrics(
 	tunnelInfo *types.Tunnel,
 	targetContractInfo *chaintypes.Tunnel,
-	targetLatestSeq *uint64,
+	latestSeq uint64,
 ) {
-	// Specifically for XRPL, if it is the first time relaying (targetLatestSeq is nil)
-	// don't set unrelayed packets metrics
-	// because we don't know the latest sequence on the target chain
-	if targetLatestSeq != nil {
-		// update the metric for unrelayed packets based on the difference
-		// between the latest sequences on BandChain and the target chain
-		unrelayedPackets := tunnelInfo.LatestSequence - *targetLatestSeq
-		relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPackets)
+	chainType := t.TargetChainProvider.ChainType()
+	// update the metric for the number of active target contracts
+	if targetContractInfo.IsActive && !t.isTargetChainActive {
+		relayermetrics.IncActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType.String())
+	} else if !targetContractInfo.IsActive && t.isTargetChainActive {
+		relayermetrics.DecActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType.String())
 	}
 
-	// update the metric for the number of active target contracts
-	chainType := t.TargetChainProvider.ChainType().String()
-	if targetContractInfo.IsActive && !t.isTargetChainActive {
-		relayermetrics.IncActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType)
-	} else if !targetContractInfo.IsActive && t.isTargetChainActive {
-		relayermetrics.DecActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType)
+	// Unknown latest sequence for first time xrpl relay
+	if (chainType == chaintypes.ChainTypeXRPL && t.lastRelayedAt.Equal(time.Time{})) {
+		return
 	}
+
+	// update the metric for unrelayed packets based on the difference
+	// between the latest sequences on BandChain and the target chain
+	unrelayedPackets := tunnelInfo.LatestSequence - latestSeq
+	relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPackets)
 }
 
 // relayPacket relays the packet to the target chain.

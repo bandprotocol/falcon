@@ -56,17 +56,17 @@ func (r *RemoteSigner) GetAddress() (addr string) {
 	return r.Address.String()
 }
 
-// Sign requests the remote KMS to sign the data and returns the signature.
-func (r *RemoteSigner) Sign(data []byte, preSignPayload wallet.PreSignPayload) ([]byte, error) {
+// remoteSign requests the remote KMS to sign the data and returns the signature.
+func (r *RemoteSigner) remoteSign(data []byte, tssPayload wallet.TssPayload) ([]byte, error) {
 	ctx := context.Background()
 	if r.Key != nil {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))
 	}
 
 	tss := &fkmsv1.Tss{
-		Message:    preSignPayload.TssMessage,
-		RandomAddr: preSignPayload.RandomAddr,
-		SignatureS: preSignPayload.Signature,
+		Message:    tssPayload.TssMessage,
+		RandomAddr: tssPayload.RandomAddr,
+		SignatureS: tssPayload.Signature,
 	}
 
 	res, err := r.FkmsClient.SignEvm(

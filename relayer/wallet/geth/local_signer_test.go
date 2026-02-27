@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -46,18 +45,4 @@ func (s *LocalSignerTestSuite) TestGetAddress() {
 	expected := crypto.PubkeyToAddress(priv.PublicKey).Hex()
 
 	s.Equal(expected, s.ls.GetAddress())
-}
-
-func (s *LocalSignerTestSuite) TestSign() {
-	data := []byte("hello world")
-
-	sig, err := s.ls.Sign(data, wallet.PreSignPayload{})
-	s.Require().NoError(err)
-
-	hash := crypto.Keccak256(data)
-	pubkey, err := crypto.SigToPub(hash, sig)
-	s.Require().NoError(err)
-	recovered := crypto.PubkeyToAddress(*pubkey).Hex()
-
-	s.Equal(s.ls.GetAddress(), recovered)
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
-func TestLocalSigner(t *testing.T) {
+func TestSign(t *testing.T) {
 	// Root account secret for testing
 	seed := "sEdVeuhfwHB6dMxgSBccJ7ZYGyLfySa"
 	w, err := xrplwallet.FromSecret(seed)

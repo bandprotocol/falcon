@@ -1,7 +1,6 @@
 package geth_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,8 +8,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
-	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
-	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -64,21 +61,4 @@ func (s *RemoteSignerTestSuite) TestGetName() {
 func (s *RemoteSignerTestSuite) TestGetAddress() {
 	got := s.rs.GetAddress()
 	s.Equal(common.HexToAddress(address).Hex(), got)
-}
-
-func (s *RemoteSignerTestSuite) TestSign() {
-	payload := []byte{0x01, 0x02, 0x03}
-	expected := []byte{0xaa, 0xbb, 0xcc}
-
-	s.mockClient.
-		EXPECT().
-		SignEvm(
-			gomock.Any(),
-			&fkmsv1.SignEvmRequest{Address: strings.ToLower(address), TxMessage: payload, Tss: &fkmsv1.Tss{}},
-		).
-		Return(&fkmsv1.SignEvmResponse{Signature: expected}, nil)
-
-	sig, err := s.rs.Sign(payload, wallet.PreSignPayload{})
-	s.Require().NoError(err)
-	s.Equal(expected, sig)
 }

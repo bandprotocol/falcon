@@ -84,18 +84,18 @@ func (mr *MockSignerMockRecorder) GetName() *gomock.Call {
 }
 
 // Sign mocks base method.
-func (m *MockSigner) Sign(data []byte, preSignPayload wallet.PreSignPayload) ([]byte, error) {
+func (m *MockSigner) Sign(payload any, tss wallet.TssPayload) (any, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Sign", data, preSignPayload)
-	ret0, _ := ret[0].([]byte)
+	ret := m.ctrl.Call(m, "Sign", payload, tss)
+	ret0, _ := ret[0].(any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Sign indicates an expected call of Sign.
-func (mr *MockSignerMockRecorder) Sign(data, preSignPayload any) *gomock.Call {
+func (mr *MockSignerMockRecorder) Sign(payload, tss any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockSigner)(nil).Sign), data, preSignPayload)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Sign", reflect.TypeOf((*MockSigner)(nil).Sign), payload, tss)
 }
 
 // MockWallet is a mock of Wallet interface.

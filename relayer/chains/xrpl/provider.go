@@ -2,15 +2,10 @@ package xrpl
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
 
-	binarycodec "github.com/Peersyst/xrpl-go/binary-codec"
-	ledger "github.com/Peersyst/xrpl-go/xrpl/ledger-entry-types"
-	"github.com/Peersyst/xrpl-go/xrpl/transaction"
-	xrpltypes "github.com/Peersyst/xrpl-go/xrpl/transaction/types"
 	"github.com/shopspring/decimal"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
@@ -21,6 +16,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
 const (
@@ -127,27 +123,6 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			}
 		}
 
-		tx, err := cp.buildOracleSetTx(packet, freeSigner.GetAddress(), sequence)
-		if err != nil {
-			log.Error("Build OracleSet transaction error", "retry_count", retryCount, err)
-			lastErr = err
-			continue
-		}
-
-		if err := cp.Client.Autofill(&tx); err != nil {
-			log.Error("Autofill transaction error", "retry_count", retryCount, err)
-			lastErr = err
-			continue
-		}
-
-		// use binarycodec.Encode instead of []byte to prevent type change when decode again
-		encodedTx, err := binarycodec.Encode(tx)
-		if err != nil {
-			log.Error("Encode transaction error", "retry_count", retryCount, err)
-			lastErr = err
-			continue
-		}
-
 		signing, err := chains.SelectSigning(packet)
 		if err != nil {
 			log.Error("Select signing error", "retry_count", retryCount, err)
@@ -155,20 +130,20 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			continue
 		}
 
-		preSignPayload := wallet.NewPreSignPayload(
+		signerPayload := xrpl.NewSignerPayload(packet.SignalPrices, freeSigner.GetAddress(), packet.TunnelID, cp.Config.Fee, uint64(sequence), uint64(packet.CreatedAt))
+
+		tssPayload := wallet.NewTssPayload(
 			signing.Message,
 			signing.EVMSignature.RAddress,
 			signing.EVMSignature.Signature,
 		)
 
-		txBlobBytes, err := freeSigner.Sign([]byte(encodedTx), preSignPayload)
+		txBlob, err := xrpl.SignXrplTx(freeSigner, signerPayload, tssPayload)
 		if err != nil {
 			log.Error("Sign transaction error", "retry_count", retryCount, err)
 			lastErr = err
 			continue
 		}
-
-		txBlobStr := hex.EncodeToString(txBlobBytes)
 
 		var balance *big.Int
 		if cp.DB != nil {
@@ -185,7 +160,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			}
 		}
 
-		txResult, err := cp.Client.BroadcastTx(ctx, txBlobStr)
+		txResult, err := cp.Client.BroadcastTx(ctx, txBlob)
 		if err != nil {
 			log.Error("Broadcast transaction error", "retry_count", retryCount, err)
 			lastErr = err
@@ -253,107 +228,6 @@ func (cp *XRPLChainProvider) ChainType() types.ChainType {
 func (cp *XRPLChainProvider) LoadSigners() error {
 	cp.FreeSigners = chains.LoadSigners(cp.Wallet)
 	return nil
-}
-
-func (cp *XRPLChainProvider) buildOracleSetTx(
-	packet *bandtypes.Packet,
-	signerAddress string,
-	sequence uint32,
-) (transaction.FlatTransaction, error) {
-	providerHex, err := StringToHex(provider, 0)
-	if err != nil {
-		return transaction.FlatTransaction{}, err
-	}
-	dataClassHex, err := StringToHex(dataClass, 0)
-	if err != nil {
-		return transaction.FlatTransaction{}, err
-	}
-
-	priceDataSeries := make([]ledger.PriceDataWrapper, 0, len(packet.SignalPrices))
-
-	for _, p := range packet.SignalPrices {
-		baseAsset, quoteAsset, err := ParseAssetsFromSignal(p.SignalID)
-		if err != nil {
-			return transaction.FlatTransaction{}, err
-		}
-
-		priceDataSeries = append(priceDataSeries, ledger.PriceDataWrapper{
-			PriceData: ledger.PriceData{
-				BaseAsset:  baseAsset,
-				QuoteAsset: quoteAsset,
-				AssetPrice: p.Price,
-				Scale:      priceScale,
-			},
-		})
-	}
-
-	tx := &transaction.OracleSet{
-		BaseTx: transaction.BaseTx{
-			Account:         xrpltypes.Address(signerAddress),
-			TransactionType: transaction.OracleSetTx,
-			Sequence:        sequence,
-			Fee:             xrpltypes.XRPCurrencyAmount(cp.Config.Fee),
-		},
-		OracleDocumentID: uint32(packet.TunnelID),
-		LastUpdatedTime:  uint32(packet.CreatedAt),
-		Provider:         providerHex,
-		AssetClass:       dataClassHex,
-		PriceDataSeries:  priceDataSeries,
-	}
-
-	flattenedTx := tx.Flatten()
-
-	formattedPriceTx, err := FormatAssetPrice(flattenedTx)
-	if err != nil {
-		return transaction.FlatTransaction{}, err
-	}
-
-	flattenedTx["PriceDataSeries"] = formattedPriceTx
-
-	return flattenedTx, nil
-}
-
-func FormatAssetPrice(tx map[string]any) ([]map[string]any, error) {
-	// Look for the PriceDataSeries in the flattened map
-	priceDataSeries, ok := tx["PriceDataSeries"].([]map[string]any)
-	if !ok {
-		// If it's not there, it's either not an OracleSet or already empty
-		return nil, nil
-	}
-
-	for i, priceDataWrapper := range priceDataSeries {
-		// Access the inner PriceData object
-		priceData, ok := priceDataWrapper["PriceData"].(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("failed to get PriceData at index %d", i)
-		}
-
-		// Ensure AssetPrice is a uint64 hex string
-		// In Go, after transaction flattening, AssetPrice might be a uint64 or a string
-		if rawPrice, ok := priceData["AssetPrice"]; ok {
-			var hexStr string
-			var err error
-			switch v := rawPrice.(type) {
-			case string:
-				hexStr, err = Uint64StrToHexStr(v)
-				if err != nil {
-					return nil, fmt.Errorf("failed to convert AssetPrice string at index %d: %w", i, err)
-				}
-			case uint64:
-				hexStr = fmt.Sprintf("%016X", v)
-			default:
-				return nil, fmt.Errorf("unexpected type for AssetPrice at index %d: %T", i, v)
-			}
-
-			// Re-assign as a clean uint64 hex string.
-			// The XRPL Binary Codec will encode this into the correct 8-byte big-endian format.
-			priceData["AssetPrice"] = hexStr
-		} else {
-			return nil, fmt.Errorf("failed to get AssetPrice at index %d", i)
-		}
-	}
-
-	return priceDataSeries, nil
 }
 
 // prepareTransaction prepares the transaction to be stored in the database.

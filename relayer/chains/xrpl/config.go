@@ -16,7 +16,7 @@ var _ chains.ChainProviderConfig = &XRPLChainProviderConfig{}
 type XRPLChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	Fee           uint64        `mapstructure:"fee"         toml:"fee"`
+	Fee           string        `mapstructure:"fee"         toml:"fee"`
 	NonceInterval time.Duration `mapstructure:"nonce_interval" toml:"nonce_interval"`
 }
 

@@ -58,6 +58,7 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 	s.tunnelRelayer = &tunnelRelayer
 
 	s.chainProvider.EXPECT().GetChainName().Return("").AnyTimes()
+	s.chainProvider.EXPECT().ChainType().Return(chaintypes.ChainTypeEVM).AnyTimes()
 }
 
 func TestTunnelRelayerTestSuite(t *testing.T) {
@@ -135,14 +136,6 @@ func createMockPacket(
 }
 
 func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
-	var currentChainType chaintypes.ChainType
-	s.chainProvider.EXPECT().
-		ChainType().
-		DoAndReturn(func() chaintypes.ChainType {
-			return currentChainType
-		}).
-		AnyTimes()
-
 	testcases := []struct {
 		name        string
 		preprocess  func()
@@ -378,17 +371,48 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 
 	for _, tc := range testcases {
 		s.T().Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockChainProvider := mocks.NewMockChainProvider(ctrl)
+			mockClient := mocks.NewMockClient(ctrl)
+
+			tunnelRelayer := relayer.NewTunnelRelayer(
+				logger.NewZapLogWrapper(zap.NewNop().Sugar()),
+				defaultTunnelID,
+				defaultCheckingPacketInterval,
+				mockClient,
+				mockChainProvider,
+				nil,
+			)
+
+			mockChainProvider.EXPECT().GetChainName().Return("").AnyTimes()
+
 			chainType := tc.chainType
 			if chainType == chaintypes.ChainTypeUndefined {
 				chainType = chaintypes.ChainTypeEVM
 			}
-			currentChainType = chainType
+			mockChainProvider.EXPECT().ChainType().Return(chainType).AnyTimes()
+
+			// Helper to match helper functions that use the suite fields
+			// We temporarily swap the suite fields for the subtest
+			oldClient := s.client
+			oldProvider := s.chainProvider
+			oldRelayer := s.tunnelRelayer
+			s.client = mockClient
+			s.chainProvider = mockChainProvider
+			s.tunnelRelayer = &tunnelRelayer
+			defer func() {
+				s.client = oldClient
+				s.chainProvider = oldProvider
+				s.tunnelRelayer = oldRelayer
+			}()
 
 			if tc.preprocess != nil {
 				tc.preprocess()
 			}
 
-			relayStatus, err := s.tunnelRelayer.CheckAndRelay(s.ctx, false)
+			relayStatus, err := tunnelRelayer.CheckAndRelay(s.ctx, false)
 			s.Require().Equal(tc.relayStatus, relayStatus)
 			if tc.err != nil {
 				s.Require().ErrorContains(err, tc.err.Error())

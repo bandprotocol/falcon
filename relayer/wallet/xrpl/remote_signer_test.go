@@ -1,6 +1,7 @@
 package xrpl_test
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,8 +37,11 @@ func TestRemoteSigner(t *testing.T) {
 	assert.Error(t, err)
 
 	// Test Sign
-	txHex := []byte("tx-payload")
-	preSignPayload := &wallet.PreSignPayload{
+	signerPayload := xrpl.SignerPayload{
+		Account: address,
+		Fee:     "100",
+	}
+	preSignPayload := &wallet.TssPayload{
 		TssMessage: []byte("tss-msg"),
 		RandomAddr: []byte("random-addr"),
 		Signature:  []byte("signature"),
@@ -47,8 +51,10 @@ func TestRemoteSigner(t *testing.T) {
 	mockFkmsClient.EXPECT().SignXrpl(
 		gomock.Any(),
 		&fkmsv1.SignXrplRequest{
-			Address:   address,
-			TxMessage: txHex,
+			SignerPayload: &fkmsv1.XrplSignerPayload{
+				Account: signerPayload.Account,
+				Fee:     signerPayload.Fee,
+			},
 			Tss: &fkmsv1.Tss{
 				Message:    preSignPayload.TssMessage,
 				RandomAddr: preSignPayload.RandomAddr,
@@ -57,7 +63,7 @@ func TestRemoteSigner(t *testing.T) {
 		},
 	).Return(&fkmsv1.SignXrplResponse{TxBlob: expectedTxBlob}, nil)
 
-	signedBlob, err := signer.Sign(txHex, *preSignPayload)
+	signedBlob, err := xrpl.SignXrplTx(signer, signerPayload, *preSignPayload)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedTxBlob, signedBlob)
+	assert.Equal(t, hex.EncodeToString(expectedTxBlob), signedBlob)
 }

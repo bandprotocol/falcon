@@ -21,9 +21,8 @@ message SignEvmResponse {
 }
 
 message SignXrplRequest {
-  string address = 1;
-  bytes tx_message = 2;
-  Tss tss = 3;
+  XrplSignerPayload signer_payload = 1;
+  Tss tss = 2;
 }
 
 message SignXrplResponse {
@@ -34,6 +33,20 @@ message GetSignerAddressesRequest {}
 
 message GetSignerAddressesResponse {
   repeated string addresses = 1;
+}
+
+message XrplSignerPayload {
+  repeated Signal signals = 1;
+  string account = 2;
+  uint64 oracle_id = 3;
+  string fee = 4;
+  uint64 sequence = 5;
+  uint64 last_updated_time = 6;
+}
+
+message Signal {
+  string signal_id = 1;
+  uint64 price = 2;
 }
 
 message Tss {

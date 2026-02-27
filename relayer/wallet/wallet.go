@@ -4,7 +4,6 @@ type Signer interface {
 	ExportPrivateKey() (string, error)
 	GetName() string
 	GetAddress() (addr string)
-	Sign(data []byte, preSignPayload PreSignPayload) ([]byte, error)
 }
 
 type Wallet interface {
@@ -17,14 +16,14 @@ type Wallet interface {
 	GetSigner(name string) (Signer, bool)
 }
 
-type PreSignPayload struct {
+type TssPayload struct {
 	TssMessage []byte
 	RandomAddr []byte
 	Signature  []byte
 }
 
-func NewPreSignPayload(tssMessage, randomAddr, signature []byte) PreSignPayload {
-	return PreSignPayload{
+func NewTssPayload(tssMessage, randomAddr, signature []byte) TssPayload {
+	return TssPayload{
 		TssMessage: tssMessage,
 		RandomAddr: randomAddr,
 		Signature:  signature,
