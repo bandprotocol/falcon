@@ -56,16 +56,22 @@ func (r *RemoteSigner) GetAddress() (addr string) {
 	return r.Address.String()
 }
 
-// Sign requests the remote KMS to sign the data and returns the signature.
-func (r *RemoteSigner) Sign(data []byte) ([]byte, error) {
+// remoteSign requests the remote KMS to sign the data and returns the signature.
+func (r *RemoteSigner) remoteSign(data []byte, tssPayload wallet.TssPayload) ([]byte, error) {
 	ctx := context.Background()
 	if r.Key != nil {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))
 	}
 
+	tss := &fkmsv1.Tss{
+		Message:    tssPayload.TssMessage,
+		RandomAddr: tssPayload.RandomAddr,
+		SignatureS: tssPayload.Signature,
+	}
+
 	res, err := r.FkmsClient.SignEvm(
 		ctx,
-		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},
+		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), TxMessage: data, Tss: tss},
 	)
 	if err != nil {
 		return []byte{}, err

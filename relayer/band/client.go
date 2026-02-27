@@ -306,6 +306,7 @@ func (c *client) GetTunnelPacket(ctx context.Context, tunnelID uint64, sequence 
 		signalPrices,
 		currentGroupSigning,
 		incomingGroupSigning,
+		resPacket.Packet.CreatedAt,
 	), nil
 }
 

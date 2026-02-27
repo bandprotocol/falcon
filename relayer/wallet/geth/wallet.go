@@ -1,14 +1,15 @@
 package geth
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	toml "github.com/pelletier/go-toml/v2"
 
 	"github.com/bandprotocol/falcon/internal/os"
@@ -20,6 +21,8 @@ var _ wallet.Wallet = &GethWallet{}
 const (
 	LocalSignerType  = "local"
 	RemoteSignerType = "remote"
+
+	hdPathTemplate = "m/44'/%d'/%d'/0/%d"
 )
 
 // GethWallet manages local and remote signers for a specific chain.
@@ -105,15 +108,20 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 	}, nil
 }
 
-// SavePrivateKey imports the ECDSA key into the keystore and writes its signer record.
-func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (addr string, err error) {
+// SaveByPrivateKey imports the ECDSA key into the keystore and writes its signer record.
+func (w *GethWallet) SaveByPrivateKey(name string, secret string) (addr string, err error) {
 	// check if the key name exists
 	if _, ok := w.Signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
+	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
+	if err != nil {
+		return "", err
+	}
+
 	// derive the Ethereum address from the pubkey and check exist or not
-	addr = crypto.PubkeyToAddress(privKey.PublicKey).Hex()
+	addr = crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
 
 	// check if the address is already added
 	if w.IsAddressExist(addr) {
@@ -121,7 +129,7 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (add
 	}
 
 	// save the signer
-	_, err = w.Store.ImportECDSA(privKey, w.Passphrase)
+	_, err = w.Store.ImportECDSA(privateKey, w.Passphrase)
 	if err != nil {
 		return "", err
 	}
@@ -132,6 +140,43 @@ func (w *GethWallet) SavePrivateKey(name string, privKey *ecdsa.PrivateKey) (add
 	}
 
 	return addr, nil
+}
+
+// SaveByFamilySeed does not support for EVM chain
+func (w *GethWallet) SaveByFamilySeed(name string, familySeed string) (addr string, err error) {
+	return "", fmt.Errorf("EVM chain does not support family seed")
+}
+
+// SaveByMnemonic derives the ECDSA key from the mnemonic and stores it as a local signer.
+func (w *GethWallet) SaveByMnemonic(
+	name string,
+	mnemonic string,
+	coinType uint32,
+	account uint,
+	index uint,
+) (addr string, err error) {
+	if mnemonic == "" {
+		return "", fmt.Errorf("mnemonic is empty")
+	}
+
+	hdWallet, err := hdwallet.NewFromMnemonic(mnemonic)
+	if err != nil {
+		return "", err
+	}
+
+	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
+	derivationPath := hdwallet.MustParseDerivationPath(hdPath)
+	ethAccount, err := hdWallet.Derive(derivationPath, true)
+	if err != nil {
+		return "", err
+	}
+
+	privHex, err := hdWallet.PrivateKeyHex(ethAccount)
+	if err != nil {
+		return "", err
+	}
+
+	return w.SaveByPrivateKey(name, privHex)
 }
 
 // SaveRemoteSignerKey registers a remote signer under the given name,
