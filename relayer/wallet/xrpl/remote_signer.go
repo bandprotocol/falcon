@@ -62,19 +62,10 @@ func (r *RemoteSigner) remoteSign(signerPayload SignerPayload, tssPayload wallet
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))
 	}
 
-	var signals []*fkmsv1.Signal
-	for _, signal := range signerPayload.SignalPrices {
-		signals = append(signals, &fkmsv1.Signal{
-			SignalId: signal.SignalID,
-			Price:    signal.Price,
-		})
-	}
-
 	res, err := r.FkmsClient.SignXrpl(
 		ctx,
 		&fkmsv1.SignXrplRequest{
 			SignerPayload: &fkmsv1.XrplSignerPayload{
-				Signals:         signals,
 				Account:         signerPayload.Account,
 				OracleId:        signerPayload.OracleId,
 				Fee:             signerPayload.Fee,

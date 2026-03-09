@@ -319,7 +319,7 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 		return nil, fmt.Errorf("failed to create an evm transaction: %w", err)
 	}
 
-	signedTx, err := cp.signTx(tx, signer, wallet.NewTssPayload(tssMessage, rAddress, signature))
+	signedTx, err := cp.signTx(tx, signer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign an evm transaction: %w", err)
 	}
@@ -741,7 +741,6 @@ func (cp *EVMChainProvider) CreateCalldata(tssMessage bytes.HexBytes, rAddress b
 func (cp *EVMChainProvider) signTx(
 	tx *gethtypes.Transaction,
 	signer wallet.Signer,
-	preSignPayload wallet.TssPayload,
 ) (*gethtypes.Transaction, error) {
 	var (
 		rlpEncoded []byte
@@ -794,7 +793,7 @@ func (cp *EVMChainProvider) signTx(
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
-	signature, err := gethwallet.SignEvmTx(signer, rlpEncoded, preSignPayload)
+	signature, err := gethwallet.SignEvmTx(signer, rlpEncoded)
 	if err != nil {
 		return nil, err
 	}
