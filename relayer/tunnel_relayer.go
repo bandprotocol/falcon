@@ -199,7 +199,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
 		// use BandChain latest sequence - 1 to force relay Bandchain latest packet
 		// for the first time relaying
-		if (t.lastRelayedAt.Equal(time.Time{})) {
+		if t.lastRelayedAt.IsZero() {
 			latestSeq = tunnelInfo.LatestSequence - 1
 		} else {
 			latestSeq = t.lastRelayedSequence
@@ -270,9 +270,6 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 	t.lastRelayedAt = time.Now()
 	relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 	t.Log.Info("Successfully relayed packet", "sequence", packet.Sequence)
-	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-		t.lastRelayedSequence = packet.Sequence
-	}
 
 	return nil
 }
