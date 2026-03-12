@@ -44,14 +44,6 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 	return wallet.NewBaseWallet(homePath, chainName, adapter)
 }
 
-// NormalizeAddress returns the EIP-55 checksummed form of a hex address, or an error if invalid.
-func (a *GethAdapter) NormalizeAddress(addr string) (string, error) {
-	if !common.IsHexAddress(addr) {
-		return "", fmt.Errorf("invalid address: %s", addr)
-	}
-	return common.HexToAddress(addr).Hex(), nil
-}
-
 // DeriveFromPrivateKey parses the hex private key, derives the address and creates
 // a LocalSigner without persisting the key to the keystore.
 func (a *GethAdapter) DeriveFromPrivateKey(name, secret string) (wallet.Signer, error) {

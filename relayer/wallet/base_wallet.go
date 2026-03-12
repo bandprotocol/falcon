@@ -12,10 +12,6 @@ import (
 // WalletAdapter defines chain-specific wallet operations.
 // Implement this interface to add support for a new chain type.
 type WalletAdapter interface {
-	// NormalizeAddress returns the canonical form of the address, or an error if it is invalid.
-	// Use the returned form for storage and comparison.
-	NormalizeAddress(addr string) (string, error)
-
 	// DeriveFromPrivateKey parses the private key and creates a signer
 	// without persisting the secret.
 	DeriveFromPrivateKey(name, privateKey string) (Signer, error)
@@ -45,8 +41,9 @@ type WalletAdapter interface {
 // It delegates chain-specific operations to the embedded WalletAdapter.
 type BaseWallet struct {
 	Adapter WalletAdapter
-	keyDir  []string
 	Signers map[string]Signer
+
+	keyDir []string
 }
 
 var _ Wallet = (*BaseWallet)(nil)
@@ -146,16 +143,11 @@ func (w *BaseWallet) SaveRemoteSignerKey(name, address, url string, key *string)
 		return fmt.Errorf("key name exists: %s", name)
 	}
 
-	normalizedAddr, err := w.Adapter.NormalizeAddress(address)
-	if err != nil {
-		return err
+	if w.IsAddressExist(address) {
+		return fmt.Errorf("address exists: %s", address)
 	}
 
-	if w.IsAddressExist(normalizedAddr) {
-		return fmt.Errorf("address exists: %s", normalizedAddr)
-	}
-
-	record := NewKeyRecord(RemoteSignerType, normalizedAddr, url, key)
+	record := NewKeyRecord(RemoteSignerType, address, url, key)
 	if err := w.saveKeyRecord(name, record); err != nil {
 		return err
 	}
@@ -206,13 +198,8 @@ func (w *BaseWallet) GetSigner(name string) (Signer, bool) {
 
 // IsAddressExist returns true if the given address is already registered.
 func (w *BaseWallet) IsAddressExist(address string) bool {
-	normNew, err := w.Adapter.NormalizeAddress(address)
-	if err != nil {
-		return false
-	}
 	for _, signer := range w.Signers {
-		normExist, _ := w.Adapter.NormalizeAddress(signer.GetAddress())
-		if normExist == normNew {
+		if signer.GetAddress() == address {
 			return true
 		}
 	}

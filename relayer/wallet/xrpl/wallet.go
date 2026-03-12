@@ -36,14 +36,6 @@ func NewXRPLWallet(passphrase, homePath, chainName string) (*XRPLWallet, error) 
 	return wallet.NewBaseWallet(homePath, chainName, adapter)
 }
 
-// NormalizeAddress returns the address unchanged if valid, or an error if it is not a valid XRPL classic address.
-func (a *XRPLAdapter) NormalizeAddress(addr string) (string, error) {
-	if !addresscodec.IsValidClassicAddress(addr) {
-		return "", fmt.Errorf("invalid address: %s", addr)
-	}
-	return addr, nil
-}
-
 // DeriveFromPrivateKey is not supported for XRPL.
 func (a *XRPLAdapter) DeriveFromPrivateKey(name, privateKey string) (wallet.Signer, error) {
 	return nil, fmt.Errorf("XRPL does not support private key")
