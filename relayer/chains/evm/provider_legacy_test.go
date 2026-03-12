@@ -55,7 +55,7 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	s.chainName = "testnet"
 	s.homePath = s.T().TempDir()
 
-	gethWallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	gethWallet, err := geth.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())

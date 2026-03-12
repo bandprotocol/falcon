@@ -9,41 +9,12 @@ import (
 	"github.com/bandprotocol/falcon/internal/os"
 )
 
-// WalletAdapter defines chain-specific wallet operations.
-// Implement this interface to add support for a new chain type.
-type WalletAdapter interface {
-	// DeriveFromPrivateKey parses the private key and creates a signer
-	// without persisting the secret.
-	DeriveFromPrivateKey(name, privateKey string) (Signer, error)
-
-	// DeriveFromMnemonic derives from a mnemonic and creates a signer
-	// without persisting the secret.
-	DeriveFromMnemonic(
-		name, mnemonic string,
-		coinType uint32,
-		account uint,
-		index uint,
-	) (Signer, error)
-
-	// PersistKey stores the secret in chain-specific secure storage.
-	// The secret parameter carries the original input (private key or mnemonic).
-	PersistKey(name string, signer Signer, secret string) error
-
-	// LoadSigner reconstructs a Signer from a persisted KeyRecord, handling both local and remote types.
-	LoadSigner(name string, record KeyRecord) (Signer, error)
-
-	// DeleteLocalSecret removes the locally stored secret for the named key.
-	// It should be a no-op for remote signers.
-	DeleteLocalSecret(name string, signer Signer) error
-}
-
 // BaseWallet provides shared wallet logic for all chain types.
 // It delegates chain-specific operations to the embedded WalletAdapter.
 type BaseWallet struct {
-	Adapter WalletAdapter
-	Signers map[string]Signer
-
-	keyDir []string
+	adapter WalletAdapter
+	signers map[string]Signer
+	keyDir  []string
 }
 
 var _ Wallet = (*BaseWallet)(nil)
@@ -66,36 +37,21 @@ func NewBaseWallet(homePath, chainName string, adapter WalletAdapter) (*BaseWall
 		signers[name] = signer
 	}
 
-	return &BaseWallet{Adapter: adapter, keyDir: keyDir, Signers: signers}, nil
+	return &BaseWallet{adapter: adapter, keyDir: keyDir, signers: signers}, nil
 }
 
 // SaveByPrivateKey imports from a raw private key.
 func (w *BaseWallet) SaveByPrivateKey(name string, privateKey string) (string, error) {
-	if _, ok := w.Signers[name]; ok {
+	if _, ok := w.signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
-	signer, err := w.Adapter.DeriveFromPrivateKey(name, privateKey)
+	signer, err := w.adapter.DeriveFromPrivateKey(name, privateKey)
 	if err != nil {
 		return "", err
 	}
-	addr := signer.GetAddress()
 
-	if w.IsAddressExist(addr) {
-		return "", fmt.Errorf("address exists: %s", addr)
-	}
-
-	if err := w.Adapter.PersistKey(name, signer, privateKey); err != nil {
-		return "", err
-	}
-
-	record := NewKeyRecord(LocalSignerType, addr, "", nil)
-	if err := w.saveKeyRecord(name, record); err != nil {
-		return "", err
-	}
-
-	w.Signers[name] = signer
-	return addr, nil
+	return w.saveLocalSigner(name, signer, privateKey)
 }
 
 // SaveByMnemonic imports from a mnemonic phrase.
@@ -106,7 +62,7 @@ func (w *BaseWallet) SaveByMnemonic(
 	account uint,
 	index uint,
 ) (string, error) {
-	if _, ok := w.Signers[name]; ok {
+	if _, ok := w.signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
@@ -114,17 +70,23 @@ func (w *BaseWallet) SaveByMnemonic(
 		return "", fmt.Errorf("mnemonic is empty")
 	}
 
-	signer, err := w.Adapter.DeriveFromMnemonic(name, mnemonic, coinType, account, index)
+	signer, err := w.adapter.DeriveFromMnemonic(name, mnemonic, coinType, account, index)
 	if err != nil {
 		return "", err
 	}
+
+	return w.saveLocalSigner(name, signer, mnemonic)
+}
+
+// saveLocalSigner persists a derived local signer and registers it.
+func (w *BaseWallet) saveLocalSigner(name string, signer Signer, secret string) (string, error) {
 	addr := signer.GetAddress()
 
 	if w.IsAddressExist(addr) {
 		return "", fmt.Errorf("address exists: %s", addr)
 	}
 
-	if err := w.Adapter.PersistKey(name, signer, mnemonic); err != nil {
+	if err := w.adapter.PersistKey(name, signer, secret); err != nil {
 		return "", err
 	}
 
@@ -133,13 +95,13 @@ func (w *BaseWallet) SaveByMnemonic(
 		return "", err
 	}
 
-	w.Signers[name] = signer
+	w.signers[name] = signer
 	return addr, nil
 }
 
 // SaveRemoteSignerKey registers a remote signer.
 func (w *BaseWallet) SaveRemoteSignerKey(name, address, url string, key *string) error {
-	if _, ok := w.Signers[name]; ok {
+	if _, ok := w.signers[name]; ok {
 		return fmt.Errorf("key name exists: %s", name)
 	}
 
@@ -152,23 +114,23 @@ func (w *BaseWallet) SaveRemoteSignerKey(name, address, url string, key *string)
 		return err
 	}
 
-	signer, err := w.Adapter.LoadSigner(name, record)
+	signer, err := w.adapter.LoadSigner(name, record)
 	if err != nil {
 		return err
 	}
 
-	w.Signers[name] = signer
+	w.signers[name] = signer
 	return nil
 }
 
 // DeleteKey removes the signer and its records.
 func (w *BaseWallet) DeleteKey(name string) error {
-	signer, ok := w.Signers[name]
+	signer, ok := w.signers[name]
 	if !ok {
 		return fmt.Errorf("key name does not exist: %s", name)
 	}
 
-	if err := w.Adapter.DeleteLocalSecret(name, signer); err != nil {
+	if err := w.adapter.DeleteLocalSecret(name, signer); err != nil {
 		return err
 	}
 
@@ -176,14 +138,14 @@ func (w *BaseWallet) DeleteKey(name string) error {
 		return err
 	}
 
-	delete(w.Signers, name)
+	delete(w.signers, name)
 	return nil
 }
 
 // GetSigners lists all signers.
 func (w *BaseWallet) GetSigners() []Signer {
-	signers := make([]Signer, 0, len(w.Signers))
-	for _, signer := range w.Signers {
+	signers := make([]Signer, 0, len(w.signers))
+	for _, signer := range w.signers {
 		signers = append(signers, signer)
 	}
 
@@ -192,13 +154,13 @@ func (w *BaseWallet) GetSigners() []Signer {
 
 // GetSigner returns the signer with the given name and a flag indicating if it was found.
 func (w *BaseWallet) GetSigner(name string) (Signer, bool) {
-	signer, ok := w.Signers[name]
+	signer, ok := w.signers[name]
 	return signer, ok
 }
 
 // IsAddressExist returns true if the given address is already registered.
 func (w *BaseWallet) IsAddressExist(address string) bool {
-	for _, signer := range w.Signers {
+	for _, signer := range w.signers {
 		if signer.GetAddress() == address {
 			return true
 		}

@@ -66,7 +66,7 @@ func (s *SenderTestSuite) SetupTest() {
 
 	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
-	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	wallet, err := geth.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	_, err = evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
@@ -86,7 +86,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 
 	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
-	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	wallet, err := geth.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)

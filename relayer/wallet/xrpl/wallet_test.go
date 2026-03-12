@@ -29,7 +29,7 @@ func TestXRPLWallet(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 1: Initialize empty wallet
-	w, err := xrpl.NewXRPLWallet(passphrase, tmpHome, chainName)
+	w, err := xrpl.NewWallet(passphrase, tmpHome, chainName)
 	require.NoError(t, err)
 	assert.Empty(t, w.GetSigners())
 
@@ -65,7 +65,7 @@ func TestXRPLWallet(t *testing.T) {
 
 	// Step 6: Test re-initialization (should load saved keys)
 	// We need to re-create the wallet object to simulate restart
-	w2, err := xrpl.NewXRPLWallet(passphrase, tmpHome, chainName)
+	w2, err := xrpl.NewWallet(passphrase, tmpHome, chainName)
 	assert.NoError(t, err)
 	assert.Len(t, w2.GetSigners(), 1)
 	assert.True(t, w2.IsAddressExist(addr3))

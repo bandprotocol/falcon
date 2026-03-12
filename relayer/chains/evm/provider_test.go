@@ -102,7 +102,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	chainName := "testnet"
 	s.chainName = chainName
 
-	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	wallet, err := geth.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())

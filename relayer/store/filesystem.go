@@ -105,9 +105,9 @@ func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
 func (fs *FileSystem) NewWallet(chainType chainstypes.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
 	switch chainType {
 	case chainstypes.ChainTypeEVM:
-		return geth.NewGethWallet(passphrase, fs.HomePath, chainName)
+		return geth.NewWallet(passphrase, fs.HomePath, chainName)
 	case chainstypes.ChainTypeXRPL:
-		return xrpl.NewXRPLWallet(passphrase, fs.HomePath, chainName)
+		return xrpl.NewWallet(passphrase, fs.HomePath, chainName)
 	default:
 		return nil, fmt.Errorf("unsupported chain type: %s", chainType)
 	}

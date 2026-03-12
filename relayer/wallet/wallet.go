@@ -3,7 +3,7 @@ package wallet
 type Signer interface {
 	ExportPrivateKey() (string, error)
 	GetName() string
-	GetAddress() (addr string)
+	GetAddress() string
 	Sign(payload []byte, tssPayload TssPayload) ([]byte, error)
 }
 

@@ -45,7 +45,7 @@ func (l *LocalSigner) GetName() string {
 }
 
 // GetAddress returns the signer's classic address.
-func (l *LocalSigner) GetAddress() (addr string) {
+func (l *LocalSigner) GetAddress() string {
 	return l.Wallet.ClassicAddress.String()
 }
 

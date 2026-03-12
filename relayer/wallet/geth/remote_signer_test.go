@@ -37,7 +37,7 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 	testKey := "testKey"
 	rs, err := geth.NewRemoteSigner(
 		name,
-		common.HexToAddress(address),
+		address,
 		url,
 		&testKey,
 	)

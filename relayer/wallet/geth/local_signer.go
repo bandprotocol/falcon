@@ -41,7 +41,7 @@ func (l *LocalSigner) GetName() (addr string) {
 }
 
 // GetAddress returns the signer's address.
-func (l *LocalSigner) GetAddress() (addr string) {
+func (l *LocalSigner) GetAddress() string {
 	return crypto.PubkeyToAddress(l.privateKey.PublicKey).String()
 }
 

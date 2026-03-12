@@ -1,6 +1,7 @@
 package geth
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,8 +18,11 @@ type RemoteSigner struct {
 }
 
 // NewRemoteSigner creates a new RemoteSigner instance.
-func NewRemoteSigner(name string, address common.Address, url string, key *string) (*RemoteSigner, error) {
-	base, err := wallet.NewBaseRemoteSigner(name, address.String(), url, key)
+func NewRemoteSigner(name, address, url string, key *string) (*RemoteSigner, error) {
+	if !common.IsHexAddress(address) {
+		return nil, fmt.Errorf("invalid EVM address: %s", address)
+	}
+	base, err := wallet.NewBaseRemoteSigner(name, common.HexToAddress(address).Hex(), url, key)
 	if err != nil {
 		return nil, err
 	}
