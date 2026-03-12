@@ -330,7 +330,6 @@ func (c *client) Autofill(tx *transaction.FlatTransaction) error {
 }
 
 // BroadcastTx submits a signed tx blob and returns its hash.
-// (Ignore tecINVALID_UPDATE_TIME error because it needs to update actual packet timestamp)
 func (c *client) BroadcastTx(ctx context.Context, txBlob string) (TxResult, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
