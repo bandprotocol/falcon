@@ -12,7 +12,7 @@ service FkmsService {
 
 message SignEvmRequest {
   string address = 1;
-  bytes tx_message = 2;
+  bytes message = 2;
 }
 
 message SignEvmResponse {
@@ -31,19 +31,28 @@ message SignXrplResponse {
 message GetSignerAddressesRequest {}
 
 message GetSignerAddressesResponse {
-  repeated string addresses = 1;
+  repeated Signers signers = 1;
 }
 
 message XrplSignerPayload {
-  string account = 2;
-  uint64 oracle_id = 3;
-  string fee = 4;
-  uint64 sequence = 5;
-  uint64 last_updated_time = 6;
+  string account = 1;
+  uint64 oracle_id = 2;
+  string fee = 3;
+  uint64 sequence = 4;
 }
 
 message Tss {
   bytes message = 1;
   bytes random_addr = 2;
   bytes signature_s = 3;
+}
+
+message Signers {
+  ChainType chain_type = 1;
+  repeated string addresses = 2;
+}
+
+enum ChainType {
+  EVM = 0;
+  XRPL = 1;
 }

@@ -65,7 +65,7 @@ func (r *RemoteSigner) remoteSign(data []byte) ([]byte, error) {
 
 	res, err := r.FkmsClient.SignEvm(
 		ctx,
-		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), TxMessage: data},
+		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address.String()), Message: data},
 	)
 	if err != nil {
 		return []byte{}, err
