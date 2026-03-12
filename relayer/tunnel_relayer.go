@@ -244,11 +244,6 @@ func (t *TunnelRelayer) updateRelayerMetrics(
 		relayermetrics.DecActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType.String())
 	}
 
-	// Unknown latest sequence for first time xrpl relay
-	if (chainType == chaintypes.ChainTypeXRPL && t.lastRelayedAt.Equal(time.Time{})) {
-		return
-	}
-
 	// update the metric for unrelayed packets based on the difference
 	// between the latest sequences on BandChain and the target chain
 	unrelayedPackets := tunnelInfo.LatestSequence - latestSeq
