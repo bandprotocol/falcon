@@ -2,18 +2,7 @@ package xrpl
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
-
-func TestGetXRPLKeyDir(t *testing.T) {
-	home := "/home/user"
-	chain := "xrpl-mainnet"
-	expected := []string{"/home/user", "keys", "xrpl-mainnet", "metadata"}
-
-	got := getXRPLKeyDir(home, chain)
-	assert.Equal(t, expected, got)
-}
 
 // TestStringToHex tests hex encoding with optional length padding
 func TestStringToHex(t *testing.T) {

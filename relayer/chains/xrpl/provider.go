@@ -2,6 +2,7 @@ package xrpl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -139,12 +140,20 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			signing.EVMSignature.Signature,
 		)
 
-		txBlob, err := xrpl.SignXrplTx(freeSigner, signerPayload, tssPayload)
+		payloadBytes, err := json.Marshal(signerPayload)
+		if err != nil {
+			log.Error("Marshal signer payload error", "retry_count", retryCount, err)
+			lastErr = err
+			continue
+		}
+
+		result, err := freeSigner.Sign(payloadBytes, tssPayload)
 		if err != nil {
 			log.Error("Sign transaction error", "retry_count", retryCount, err)
 			lastErr = err
 			continue
 		}
+		txBlob := string(result)
 
 		var balance *big.Int
 		if cp.DB != nil {

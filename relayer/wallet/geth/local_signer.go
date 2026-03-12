@@ -45,9 +45,9 @@ func (l *LocalSigner) GetAddress() (addr string) {
 	return crypto.PubkeyToAddress(l.privateKey.PublicKey).String()
 }
 
-// localSign hashes the input data which is RLP encoded with Keccak256, signs it, and returns the signature.
-func (l *LocalSigner) localSign(data []byte) ([]byte, error) {
-	hash := crypto.Keccak256(data)
+// Sign hashes the input data which is RLP encoded with Keccak256, signs it, and returns the signature.
+func (l *LocalSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) {
+	hash := crypto.Keccak256(payload)
 
 	return crypto.Sign(hash, l.privateKey)
 }

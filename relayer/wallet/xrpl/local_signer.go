@@ -1,6 +1,7 @@
 package xrpl
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"github.com/Peersyst/xrpl-go/xrpl/ledger-entry-types"
@@ -48,15 +49,19 @@ func (l *LocalSigner) GetAddress() (addr string) {
 	return l.Wallet.ClassicAddress.String()
 }
 
-// localSign signs the provided transaction payload and returns the signed tx blob.
-func (l *LocalSigner) localSign(signerPayload SignerPayload) (string, error) {
+// Sign signs the provided transaction payload and returns the signed tx blob.
+func (l *LocalSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) {
+	var signerPayload SignerPayload
+	if err := json.Unmarshal(payload, &signerPayload); err != nil {
+		return nil, err
+	}
 	providerHex, err := StringToHex(provider, 0)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	dataClassHex, err := StringToHex(dataClass, 0)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	priceDataSeries := make([]ledger.PriceDataWrapper, 0, len(signerPayload.SignalPrices))
@@ -64,7 +69,7 @@ func (l *LocalSigner) localSign(signerPayload SignerPayload) (string, error) {
 	for _, p := range signerPayload.SignalPrices {
 		baseAsset, quoteAsset, err := ParseAssetsFromSignal(p.SignalID)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		priceDataSeries = append(priceDataSeries, ledger.PriceDataWrapper{
@@ -79,7 +84,7 @@ func (l *LocalSigner) localSign(signerPayload SignerPayload) (string, error) {
 
 	feeUint64, err := strconv.ParseUint(signerPayload.Fee, 10, 64)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	tx := &transaction.OracleSet{
@@ -100,8 +105,8 @@ func (l *LocalSigner) localSign(signerPayload SignerPayload) (string, error) {
 
 	txBlob, _, err := l.Wallet.Sign(flattenedTx)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return txBlob, nil
+	return []byte(txBlob), nil
 }

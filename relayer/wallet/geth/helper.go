@@ -20,8 +20,3 @@ func HexToETHAddress(s string) (common.Address, error) {
 func getEVMKeyStoreDir(homePath, chainName string) []string {
 	return []string{homePath, "keys", chainName, "priv"}
 }
-
-// getEVMMetadataDir returns the metadata record directory
-func getEVMMetadataDir(homePath, chainName string) []string {
-	return []string{homePath, "keys", chainName, "metadata"}
-}

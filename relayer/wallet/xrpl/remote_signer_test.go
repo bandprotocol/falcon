@@ -2,6 +2,7 @@ package xrpl_test
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,7 +64,10 @@ func TestRemoteSigner(t *testing.T) {
 		},
 	).Return(&fkmsv1.SignXrplResponse{TxBlob: expectedTxBlob}, nil)
 
-	signedBlob, err := xrpl.SignXrplTx(signer, signerPayload, *preSignPayload)
+	payload, err := json.Marshal(signerPayload)
 	assert.NoError(t, err)
-	assert.Equal(t, hex.EncodeToString(expectedTxBlob), signedBlob)
+
+	signedBlob, err := signer.Sign(payload, *preSignPayload)
+	assert.NoError(t, err)
+	assert.Equal(t, hex.EncodeToString(expectedTxBlob), string(signedBlob))
 }

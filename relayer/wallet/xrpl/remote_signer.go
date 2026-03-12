@@ -2,6 +2,7 @@ package xrpl
 
 import (
 	"encoding/hex"
+	"encoding/json"
 
 	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet"
@@ -24,8 +25,12 @@ func NewRemoteSigner(name, address, url string, key *string) (*RemoteSigner, err
 	return &RemoteSigner{BaseRemoteSigner: *base}, nil
 }
 
-// remoteSign requests the remote KMS to sign the data and returns the tx blob.
-func (r *RemoteSigner) remoteSign(signerPayload SignerPayload, tssPayload wallet.TssPayload) (string, error) {
+// Sign requests the remote KMS to sign the data and returns the tx blob.
+func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byte, error) {
+	var signerPayload SignerPayload
+	if err := json.Unmarshal(payload, &signerPayload); err != nil {
+		return nil, err
+	}
 	res, err := r.FkmsClient.SignXrpl(
 		r.ContextWithKey(),
 		&fkmsv1.SignXrplRequest{
@@ -43,8 +48,8 @@ func (r *RemoteSigner) remoteSign(signerPayload SignerPayload, tssPayload wallet
 		},
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return hex.EncodeToString(res.TxBlob), nil
+	return []byte(hex.EncodeToString(res.TxBlob)), nil
 }

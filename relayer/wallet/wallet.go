@@ -4,6 +4,7 @@ type Signer interface {
 	ExportPrivateKey() (string, error)
 	GetName() string
 	GetAddress() (addr string)
+	Sign(payload []byte, tssPayload TssPayload) ([]byte, error)
 }
 
 type Wallet interface {

@@ -23,7 +23,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
-	gethwallet "github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
 var _ chains.ChainProvider = (*EVMChainProvider)(nil)
@@ -794,7 +793,7 @@ func (cp *EVMChainProvider) signTx(
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
-	signature, err := gethwallet.SignEvmTx(signer, rlpEncoded)
+	signature, err := signer.Sign(rlpEncoded, wallet.TssPayload{})
 	if err != nil {
 		return nil, err
 	}

@@ -26,11 +26,11 @@ func NewRemoteSigner(name string, address common.Address, url string, key *strin
 	return &RemoteSigner{BaseRemoteSigner: *base}, nil
 }
 
-// remoteSign requests the remote KMS to sign the data and returns the signature.
-func (r *RemoteSigner) remoteSign(data []byte) ([]byte, error) {
+// Sign requests the remote KMS to sign the data and returns the signature.
+func (r *RemoteSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) {
 	res, err := r.FkmsClient.SignEvm(
 		r.ContextWithKey(),
-		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address), Message: data},
+		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address), Message: payload},
 	)
 	if err != nil {
 		return []byte{}, err

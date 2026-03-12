@@ -41,37 +41,25 @@ func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) 
 		store:      store,
 	}
 
-	return wallet.NewBaseWallet(adapter)
+	return wallet.NewBaseWallet(homePath, chainName, adapter)
 }
 
-// GetKeyDir returns the metadata directory path for key records.
-func (a *GethAdapter) GetKeyDir() []string {
-	return getEVMMetadataDir(a.homePath, a.chainName)
-}
-
-// ValidateAddress checks if the address is a valid hex address.
-func (a *GethAdapter) ValidateAddress(address string) error {
-	if !common.IsHexAddress(address) {
-		return fmt.Errorf("invalid address: %s", address)
+// NormalizeAddress returns the EIP-55 checksummed form of a hex address, or an error if invalid.
+func (a *GethAdapter) NormalizeAddress(addr string) (string, error) {
+	if !common.IsHexAddress(addr) {
+		return "", fmt.Errorf("invalid address: %s", addr)
 	}
-	return nil
-}
-
-// CompareAddresses returns true if two hex addresses refer to the same account.
-func (a *GethAdapter) CompareAddresses(addrA, addrB string) bool {
-	return common.HexToAddress(addrA).Cmp(common.HexToAddress(addrB)) == 0
+	return common.HexToAddress(addr).Hex(), nil
 }
 
 // DeriveFromPrivateKey parses the hex private key, derives the address and creates
 // a LocalSigner without persisting the key to the keystore.
-func (a *GethAdapter) DeriveFromPrivateKey(name, secret string) (string, wallet.Signer, error) {
+func (a *GethAdapter) DeriveFromPrivateKey(name, secret string) (wallet.Signer, error) {
 	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-
-	addr := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-	return addr, NewLocalSigner(name, privateKey), nil
+	return NewLocalSigner(name, privateKey), nil
 }
 
 // DeriveFromMnemonic derives an ECDSA key from a mnemonic via the BIP-44 HD path
@@ -81,26 +69,25 @@ func (a *GethAdapter) DeriveFromMnemonic(
 	coinType uint32,
 	account uint,
 	index uint,
-) (string, wallet.Signer, string, error) {
+) (wallet.Signer, error) {
 	hdWallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
-		return "", nil, "", err
+		return nil, err
 	}
 
 	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
 	derivationPath := hdwallet.MustParseDerivationPath(hdPath)
 	ethAccount, err := hdWallet.Derive(derivationPath, true)
 	if err != nil {
-		return "", nil, "", err
+		return nil, err
 	}
 
 	privHex, err := hdWallet.PrivateKeyHex(ethAccount)
 	if err != nil {
-		return "", nil, "", err
+		return nil, err
 	}
 
-	addr, signer, err := a.DeriveFromPrivateKey(name, privHex)
-	return addr, signer, "", err
+	return a.DeriveFromPrivateKey(name, privHex)
 }
 
 // PersistKey imports the ECDSA key into the Geth keystore.
@@ -113,34 +100,33 @@ func (a *GethAdapter) PersistKey(name string, signer wallet.Signer, secret strin
 	return err
 }
 
-// LoadLocalSigner reconstructs a LocalSigner by exporting the key from the keystore.
-func (a *GethAdapter) LoadLocalSigner(name string, record wallet.KeyRecord) (wallet.Signer, error) {
-	gethAddr, err := HexToETHAddress(record.Address)
-	if err != nil {
-		return nil, err
+// LoadSigner reconstructs a Signer from a persisted KeyRecord.
+func (a *GethAdapter) LoadSigner(name string, record wallet.KeyRecord) (wallet.Signer, error) {
+	switch record.Type {
+	case wallet.LocalSignerType:
+		gethAddr, err := HexToETHAddress(record.Address)
+		if err != nil {
+			return nil, err
+		}
+		acc := accounts.Account{Address: gethAddr}
+		b, err := a.store.Export(acc, a.passphrase, a.passphrase)
+		if err != nil {
+			return nil, err
+		}
+		gethKey, err := keystore.DecryptKey(b, a.passphrase)
+		if err != nil {
+			return nil, err
+		}
+		return NewLocalSigner(name, gethKey.PrivateKey), nil
+	case wallet.RemoteSignerType:
+		gethAddr, err := HexToETHAddress(record.Address)
+		if err != nil {
+			return nil, err
+		}
+		return NewRemoteSigner(name, gethAddr, record.Url, record.Key)
+	default:
+		return nil, fmt.Errorf("unsupported signer type: %s for key %s", record.Type, name)
 	}
-
-	acc := accounts.Account{Address: gethAddr}
-	b, err := a.store.Export(acc, a.passphrase, a.passphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	gethKey, err := keystore.DecryptKey(b, a.passphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewLocalSigner(name, gethKey.PrivateKey), nil
-}
-
-// NewRemoteSigner creates a new RemoteSigner with a gRPC connection to the KMS.
-func (a *GethAdapter) NewRemoteSigner(name, address, url string, key *string) (wallet.Signer, error) {
-	gethAddr, err := HexToETHAddress(address)
-	if err != nil {
-		return nil, err
-	}
-	return NewRemoteSigner(name, gethAddr, url, key)
 }
 
 // DeleteLocalSecret removes the private key from the Geth keystore.

@@ -1,9 +1,12 @@
-package geth_test
+package wallet_test
 
 import (
+	stdos "os"
 	"path"
+	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bandprotocol/falcon/internal/os"
@@ -73,4 +76,37 @@ func TestLoadKeyRecords(t *testing.T) {
 			require.Equal(t, tc.expectedRecords, records)
 		})
 	}
+}
+
+func TestNewKeyRecord(t *testing.T) {
+	key := "test-key"
+	record := wallet.NewKeyRecord("local", "address", "url", &key)
+
+	assert.Equal(t, "local", record.Type)
+	assert.Equal(t, "address", record.Address)
+	assert.Equal(t, "url", record.Url)
+	assert.Equal(t, &key, record.Key)
+}
+
+func TestLoadKeyRecord(t *testing.T) {
+	tmpDir, err := stdos.MkdirTemp("", "wallet-test")
+	require.NoError(t, err)
+	defer stdos.RemoveAll(tmpDir)
+
+	keyName := "test-signer"
+	content := `
+type = "local"
+address = "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2"
+`
+	err = stdos.WriteFile(filepath.Join(tmpDir, keyName+".toml"), []byte(content), 0o600)
+	require.NoError(t, err)
+
+	records, err := wallet.LoadKeyRecords(tmpDir)
+	require.NoError(t, err)
+	assert.Len(t, records, 1)
+	assert.Contains(t, records, keyName)
+
+	record := records[keyName]
+	assert.Equal(t, "local", record.Type)
+	assert.Equal(t, "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2", record.Address)
 }

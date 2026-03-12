@@ -1,6 +1,7 @@
 package xrpl_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	xrplwallet "github.com/Peersyst/xrpl-go/xrpl/wallet"
@@ -33,7 +34,10 @@ func TestSign(t *testing.T) {
 		Fee:     "100",
 	}
 
-	signedBlob, err := xrpl.SignXrplTx(signer, signerPayload, wallet.TssPayload{})
+	payload, err := json.Marshal(signerPayload)
+	require.NoError(t, err)
+
+	signedBlob, err := signer.Sign(payload, wallet.TssPayload{})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, signedBlob)
 }

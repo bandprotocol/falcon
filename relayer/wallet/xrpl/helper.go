@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-// getXRPLKeyDir returns the key record directory.
-func getXRPLKeyDir(homePath, chainName string) []string {
-	return []string{homePath, "keys", chainName, "metadata"}
-}
-
 // ParseAssetsFromSignal parses a signal ID into base, quote assets and then convert them to hex string if length != 3
 func ParseAssetsFromSignal(signalID string) (string, string, error) {
 	var pair string

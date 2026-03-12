@@ -1,10 +1,7 @@
 package xrpl
 
 import (
-	"fmt"
-
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
-	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 type SignerPayload struct {
@@ -24,16 +21,5 @@ func NewSignerPayload(signalPrices []bandtypes.SignalPrice, account string, orac
 		Fee:             fee,
 		Sequence:        sequence,
 		LastUpdatedTime: lastUpdatedTime,
-	}
-}
-
-func SignXrplTx(signer wallet.Signer, signerPayload SignerPayload, tssPayload wallet.TssPayload) (string, error) {
-	switch s := signer.(type) {
-	case *LocalSigner:
-		return s.localSign(signerPayload)
-	case *RemoteSigner:
-		return s.remoteSign(signerPayload, tssPayload)
-	default:
-		return "", fmt.Errorf("unsupported signer type: %T", signer)
 	}
 }

@@ -17,21 +17,19 @@ const (
 
 // KeyRecord stores signer info on disk. All chain types use this unified format.
 type KeyRecord struct {
-	Type       string  `toml:"type"`
-	Address    string  `toml:"address,omitempty"`
-	Url        string  `toml:"url,omitempty"`
-	Key        *string `toml:"key,omitempty"`
-	SaveMethod string  `toml:"save_method,omitempty"`
+	Type    string  `toml:"type"`
+	Address string  `toml:"address,omitempty"`
+	Url     string  `toml:"url,omitempty"`
+	Key     *string `toml:"key,omitempty"`
 }
 
 // NewKeyRecord creates a new KeyRecord.
-func NewKeyRecord(signerType, address, url string, key *string, saveMethod string) KeyRecord {
+func NewKeyRecord(signerType, address, url string, key *string) KeyRecord {
 	return KeyRecord{
-		Type:       signerType,
-		Address:    address,
-		Url:        url,
-		Key:        key,
-		SaveMethod: saveMethod,
+		Type:    signerType,
+		Address: address,
+		Url:     url,
+		Key:     key,
 	}
 }
 
