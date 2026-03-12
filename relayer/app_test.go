@@ -22,6 +22,7 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -179,11 +180,39 @@ func (s *AppTestSuite) TestAddChainConfig() {
 			},
 			preprocess: func() {
 				chainCfgPath := path.Join(newHomePath, "chain_config.toml")
-				err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+				err := os.WriteFile(chainCfgPath, []byte(relayertest.EvmChainCfgText), 0o600)
 				s.Require().NoError(err)
 
 				cfg, err := config.ParseConfig([]byte(relayertest.DefaultCfgTextWithChainCfg))
 				s.Require().NoError(err)
+
+				s.store.EXPECT().SaveConfig(cfg).Return(nil)
+			},
+		},
+		{
+			name: "success - xrpl",
+			in: Input{
+				chainName:   "testnet_xrpl",
+				cfgPath:     path.Join(newHomePath, "xrpl_chain_config.toml"),
+				existingCfg: config.DefaultConfig(),
+			},
+			preprocess: func() {
+				chainCfgPath := path.Join(newHomePath, "xrpl_chain_config.toml")
+				err := os.WriteFile(chainCfgPath, []byte(relayertest.XrplChainCfgText), 0o600)
+				s.Require().NoError(err)
+
+				cfg := config.DefaultConfig()
+				cfg.TargetChains["testnet_xrpl"] = &xrpl.XRPLChainProviderConfig{
+					BaseChainProviderConfig: chains.BaseChainProviderConfig{
+						Endpoints:                  []string{"http://localhost:8545"},
+						ChainType:                  chainstypes.ChainTypeXRPL,
+						MaxRetry:                   3,
+						ChainID:                    144,
+						LivelinessCheckingInterval: 5 * time.Minute,
+					},
+					Fee:           "10",
+					NonceInterval: 5 * time.Minute,
+				}
 
 				s.store.EXPECT().SaveConfig(cfg).Return(nil)
 			},
@@ -215,7 +244,7 @@ func (s *AppTestSuite) TestAddChainConfig() {
 			},
 			preprocess: func() {
 				chainCfgPath := path.Join(newHomePath, "chain_config.toml")
-				err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+				err := os.WriteFile(chainCfgPath, []byte(relayertest.EvmChainCfgText), 0o600)
 				s.Require().NoError(err)
 			},
 			err: fmt.Errorf("existing chain name :"),

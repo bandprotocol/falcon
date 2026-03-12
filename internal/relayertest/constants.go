@@ -53,8 +53,11 @@ var CustomCfg = config.Config{
 	},
 }
 
-//go:embed testdata/chain_config.toml
-var ChainCfgText string
+//go:embed testdata/evm_chain_config.toml
+var EvmChainCfgText string
+
+//go:embed testdata/xrpl_chain_config.toml
+var XrplChainCfgText string
 
 //go:embed testdata/default_with_chain_config.toml
 var DefaultCfgTextWithChainCfg string

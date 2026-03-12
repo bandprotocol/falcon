@@ -29,7 +29,7 @@ func TestChainsAdd(t *testing.T) {
 	require.NoError(t, res.Err)
 
 	chainCfgPath := path.Join(sys.HomeDir, "chain_config.toml")
-	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.EvmChainCfgText), 0o600)
 	require.NoError(t, err)
 
 	require.FileExists(t, chainCfgPath)
@@ -55,6 +55,29 @@ func TestChainsAdd(t *testing.T) {
 	require.Empty(t, res.Stderr.String())
 }
 
+func TestChainsAddXrpl(t *testing.T) {
+	sys := relayertest.NewSystem(t)
+
+	res := sys.RunWithInput(t, "config", "init")
+	require.NoError(t, res.Err)
+
+	chainCfgPath := path.Join(sys.HomeDir, "xrpl_chain_config.toml")
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.XrplChainCfgText), 0o600)
+	require.NoError(t, err)
+
+	require.FileExists(t, chainCfgPath)
+
+	// Add chain
+	res = sys.RunWithInput(t, "chains", "add", "testnet_xrpl", chainCfgPath)
+	require.Empty(t, res.Stdout.String())
+	require.Empty(t, res.Stderr.String())
+
+	// List chains to check
+	res = sys.RunWithInput(t, "chains", "list")
+	require.Contains(t, res.Stdout.String(), "testnet_xrpl -> type(xrpl)")
+	require.Empty(t, res.Stderr.String())
+}
+
 func TestChainsDelete(t *testing.T) {
 	sys := relayertest.NewSystem(t)
 
@@ -62,7 +85,7 @@ func TestChainsDelete(t *testing.T) {
 	require.NoError(t, res.Err)
 
 	chainCfgPath := path.Join(sys.HomeDir, "chain_config.toml")
-	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.EvmChainCfgText), 0o600)
 	require.NoError(t, err)
 
 	require.FileExists(t, chainCfgPath)
@@ -103,7 +126,7 @@ func TestChainsShow(t *testing.T) {
 	require.NoError(t, res.Err)
 
 	chainCfgPath := path.Join(sys.HomeDir, "chain_config.toml")
-	err := os.WriteFile(chainCfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	err := os.WriteFile(chainCfgPath, []byte(relayertest.EvmChainCfgText), 0o600)
 	require.NoError(t, err)
 
 	require.FileExists(t, chainCfgPath)
@@ -121,7 +144,7 @@ func TestChainsShow(t *testing.T) {
 	require.NoError(t, err)
 
 	var actualChainCfg map[string]interface{}
-	err = toml.Unmarshal([]byte(relayertest.ChainCfgText), &actualChainCfg)
+	err = toml.Unmarshal([]byte(relayertest.EvmChainCfgText), &actualChainCfg)
 	require.NoError(t, err)
 
 	require.Equal(t, expectedChainCfg, actualChainCfg)

@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
-	"github.com/bandprotocol/falcon/relayer/chains/evm"
 )
 
 // ChainsCmd returns a command that manages chain configurations.
@@ -119,13 +118,7 @@ chains list`),
 
 			i := 1
 			for chainName, chainProviderConfig := range cfg.TargetChains {
-				out := "%d: %s -> type(%s)"
-				switch cp := chainProviderConfig.(type) {
-				case *evm.EVMChainProviderConfig:
-					fmt.Fprintln(cmd.OutOrStdout(), fmt.Sprintf(out, i, chainName, cp.ChainType.String()))
-				default:
-					return fmt.Errorf("unsupported chain provider type for chain: %s", chainName)
-				}
+				fmt.Fprintln(cmd.OutOrStdout(), fmt.Sprintf("%d: %s -> type(%s)", i, chainName, chainProviderConfig.GetChainType()))
 				i++
 			}
 			return nil

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 )
@@ -71,6 +73,21 @@ func TestParseChainProviderConfig(t *testing.T) {
 					Endpoints: []string{"http://localhost:8545"},
 					ChainType: chainstypes.ChainTypeEVM,
 				},
+			},
+		},
+		{
+			name: "valid xrpl chain",
+			in: config.ChainProviderConfigWrapper{
+				"chain_type": "xrpl",
+				"endpoints":  []string{"http://localhost:8545"},
+				"fee":         "10",
+			},
+			out: &xrpl.XRPLChainProviderConfig{
+				BaseChainProviderConfig: chains.BaseChainProviderConfig{
+					Endpoints: []string{"http://localhost:8545"},
+					ChainType: chainstypes.ChainTypeXRPL,
+				},
+				Fee: "10",
 			},
 		},
 		{
@@ -156,7 +173,7 @@ func TestLoadChainConfig(t *testing.T) {
 	chainName := "testnet"
 
 	// write config file
-	err := os.WriteFile(cfgPath, []byte(relayertest.ChainCfgText), 0o600)
+	err := os.WriteFile(cfgPath, []byte(relayertest.EvmChainCfgText), 0o600)
 	require.NoError(t, err)
 
 	// load chain config
@@ -164,6 +181,33 @@ func TestLoadChainConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	expect := relayertest.CustomCfg.TargetChains[chainName]
+
+	require.Equal(t, expect, actual)
+}
+
+func TestLoadXrplChainConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := path.Join(tmpDir, "xrpl_chain_config.toml")
+
+	// write config file
+	err := os.WriteFile(cfgPath, []byte(relayertest.XrplChainCfgText), 0o600)
+	require.NoError(t, err)
+
+	// load chain config
+	actual, err := config.LoadChainConfig(cfgPath)
+	require.NoError(t, err)
+
+	expect := &xrpl.XRPLChainProviderConfig{
+		BaseChainProviderConfig: chains.BaseChainProviderConfig{
+			Endpoints:                  []string{"http://localhost:8545"},
+			ChainType:                  chainstypes.ChainTypeXRPL,
+			MaxRetry:                   3,
+			ChainID:                    144,
+			LivelinessCheckingInterval: 5 * time.Minute,
+		},
+		Fee:           "10",
+		NonceInterval: 5 * time.Minute,
+	}
 
 	require.Equal(t, expect, actual)
 }
