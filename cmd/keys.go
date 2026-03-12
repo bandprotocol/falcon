@@ -16,7 +16,7 @@ import (
 const (
 	privateKeyLabel = "Private key (provide an existing private key)"
 	mnemonicLabel   = "Mnemonic (recover from an existing mnemonic phrase)"
-	defaultLabel    = "Generate new address (no private key or secret or mnemonic needed)"
+	defaultLabel    = "Generate new address (no private key or mnemonic needed)"
 )
 
 const (
