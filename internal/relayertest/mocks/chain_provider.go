@@ -86,20 +86,6 @@ func (mr *MockChainProviderMockRecorder) Init(ctx any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockChainProvider)(nil).Init), ctx)
 }
 
-// LoadSigners mocks base method.
-func (m *MockChainProvider) LoadSigners() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadSigners")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// LoadSigners indicates an expected call of LoadSigners.
-func (mr *MockChainProviderMockRecorder) LoadSigners() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadSigners", reflect.TypeOf((*MockChainProvider)(nil).LoadSigners))
-}
-
 // QueryBalance mocks base method.
 func (m *MockChainProvider) QueryBalance(ctx context.Context, keyName string) (*big.Int, error) {
 	m.ctrl.T.Helper()

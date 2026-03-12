@@ -87,6 +87,7 @@ func NewEVMChainProvider(
 		Log:                 log.With("chain_name", chainName),
 		Wallet:              wallet,
 		Alert:               alert,
+		FreeSigners:         chains.LoadSigners(wallet),
 	}, nil
 }
 

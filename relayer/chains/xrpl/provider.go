@@ -60,6 +60,7 @@ func NewXRPLChainProvider(
 		Log:       log.With("chain_name", chainName),
 		Wallet:    wallet,
 		Alert:     alert,
+		FreeSigners: chains.LoadSigners(wallet),
 	}
 }
 
@@ -224,11 +225,7 @@ func (cp *XRPLChainProvider) ChainType() types.ChainType {
 	return types.ChainTypeXRPL
 }
 
-// LoadSigners loads signers to prepare to relay the packet.
-func (cp *XRPLChainProvider) LoadSigners() error {
-	cp.FreeSigners = chains.LoadSigners(cp.Wallet)
-	return nil
-}
+
 
 // prepareTransaction prepares the transaction to be stored in the database.
 func (cp *XRPLChainProvider) prepareTransaction(

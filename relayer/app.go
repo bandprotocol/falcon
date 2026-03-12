@@ -435,14 +435,6 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 
 	// initialize target chain providers
 	for chainName, chainProvider := range a.TargetChains {
-		if err := chainProvider.LoadSigners(); err != nil {
-			a.Log.Error("Cannot load keys in target chain",
-				"chain_name", chainName,
-				err,
-			)
-			return err
-		}
-
 		if err := chainProvider.Init(ctx); err != nil {
 			a.Log.Error("Cannot initialize chain provider",
 				"chain_name", chainName,
@@ -491,14 +483,6 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 	chainProvider, ok := a.TargetChains[tunnel.TargetChainID]
 	if !ok {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
-	}
-
-	if err := chainProvider.LoadSigners(); err != nil {
-		a.Log.Error("Cannot load keys in target chain",
-			"chain_name", tunnel.TargetChainID,
-			err,
-		)
-		return err
 	}
 
 	tr := NewTunnelRelayer(

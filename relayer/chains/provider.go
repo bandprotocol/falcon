@@ -38,7 +38,4 @@ type ChainProvider interface {
 
 	// GetChainType retrieves the chain type from the chain provider.
 	ChainType() chainstypes.ChainType
-
-	// LoadSigners loads signers to prepare to relay the packet
-	LoadSigners() error
 }
