@@ -98,10 +98,8 @@ var _ Client = (*client)(nil)
 
 // client is the concrete implementation that handles XRPL JSON-RPC interactions.
 type client struct {
-	ChainName      string
-	Endpoints      []string
-	QueryTimeout   time.Duration
-	ExecuteTimeout time.Duration
+	ChainName string
+	Endpoints []string
 
 	Log   logger.Logger
 	alert alert.Alert
@@ -117,13 +115,11 @@ type TxResult struct {
 // NewClient creates a new XRPL client from config.
 func NewClient(chainName string, cfg *XRPLChainProviderConfig, log logger.Logger, alert alert.Alert) Client {
 	return &client{
-		ChainName:      chainName,
-		Endpoints:      cfg.Endpoints,
-		QueryTimeout:   cfg.QueryTimeout,
-		ExecuteTimeout: cfg.ExecuteTimeout,
-		Log:            log.With("chain_name", chainName),
-		alert:          alert,
-		clients:        NewXRPLClients(),
+		ChainName: chainName,
+		Endpoints: cfg.Endpoints,
+		Log:       log.With("chain_name", chainName),
+		alert:     alert,
+		clients:   NewXRPLClients(),
 	}
 }
 
@@ -146,8 +142,7 @@ func (c *client) Connect() error {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
-			timeout := c.QueryTimeout
-			opts := []rpc.ConfigOpt{rpc.WithTimeout(timeout)}
+			opts := []rpc.ConfigOpt{}
 			cfg, err := rpc.NewClientConfig(endpoint, opts...)
 			if err != nil {
 				c.Log.Warn("XRPL endpoint config error", "endpoint", endpoint, err)
