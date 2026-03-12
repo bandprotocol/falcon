@@ -55,6 +55,8 @@ func (s *XRPLProviderTestSuite) SetupTest() {
 		NonceInterval: time.Millisecond, // reduce wait time in tests
 	}
 
+	s.wallet.EXPECT().GetSigners().Return(nil).AnyTimes()
+
 	cp := xrpl.NewXRPLChainProvider("xrpl-test", s.client, cfg, s.log, s.wallet, s.alert)
 	s.chainProvider = cp
 }
