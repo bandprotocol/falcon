@@ -14,8 +14,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
-	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 	"github.com/bandprotocol/falcon/relayer/config"
 )
 
@@ -80,7 +80,7 @@ func TestParseChainProviderConfig(t *testing.T) {
 			in: config.ChainProviderConfigWrapper{
 				"chain_type": "xrpl",
 				"endpoints":  []string{"http://localhost:8545"},
-				"fee":         "10",
+				"fee":        "10",
 			},
 			out: &xrpl.XRPLChainProviderConfig{
 				BaseChainProviderConfig: chains.BaseChainProviderConfig{

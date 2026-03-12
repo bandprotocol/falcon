@@ -54,12 +54,12 @@ func NewXRPLChainProvider(
 	alert alert.Alert,
 ) *XRPLChainProvider {
 	return &XRPLChainProvider{
-		Config:    cfg,
-		ChainName: chainName,
-		Client:    client,
-		Log:       log.With("chain_name", chainName),
-		Wallet:    wallet,
-		Alert:     alert,
+		Config:      cfg,
+		ChainName:   chainName,
+		Client:      client,
+		Log:         log.With("chain_name", chainName),
+		Wallet:      wallet,
+		Alert:       alert,
 		FreeSigners: chains.LoadSigners(wallet),
 	}
 }
@@ -224,8 +224,6 @@ func (cp *XRPLChainProvider) GetChainName() string { return cp.ChainName }
 func (cp *XRPLChainProvider) ChainType() types.ChainType {
 	return types.ChainTypeXRPL
 }
-
-
 
 // prepareTransaction prepares the transaction to be stored in the database.
 func (cp *XRPLChainProvider) prepareTransaction(
