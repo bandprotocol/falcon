@@ -108,42 +108,6 @@ func (w *XRPLWallet) SaveByPrivateKey(name string, privateKey string) (addr stri
 	return "", fmt.Errorf("XRPL does not support private key")
 }
 
-// SaveByFamilySeed stores the family seed in keyring and writes its record.
-func (w *XRPLWallet) SaveByFamilySeed(name string, familySeed string) (addr string, err error) {
-	if _, ok := w.Signers[name]; ok {
-		return "", fmt.Errorf("key name exists: %s", name)
-	}
-
-	privWallet, err := xrplwallet.FromSecret(familySeed)
-	if err != nil {
-		return
-	}
-
-	addr = privWallet.ClassicAddress.String()
-
-	if w.IsAddressExist(addr) {
-		return "", fmt.Errorf("address exists: %s", addr)
-	}
-
-	kr, err := openXRPLKeyring(w.Passphrase, w.HomePath, w.ChainName)
-	if err != nil {
-		return "", err
-	}
-
-	if err := setXRPLSecret(kr, w.ChainName, name, familySeed); err != nil {
-		return "", err
-	}
-
-	record := NewKeyRecord(LocalSignerType, "", "", nil, SaveMethodSeed)
-	if err := w.saveKeyRecord(name, record); err != nil {
-		return "", err
-	}
-
-	w.Signers[name] = NewLocalSigner(name, &privWallet)
-
-	return addr, nil
-}
-
 // SaveByMnemonic stores the mnemonic in keyring and writes its record.
 func (w *XRPLWallet) SaveByMnemonic(
 	name string,

@@ -33,15 +33,7 @@ func TestXRPLWallet(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, w.GetSigners())
 
-	// Step 2: Save key by family seed
-	name1 := "seed-key"
-	seed := "sEdVeuhfwHB6dMxgSBccJ7ZYGyLfySa"
-	addr1, err := w.SaveByFamilySeed(name1, seed)
-	require.NoError(t, err)
-	assert.NotEmpty(t, addr1)
-	assert.True(t, w.IsAddressExist(addr1))
-
-	// Step 3: Save key by mnemonic
+	// Step 2: Save key by mnemonic
 	name2 := "mnemonic-key"
 	mnemonic := "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 	addr2, err := w.SaveByMnemonic(name2, mnemonic, 144, 0, 0)
@@ -57,25 +49,24 @@ func TestXRPLWallet(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, w.IsAddressExist(addr3))
 
-	// Step 5: Verify retrieval
+	// Step 4: Verify retrieval
 	signers := w.GetSigners()
-	require.Len(t, signers, 3)
+	require.Len(t, signers, 2)
 
-	signer, ok := w.GetSigner(name1)
+	signer, ok := w.GetSigner(name2)
 	require.True(t, ok)
-	assert.Equal(t, addr1, signer.GetAddress())
+	assert.Equal(t, addr2, signer.GetAddress())
 
-	// Step 6: Delete key
-	err = w.DeleteKey(name1)
+	// Step 5: Delete key
+	err = w.DeleteKey(name2)
 	assert.NoError(t, err)
-	assert.False(t, w.IsAddressExist(addr1))
-	assert.Len(t, w.GetSigners(), 2)
+	assert.False(t, w.IsAddressExist(addr2))
+	assert.Len(t, w.GetSigners(), 1)
 
-	// Step 7: Test re-initialization (should load saved keys)
+	// Step 6: Test re-initialization (should load saved keys)
 	// We need to re-create the wallet object to simulate restart
 	w2, err := xrpl.NewXRPLWallet(passphrase, tmpHome, chainName)
 	assert.NoError(t, err)
-	assert.Len(t, w2.GetSigners(), 2)
-	assert.True(t, w2.IsAddressExist(addr2))
+	assert.Len(t, w2.GetSigners(), 1)
 	assert.True(t, w2.IsAddressExist(addr3))
 }

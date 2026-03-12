@@ -142,11 +142,6 @@ func (w *GethWallet) SaveByPrivateKey(name string, secret string) (addr string, 
 	return addr, nil
 }
 
-// SaveByFamilySeed does not support for EVM chain
-func (w *GethWallet) SaveByFamilySeed(name string, familySeed string) (addr string, err error) {
-	return "", fmt.Errorf("EVM chain does not support family seed")
-}
-
 // SaveByMnemonic derives the ECDSA key from the mnemonic and stores it as a local signer.
 func (w *GethWallet) SaveByMnemonic(
 	name string,

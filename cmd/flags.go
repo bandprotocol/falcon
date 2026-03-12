@@ -9,7 +9,6 @@ const (
 
 	flagFile              = "file"
 	flagPrivateKey        = "private-key"
-	flagFamilySeed        = "family-seed"
 	flagMnemonic          = "mnemonic"
 	flagCoinType          = "coin-type"
 	flagWalletAccount     = "account"

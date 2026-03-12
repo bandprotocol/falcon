@@ -46,16 +46,6 @@ func AddKeyByMnemonic(
 	return chainstypes.NewKey(generatedMnemonic, addr, ""), nil
 }
 
-// AddKeyByFamilySeed adds a key using a family seed.
-func AddKeyByFamilySeed(w wallet.Wallet, keyName, familySeed string) (*chainstypes.Key, error) {
-	addr, err := w.SaveByFamilySeed(keyName, familySeed)
-	if err != nil {
-		return nil, err
-	}
-
-	return chainstypes.NewKey("", addr, ""), nil
-}
-
 // AddRemoteSignerKey adds a remote signer with the given name, address, and URL.
 func AddRemoteSignerKey(w wallet.Wallet, keyName, addr, url string, key *string) (*chainstypes.Key, error) {
 	if err := w.SaveRemoteSignerKey(keyName, addr, url, key); err != nil {

@@ -289,25 +289,6 @@ func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey st
 	return key, nil
 }
 
-// AddKeyByFamilySeed adds a new key to the chain provider using a family seed.
-func (a *App) AddKeyByFamilySeed(chainName string, keyName string, familySeed string) (*chainstypes.Key, error) {
-	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
-		return nil, err
-	}
-
-	w, err := a.getWallet(chainName)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := chains.AddKeyByFamilySeed(w, keyName, familySeed)
-	if err != nil {
-		return nil, err
-	}
-
-	return key, nil
-}
-
 // AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
 func (a *App) AddKeyByMnemonic(
 	chainName string,
