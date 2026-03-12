@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/geth"
 )
 
@@ -81,7 +82,7 @@ func TestExtractKeyName(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := geth.ExtractKeyName(tc.input)
+			got, err := wallet.ExtractKeyName(tc.input)
 			if tc.expectErr {
 				require.Error(t, err)
 			} else {

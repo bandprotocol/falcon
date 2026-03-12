@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bandprotocol/falcon/internal/os"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
-func TestUnmarshalSignerRecord(t *testing.T) {
+func TestLoadKeyRecords(t *testing.T) {
 	type file struct {
 		name string
 		data []byte
@@ -19,24 +19,24 @@ func TestUnmarshalSignerRecord(t *testing.T) {
 		name            string
 		setupFiles      []file
 		lookupPath      string
-		expectedRecords map[string]geth.SignerRecord
+		expectedRecords map[string]wallet.KeyRecord
 		expectErr       bool
 	}{
 		{
 			name: "success two records",
 			setupFiles: []file{
-				{"alice.toml", []byte(`address="0xAAA"` + "\n" + `type="local"`)},
-				{"bob.toml", []byte(`address="0xBBB"` + "\n" + `type="remote"`)},
+				{"alice.toml", []byte(`type = "local"` + "\n" + `address = "0xAAA"`)},
+				{"bob.toml", []byte(`type = "remote"` + "\n" + `address = "0xBBB"` + "\n" + `url = "http://example.com"`)},
 			},
-			expectedRecords: map[string]geth.SignerRecord{
-				"alice": {Address: "0xAAA", Type: "local"},
-				"bob":   {Address: "0xBBB", Type: "remote"},
+			expectedRecords: map[string]wallet.KeyRecord{
+				"alice": {Type: "local", Address: "0xAAA"},
+				"bob":   {Type: "remote", Address: "0xBBB", Url: "http://example.com"},
 			},
 		},
 		{
 			name:            "empty (nonexistent dir)",
 			lookupPath:      path.Join("does_not_exist_dir"),
-			expectedRecords: map[string]geth.SignerRecord{},
+			expectedRecords: map[string]wallet.KeyRecord{},
 		},
 		{
 			name: "invalid toml",
@@ -64,71 +64,7 @@ func TestUnmarshalSignerRecord(t *testing.T) {
 				lookup = path.Join(tmpDir, tc.lookupPath)
 			}
 
-			records, err := geth.LoadSignerRecord(lookup)
-			if tc.expectErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedRecords, records)
-		})
-	}
-}
-
-func TestUnmarshalRemoteSignerRecord(t *testing.T) {
-	type file struct {
-		name string
-		data []byte
-	}
-	tests := []struct {
-		name            string
-		setupFiles      []file
-		lookupPath      string
-		expectedRecords map[string]geth.RemoteSignerRecord
-		expectErr       bool
-	}{
-		{
-			name: "success two remote",
-			setupFiles: []file{
-				{"node1.toml", []byte(`url="http://example.com:1234"`)},
-				{"node2.toml", []byte(`url="https://node.local"`)},
-			},
-			expectedRecords: map[string]geth.RemoteSignerRecord{
-				"node1": {Url: "http://example.com:1234"},
-				"node2": {Url: "https://node.local"},
-			},
-		},
-		{
-			name:            "empty (nonexistent dir)",
-			lookupPath:      path.Join("no_such"),
-			expectedRecords: map[string]geth.RemoteSignerRecord{},
-		},
-		{
-			name: "invalid toml",
-			setupFiles: []file{
-				{"bad.toml", []byte("url :=://")},
-			},
-			expectErr: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-			for _, f := range tc.setupFiles {
-				err := os.Write(
-					f.data,
-					[]string{tmpDir, f.name},
-				)
-				require.NoError(t, err)
-			}
-
-			lookup := tmpDir
-			if tc.lookupPath != "" {
-				lookup = path.Join(tmpDir, tc.lookupPath)
-			}
-
-			records, err := geth.LoadRemoteSignerRecord(lookup)
+			records, err := wallet.LoadKeyRecords(lookup)
 			if tc.expectErr {
 				require.Error(t, err)
 				return

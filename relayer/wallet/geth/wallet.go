@@ -10,288 +10,145 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
-	toml "github.com/pelletier/go-toml/v2"
 
-	"github.com/bandprotocol/falcon/internal/os"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
-var _ wallet.Wallet = &GethWallet{}
+const hdPathTemplate = "m/44'/%d'/%d'/0/%d"
 
-const (
-	LocalSignerType  = "local"
-	RemoteSignerType = "remote"
+// GethWallet is a type alias for wallet.BaseWallet.
+type GethWallet = wallet.BaseWallet
 
-	hdPathTemplate = "m/44'/%d'/%d'/0/%d"
-)
-
-// GethWallet manages local and remote signers for a specific chain.
-type GethWallet struct {
-	Passphrase string
-	Store      *keystore.KeyStore
-	Signers    map[string]wallet.Signer
-	HomePath   string
-	ChainName  string
+// GethAdapter implements wallet.WalletAdapter for EVM/Ethereum chains.
+type GethAdapter struct {
+	passphrase string
+	homePath   string
+	chainName  string
+	store      *keystore.KeyStore
 }
 
-// NewGethWallet creates a new NewGethWallet instance.
+var _ wallet.WalletAdapter = (*GethAdapter)(nil)
+
+// NewGethWallet creates a new GethWallet for the given chain.
 func NewGethWallet(passphrase, homePath, chainName string) (*GethWallet, error) {
-	// create keystore
 	keyStoreDir := path.Join(getEVMKeyStoreDir(homePath, chainName)...)
 	store := keystore.NewKeyStore(keyStoreDir, keystore.StandardScryptN, keystore.StandardScryptP)
 
-	// load signer records
-	signerRecordDir := path.Join(getEVMSignerRecordDir(homePath, chainName)...)
-	signerRecords, err := LoadSignerRecord(signerRecordDir)
-	if err != nil {
-		return nil, err
+	adapter := &GethAdapter{
+		passphrase: passphrase,
+		homePath:   homePath,
+		chainName:  chainName,
+		store:      store,
 	}
 
-	// load remote signer records
-	remoteSignerDir := path.Join(getEVMRemoteSignerRecordDir(homePath, chainName)...)
-	remoteSignerRecords, err := LoadRemoteSignerRecord(remoteSignerDir)
-	if err != nil {
-		return nil, err
-	}
-
-	signers := make(map[string]wallet.Signer)
-	for name, signerRecord := range signerRecords {
-		gethAddr, err := HexToETHAddress(signerRecord.Address)
-		if err != nil {
-			return nil, err
-		}
-
-		var signer wallet.Signer
-		switch signerType := signerRecord.Type; signerType {
-		case LocalSignerType:
-			// need to export the key due to no direct access to the private key
-			acc := accounts.Account{Address: gethAddr}
-			b, err := store.Export(acc, passphrase, passphrase)
-			if err != nil {
-				return nil, err
-			}
-
-			gethKey, err := keystore.DecryptKey(b, passphrase)
-			if err != nil {
-				return nil, err
-			}
-
-			signer = NewLocalSigner(name, gethKey.PrivateKey)
-		case RemoteSignerType:
-			remoteSignerRecord, ok := remoteSignerRecords[name]
-			if !ok {
-				return nil, fmt.Errorf("no remote signer record found: %s", name)
-			}
-
-			signer, err = NewRemoteSigner(name, gethAddr, remoteSignerRecord.Url, remoteSignerRecord.Key)
-			if err != nil {
-				return nil, err
-			}
-		default:
-			return nil, fmt.Errorf(
-				"unsupported signer type %s for chain %s, key %s",
-				signerRecord.Type,
-				chainName,
-				name,
-			)
-		}
-
-		signers[name] = signer
-	}
-
-	return &GethWallet{
-		Passphrase: passphrase,
-		Store:      store,
-		Signers:    signers,
-		HomePath:   homePath,
-		ChainName:  chainName,
-	}, nil
+	return wallet.NewBaseWallet(adapter)
 }
 
-// SaveByPrivateKey imports the ECDSA key into the keystore and writes its signer record.
-func (w *GethWallet) SaveByPrivateKey(name string, secret string) (addr string, err error) {
-	// check if the key name exists
-	if _, ok := w.Signers[name]; ok {
-		return "", fmt.Errorf("key name exists: %s", name)
-	}
+// GetKeyDir returns the metadata directory path for key records.
+func (a *GethAdapter) GetKeyDir() []string {
+	return getEVMMetadataDir(a.homePath, a.chainName)
+}
 
+// ValidateAddress checks if the address is a valid hex address.
+func (a *GethAdapter) ValidateAddress(address string) error {
+	if !common.IsHexAddress(address) {
+		return fmt.Errorf("invalid address: %s", address)
+	}
+	return nil
+}
+
+// CompareAddresses returns true if two hex addresses refer to the same account.
+func (a *GethAdapter) CompareAddresses(addrA, addrB string) bool {
+	return common.HexToAddress(addrA).Cmp(common.HexToAddress(addrB)) == 0
+}
+
+// DeriveFromPrivateKey parses the hex private key, derives the address and creates
+// a LocalSigner without persisting the key to the keystore.
+func (a *GethAdapter) DeriveFromPrivateKey(name, secret string) (string, wallet.Signer, error) {
 	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	// derive the Ethereum address from the pubkey and check exist or not
-	addr = crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-
-	// check if the address is already added
-	if w.IsAddressExist(addr) {
-		return "", fmt.Errorf("address exists: %s", addr)
-	}
-
-	// save the signer
-	_, err = w.Store.ImportECDSA(privateKey, w.Passphrase)
-	if err != nil {
-		return "", err
-	}
-
-	signerRecord := NewSignerRecord(addr, LocalSignerType)
-	if err := w.saveSignerRecord(name, signerRecord); err != nil {
-		return "", err
-	}
-
-	return addr, nil
+	addr := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
+	return addr, NewLocalSigner(name, privateKey), nil
 }
 
-// SaveByMnemonic derives the ECDSA key from the mnemonic and stores it as a local signer.
-func (w *GethWallet) SaveByMnemonic(
-	name string,
-	mnemonic string,
+// DeriveFromMnemonic derives an ECDSA key from a mnemonic via the BIP-44 HD path
+// and creates a LocalSigner without persisting the key to the keystore.
+func (a *GethAdapter) DeriveFromMnemonic(
+	name, mnemonic string,
 	coinType uint32,
 	account uint,
 	index uint,
-) (addr string, err error) {
-	if mnemonic == "" {
-		return "", fmt.Errorf("mnemonic is empty")
-	}
-
+) (string, wallet.Signer, string, error) {
 	hdWallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
-		return "", err
+		return "", nil, "", err
 	}
 
 	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
 	derivationPath := hdwallet.MustParseDerivationPath(hdPath)
 	ethAccount, err := hdWallet.Derive(derivationPath, true)
 	if err != nil {
-		return "", err
+		return "", nil, "", err
 	}
 
 	privHex, err := hdWallet.PrivateKeyHex(ethAccount)
 	if err != nil {
-		return "", err
+		return "", nil, "", err
 	}
 
-	return w.SaveByPrivateKey(name, privHex)
+	addr, signer, err := a.DeriveFromPrivateKey(name, privHex)
+	return addr, signer, "", err
 }
 
-// SaveRemoteSignerKey registers a remote signer under the given name,
-// storing its address and service URL as on‐disk records.
-func (w *GethWallet) SaveRemoteSignerKey(name, address, url string, key *string) error {
-	// check if the key name exists
-	if _, ok := w.Signers[name]; ok {
-		return fmt.Errorf("key name exists: %s", name)
-	}
-
-	// validate address
-	if !common.IsHexAddress(address) {
-		return fmt.Errorf("invalid address: %s", address)
-	}
-
-	// check if the address is already added
-	if w.IsAddressExist(address) {
-		return fmt.Errorf("address exists: %s", name)
-	}
-
-	// save the signer
-	signerRecord := NewSignerRecord(address, RemoteSignerType)
-	if err := w.saveSignerRecord(name, signerRecord); err != nil {
-		return err
-	}
-
-	remoteSignerRecord := NewRemoteSignerRecord(url, key)
-	if err := w.saveRemoteSignerRecord(name, remoteSignerRecord); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// DeleteKey removes the signer named name, deleting its keystore record
-// if local, or its record files if remote.
-func (w *GethWallet) DeleteKey(name string) error {
-	// check if the key name exists
-	signer, ok := w.Signers[name]
+// PersistKey imports the ECDSA key into the Geth keystore.
+func (a *GethAdapter) PersistKey(name string, signer wallet.Signer, secret string) error {
+	ls, ok := signer.(*LocalSigner)
 	if !ok {
-		return fmt.Errorf("key name does not exist: %s", name)
+		return nil
+	}
+	_, err := a.store.ImportECDSA(ls.privateKey, a.passphrase)
+	return err
+}
+
+// LoadLocalSigner reconstructs a LocalSigner by exporting the key from the keystore.
+func (a *GethAdapter) LoadLocalSigner(name string, record wallet.KeyRecord) (wallet.Signer, error) {
+	gethAddr, err := HexToETHAddress(record.Address)
+	if err != nil {
+		return nil, err
 	}
 
-	switch signer.(type) {
-	case *LocalSigner:
+	acc := accounts.Account{Address: gethAddr}
+	b, err := a.store.Export(acc, a.passphrase, a.passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	gethKey, err := keystore.DecryptKey(b, a.passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewLocalSigner(name, gethKey.PrivateKey), nil
+}
+
+// NewRemoteSigner creates a new RemoteSigner with a gRPC connection to the KMS.
+func (a *GethAdapter) NewRemoteSigner(name, address, url string, key *string) (wallet.Signer, error) {
+	gethAddr, err := HexToETHAddress(address)
+	if err != nil {
+		return nil, err
+	}
+	return NewRemoteSigner(name, gethAddr, url, key)
+}
+
+// DeleteLocalSecret removes the private key from the Geth keystore.
+// It is a no-op for remote signers.
+func (a *GethAdapter) DeleteLocalSecret(name string, signer wallet.Signer) error {
+	if _, ok := signer.(*LocalSigner); ok {
 		addr := common.HexToAddress(signer.GetAddress())
-		if err := w.Store.Delete(accounts.Account{Address: addr}, w.Passphrase); err != nil {
-			return err
-		}
-	case *RemoteSigner:
-		if err := w.deleteRemoteSignerRecord(name); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unknown signer type for key %q", name)
+		return a.store.Delete(accounts.Account{Address: addr}, a.passphrase)
 	}
-
-	if err := w.deleteSignerRecord(name); err != nil {
-		return err
-	}
-
 	return nil
-}
-
-// GetSigners lists all signers.
-func (w *GethWallet) GetSigners() []wallet.Signer {
-	signers := make([]wallet.Signer, 0, len(w.Signers))
-	for _, signer := range w.Signers {
-		signers = append(signers, signer)
-	}
-
-	return signers
-}
-
-// GetSigner returns the signer with the given name and a flag indicating if it was found.
-func (w *GethWallet) GetSigner(name string) (wallet.Signer, bool) {
-	signer, ok := w.Signers[name]
-	return signer, ok
-}
-
-// IsAddressExist returns true if the given address is already added.
-func (w *GethWallet) IsAddressExist(address string) bool {
-	for _, signer := range w.Signers {
-		if common.HexToAddress(signer.GetAddress()).Cmp(common.HexToAddress(address)) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-// saveSignerRecord writes the SignerRecord map to the file
-func (w *GethWallet) saveSignerRecord(name string, signerRecord SignerRecord) error {
-	b, err := toml.Marshal(signerRecord)
-	if err != nil {
-		return err
-	}
-
-	return os.Write(b, append(getEVMSignerRecordDir(w.HomePath, w.ChainName), fmt.Sprintf("%s.toml", name)))
-}
-
-// saveRemoteSignerRecord writes the RemoteSignerRecord map to the file
-func (w *GethWallet) saveRemoteSignerRecord(name string, remoteSignerRecord RemoteSignerRecord) error {
-	b, err := toml.Marshal(remoteSignerRecord)
-	if err != nil {
-		return err
-	}
-
-	return os.Write(b, append(getEVMRemoteSignerRecordDir(w.HomePath, w.ChainName), fmt.Sprintf("%s.toml", name)))
-}
-
-// deleteSignerRecord deletes the SignerRecord file
-func (w *GethWallet) deleteSignerRecord(name string) error {
-	dir := path.Join(getEVMSignerRecordDir(w.HomePath, w.ChainName)...)
-	filePath := path.Join(dir, fmt.Sprintf("%s.toml", name))
-	return os.DeletePath(filePath)
-}
-
-// deleteRemoteSignerRecord deletes the RemoteSignerRecord file
-func (w *GethWallet) deleteRemoteSignerRecord(name string) error {
-	dir := path.Join(getEVMRemoteSignerRecordDir(w.HomePath, w.ChainName)...)
-	filePath := path.Join(dir, fmt.Sprintf("%s.toml", name))
-	return os.DeletePath(filePath)
 }

@@ -91,7 +91,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 			s.Require().NoError(err)
 			s.NotEmpty(ksFiles)
 
-			recFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "signer"))
+			recFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "metadata"))
 			s.Require().NoError(err)
 			s.Len(recFiles, 1)
 			s.Equal(tc.keyName+".toml", filepath.Base(recFiles[0]))
@@ -150,15 +150,10 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 			}
 			s.NoError(err)
 
-			signerFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "signer"))
+			metaFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "metadata"))
 			s.Require().NoError(err)
-			s.Len(signerFiles, 1)
-			s.Equal(tc.keyName+".toml", filepath.Base(signerFiles[0]))
-
-			remoteFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "remote"))
-			s.Require().NoError(err)
-			s.Len(remoteFiles, 1)
-			s.Equal(tc.keyName+".toml", filepath.Base(remoteFiles[0]))
+			s.Len(metaFiles, 1)
+			s.Equal(tc.keyName+".toml", filepath.Base(metaFiles[0]))
 		})
 	}
 }
@@ -211,18 +206,14 @@ func (s *WalletTestSuite) TestDeleteKey() {
 			} else {
 				s.NoError(err)
 
-				sigs, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "signer"))
+				metaFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "metadata"))
 				s.Require().NoError(err)
-				s.Empty(sigs)
+				s.Empty(metaFiles)
 
 				if tc.keyToDel == "alice" {
 					entries, err := os.ReadDir(path.Join(home, "keys", s.chainName, "priv"))
 					s.Require().NoError(err)
 					s.Empty(entries)
-				} else {
-					rem, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "remote"))
-					s.Require().NoError(err)
-					s.Empty(rem)
 				}
 			}
 		})

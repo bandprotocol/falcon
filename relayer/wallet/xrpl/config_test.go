@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 func TestNewKeyRecord(t *testing.T) {
 	key := "test-key"
-	record := xrpl.NewKeyRecord("local", "address", "url", &key, "seed")
+	record := wallet.NewKeyRecord("local", "address", "url", &key, "seed")
 
 	assert.Equal(t, "local", record.Type)
 	assert.Equal(t, "address", record.Address)
@@ -37,7 +37,7 @@ save_method = "seed"
 	err = os.WriteFile(filepath.Join(tmpDir, keyName+".toml"), []byte(content), 0o600)
 	require.NoError(t, err)
 
-	records, err := xrpl.LoadKeyRecord(tmpDir)
+	records, err := wallet.LoadKeyRecords(tmpDir)
 	require.NoError(t, err)
 	assert.Len(t, records, 1)
 	assert.Contains(t, records, keyName)
