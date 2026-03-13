@@ -302,18 +302,8 @@ func (a *App) AddKeyByMnemonic(
 		return nil, err
 	}
 
-	chainConfig, ok := a.Config.TargetChains[chainName]
-	if !ok {
+	if _, ok := a.Config.TargetChains[chainName]; !ok {
 		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
-	// Validate coin type based on chain type
-	chainType := chainConfig.GetChainType()
-	if chainType == chainstypes.ChainTypeEVM && coinType != 60 {
-		return nil, fmt.Errorf("EVM chains must use coin type 60, got %d", coinType)
-	}
-	if chainType == chainstypes.ChainTypeXRPL && coinType != 144 {
-		return nil, fmt.Errorf("XRPL chains must use coin type 144, got %d", coinType)
 	}
 
 	w, err := a.getWallet(chainName)
@@ -335,7 +325,7 @@ func (a *App) AddRemoteSignerKey(
 	keyName string,
 	addr string,
 	url string,
-	key *string,
+	key string,
 ) (*chainstypes.Key, error) {
 	w, err := a.getWallet(chainName)
 	if err != nil {

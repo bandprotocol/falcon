@@ -1,8 +1,7 @@
-package geth_test
+package evm_test
 
 import (
 	"encoding/hex"
-	"os"
 	"path"
 	"path/filepath"
 	"testing"
@@ -11,7 +10,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	internalOs "github.com/bandprotocol/falcon/internal/os"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet"
+	"github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 type WalletTestSuite struct {
@@ -29,10 +29,10 @@ func (s *WalletTestSuite) SetupTest() {
 	s.chainName = "testnet"
 }
 
-// newWallet creates a fresh GethWallet with its own temp directory.
-func (s *WalletTestSuite) newWallet() (*geth.GethWallet, string) {
+// newWallet creates a fresh wallet with its own temp directory.
+func (s *WalletTestSuite) newWallet() (*wallet.BaseWallet, string) {
 	home := s.T().TempDir()
-	w, err := geth.NewGethWallet(s.passphrase, home, s.chainName)
+	w, err := evm.NewWallet(s.passphrase, home, s.chainName)
 	s.Require().NoError(err)
 	return w, home
 }
@@ -46,14 +46,14 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 	tests := []struct {
 		name      string
 		keyName   string
-		setup     func(w *geth.GethWallet)
+		setup     func(w *wallet.BaseWallet)
 		wantErr   bool
 		errSubstr string
 	}{
 		{"first import succeeds", "alice", nil, false, ""},
 		{
 			"duplicate name fails", "alice",
-			func(w *geth.GethWallet) {
+			func(w *wallet.BaseWallet) {
 				_, err := w.SaveByPrivateKey("alice", privHex)
 				s.Require().NoError(err)
 			},
@@ -61,7 +61,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 		},
 		{
 			"duplicate address fails", "bob",
-			func(w *geth.GethWallet) {
+			func(w *wallet.BaseWallet) {
 				_, err := w.SaveByPrivateKey("a", privHex)
 				s.Require().NoError(err)
 			},
@@ -75,7 +75,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 			if tc.setup != nil {
 				tc.setup(w)
 				// reload to pick up on-disk records
-				w, _ = geth.NewGethWallet(s.passphrase, home, s.chainName)
+				w, _ = evm.NewWallet(s.passphrase, home, s.chainName)
 			}
 
 			gotAddr, err := w.SaveByPrivateKey(tc.keyName, privHex)
@@ -87,11 +87,11 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 			s.NoError(err)
 			s.Equal(addrHex, gotAddr)
 
-			ksFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "priv"))
+			ksFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "keyring"))
 			s.Require().NoError(err)
 			s.NotEmpty(ksFiles)
 
-			recFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "signer"))
+			recFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "metadata"))
 			s.Require().NoError(err)
 			s.Len(recFiles, 1)
 			s.Equal(tc.keyName+".toml", filepath.Base(recFiles[0]))
@@ -111,24 +111,24 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 		keyName   string
 		addr      string
 		url       string
-		key       *string
-		setup     func(w *geth.GethWallet)
+		key       string
+		setup     func(w *wallet.BaseWallet)
 		wantErr   bool
 		errSubstr string
 	}{
-		{"first remote succeeds", "remote1", validAddr, "http://example.com", &testKey, nil, false, ""},
+		{"first remote succeeds", "remote1", validAddr, "http://example.com", testKey, nil, false, ""},
 		{
-			"duplicate name fails", "dup", validAddr, "http://x", &testKey,
-			func(w *geth.GethWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("dup", validAddr, "http://x", &testKey))
+			"duplicate name fails", "dup", validAddr, "http://x", testKey,
+			func(w *wallet.BaseWallet) {
+				s.Require().NoError(w.SaveRemoteSignerKey("dup", validAddr, "http://x", testKey))
 			},
 			true, "key name exists",
 		},
-		{"invalid address fails", "bad", "not-an-addr", "url", &testKey, nil, true, "invalid address"},
+		{"invalid address fails", "bad", "not-an-addr", "url", testKey, nil, true, "invalid EVM address"},
 		{
-			"duplicate address fails", "another", validAddr, "http://y", &testKey,
-			func(w *geth.GethWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("orig", validAddr, "http://orig", &testKey))
+			"duplicate address fails", "another", validAddr, "http://y", testKey,
+			func(w *wallet.BaseWallet) {
+				s.Require().NoError(w.SaveRemoteSignerKey("orig", validAddr, "http://orig", testKey))
 			},
 			true, "address exists",
 		},
@@ -139,7 +139,7 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 			w, home := s.newWallet()
 			if tc.setup != nil {
 				tc.setup(w)
-				w, _ = geth.NewGethWallet(s.passphrase, home, s.chainName)
+				w, _ = evm.NewWallet(s.passphrase, home, s.chainName)
 			}
 
 			err := w.SaveRemoteSignerKey(tc.keyName, tc.addr, tc.url, tc.key)
@@ -150,15 +150,10 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 			}
 			s.NoError(err)
 
-			signerFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "signer"))
+			metaFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "metadata"))
 			s.Require().NoError(err)
-			s.Len(signerFiles, 1)
-			s.Equal(tc.keyName+".toml", filepath.Base(signerFiles[0]))
-
-			remoteFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "remote"))
-			s.Require().NoError(err)
-			s.Len(remoteFiles, 1)
-			s.Equal(tc.keyName+".toml", filepath.Base(remoteFiles[0]))
+			s.Len(metaFiles, 1)
+			s.Equal(tc.keyName+".toml", filepath.Base(metaFiles[0]))
 		})
 	}
 }
@@ -173,14 +168,14 @@ func (s *WalletTestSuite) TestDeleteKey() {
 
 	tests := []struct {
 		name      string
-		setup     func(w *geth.GethWallet)
+		setup     func(w *wallet.BaseWallet)
 		keyToDel  string
 		wantErr   bool
 		errSubstr string
 	}{
 		{
 			"delete local succeeds",
-			func(w *geth.GethWallet) {
+			func(w *wallet.BaseWallet) {
 				_, err := w.SaveByPrivateKey("alice", privHex)
 				s.Require().NoError(err)
 			},
@@ -188,8 +183,8 @@ func (s *WalletTestSuite) TestDeleteKey() {
 		},
 		{
 			"delete remote succeeds",
-			func(w *geth.GethWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("bob", addrHex, "http://u", &testKey))
+			func(w *wallet.BaseWallet) {
+				s.Require().NoError(w.SaveRemoteSignerKey("bob", addrHex, "http://u", testKey))
 			},
 			"bob", false, "",
 		},
@@ -201,7 +196,7 @@ func (s *WalletTestSuite) TestDeleteKey() {
 			w, home := s.newWallet()
 			if tc.setup != nil {
 				tc.setup(w)
-				w, _ = geth.NewGethWallet(s.passphrase, home, s.chainName)
+				w, _ = evm.NewWallet(s.passphrase, home, s.chainName)
 			}
 
 			err := w.DeleteKey(tc.keyToDel)
@@ -211,19 +206,9 @@ func (s *WalletTestSuite) TestDeleteKey() {
 			} else {
 				s.NoError(err)
 
-				sigs, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "signer"))
+				metaFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "metadata"))
 				s.Require().NoError(err)
-				s.Empty(sigs)
-
-				if tc.keyToDel == "alice" {
-					entries, err := os.ReadDir(path.Join(home, "keys", s.chainName, "priv"))
-					s.Require().NoError(err)
-					s.Empty(entries)
-				} else {
-					rem, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "remote"))
-					s.Require().NoError(err)
-					s.Empty(rem)
-				}
+				s.Empty(metaFiles)
 			}
 		})
 	}

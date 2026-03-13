@@ -21,7 +21,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	walletevm "github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 type EIP1559ProviderTestSuite struct {
@@ -53,18 +53,18 @@ func (s *EIP1559ProviderTestSuite) SetupTest() {
 	s.chainName = "testnet"
 	s.homePath = s.T().TempDir()
 
-	gethWallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	evmWallet, err := walletevm.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, log, gethWallet, nil)
+	chainProvider, err := evm.NewEVMChainProvider(s.chainName, s.client, &evmConfig, log, evmWallet, nil)
 	s.Require().NoError(err)
 	s.chainProvider = chainProvider
 
 	priv, err := crypto.HexToECDSA(evm.StripPrivateKeyPrefix(testPrivateKey))
 	s.Require().NoError(err)
 
-	s.mockSigner = geth.NewLocalSigner("test", priv)
+	s.mockSigner = walletevm.NewLocalSigner("test", priv)
 
 	gethAddr, err := evm.HexToAddress(s.mockSigner.GetAddress())
 	s.Require().NoError(err)

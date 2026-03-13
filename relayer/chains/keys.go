@@ -47,7 +47,7 @@ func AddKeyByMnemonic(
 }
 
 // AddRemoteSignerKey adds a remote signer with the given name, address, and URL.
-func AddRemoteSignerKey(w wallet.Wallet, keyName, addr, url string, key *string) (*chainstypes.Key, error) {
+func AddRemoteSignerKey(w wallet.Wallet, keyName, addr, url string, key string) (*chainstypes.Key, error) {
 	if err := w.SaveRemoteSignerKey(keyName, addr, url, key); err != nil {
 		return nil, err
 	}

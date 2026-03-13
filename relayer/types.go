@@ -58,7 +58,7 @@ type Application interface {
 		keyName string,
 		address string,
 		url string,
-		key *string,
+		key string,
 	) (*chainstypes.Key, error)
 	DeleteKey(chainName string, keyName string) error
 	ListKeys(chainName string) ([]*chainstypes.Key, error)

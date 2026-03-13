@@ -2,6 +2,7 @@ package xrpl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
@@ -17,12 +18,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
-)
-
-const (
-	provider   = "Band Protocol"
-	dataClass  = "currency"
-	priceScale = 9
 )
 
 var _ chains.ChainProvider = (*XRPLChainProvider)(nil)
@@ -139,12 +134,20 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			signing.EVMSignature.Signature,
 		)
 
-		txBlob, err := xrpl.SignXrplTx(freeSigner, signerPayload, tssPayload)
+		payloadBytes, err := json.Marshal(signerPayload)
+		if err != nil {
+			log.Error("Marshal signer payload error", "retry_count", retryCount, err)
+			lastErr = err
+			continue
+		}
+
+		result, err := freeSigner.Sign(payloadBytes, tssPayload)
 		if err != nil {
 			log.Error("Sign transaction error", "retry_count", retryCount, err)
 			lastErr = err
 			continue
 		}
+		txBlob := string(result)
 
 		var balance *big.Int
 		if cp.DB != nil {

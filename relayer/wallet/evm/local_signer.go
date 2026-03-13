@@ -1,4 +1,4 @@
-package geth
+package evm
 
 import (
 	"crypto/ecdsa"
@@ -41,13 +41,13 @@ func (l *LocalSigner) GetName() (addr string) {
 }
 
 // GetAddress returns the signer's address.
-func (l *LocalSigner) GetAddress() (addr string) {
+func (l *LocalSigner) GetAddress() string {
 	return crypto.PubkeyToAddress(l.privateKey.PublicKey).String()
 }
 
-// localSign hashes the input data which is RLP encoded with Keccak256, signs it, and returns the signature.
-func (l *LocalSigner) localSign(data []byte) ([]byte, error) {
-	hash := crypto.Keccak256(data)
+// Sign hashes the input data which is RLP encoded with Keccak256, signs it, and returns the signature.
+func (l *LocalSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) {
+	hash := crypto.Keccak256(payload)
 
 	return crypto.Sign(hash, l.privateKey)
 }

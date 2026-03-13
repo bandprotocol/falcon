@@ -24,12 +24,8 @@ func TestXRPLWallet(t *testing.T) {
 	err = os.MkdirAll(metadataDir, 0o755)
 	require.NoError(t, err)
 
-	privDir := filepath.Join(tmpHome, "keys", chainName, "priv")
-	err = os.MkdirAll(privDir, 0o755)
-	require.NoError(t, err)
-
 	// Step 1: Initialize empty wallet
-	w, err := xrpl.NewXRPLWallet(passphrase, tmpHome, chainName)
+	w, err := xrpl.NewWallet(passphrase, tmpHome, chainName)
 	require.NoError(t, err)
 	assert.Empty(t, w.GetSigners())
 
@@ -45,7 +41,7 @@ func TestXRPLWallet(t *testing.T) {
 	name3 := "remote-key"
 	addr3 := "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2"
 	url := "localhost:50051"
-	err = w.SaveRemoteSignerKey(name3, addr3, url, nil)
+	err = w.SaveRemoteSignerKey(name3, addr3, url, "")
 	require.NoError(t, err)
 	assert.True(t, w.IsAddressExist(addr3))
 
@@ -65,7 +61,7 @@ func TestXRPLWallet(t *testing.T) {
 
 	// Step 6: Test re-initialization (should load saved keys)
 	// We need to re-create the wallet object to simulate restart
-	w2, err := xrpl.NewXRPLWallet(passphrase, tmpHome, chainName)
+	w2, err := xrpl.NewWallet(passphrase, tmpHome, chainName)
 	assert.NoError(t, err)
 	assert.Len(t, w2.GetSigners(), 1)
 	assert.True(t, w2.IsAddressExist(addr3))
