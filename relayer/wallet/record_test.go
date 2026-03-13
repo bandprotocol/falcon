@@ -33,7 +33,7 @@ func TestLoadKeyRecords(t *testing.T) {
 			},
 			expectedRecords: map[string]wallet.KeyRecord{
 				"alice": {Type: "local", Address: "0xAAA"},
-				"bob":   {Type: "remote", Address: "0xBBB", Url: "http://example.com"},
+				"bob":   {Type: "remote", Address: "0xBBB", URL: "http://example.com"},
 			},
 		},
 		{
@@ -84,7 +84,7 @@ func TestNewKeyRecord(t *testing.T) {
 
 	assert.Equal(t, "local", record.Type)
 	assert.Equal(t, "address", record.Address)
-	assert.Equal(t, "url", record.Url)
+	assert.Equal(t, "url", record.URL)
 	assert.Equal(t, &key, record.Key)
 }
 

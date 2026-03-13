@@ -87,7 +87,7 @@ func (a *Adapter) LoadSigner(name string, record wallet.KeyRecord) (wallet.Signe
 		}
 		return NewLocalSigner(name, gethKey.PrivateKey), nil
 	case wallet.RemoteSignerType:
-		return NewRemoteSigner(name, record.Address, record.Url, record.Key)
+		return NewRemoteSigner(name, record.Address, record.URL, record.Key)
 	default:
 		return nil, fmt.Errorf("unsupported signer type: %s for key %s", record.Type, name)
 	}

@@ -19,7 +19,7 @@ const (
 type KeyRecord struct {
 	Type    string  `toml:"type"`
 	Address string  `toml:"address,omitempty"`
-	Url     string  `toml:"url,omitempty"`
+	URL     string  `toml:"url,omitempty"`
 	Key     *string `toml:"key,omitempty"`
 }
 
@@ -28,7 +28,7 @@ func NewKeyRecord(signerType, address, url string, key *string) KeyRecord {
 	return KeyRecord{
 		Type:    signerType,
 		Address: address,
-		Url:     url,
+		URL:     url,
 		Key:     key,
 	}
 }

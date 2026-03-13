@@ -65,7 +65,7 @@ func (a RemoteOnlyAdapter) LoadSigner(name string, record KeyRecord) (Signer, er
 	if record.Type != RemoteSignerType {
 		return nil, fmt.Errorf("unsupported signer type: %s for key %s", record.Type, name)
 	}
-	return a.newRemote(name, record.Address, record.Url, record.Key)
+	return a.newRemote(name, record.Address, record.URL, record.Key)
 }
 
 func (RemoteOnlyAdapter) DeleteLocalSecret(name string, signer Signer) error {

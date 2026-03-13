@@ -38,7 +38,7 @@ type AddKeyInput struct {
 // RemoteSignerInput is the input that holds the parameters needed to configure a remote signer.
 type RemoteSignerInput struct {
 	Address string
-	Url     string
+	URL     string
 	Key     *string
 }
 
@@ -92,7 +92,7 @@ keys add eth test-key`),
 
 			// if no private key, mnemonic, or remote signer info is provided, prompt interactively
 			if input.PrivateKey == "" && input.Mnemonic == "" && input.RemoteSigner.Address == "" &&
-				input.RemoteSigner.Url == "" {
+				input.RemoteSigner.URL == "" {
 				input, err = showHuhPrompt()
 				if err != nil {
 					return err
@@ -280,7 +280,7 @@ keys show eth test-key`),
 func validateAddKeyInput(input *AddKeyInput) error {
 	hasPrivateKey := input.PrivateKey != ""
 	hasMnemonic := input.Mnemonic != ""
-	hasRemoteSigner := input.RemoteSigner.Address != "" || input.RemoteSigner.Url != ""
+	hasRemoteSigner := input.RemoteSigner.Address != "" || input.RemoteSigner.URL != ""
 
 	// if a private key is provided, no other input should be present
 	if hasPrivateKey && (hasMnemonic || hasRemoteSigner) {
@@ -298,7 +298,7 @@ func validateAddKeyInput(input *AddKeyInput) error {
 		if input.RemoteSigner.Address == "" {
 			return fmt.Errorf("remote signer address cannot be empty")
 		}
-		if input.RemoteSigner.Url == "" {
+		if input.RemoteSigner.URL == "" {
 			return fmt.Errorf("remote signer URL cannot be empty")
 		}
 	}
@@ -459,7 +459,7 @@ func parseKeysAddInputFromFlag(cmd *cobra.Command) (*AddKeyInput, error) {
 		return nil, err
 	}
 
-	input.RemoteSigner.Url, err = cmd.Flags().GetString(flagRemoteUrl)
+	input.RemoteSigner.URL, err = cmd.Flags().GetString(flagRemoteUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -489,12 +489,12 @@ func addKey(
 	// Add key to the keychain
 	if input.PrivateKey != "" {
 		return app.AddKeyByPrivateKey(chainName, keyName, input.PrivateKey)
-	} else if input.RemoteSigner.Address != "" && input.RemoteSigner.Url != "" {
+	} else if input.RemoteSigner.Address != "" && input.RemoteSigner.URL != "" {
 		return app.AddRemoteSignerKey(
 			chainName,
 			keyName,
 			input.RemoteSigner.Address,
-			input.RemoteSigner.Url,
+			input.RemoteSigner.URL,
 			input.RemoteSigner.Key,
 		)
 	} else {
