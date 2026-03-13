@@ -91,7 +91,7 @@ func TestNewKeyRecord(t *testing.T) {
 func TestLoadKeyRecord(t *testing.T) {
 	tmpDir, err := stdos.MkdirTemp("", "wallet-test")
 	require.NoError(t, err)
-	defer stdos.RemoveAll(tmpDir)
+	defer func() { _ = stdos.RemoveAll(tmpDir) }()
 
 	keyName := "test-signer"
 	content := `

@@ -61,7 +61,7 @@ func (a *Adapter) DeriveFromMnemonic(
 	return a.DeriveFromPrivateKey(name, privHex)
 }
 
-// PersistKey imports the ECDSA key into the Geth keystore.
+// PersistKey imports the ECDSA key into the EVM keystore.
 func (a *Adapter) PersistKey(name string, signer wallet.Signer, secret string) error {
 	ls, ok := signer.(*LocalSigner)
 	if !ok {
@@ -93,7 +93,7 @@ func (a *Adapter) LoadSigner(name string, record wallet.KeyRecord) (wallet.Signe
 	}
 }
 
-// DeleteLocalSecret removes the private key from the Geth keystore.
+// DeleteLocalSecret removes the private key from the EVM keystore.
 // It is a no-op for remote signers.
 func (a *Adapter) DeleteLocalSecret(name string, signer wallet.Signer) error {
 	if _, ok := signer.(*LocalSigner); ok {

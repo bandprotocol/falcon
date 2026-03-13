@@ -1,8 +1,10 @@
 package xrpl
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	"github.com/Peersyst/xrpl-go/xrpl/ledger-entry-types"
 	"github.com/Peersyst/xrpl-go/xrpl/transaction"
@@ -13,9 +15,13 @@ import (
 )
 
 const (
-	provider   = "Band Protocol"
-	dataClass  = "Currency"
 	priceScale = 9
+)
+
+// Precomputed hex encodings of the constant provider and dataClass strings.
+var (
+	providerHex  = strings.ToUpper(hex.EncodeToString([]byte("Band Protocol")))
+	dataClassHex = strings.ToUpper(hex.EncodeToString([]byte("Currency")))
 )
 
 var _ wallet.Signer = (*LocalSigner)(nil)
@@ -55,15 +61,6 @@ func (l *LocalSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) 
 	if err := json.Unmarshal(payload, &signerPayload); err != nil {
 		return nil, err
 	}
-	providerHex, err := StringToHex(provider, 0)
-	if err != nil {
-		return nil, err
-	}
-	dataClassHex, err := StringToHex(dataClass, 0)
-	if err != nil {
-		return nil, err
-	}
-
 	priceDataSeries := make([]ledger.PriceDataWrapper, 0, len(signerPayload.SignalPrices))
 
 	for _, p := range signerPayload.SignalPrices {
@@ -94,7 +91,7 @@ func (l *LocalSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) 
 			Sequence:        uint32(signerPayload.Sequence),
 			Fee:             xrpltypes.XRPCurrencyAmount(feeUint64),
 		},
-		OracleDocumentID: uint32(signerPayload.OracleId),
+		OracleDocumentID: uint32(signerPayload.OracleID),
 		LastUpdatedTime:  uint32(signerPayload.LastUpdatedTime),
 		Provider:         providerHex,
 		AssetClass:       dataClassHex,

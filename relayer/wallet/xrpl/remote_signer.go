@@ -36,7 +36,7 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 		&fkmsv1.SignXrplRequest{
 			SignerPayload: &fkmsv1.XrplSignerPayload{
 				Account:  signerPayload.Account,
-				OracleId: signerPayload.OracleId,
+				OracleId: signerPayload.OracleID,
 				Fee:      signerPayload.Fee,
 				Sequence: signerPayload.Sequence,
 			},
