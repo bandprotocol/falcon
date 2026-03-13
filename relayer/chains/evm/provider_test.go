@@ -23,7 +23,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	walletevm "github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 var baseEVMCfg = &evm.EVMChainProviderConfig{
@@ -102,7 +102,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	chainName := "testnet"
 	s.chainName = chainName
 
-	wallet, err := geth.NewWallet("", s.homePath, s.chainName)
+	wallet, err := walletevm.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())

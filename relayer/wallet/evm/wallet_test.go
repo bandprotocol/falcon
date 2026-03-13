@@ -1,4 +1,4 @@
-package geth_test
+package evm_test
 
 import (
 	"encoding/hex"
@@ -12,7 +12,7 @@ import (
 
 	internalOs "github.com/bandprotocol/falcon/internal/os"
 	"github.com/bandprotocol/falcon/relayer/wallet"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 type WalletTestSuite struct {
@@ -33,7 +33,7 @@ func (s *WalletTestSuite) SetupTest() {
 // newWallet creates a fresh wallet with its own temp directory.
 func (s *WalletTestSuite) newWallet() (*wallet.BaseWallet, string) {
 	home := s.T().TempDir()
-	w, err := geth.NewWallet(s.passphrase, home, s.chainName)
+	w, err := evm.NewWallet(s.passphrase, home, s.chainName)
 	s.Require().NoError(err)
 	return w, home
 }
@@ -76,7 +76,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 			if tc.setup != nil {
 				tc.setup(w)
 				// reload to pick up on-disk records
-				w, _ = geth.NewWallet(s.passphrase, home, s.chainName)
+				w, _ = evm.NewWallet(s.passphrase, home, s.chainName)
 			}
 
 			gotAddr, err := w.SaveByPrivateKey(tc.keyName, privHex)
@@ -140,7 +140,7 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 			w, home := s.newWallet()
 			if tc.setup != nil {
 				tc.setup(w)
-				w, _ = geth.NewWallet(s.passphrase, home, s.chainName)
+				w, _ = evm.NewWallet(s.passphrase, home, s.chainName)
 			}
 
 			err := w.SaveRemoteSignerKey(tc.keyName, tc.addr, tc.url, tc.key)
@@ -197,7 +197,7 @@ func (s *WalletTestSuite) TestDeleteKey() {
 			w, home := s.newWallet()
 			if tc.setup != nil {
 				tc.setup(w)
-				w, _ = geth.NewWallet(s.passphrase, home, s.chainName)
+				w, _ = evm.NewWallet(s.passphrase, home, s.chainName)
 			}
 
 			err := w.DeleteKey(tc.keyToDel)

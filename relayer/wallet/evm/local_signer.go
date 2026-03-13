@@ -1,4 +1,4 @@
-package geth
+package evm
 
 import (
 	"crypto/ecdsa"

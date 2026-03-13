@@ -20,12 +20,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
-const (
-	provider   = "Band Protocol"
-	dataClass  = "currency"
-	priceScale = 9
-)
-
 var _ chains.ChainProvider = (*XRPLChainProvider)(nil)
 
 // XRPLChainProvider handles interactions with XRPL.

@@ -1,4 +1,4 @@
-package geth_test
+package evm_test
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 const (
@@ -17,13 +17,13 @@ const (
 	url     = "0.0.0.0:50051"
 )
 
-// RemoteSignerTestSuite runs tests for geth.RemoteSigner.
+// RemoteSignerTestSuite runs tests for evm.RemoteSigner.
 type RemoteSignerTestSuite struct {
 	suite.Suite
 
 	ctrl       *gomock.Controller
 	mockClient *mocks.MockFkmsServiceClient
-	rs         *geth.RemoteSigner
+	rs         *evm.RemoteSigner
 }
 
 func TestRemoteSignerTestSuite(t *testing.T) {
@@ -35,7 +35,7 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 	s.mockClient = mocks.NewMockFkmsServiceClient(s.ctrl)
 
 	testKey := "testKey"
-	rs, err := geth.NewRemoteSigner(
+	rs, err := evm.NewRemoteSigner(
 		name,
 		address,
 		url,

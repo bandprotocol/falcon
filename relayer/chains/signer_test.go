@@ -11,7 +11,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	walletevm "github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 const (
@@ -66,7 +66,7 @@ func (s *SenderTestSuite) SetupTest() {
 
 	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
-	wallet, err := geth.NewWallet("", s.homePath, s.chainName)
+	wallet, err := walletevm.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	_, err = evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
@@ -86,7 +86,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 
 	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
-	wallet, err := geth.NewWallet("", s.homePath, s.chainName)
+	wallet, err := walletevm.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)

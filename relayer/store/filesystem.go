@@ -12,7 +12,7 @@ import (
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/wallet"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet/evm"
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
@@ -105,7 +105,7 @@ func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
 func (fs *FileSystem) NewWallet(chainType chainstypes.ChainType, chainName, passphrase string) (wallet.Wallet, error) {
 	switch chainType {
 	case chainstypes.ChainTypeEVM:
-		return geth.NewWallet(passphrase, fs.HomePath, chainName)
+		return evm.NewWallet(passphrase, fs.HomePath, chainName)
 	case chainstypes.ChainTypeXRPL:
 		return xrpl.NewWallet(passphrase, fs.HomePath, chainName)
 	default:
