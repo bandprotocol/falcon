@@ -18,7 +18,7 @@ type RemoteSigner struct {
 }
 
 // NewRemoteSigner creates a new RemoteSigner instance.
-func NewRemoteSigner(name, address, url string, key *string) (*RemoteSigner, error) {
+func NewRemoteSigner(name, address, url string, key string) (*RemoteSigner, error) {
 	if !common.IsHexAddress(address) {
 		return nil, fmt.Errorf("invalid EVM address: %s", address)
 	}
@@ -37,7 +37,7 @@ func (r *RemoteSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error)
 		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address), Message: payload},
 	)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	return res.Signature, nil

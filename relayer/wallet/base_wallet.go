@@ -9,19 +9,26 @@ import (
 	"github.com/bandprotocol/falcon/internal/os"
 )
 
+var _ Wallet = (*BaseWallet)(nil)
+
 // BaseWallet provides shared wallet logic for all chain types.
-// It delegates chain-specific operations to the embedded WalletAdapter.
+// It implements the full Wallet interface; chain-specific code lives only in
+// the WalletAdapter passed to NewBaseWallet.
 type BaseWallet struct {
 	adapter WalletAdapter
+	kr      *signerKeyring
 	signers map[string]Signer
 	keyDir  []string
 }
 
-var _ Wallet = (*BaseWallet)(nil)
+// NewBaseWallet creates a BaseWallet for the given chain, using the per-chain keyring
+// at {homePath}/keys/{chainName}/keyring and key records at {homePath}/keys/{chainName}/metadata.
+func NewBaseWallet(passphrase, homePath, chainName string, adapter WalletAdapter) (*BaseWallet, error) {
+	kr, err := newSignerKeyring(passphrase, homePath, chainName)
+	if err != nil {
+		return nil, err
+	}
 
-// NewBaseWallet creates a BaseWallet for the given chain, using the standard
-// key record directory: {homePath}/keys/{chainName}/metadata.
-func NewBaseWallet(homePath, chainName string, adapter WalletAdapter) (*BaseWallet, error) {
 	keyDir := []string{homePath, "keys", chainName, "metadata"}
 	records, err := LoadKeyRecords(path.Join(keyDir...))
 	if err != nil {
@@ -30,31 +37,45 @@ func NewBaseWallet(homePath, chainName string, adapter WalletAdapter) (*BaseWall
 
 	signers := make(map[string]Signer)
 	for name, record := range records {
-		signer, err := adapter.LoadSigner(name, record)
+		secret, err := kr.load(name)
+		if err != nil {
+			return nil, err
+		}
+		signer, err := adapter.LoadSigner(name, record, secret)
 		if err != nil {
 			return nil, err
 		}
 		signers[name] = signer
 	}
 
-	return &BaseWallet{adapter: adapter, keyDir: keyDir, signers: signers}, nil
+	return &BaseWallet{
+		adapter: adapter,
+		kr:      kr,
+		signers: signers,
+		keyDir:  keyDir,
+	}, nil
 }
 
-// SaveByPrivateKey imports from a raw private key.
-func (w *BaseWallet) SaveByPrivateKey(name string, privateKey string) (string, error) {
+// SaveByPrivateKey imports a key from a raw private key.
+func (w *BaseWallet) SaveByPrivateKey(name, privateKey string) (string, error) {
 	if _, ok := w.signers[name]; ok {
 		return "", fmt.Errorf("key name exists: %s", name)
 	}
 
-	signer, err := w.adapter.DeriveFromPrivateKey(name, privateKey)
+	if privateKey == "" {
+		return "", fmt.Errorf("private key is empty")
+	}
+
+	record := NewKeyRecord(PrivKeySignerType, "", "")
+	signer, err := w.adapter.LoadSigner(name, record, privateKey)
 	if err != nil {
 		return "", err
 	}
 
-	return w.saveLocalSigner(name, signer, privateKey)
+	return w.persistLocalSigner(name, record, signer, privateKey)
 }
 
-// SaveByMnemonic imports from a mnemonic phrase.
+// SaveByMnemonic imports a key derived from a mnemonic phrase.
 func (w *BaseWallet) SaveByMnemonic(
 	name string,
 	mnemonic string,
@@ -70,28 +91,37 @@ func (w *BaseWallet) SaveByMnemonic(
 		return "", fmt.Errorf("mnemonic is empty")
 	}
 
-	signer, err := w.adapter.DeriveFromMnemonic(name, mnemonic, coinType, account, index)
+	secret, err := EncodeMnemonicSecret(mnemonic, coinType, account, index)
 	if err != nil {
 		return "", err
 	}
 
-	return w.saveLocalSigner(name, signer, mnemonic)
+	record := NewKeyRecord(MnemonicSignerType, "", "")
+	signer, err := w.adapter.LoadSigner(name, record, secret)
+	if err != nil {
+		return "", err
+	}
+
+	return w.persistLocalSigner(name, record, signer, secret)
 }
 
-// saveLocalSigner persists a derived local signer and registers it.
-func (w *BaseWallet) saveLocalSigner(name string, signer Signer, secret string) (string, error) {
+// persistLocalSigner stores the secret, fills in the address on the record,
+// writes it to disk, and registers the signer.
+func (w *BaseWallet) persistLocalSigner(name string, record KeyRecord, signer Signer, secret string) (string, error) {
 	addr := signer.GetAddress()
 
 	if w.IsAddressExist(addr) {
 		return "", fmt.Errorf("address exists: %s", addr)
 	}
 
-	if err := w.adapter.PersistKey(name, signer, secret); err != nil {
+	if err := w.kr.store(name, secret); err != nil {
 		return "", err
 	}
 
-	record := NewKeyRecord(LocalSignerType, addr, "", nil)
+	record.Address = addr
 	if err := w.saveKeyRecord(name, record); err != nil {
+		// Roll back the keyring write so no orphaned entry is left.
+		_ = w.kr.delete(name)
 		return "", err
 	}
 
@@ -100,41 +130,38 @@ func (w *BaseWallet) saveLocalSigner(name string, signer Signer, secret string) 
 }
 
 // SaveRemoteSignerKey registers a remote signer.
-func (w *BaseWallet) SaveRemoteSignerKey(name, address, url string, key *string) error {
+// key is the optional API key used to authenticate with the KMS; it is stored
+// in the shared keyring (not the metadata file). Pass an empty string if no key is required.
+func (w *BaseWallet) SaveRemoteSignerKey(name, address, url string, key string) error {
 	if _, ok := w.signers[name]; ok {
 		return fmt.Errorf("key name exists: %s", name)
 	}
 
-	if w.IsAddressExist(address) {
-		return fmt.Errorf("address exists: %s", address)
-	}
-
-	record := NewKeyRecord(RemoteSignerType, address, url, key)
-	if err := w.saveKeyRecord(name, record); err != nil {
-		return err
-	}
-
-	signer, err := w.adapter.LoadSigner(name, record)
+	record := NewKeyRecord(RemoteSignerType, address, url)
+	signer, err := w.adapter.LoadSigner(name, record, key)
 	if err != nil {
 		return err
 	}
 
-	w.signers[name] = signer
-	return nil
+	_, err = w.persistLocalSigner(name, record, signer, key)
+	return err
 }
 
 // DeleteKey removes the signer and its records.
 func (w *BaseWallet) DeleteKey(name string) error {
-	signer, ok := w.signers[name]
-	if !ok {
+	if _, ok := w.signers[name]; !ok {
 		return fmt.Errorf("key name does not exist: %s", name)
 	}
 
-	if err := w.adapter.DeleteLocalSecret(name, signer); err != nil {
+	// Delete the metadata file first. If this fails nothing has changed.
+	// If we deleted the keyring entry first and the file delete failed, the
+	// TOML record would remain but the secret would be gone, causing a startup
+	// error on the next run.
+	if err := w.deleteKeyRecord(name); err != nil {
 		return err
 	}
 
-	if err := w.deleteKeyRecord(name); err != nil {
+	if err := w.kr.delete(name); err != nil {
 		return err
 	}
 

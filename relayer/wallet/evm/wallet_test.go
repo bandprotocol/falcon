@@ -2,7 +2,6 @@ package evm_test
 
 import (
 	"encoding/hex"
-	"os"
 	"path"
 	"path/filepath"
 	"testing"
@@ -88,7 +87,7 @@ func (s *WalletTestSuite) TestSaveBySecret() {
 			s.NoError(err)
 			s.Equal(addrHex, gotAddr)
 
-			ksFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "priv"))
+			ksFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "keyring"))
 			s.Require().NoError(err)
 			s.NotEmpty(ksFiles)
 
@@ -112,24 +111,24 @@ func (s *WalletTestSuite) TestSaveRemoteSignerKey() {
 		keyName   string
 		addr      string
 		url       string
-		key       *string
+		key       string
 		setup     func(w *wallet.BaseWallet)
 		wantErr   bool
 		errSubstr string
 	}{
-		{"first remote succeeds", "remote1", validAddr, "http://example.com", &testKey, nil, false, ""},
+		{"first remote succeeds", "remote1", validAddr, "http://example.com", testKey, nil, false, ""},
 		{
-			"duplicate name fails", "dup", validAddr, "http://x", &testKey,
+			"duplicate name fails", "dup", validAddr, "http://x", testKey,
 			func(w *wallet.BaseWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("dup", validAddr, "http://x", &testKey))
+				s.Require().NoError(w.SaveRemoteSignerKey("dup", validAddr, "http://x", testKey))
 			},
 			true, "key name exists",
 		},
-		{"invalid address fails", "bad", "not-an-addr", "url", &testKey, nil, true, "invalid EVM address"},
+		{"invalid address fails", "bad", "not-an-addr", "url", testKey, nil, true, "invalid EVM address"},
 		{
-			"duplicate address fails", "another", validAddr, "http://y", &testKey,
+			"duplicate address fails", "another", validAddr, "http://y", testKey,
 			func(w *wallet.BaseWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("orig", validAddr, "http://orig", &testKey))
+				s.Require().NoError(w.SaveRemoteSignerKey("orig", validAddr, "http://orig", testKey))
 			},
 			true, "address exists",
 		},
@@ -185,7 +184,7 @@ func (s *WalletTestSuite) TestDeleteKey() {
 		{
 			"delete remote succeeds",
 			func(w *wallet.BaseWallet) {
-				s.Require().NoError(w.SaveRemoteSignerKey("bob", addrHex, "http://u", &testKey))
+				s.Require().NoError(w.SaveRemoteSignerKey("bob", addrHex, "http://u", testKey))
 			},
 			"bob", false, "",
 		},
@@ -210,12 +209,6 @@ func (s *WalletTestSuite) TestDeleteKey() {
 				metaFiles, err := internalOs.ListFilePaths(path.Join(home, "keys", s.chainName, "metadata"))
 				s.Require().NoError(err)
 				s.Empty(metaFiles)
-
-				if tc.keyToDel == "alice" {
-					entries, err := os.ReadDir(path.Join(home, "keys", s.chainName, "priv"))
-					s.Require().NoError(err)
-					s.Empty(entries)
-				}
 			}
 		})
 	}

@@ -24,10 +24,6 @@ func TestXRPLWallet(t *testing.T) {
 	err = os.MkdirAll(metadataDir, 0o755)
 	require.NoError(t, err)
 
-	privDir := filepath.Join(tmpHome, "keys", chainName, "priv")
-	err = os.MkdirAll(privDir, 0o755)
-	require.NoError(t, err)
-
 	// Step 1: Initialize empty wallet
 	w, err := xrpl.NewWallet(passphrase, tmpHome, chainName)
 	require.NoError(t, err)
@@ -45,7 +41,7 @@ func TestXRPLWallet(t *testing.T) {
 	name3 := "remote-key"
 	addr3 := "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2"
 	url := "localhost:50051"
-	err = w.SaveRemoteSignerKey(name3, addr3, url, nil)
+	err = w.SaveRemoteSignerKey(name3, addr3, url, "")
 	require.NoError(t, err)
 	assert.True(t, w.IsAddressExist(addr3))
 

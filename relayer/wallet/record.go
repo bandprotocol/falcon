@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
@@ -11,26 +12,56 @@ import (
 )
 
 const (
-	LocalSignerType  = "local"
-	RemoteSignerType = "remote"
+	PrivKeySignerType  = "privkey"
+	MnemonicSignerType = "mnemonic"
+	RemoteSignerType   = "remote"
 )
 
 // KeyRecord stores signer info on disk. All chain types use this unified format.
+// Secrets (private key, mnemonic+derivation params, remote API key) are stored
+// in the shared keyring, never in this file.
 type KeyRecord struct {
-	Type    string  `toml:"type"`
-	Address string  `toml:"address,omitempty"`
-	URL     string  `toml:"url,omitempty"`
-	Key     *string `toml:"key,omitempty"`
+	Type    string `toml:"type"`
+	Address string `toml:"address,omitempty"`
+	URL     string `toml:"url,omitempty"`
 }
 
 // NewKeyRecord creates a new KeyRecord.
-func NewKeyRecord(signerType, address, url string, key *string) KeyRecord {
+func NewKeyRecord(signerType, address, url string) KeyRecord {
 	return KeyRecord{
 		Type:    signerType,
 		Address: address,
 		URL:     url,
-		Key:     key,
 	}
+}
+
+// MnemonicSecret is the keyring payload for mnemonic-derived signers.
+// Bundling the derivation parameters here keeps KeyRecord minimal and ensures
+// all state needed to reconstruct a signer lives in the (encrypted) keyring.
+type MnemonicSecret struct {
+	Mnemonic string `json:"mnemonic"`
+	CoinType uint32 `json:"coin_type"`
+	Account  uint   `json:"account"`
+	Index    uint   `json:"index"`
+}
+
+// EncodeMnemonicSecret serialises the mnemonic and derivation params into a
+// JSON string suitable for storing in the shared keyring.
+func EncodeMnemonicSecret(mnemonic string, coinType uint32, account, index uint) (string, error) {
+	b, err := json.Marshal(MnemonicSecret{
+		Mnemonic: mnemonic,
+		CoinType: coinType,
+		Account:  account,
+		Index:    index,
+	})
+	return string(b), err
+}
+
+// DecodeMnemonicSecret deserialises a JSON string produced by EncodeMnemonicSecret.
+func DecodeMnemonicSecret(secret string) (MnemonicSecret, error) {
+	var ms MnemonicSecret
+	err := json.Unmarshal([]byte(secret), &ms)
+	return ms, err
 }
 
 // LoadKeyRecords loads all files in `dir/*.toml` into KeyRecord.

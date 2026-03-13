@@ -17,11 +17,11 @@ type BaseRemoteSigner struct {
 	Name       string
 	Address    string
 	FkmsClient fkmsv1.FkmsServiceClient
-	Key        *string
+	Key        string
 }
 
 // NewBaseRemoteSigner creates a BaseRemoteSigner with a gRPC connection to the KMS.
-func NewBaseRemoteSigner(name, address, url string, key *string) (*BaseRemoteSigner, error) {
+func NewBaseRemoteSigner(name, address, url string, key string) (*BaseRemoteSigner, error) {
 	conn, err := grpc.NewClient(url, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to remote signer at %s: %w", url, err)
@@ -55,8 +55,8 @@ func (r *BaseRemoteSigner) GetAddress() string {
 // ContextWithKey returns a context with the API key metadata attached, if present.
 func (r *BaseRemoteSigner) ContextWithKey() context.Context {
 	ctx := context.Background()
-	if r.Key != nil {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", *r.Key))
+	if r.Key != "" {
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("api-key", r.Key))
 	}
 	return ctx
 }

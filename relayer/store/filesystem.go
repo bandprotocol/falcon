@@ -1,10 +1,10 @@
 package store
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"path"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/pelletier/go-toml/v2"
 
@@ -79,22 +79,25 @@ func (fs *FileSystem) GetHashedPassphrase() ([]byte, error) {
 	return fs.hashedPassphrase, nil
 }
 
-// SavePassphrase hashes and saves the hashedPassphrase to the filesystem.
+// SavePassphrase hashes and saves the passphrase to the filesystem.
 func (fs *FileSystem) SavePassphrase(passphrase string) error {
-	fs.hashedPassphrase = hashPassphrase(passphrase)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(passphrase), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	fs.hashedPassphrase = hashed
 
 	return os.Write(fs.hashedPassphrase, getPassphrasePath(fs.HomePath))
 }
 
 // ValidatePassphrase validates the given passphrase with the stored hashed passphrase.
 func (fs *FileSystem) ValidatePassphrase(passphrase string) error {
-	// load passphrase from local disk
 	storedHashedPassphrase, err := fs.GetHashedPassphrase()
 	if err != nil {
 		return err
 	}
 
-	if !bytes.Equal(hashPassphrase(passphrase), storedHashedPassphrase) {
+	if err := bcrypt.CompareHashAndPassword(storedHashedPassphrase, []byte(passphrase)); err != nil {
 		return fmt.Errorf("invalid passphrase: the provided passphrase does not match the stored hashed passphrase")
 	}
 
@@ -121,11 +124,4 @@ func getConfigPath(homePath string) []string {
 // getPassphrasePath returns the directories of the passphrase file and passphrase file name.
 func getPassphrasePath(homePath string) []string {
 	return []string{homePath, cfgDir, passphraseFileName}
-}
-
-// hashPassphrase hashes the given passphrase and returns the hashed bytes.
-func hashPassphrase(passphrase string) []byte {
-	h := sha256.New()
-	h.Write([]byte(passphrase))
-	return h.Sum(nil)
 }

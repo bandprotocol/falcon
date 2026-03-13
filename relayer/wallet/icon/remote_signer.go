@@ -17,7 +17,7 @@ type RemoteSigner struct {
 // NewRemoteSigner creates a new ICON RemoteSigner.
 // Its signature matches wallet.RemoteSignerFactory so it can be passed
 // directly to wallet.NewRemoteOnlyAdapter.
-func NewRemoteSigner(name, address, url string, key *string) (wallet.Signer, error) {
+func NewRemoteSigner(name, address, url string, key string) (wallet.Signer, error) {
 	base, err := wallet.NewBaseRemoteSigner(name, address, url, key)
 	if err != nil {
 		return nil, err

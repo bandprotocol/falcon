@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 
@@ -16,89 +13,43 @@ import (
 const hdPathTemplate = "m/44'/%d'/%d'/0/%d"
 
 // Adapter implements wallet.WalletAdapter for EVM/Ethereum chains.
-type Adapter struct {
-	passphrase string
-	store      *keystore.KeyStore
-}
+type Adapter struct{}
 
 var _ wallet.WalletAdapter = (*Adapter)(nil)
 
-// DeriveFromPrivateKey parses the hex private key, derives the address and creates
-// a LocalSigner without persisting the key to the keystore.
-func (a *Adapter) DeriveFromPrivateKey(name, secret string) (wallet.Signer, error) {
-	privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
-	if err != nil {
-		return nil, err
-	}
-	return NewLocalSigner(name, privateKey), nil
-}
-
-// DeriveFromMnemonic derives an ECDSA key from a mnemonic via the BIP-44 HD path
-// and creates a LocalSigner without persisting the key to the keystore.
-func (a *Adapter) DeriveFromMnemonic(
-	name, mnemonic string,
-	coinType uint32,
-	account uint,
-	index uint,
-) (wallet.Signer, error) {
-	hdWallet, err := hdwallet.NewFromMnemonic(mnemonic)
-	if err != nil {
-		return nil, err
-	}
-
-	hdPath := fmt.Sprintf(hdPathTemplate, coinType, account, index)
-	derivationPath := hdwallet.MustParseDerivationPath(hdPath)
-	ethAccount, err := hdWallet.Derive(derivationPath, true)
-	if err != nil {
-		return nil, err
-	}
-
-	privHex, err := hdWallet.PrivateKeyHex(ethAccount)
-	if err != nil {
-		return nil, err
-	}
-
-	return a.DeriveFromPrivateKey(name, privHex)
-}
-
-// PersistKey imports the ECDSA key into the EVM keystore.
-func (a *Adapter) PersistKey(name string, signer wallet.Signer, secret string) error {
-	ls, ok := signer.(*LocalSigner)
-	if !ok {
-		return nil
-	}
-	_, err := a.store.ImportECDSA(ls.privateKey, a.passphrase)
-	return err
-}
-
-// LoadSigner reconstructs a Signer from a persisted KeyRecord.
-func (a *Adapter) LoadSigner(name string, record wallet.KeyRecord) (wallet.Signer, error) {
+// LoadSigner reconstructs a Signer from a persisted KeyRecord and the secret
+// retrieved from the shared keyring.
+func (a *Adapter) LoadSigner(name string, record wallet.KeyRecord, secret string) (wallet.Signer, error) {
 	switch record.Type {
-	case wallet.LocalSignerType:
-		gethAddr := common.HexToAddress(record.Address)
-		acc := accounts.Account{Address: gethAddr}
-		b, err := a.store.Export(acc, a.passphrase, a.passphrase)
+	case wallet.PrivKeySignerType:
+		privateKey, err := crypto.HexToECDSA(strings.TrimPrefix(secret, "0x"))
 		if err != nil {
 			return nil, err
 		}
-		gethKey, err := keystore.DecryptKey(b, a.passphrase)
+		return NewLocalSigner(name, privateKey), nil
+	case wallet.MnemonicSignerType:
+		ms, err := wallet.DecodeMnemonicSecret(secret)
 		if err != nil {
 			return nil, err
 		}
-		return NewLocalSigner(name, gethKey.PrivateKey), nil
+		hdw, err := hdwallet.NewFromMnemonic(ms.Mnemonic)
+		if err != nil {
+			return nil, err
+		}
+		hdPath := fmt.Sprintf(hdPathTemplate, ms.CoinType, ms.Account, ms.Index)
+		derivationPath := hdwallet.MustParseDerivationPath(hdPath)
+		ethAccount, err := hdw.Derive(derivationPath, true)
+		if err != nil {
+			return nil, err
+		}
+		priv, err := hdw.PrivateKey(ethAccount)
+		if err != nil {
+			return nil, err
+		}
+		return NewLocalSigner(name, priv), nil
 	case wallet.RemoteSignerType:
-		return NewRemoteSigner(name, record.Address, record.URL, record.Key)
+		return NewRemoteSigner(name, record.Address, record.URL, secret)
 	default:
 		return nil, fmt.Errorf("unsupported signer type: %s for key %s", record.Type, name)
 	}
-}
-
-// DeleteLocalSecret removes the private key from the EVM keystore.
-// It is a no-op for remote signers.
-func (a *Adapter) DeleteLocalSecret(name string, signer wallet.Signer) error {
-	if _, ok := signer.(*LocalSigner); ok {
-		addr := common.HexToAddress(signer.GetAddress())
-		return a.store.Delete(accounts.Account{Address: addr}, a.passphrase)
-	}
-	return nil
 }

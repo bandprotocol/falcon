@@ -72,15 +72,12 @@ func (s *FileSystemTestSuite) TestGetHashedPassphrase() {
 	newStore, err := store.NewFileSystem(s.store.HomePath)
 	s.NoError(err)
 
-	expect := []byte{
-		0x5c, 0xb5, 0xf0, 0x32, 0x6, 0x65, 0x34, 0x19, 0x2e, 0x6e, 0xda, 0xe1, 0x7, 0x3c,
-		0xe9, 0x0, 0x37, 0x2e, 0x5c, 0x35, 0x69, 0x54, 0x65, 0x9d, 0xb9, 0x96, 0x92, 0xc6,
-		0x1d, 0x1d, 0xc, 0xe7,
-	}
-
 	hashedPassphrase, err := newStore.GetHashedPassphrase()
 	s.NoError(err)
-	s.Require().Equal(expect, hashedPassphrase)
+	// bcrypt output is non-deterministic (random salt), so verify it is non-empty
+	// and that ValidatePassphrase round-trips correctly.
+	s.NotEmpty(hashedPassphrase)
+	s.NoError(newStore.ValidatePassphrase("new passphrase"))
 }
 
 func (s *FileSystemTestSuite) TestValidatePassphraseInvalidPassphrase() {

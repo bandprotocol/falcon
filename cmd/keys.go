@@ -39,7 +39,7 @@ type AddKeyInput struct {
 type RemoteSignerInput struct {
 	Address string
 	URL     string
-	Key     *string
+	Key     string
 }
 
 // KeysCmd represents the keys command
@@ -469,7 +469,7 @@ func parseKeysAddInputFromFlag(cmd *cobra.Command) (*AddKeyInput, error) {
 		if err != nil {
 			return nil, err
 		}
-		input.RemoteSigner.Key = &remoteSignerKey
+		input.RemoteSigner.Key = remoteSignerKey
 	}
 
 	return input, nil

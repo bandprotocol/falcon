@@ -25,7 +25,7 @@ func TestRemoteSigner(t *testing.T) {
 	url := "localhost:50051"
 	apiKey := "test-api-key"
 
-	signer, err := xrpl.NewRemoteSigner(name, address, url, &apiKey)
+	signer, err := xrpl.NewRemoteSigner(name, address, url, apiKey)
 	assert.NoError(t, err)
 
 	// Overwrite the client with our mock

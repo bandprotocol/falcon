@@ -325,7 +325,7 @@ func (a *App) AddRemoteSignerKey(
 	keyName string,
 	addr string,
 	url string,
-	key *string,
+	key string,
 ) (*chainstypes.Key, error) {
 	w, err := a.getWallet(chainName)
 	if err != nil {

@@ -196,7 +196,7 @@ func (mr *MockWalletMockRecorder) SaveByPrivateKey(name, privateKey any) *gomock
 }
 
 // SaveRemoteSignerKey mocks base method.
-func (m *MockWallet) SaveRemoteSignerKey(name, addr, url string, key *string) error {
+func (m *MockWallet) SaveRemoteSignerKey(name, addr, url, key string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveRemoteSignerKey", name, addr, url, key)
 	ret0, _ := ret[0].(error)

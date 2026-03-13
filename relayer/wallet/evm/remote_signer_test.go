@@ -39,7 +39,7 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 		name,
 		address,
 		url,
-		&testKey,
+		testKey,
 	)
 	s.Require().NoError(err)
 

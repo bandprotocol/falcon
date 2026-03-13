@@ -16,7 +16,7 @@ type RemoteSigner struct {
 }
 
 // NewRemoteSigner creates a new RemoteSigner instance.
-func NewRemoteSigner(name, address, url string, key *string) (*RemoteSigner, error) {
+func NewRemoteSigner(name, address, url string, key string) (*RemoteSigner, error) {
 	base, err := wallet.NewBaseRemoteSigner(name, address, url, key)
 	if err != nil {
 		return nil, err

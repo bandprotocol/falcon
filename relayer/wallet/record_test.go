@@ -28,12 +28,12 @@ func TestLoadKeyRecords(t *testing.T) {
 		{
 			name: "success two records",
 			setupFiles: []file{
-				{"alice.toml", []byte(`type = "local"` + "\n" + `address = "0xAAA"`)},
+				{"alice.toml", []byte(`type = "privkey"` + "\n" + `address = "0xAAA"`)},
 				{"bob.toml", []byte(`type = "remote"` + "\n" + `address = "0xBBB"` + "\n" + `url = "http://example.com"`)},
 			},
 			expectedRecords: map[string]wallet.KeyRecord{
-				"alice": {Type: "local", Address: "0xAAA"},
-				"bob":   {Type: "remote", Address: "0xBBB", URL: "http://example.com"},
+				"alice": {Type: wallet.PrivKeySignerType, Address: "0xAAA"},
+				"bob":   {Type: wallet.RemoteSignerType, Address: "0xBBB", URL: "http://example.com"},
 			},
 		},
 		{
@@ -79,13 +79,11 @@ func TestLoadKeyRecords(t *testing.T) {
 }
 
 func TestNewKeyRecord(t *testing.T) {
-	key := "test-key"
-	record := wallet.NewKeyRecord("local", "address", "url", &key)
+	record := wallet.NewKeyRecord(wallet.PrivKeySignerType, "address", "url")
 
-	assert.Equal(t, "local", record.Type)
+	assert.Equal(t, wallet.PrivKeySignerType, record.Type)
 	assert.Equal(t, "address", record.Address)
 	assert.Equal(t, "url", record.URL)
-	assert.Equal(t, &key, record.Key)
 }
 
 func TestLoadKeyRecord(t *testing.T) {

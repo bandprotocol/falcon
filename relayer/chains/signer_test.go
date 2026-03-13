@@ -77,7 +77,7 @@ func (s *SenderTestSuite) SetupTest() {
 	s.Require().NoError(err)
 
 	testKey := "testKey"
-	_, err = chains.AddRemoteSignerKey(wallet, keyName2, address2, url, &testKey)
+	_, err = chains.AddRemoteSignerKey(wallet, keyName2, address2, url, testKey)
 	s.Require().NoError(err)
 }
 
