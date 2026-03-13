@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"path"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/pelletier/go-toml/v2"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/bandprotocol/falcon/internal/os"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
