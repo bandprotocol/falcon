@@ -18,7 +18,7 @@ type BaseWallet struct {
 	adapter WalletAdapter
 	kr      *signerKeyring
 	signers map[string]Signer
-	keyDir  []string
+	keyDir  string
 }
 
 // NewBaseWallet creates a BaseWallet for the given chain, using the per-chain keyring
@@ -29,8 +29,8 @@ func NewBaseWallet(passphrase, homePath, chainName string, adapter WalletAdapter
 		return nil, err
 	}
 
-	keyDir := []string{homePath, "keys", chainName, "metadata"}
-	records, err := LoadKeyRecords(path.Join(keyDir...))
+	keyDir := path.Join(homePath, "keys", chainName, "metadata")
+	records, err := LoadKeyRecords(keyDir)
 	if err != nil {
 		return nil, err
 	}
@@ -202,11 +202,11 @@ func (w *BaseWallet) saveKeyRecord(name string, record KeyRecord) error {
 		return err
 	}
 
-	return os.Write(b, append(w.keyDir, fmt.Sprintf("%s.toml", name)))
+	return os.Write(b, []string{w.keyDir, fmt.Sprintf("%s.toml", name)})
 }
 
 // deleteKeyRecord deletes the KeyRecord file from disk.
 func (w *BaseWallet) deleteKeyRecord(name string) error {
-	filePath := path.Join(append(w.keyDir, fmt.Sprintf("%s.toml", name))...)
+	filePath := path.Join(w.keyDir, fmt.Sprintf("%s.toml", name))
 	return os.DeletePath(filePath)
 }

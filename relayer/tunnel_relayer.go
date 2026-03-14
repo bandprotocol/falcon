@@ -197,10 +197,10 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	latestSeq := targetContractInfo.LatestSequence
 	// always use lastRelayedSequence for XRPL
 	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-		// use BandChain latest sequence - 1 to force relay Bandchain latest packet
-		// for the first time relaying
+		// use BandChain latest sequence - 1 to force relay the latest BandChain packet
+		// on the first relay; clamp to 0 when LatestSequence is 0 to avoid uint64 underflow
 		if t.lastRelayedAt.IsZero() {
-			latestSeq = tunnelInfo.LatestSequence - 1
+			latestSeq = max(tunnelInfo.LatestSequence, 1) - 1
 		} else {
 			latestSeq = t.lastRelayedSequence
 		}
