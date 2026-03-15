@@ -75,7 +75,8 @@ func (cp *XRPLChainProvider) SetDatabase(database db.Database) {
 	cp.DB = database
 }
 
-// QueryTunnelInfo returns a best-effort tunnel info for XRPL.
+// QueryTunnelInfo always returns active tunnel and 0 sequence
+// as XRPL Oracleset doesn't have the concept of tunnel and sequence.
 func (cp *XRPLChainProvider) QueryTunnelInfo(
 	ctx context.Context,
 	tunnelID uint64,
@@ -126,7 +127,12 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			continue
 		}
 
-		signerPayload := xrpl.NewSignerPayload(packet.SignalPrices, freeSigner.GetAddress(), packet.TunnelID, cp.Config.Fee, uint64(sequence), uint64(packet.CreatedAt))
+		signerPayload := xrpl.NewSignerPayload(
+			freeSigner.GetAddress(),
+			packet.TunnelID,
+			cp.Config.Fee,
+			uint64(sequence),
+		)
 
 		tssPayload := wallet.NewTssPayload(
 			signing.Message,
@@ -171,7 +177,16 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 
 			// save failed tx in db
 			if cp.DB != nil {
-				tx := cp.prepareTransaction(ctx, txResult, types.TX_STATUS_FAILED, freeSigner.GetAddress(), packet, balance, log, retryCount)
+				tx := cp.prepareTransaction(
+					ctx,
+					txResult,
+					types.TX_STATUS_FAILED,
+					freeSigner.GetAddress(),
+					packet,
+					balance,
+					log,
+					retryCount,
+				)
 				chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 			}
 
@@ -188,11 +203,25 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 
 		// save success tx in db
 		if cp.DB != nil {
-			tx := cp.prepareTransaction(ctx, txResult, types.TX_STATUS_SUCCESS, freeSigner.GetAddress(), packet, balance, log, retryCount)
+			tx := cp.prepareTransaction(
+				ctx,
+				txResult,
+				types.TX_STATUS_SUCCESS,
+				freeSigner.GetAddress(),
+				packet,
+				balance,
+				log,
+				retryCount,
+			)
 			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 		}
 
-		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, types.ChainTypeXRPL.String(), types.TX_STATUS_SUCCESS.String())
+		relayermetrics.IncTxsCount(
+			packet.TunnelID,
+			cp.ChainName,
+			types.ChainTypeXRPL.String(),
+			types.TX_STATUS_SUCCESS.String(),
+		)
 		alert.HandleReset(
 			cp.Alert,
 			alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),

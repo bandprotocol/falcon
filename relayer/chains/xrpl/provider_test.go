@@ -2,6 +2,7 @@ package xrpl_test
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
@@ -87,15 +88,28 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 	s.chainProvider.FreeSigners = make(chan wallet.Signer, 1)
 	s.chainProvider.FreeSigners <- mockSigner
 
+	// Valid FixedPointABI-encoded TSS message (from chain's encoding_tss_test.go):
+	// sequence=3, prices=[{CS:BAND-USD, price=2}], createdAt=123
+	rawHex := ("cba0ad5a" +
+		"0000000000000000000000000000000000000000000000000000000000000020" +
+		"0000000000000000000000000000000000000000000000000000000000000003" +
+		"0000000000000000000000000000000000000000000000000000000000000060" +
+		"000000000000000000000000000000000000000000000000000000000000007b" +
+		"0000000000000000000000000000000000000000000000000000000000000001" +
+		"00000000000000000000000000000000000000000043533a42414e442d555344" +
+		"0000000000000000000000000000000000000000000000000000000000000002")
+	tssMsg, err := hex.DecodeString(rawHex)
+	s.Require().NoError(err)
+
 	packet := &bandtypes.Packet{
 		TunnelID: 1,
 		Sequence: 1,
 		SignalPrices: []bandtypes.SignalPrice{
-			{SignalID: "CS:XRP-USD", Price: 1000000},
+			{SignalID: "CS:BAND-USD", Price: 2},
 		},
 		CurrentGroupSigning: bandtypes.NewSigning(
 			1,
-			cmbytes.HexBytes("0xmessage"),
+			cmbytes.HexBytes(tssMsg),
 			bandtypes.NewEVMSignature(
 				cmbytes.HexBytes("0xraddress"),
 				cmbytes.HexBytes("0xsignature"),
@@ -112,7 +126,7 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 	)
 
 	// Execute
-	err := s.chainProvider.RelayPacket(context.Background(), packet)
+	err = s.chainProvider.RelayPacket(context.Background(), packet)
 	s.Require().NoError(err)
 }
 

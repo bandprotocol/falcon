@@ -37,7 +37,7 @@ func TestXRPLWallet(t *testing.T) {
 	assert.NotEmpty(t, addr2)
 	assert.True(t, w.IsAddressExist(addr2))
 
-	// Step 4: Save remote signer key
+	// Step 3: Save remote signer key
 	name3 := "remote-key"
 	addr3 := "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2"
 	url := "localhost:50051"

@@ -15,17 +15,3 @@ type Wallet interface {
 	GetSigners() []Signer
 	GetSigner(name string) (Signer, bool)
 }
-
-type TssPayload struct {
-	TssMessage []byte
-	RandomAddr []byte
-	Signature  []byte
-}
-
-func NewTssPayload(tssMessage, randomAddr, signature []byte) TssPayload {
-	return TssPayload{
-		TssMessage: tssMessage,
-		RandomAddr: randomAddr,
-		Signature:  signature,
-	}
-}

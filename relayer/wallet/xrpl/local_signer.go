@@ -56,15 +56,22 @@ func (l *LocalSigner) GetAddress() string {
 }
 
 // Sign signs the provided transaction payload and returns the signed tx blob.
-func (l *LocalSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) {
+func (l *LocalSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byte, error) {
 	var signerPayload SignerPayload
 	if err := json.Unmarshal(payload, &signerPayload); err != nil {
 		return nil, err
 	}
-	priceDataSeries := make([]ledger.PriceDataWrapper, 0, len(signerPayload.SignalPrices))
 
-	for _, p := range signerPayload.SignalPrices {
-		baseAsset, quoteAsset, err := ParseAssetsFromSignal(p.SignalID)
+	tssPacket, err := tssPayload.ToTSSPacket()
+	if err != nil {
+		return nil, err
+	}
+
+	priceDataSeries := make([]ledger.PriceDataWrapper, 0, len(tssPacket.RelayPrices))
+
+	for _, p := range tssPacket.RelayPrices {
+		signalId := wallet.Bytes32ToString(p.SignalID)
+		baseAsset, quoteAsset, err := ParseAssetsFromSignal(signalId)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +99,7 @@ func (l *LocalSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) 
 			Fee:             xrpltypes.XRPCurrencyAmount(feeUint64),
 		},
 		OracleDocumentID: uint32(signerPayload.OracleID),
-		LastUpdatedTime:  uint32(signerPayload.LastUpdatedTime),
+		LastUpdatedTime:  uint32(tssPacket.CreatedAt),
 		Provider:         providerHex,
 		AssetClass:       dataClassHex,
 		PriceDataSeries:  priceDataSeries,
