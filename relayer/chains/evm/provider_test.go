@@ -23,24 +23,24 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	walletevm "github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 var baseEVMCfg = &evm.EVMChainProviderConfig{
 	BaseChainProviderConfig: chains.BaseChainProviderConfig{
-		Endpoints:           []string{"http://localhost:8545"},
-		ChainType:           chaintypes.ChainTypeEVM,
-		MaxRetry:            3,
-		ChainID:             31337,
-		TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-		QueryTimeout:        3 * time.Second,
-		ExecuteTimeout:      3 * time.Second,
+		Endpoints:                  []string{"http://localhost:8545"},
+		ChainType:                  chaintypes.ChainTypeEVM,
+		MaxRetry:                   3,
+		ChainID:                    31337,
+		QueryTimeout:               3 * time.Second,
+		ExecuteTimeout:             3 * time.Second,
+		LivelinessCheckingInterval: 15 * time.Minute,
 	},
-	BlockConfirmation:          5,
-	WaitingTxDuration:          time.Second * 3,
-	CheckingTxInterval:         time.Second,
-	LivelinessCheckingInterval: 15 * time.Minute,
-	GasMultiplier:              1,
+	TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+	BlockConfirmation:   5,
+	WaitingTxDuration:   time.Second * 3,
+	CheckingTxInterval:  time.Second,
+	GasMultiplier:       1,
 }
 
 func mockPacket() bandtypes.Packet {
@@ -102,7 +102,7 @@ func (s *ProviderTestSuite) SetupTest() {
 	chainName := "testnet"
 	s.chainName = chainName
 
-	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	wallet, err := walletevm.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	log := logger.NewZapLogWrapper(zap.NewNop().Sugar())

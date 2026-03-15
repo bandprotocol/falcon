@@ -390,7 +390,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 			"evm_address", gethAddr.Hex(),
 			err,
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to query: %w", err)
+		return nil, fmt.Errorf("[EVMClient] failed to query contract: %w", err)
 	}
 
 	// Convert hex result to bytes
@@ -465,7 +465,7 @@ func (c *client) EstimateBaseFee(ctx context.Context) (*big.Int, error) {
 
 	latestHeader, err := client.HeaderByNumber(newCtx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("[EVMClient] failed to get latest header: %w", err)
 	}
 
 	estimatedBaseFee := MultiplyBigIntWithFloat64(latestHeader.BaseFee, 1.125)

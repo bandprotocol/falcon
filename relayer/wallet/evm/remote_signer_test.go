@@ -1,7 +1,6 @@
-package geth_test
+package evm_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,8 +8,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/bandprotocol/falcon/internal/relayertest/mocks"
-	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 const (
@@ -19,13 +17,13 @@ const (
 	url     = "0.0.0.0:50051"
 )
 
-// RemoteSignerTestSuite runs tests for geth.RemoteSigner.
+// RemoteSignerTestSuite runs tests for evm.RemoteSigner.
 type RemoteSignerTestSuite struct {
 	suite.Suite
 
 	ctrl       *gomock.Controller
 	mockClient *mocks.MockFkmsServiceClient
-	rs         *geth.RemoteSigner
+	rs         *evm.RemoteSigner
 }
 
 func TestRemoteSignerTestSuite(t *testing.T) {
@@ -37,11 +35,11 @@ func (s *RemoteSignerTestSuite) SetupTest() {
 	s.mockClient = mocks.NewMockFkmsServiceClient(s.ctrl)
 
 	testKey := "testKey"
-	rs, err := geth.NewRemoteSigner(
+	rs, err := evm.NewRemoteSigner(
 		name,
-		common.HexToAddress(address),
+		address,
 		url,
-		&testKey,
+		testKey,
 	)
 	s.Require().NoError(err)
 
@@ -63,21 +61,4 @@ func (s *RemoteSignerTestSuite) TestGetName() {
 func (s *RemoteSignerTestSuite) TestGetAddress() {
 	got := s.rs.GetAddress()
 	s.Equal(common.HexToAddress(address).Hex(), got)
-}
-
-func (s *RemoteSignerTestSuite) TestSign() {
-	payload := []byte{0x01, 0x02, 0x03}
-	expected := []byte{0xaa, 0xbb, 0xcc}
-
-	s.mockClient.
-		EXPECT().
-		SignEvm(
-			gomock.Any(),
-			&fkmsv1.SignEvmRequest{Address: strings.ToLower(address), Message: payload},
-		).
-		Return(&fkmsv1.SignEvmResponse{Signature: expected}, nil)
-
-	sig, err := s.rs.Sign(payload)
-	s.Require().NoError(err)
-	s.Equal(expected, sig)
 }

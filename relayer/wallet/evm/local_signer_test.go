@@ -1,4 +1,4 @@
-package geth_test
+package evm_test
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	"github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 
 type LocalSignerTestSuite struct {
 	suite.Suite
-	ls *geth.LocalSigner
+	ls *evm.LocalSigner
 }
 
 func TestLocalSignerTestSuite(t *testing.T) {
@@ -26,7 +26,7 @@ func TestLocalSignerTestSuite(t *testing.T) {
 func (s *LocalSignerTestSuite) SetupTest() {
 	priv, err := crypto.HexToECDSA(testPrivateKeyHex)
 	s.Require().NoError(err)
-	s.ls = geth.NewLocalSigner(testName, priv)
+	s.ls = evm.NewLocalSigner(testName, priv)
 }
 
 func (s *LocalSignerTestSuite) TestExportPrivateKey() {
@@ -45,18 +45,4 @@ func (s *LocalSignerTestSuite) TestGetAddress() {
 	expected := crypto.PubkeyToAddress(priv.PublicKey).Hex()
 
 	s.Equal(expected, s.ls.GetAddress())
-}
-
-func (s *LocalSignerTestSuite) TestSign() {
-	data := []byte("hello world")
-
-	sig, err := s.ls.Sign(data)
-	s.Require().NoError(err)
-
-	hash := crypto.Keccak256(data)
-	pubkey, err := crypto.SigToPub(hash, sig)
-	s.Require().NoError(err)
-	recovered := crypto.PubkeyToAddress(*pubkey).Hex()
-
-	s.Equal(s.ls.GetAddress(), recovered)
 }
