@@ -15,72 +15,16 @@ import (
 	"github.com/Peersyst/xrpl-go/xrpl/transaction/types"
 
 	"github.com/bandprotocol/falcon/relayer/alert"
+	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // XRPLClients holds XRPL RPC clients and the selected endpoint.
-type XRPLClients struct {
-	mu               sync.RWMutex
-	selectedEndpoint string                 // Currently selected endpoint
-	clients          map[string]*rpc.Client // Endpoint to client map
-}
+type XRPLClients = chains.ClientPool[rpc.Client]
 
 // NewXRPLClients creates and returns a new XRPLClients instance with no endpoints.
 func NewXRPLClients() XRPLClients {
-	return XRPLClients{
-		clients: make(map[string]*rpc.Client),
-	}
-}
-
-// GetClient returns the rpc.Client for a given endpoint, and a boolean indicating if it exists.
-func (xc *XRPLClients) GetClient(endpoint string) (*rpc.Client, bool) {
-	xc.mu.RLock()
-	defer xc.mu.RUnlock()
-
-	client, exists := xc.clients[endpoint]
-	return client, exists
-}
-
-// SetClient sets the rpc.Client for a given endpoint in the clients map.
-func (xc *XRPLClients) SetClient(endpoint string, client *rpc.Client) {
-	xc.mu.Lock()
-	defer xc.mu.Unlock()
-
-	xc.clients[endpoint] = client
-}
-
-// SetSelectedEndpoint sets the currently selected endpoint.
-func (xc *XRPLClients) SetSelectedEndpoint(endpoint string) {
-	xc.mu.Lock()
-	defer xc.mu.Unlock()
-
-	xc.selectedEndpoint = endpoint
-}
-
-// GetSelectedEndpoint returns the currently selected endpoint.
-func (xc *XRPLClients) GetSelectedEndpoint() string {
-	xc.mu.RLock()
-	defer xc.mu.RUnlock()
-
-	return xc.selectedEndpoint
-}
-
-// GetSelectedClient returns the rpc.Client for the selected endpoint.
-// Returns an error if no endpoint is selected or if the selected client does not exist.
-func (xc *XRPLClients) GetSelectedClient() (*rpc.Client, error) {
-	xc.mu.RLock()
-	defer xc.mu.RUnlock()
-
-	if xc.selectedEndpoint == "" {
-		return nil, fmt.Errorf("no selected endpoint")
-	}
-
-	selectedClient, exists := xc.clients[xc.selectedEndpoint]
-	if !exists {
-		return nil, fmt.Errorf("selected endpoint client not found: %s", xc.selectedEndpoint)
-	}
-
-	return selectedClient, nil
+	return chains.NewClientPool[rpc.Client]()
 }
 
 // Client is the interface that handles interactions with the XRPL chain.

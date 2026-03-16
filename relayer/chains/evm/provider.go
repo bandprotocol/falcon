@@ -53,8 +53,8 @@ func NewEVMChainProvider(
 	client Client,
 	cfg *EVMChainProviderConfig,
 	log logger.Logger,
-	wallet wallet.Wallet,
-	alert alert.Alert,
+	w wallet.Wallet,
+	a alert.Alert,
 ) (*EVMChainProvider, error) {
 	// load abis here
 	abi, err := abi.JSON(strings.NewReader(gasPriceTunnelRouterABI))
@@ -83,9 +83,9 @@ func NewEVMChainProvider(
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
 		Log:                 log.With("chain_name", chainName),
-		Alert:               alert,
-		FreeSigners:         chains.LoadSigners(wallet),
-		Wallet:              wallet,
+		Alert:               a,
+		FreeSigners:         chains.LoadSigners(w),
+		Wallet:              w,
 	}, nil
 }
 

@@ -14,72 +14,16 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/bandprotocol/falcon/relayer/alert"
+	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // EVMClients holds Ethereum RPC clients and the selected endpoint.
-type EVMClients struct {
-	mu               sync.RWMutex
-	selectedEndpoint string                       // Currently selected endpoint
-	clients          map[string]*ethclient.Client // Endpoint to client map
-}
+type EVMClients = chains.ClientPool[ethclient.Client]
 
 // NewEVMClients creates and returns a new EVMClients instance with no endpoints.
 func NewEVMClients() EVMClients {
-	return EVMClients{
-		clients: make(map[string]*ethclient.Client),
-	}
-}
-
-// GetClient returns the ethclient.Client for a given endpoint, and a boolean indicating if it exists.
-func (ec *EVMClients) GetClient(endpoint string) (*ethclient.Client, bool) {
-	ec.mu.RLock()
-	defer ec.mu.RUnlock()
-
-	client, exists := ec.clients[endpoint]
-	return client, exists
-}
-
-// SetClient sets the ethclient.Client for a given endpoint in the clients map.
-func (ec *EVMClients) SetClient(endpoint string, client *ethclient.Client) {
-	ec.mu.Lock()
-	defer ec.mu.Unlock()
-
-	ec.clients[endpoint] = client
-}
-
-// SetSelectedEndpoint sets the currently selected endpoint.
-func (ec *EVMClients) SetSelectedEndpoint(endpoint string) {
-	ec.mu.Lock()
-	defer ec.mu.Unlock()
-
-	ec.selectedEndpoint = endpoint
-}
-
-// GetSelectedEndpoint returns the currently selected endpoint.
-func (ec *EVMClients) GetSelectedEndpoint() string {
-	ec.mu.RLock()
-	defer ec.mu.RUnlock()
-
-	return ec.selectedEndpoint
-}
-
-// GetSelectedClient returns the ethclient.Client for the selected endpoint.
-// Returns an error if no endpoint is selected or if the selected client does not exist.
-func (ec *EVMClients) GetSelectedClient() (*ethclient.Client, error) {
-	ec.mu.RLock()
-	defer ec.mu.RUnlock()
-
-	if ec.selectedEndpoint == "" {
-		return nil, fmt.Errorf("no selected endpoint")
-	}
-
-	selectedClient, exists := ec.clients[ec.selectedEndpoint]
-	if !exists {
-		return nil, fmt.Errorf("selected endpoint client not found: %s", ec.selectedEndpoint)
-	}
-
-	return selectedClient, nil
+	return chains.NewClientPool[ethclient.Client]()
 }
 
 var _ Client = &client{}

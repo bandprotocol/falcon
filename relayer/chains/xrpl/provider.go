@@ -45,17 +45,17 @@ func NewXRPLChainProvider(
 	client Client,
 	cfg *XRPLChainProviderConfig,
 	log logger.Logger,
-	wallet wallet.Wallet,
-	alert alert.Alert,
+	w wallet.Wallet,
+	a alert.Alert,
 ) *XRPLChainProvider {
 	return &XRPLChainProvider{
 		Config:      cfg,
 		ChainName:   chainName,
 		Client:      client,
 		Log:         log.With("chain_name", chainName),
-		Alert:       alert,
-		FreeSigners: chains.LoadSigners(wallet),
-		Wallet:      wallet,
+		Alert:       a,
+		FreeSigners: chains.LoadSigners(w),
+		Wallet:      w,
 	}
 }
 
