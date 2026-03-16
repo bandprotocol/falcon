@@ -31,8 +31,7 @@ type XRPLChainProvider struct {
 
 	Log logger.Logger
 
-	Wallet wallet.Wallet
-	DB     db.Database
+	DB db.Database
 
 	Alert alert.Alert
 
@@ -53,7 +52,6 @@ func NewXRPLChainProvider(
 		ChainName:   chainName,
 		Client:      client,
 		Log:         log.With("chain_name", chainName),
-		Wallet:      wallet,
 		Alert:       alert,
 		FreeSigners: chains.LoadSigners(wallet),
 	}
@@ -244,15 +242,9 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 	return fmt.Errorf("failed to relay packet after %d attempts", cp.Config.MaxRetry)
 }
 
-// QueryBalance queries balance by given key name from the destination chain.
-func (cp *XRPLChainProvider) QueryBalance(ctx context.Context, keyName string) (*big.Int, error) {
-	signer, ok := cp.Wallet.GetSigner(keyName)
-	if !ok {
-		cp.Log.Error("Key name does not exist", "key_name", keyName)
-		return nil, fmt.Errorf("key name does not exist: %s", keyName)
-	}
-
-	return cp.Client.GetBalance(ctx, signer.GetAddress())
+// QueryBalance queries balance by given address from the destination chain.
+func (cp *XRPLChainProvider) QueryBalance(ctx context.Context, address string) (*big.Int, error) {
+	return cp.Client.GetBalance(ctx, address)
 }
 
 // GetChainName retrieves the chain name from the chain provider.

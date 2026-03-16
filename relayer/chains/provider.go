@@ -30,8 +30,8 @@ type ChainProvider interface {
 	// RelayPacket relays the packet from the source chain to the destination chain.
 	RelayPacket(ctx context.Context, packet *bandtypes.Packet) error
 
-	// QueryBalance queries balance by given key name from the destination chain.
-	QueryBalance(ctx context.Context, keyName string) (*big.Int, error)
+	// QueryBalance queries balance by given address from the destination chain.
+	QueryBalance(ctx context.Context, address string) (*big.Int, error)
 
 	// GetChainName retrieves the chain name from the chain provider.
 	GetChainName() string

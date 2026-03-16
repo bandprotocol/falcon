@@ -42,8 +42,7 @@ type EVMChainProvider struct {
 
 	Log logger.Logger
 
-	Wallet wallet.Wallet
-	DB     db.Database
+	DB db.Database
 
 	Alert alert.Alert
 }
@@ -84,7 +83,6 @@ func NewEVMChainProvider(
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
 		Log:                 log.With("chain_name", chainName),
-		Wallet:              wallet,
 		Alert:               alert,
 		FreeSigners:         chains.LoadSigners(wallet),
 	}, nil
@@ -804,7 +802,7 @@ func (cp *EVMChainProvider) signTx(
 // QueryBalance queries balance of specific account address.
 func (cp *EVMChainProvider) QueryBalance(
 	ctx context.Context,
-	keyName string,
+	address string,
 ) (*big.Int, error) {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error(
@@ -815,18 +813,12 @@ func (cp *EVMChainProvider) QueryBalance(
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
-	signer, ok := cp.Wallet.GetSigner(keyName)
-	if !ok {
-		cp.Log.Error("Key name does not exist", "key_name", keyName)
-		return nil, fmt.Errorf("key name does not exist: %s", keyName)
-	}
-
-	address, err := HexToAddress(signer.GetAddress())
+	addr, err := HexToAddress(address)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.Client.GetBalance(ctx, address, nil)
+	return cp.Client.GetBalance(ctx, addr, nil)
 }
 
 // GetChainName retrieves the chain name from the chain provider.

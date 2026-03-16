@@ -395,7 +395,17 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 		return nil, err
 	}
 
-	return cp.QueryBalance(ctx, keyName)
+	w, err := a.getWallet(chainName)
+	if err != nil {
+		return nil, err
+	}
+
+	signer, ok := w.GetSigner(keyName)
+	if !ok {
+		return nil, fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	return cp.QueryBalance(ctx, signer.GetAddress())
 }
 
 // Start starts the tunnel relayer program.

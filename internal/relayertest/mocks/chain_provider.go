@@ -87,18 +87,18 @@ func (mr *MockChainProviderMockRecorder) Init(ctx any) *gomock.Call {
 }
 
 // QueryBalance mocks base method.
-func (m *MockChainProvider) QueryBalance(ctx context.Context, keyName string) (*big.Int, error) {
+func (m *MockChainProvider) QueryBalance(ctx context.Context, address string) (*big.Int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "QueryBalance", ctx, keyName)
+	ret := m.ctrl.Call(m, "QueryBalance", ctx, address)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // QueryBalance indicates an expected call of QueryBalance.
-func (mr *MockChainProviderMockRecorder) QueryBalance(ctx, keyName any) *gomock.Call {
+func (mr *MockChainProviderMockRecorder) QueryBalance(ctx, address any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryBalance", reflect.TypeOf((*MockChainProvider)(nil).QueryBalance), ctx, keyName)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryBalance", reflect.TypeOf((*MockChainProvider)(nil).QueryBalance), ctx, address)
 }
 
 // QueryTunnelInfo mocks base method.

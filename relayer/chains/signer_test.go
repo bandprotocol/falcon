@@ -92,7 +92,7 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
 	s.Require().NoError(err)
 
-	count := len(chainProvider.Wallet.GetSigners())
+	count := len(wallet.GetSigners())
 	s.Require().
 		Equal(count, len(chainProvider.FreeSigners))
 

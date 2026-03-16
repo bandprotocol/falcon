@@ -139,23 +139,11 @@ func (s *XRPLProviderTestSuite) TestRelayPacket_ConnectionError() {
 }
 
 func (s *XRPLProviderTestSuite) TestQueryBalance() {
-	mockSigner := mocks.NewMockSigner(s.ctrl)
-	mockSigner.EXPECT().GetAddress().Return("rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2").AnyTimes()
-
-	s.wallet.EXPECT().GetSigner("keyName").Return(mockSigner, true)
-
+	address := "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2"
 	expectedBalance := big.NewInt(1000)
-	s.client.EXPECT().GetBalance(gomock.Any(), "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2").Return(expectedBalance, nil)
+	s.client.EXPECT().GetBalance(gomock.Any(), address).Return(expectedBalance, nil)
 
-	bal, err := s.chainProvider.QueryBalance(context.Background(), "keyName")
+	bal, err := s.chainProvider.QueryBalance(context.Background(), address)
 	s.Require().NoError(err)
 	s.Equal(expectedBalance, bal)
-}
-
-func (s *XRPLProviderTestSuite) TestQueryBalance_KeyNotFound() {
-	s.wallet.EXPECT().GetSigner("unknown").Return(nil, false)
-
-	_, err := s.chainProvider.QueryBalance(context.Background(), "unknown")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "key name does not exist")
 }
