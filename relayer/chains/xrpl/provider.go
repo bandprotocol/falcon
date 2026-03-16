@@ -257,14 +257,23 @@ func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
 }
 
 // ResolveLatestSequence returns the last relayed sequence for XRPL, since XRPL
-// does not track the latest sequence on-chain. On the first relay it falls back
-// to the BandChain latest sequence minus one so the most recent packet is picked up.
+// does not track the latest sequence on-chain. If a database is available it
+// looks up the highest recorded sequence; otherwise it falls back to the
+// in-memory last-relayed state, and on the very first relay it uses the
+// BandChain latest sequence minus one so the most recent packet is picked up.
 func (cp *XRPLChainProvider) ResolveLatestSequence(
 	tunnelLatestSeq uint64,
 	_ uint64,
 	lastRelayedAt time.Time,
 	lastRelayedSeq uint64,
 ) uint64 {
+	if cp.DB != nil {
+		latestTx := cp.DB.GetLatestTransaction(cp.ChainName)
+		if latestTx != nil {
+			return latestTx.Sequence
+		}
+		return 0
+	}
 	if lastRelayedAt.IsZero() {
 		return max(tunnelLatestSeq, 1) - 1
 	}

@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
+
+	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 var _ Database = &SQL{}
@@ -84,4 +86,16 @@ func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 		}).
 		Create(transaction).
 		Error
+}
+
+func (sql SQL) GetLatestTransaction(chainName string) *Transaction {
+	var tx Transaction
+	result := sql.db.
+		Where("chain_name = ? AND status = ?", chainName, chaintypes.TX_STATUS_SUCCESS).
+		Order("created_at DESC").
+		First(&tx)
+	if result.Error != nil {
+		return nil
+	}
+	return &tx
 }
