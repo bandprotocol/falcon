@@ -14,11 +14,13 @@ func SelectSigning(packet *bandtypes.Packet) (*bandtypes.Signing, error) {
 	// current group than incoming group
 	if packet.CurrentGroupSigning != nil {
 		return packet.CurrentGroupSigning, nil
-	} else if packet.IncomingGroupSigning != nil {
-		return packet.IncomingGroupSigning, nil
-	} else {
-		return nil, fmt.Errorf("missing signing")
 	}
+
+	if packet.IncomingGroupSigning != nil {
+		return packet.IncomingGroupSigning, nil
+	}
+
+	return nil, fmt.Errorf("missing signing")
 }
 
 // ExtractEVMSignature extracts the EVM signature from the signing.
