@@ -134,10 +134,16 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			uint64(sequence),
 		)
 
+		rAddress := []byte{}
+		signature := []byte{}
+		if signing.EVMSignature != nil {
+			rAddress = signing.EVMSignature.RAddress
+			signature = signing.EVMSignature.Signature
+		}
 		tssPayload := wallet.NewTssPayload(
 			signing.Message,
-			signing.EVMSignature.RAddress,
-			signing.EVMSignature.Signature,
+			rAddress,
+			signature,
 		)
 
 		payloadBytes, err := json.Marshal(signerPayload)

@@ -16,11 +16,11 @@ var _ chains.ChainProviderConfig = &EVMChainProviderConfig{}
 type EVMChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	TunnelRouterAddress string        `mapstructure:"tunnel_router_address"        toml:"tunnel_router_address"`
-	BlockConfirmation   uint64        `mapstructure:"block_confirmation"           toml:"block_confirmation"`
-	WaitingTxDuration   time.Duration `mapstructure:"waiting_tx_duration"          toml:"waiting_tx_duration"`
-	CheckingTxInterval  time.Duration `mapstructure:"checking_tx_interval"         toml:"checking_tx_interval"`
-	GasLimit            uint64        `mapstructure:"gas_limit"                    toml:"gas_limit,omitempty"`
+	TunnelRouterAddress string        `mapstructure:"tunnel_router_address" toml:"tunnel_router_address"`
+	BlockConfirmation   uint64        `mapstructure:"block_confirmation"    toml:"block_confirmation"`
+	WaitingTxDuration   time.Duration `mapstructure:"waiting_tx_duration"   toml:"waiting_tx_duration"`
+	CheckingTxInterval  time.Duration `mapstructure:"checking_tx_interval"  toml:"checking_tx_interval"`
+	GasLimit            uint64        `mapstructure:"gas_limit"             toml:"gas_limit,omitempty"`
 
 	GasType         GasType       `mapstructure:"gas_type"          toml:"gas_type"`
 	MaxGasPrice     uint64        `mapstructure:"max_gas_price"     toml:"max_gas_price,omitempty"`
@@ -40,11 +40,6 @@ func (cpc *EVMChainProviderConfig) NewChainProvider(
 	client := NewClient(chainName, cpc, log, alert)
 
 	return NewEVMChainProvider(chainName, client, cpc, log, wallet, alert)
-}
-
-// Validate validates the EVM chain provider configuration.
-func (cpc *EVMChainProviderConfig) Validate() error {
-	return nil
 }
 
 func (cpc *EVMChainProviderConfig) GetChainType() types.ChainType {

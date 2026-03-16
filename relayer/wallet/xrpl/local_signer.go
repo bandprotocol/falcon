@@ -70,8 +70,8 @@ func (l *LocalSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byte
 	priceDataSeries := make([]ledger.PriceDataWrapper, 0, len(tssPacket.RelayPrices))
 
 	for _, p := range tssPacket.RelayPrices {
-		signalId := wallet.Bytes32ToString(p.SignalID)
-		baseAsset, quoteAsset, err := ParseAssetsFromSignal(signalId)
+		signalID := wallet.Bytes32ToString(p.SignalID)
+		baseAsset, quoteAsset, err := ParseAssetsFromSignal(signalID)
 		if err != nil {
 			return nil, err
 		}
