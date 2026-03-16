@@ -43,7 +43,7 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 				Account:  signerPayload.Account,
 				OracleId: signerPayload.OracleID,
 				Fee:      signerPayload.Fee,
-				Sequence: signerPayload.Sequence,
+				Sequence: uint64(signerPayload.Sequence),
 			},
 			Tss: &fkmsv1.Tss{
 				Message:    tssPayload.TssMessage,

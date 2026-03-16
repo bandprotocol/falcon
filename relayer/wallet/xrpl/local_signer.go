@@ -95,14 +95,18 @@ func (l *LocalSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byte
 		BaseTx: transaction.BaseTx{
 			Account:         xrpltypes.Address(signerPayload.Account),
 			TransactionType: transaction.OracleSetTx,
-			Sequence:        uint32(signerPayload.Sequence),
+			Sequence:        signerPayload.Sequence,
 			Fee:             xrpltypes.XRPCurrencyAmount(feeUint64),
 		},
-		OracleDocumentID: uint32(signerPayload.OracleID),
-		LastUpdatedTime:  uint32(tssPacket.CreatedAt),
-		Provider:         providerHex,
-		AssetClass:       dataClassHex,
-		PriceDataSeries:  priceDataSeries,
+		OracleDocumentID: uint32(
+			signerPayload.OracleID,
+		), // expect oracle ID (tunnel ID) to fit in 32 bits, which is sufficient for our use case
+		LastUpdatedTime: uint32(
+			tssPacket.CreatedAt,
+		), // expect createdAt to fit in 32 bits, which is sufficient until the year 2106
+		Provider:        providerHex,
+		AssetClass:      dataClassHex,
+		PriceDataSeries: priceDataSeries,
 	}
 
 	flattenedTx := tx.Flatten()

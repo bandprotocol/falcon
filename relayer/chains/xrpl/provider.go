@@ -131,8 +131,15 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			freeSigner.GetAddress(),
 			packet.TunnelID,
 			cp.Config.Fee,
-			uint64(sequence),
+			sequence,
 		)
+
+		payloadBytes, err := json.Marshal(signerPayload)
+		if err != nil {
+			log.Error("Marshal signer payload error", "retry_count", retryCount, err)
+			lastErr = err
+			continue
+		}
 
 		rAddress := []byte{}
 		signature := []byte{}
@@ -145,13 +152,6 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			rAddress,
 			signature,
 		)
-
-		payloadBytes, err := json.Marshal(signerPayload)
-		if err != nil {
-			log.Error("Marshal signer payload error", "retry_count", retryCount, err)
-			lastErr = err
-			continue
-		}
 
 		result, err := freeSigner.Sign(payloadBytes, tssPayload)
 		if err != nil {
