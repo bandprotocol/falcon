@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cometbft/cometbft/libs/bytes"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -44,7 +43,8 @@ type EVMChainProvider struct {
 
 	DB db.Database
 
-	Alert alert.Alert
+	Alert  alert.Alert
+	Wallet wallet.Wallet
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -85,6 +85,7 @@ func NewEVMChainProvider(
 		Log:                 log.With("chain_name", chainName),
 		Alert:               alert,
 		FreeSigners:         chains.LoadSigners(wallet),
+		Wallet:              wallet,
 	}, nil
 }
 
@@ -298,16 +299,7 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 	signer wallet.Signer,
 	gasInfo GasInfo,
 ) (*gethtypes.Transaction, error) {
-	signing, err := chains.SelectSigning(packet)
-	if err != nil {
-		return nil, err
-	}
-
-	tssMessage := signing.Message
-	rAddress := signing.EVMSignature.RAddress
-	signature := signing.EVMSignature.Signature
-
-	calldata, err := cp.CreateCalldata(tssMessage, rAddress, signature)
+	calldata, err := cp.CreateCalldata(packet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create calldata: %w", err)
 	}
@@ -721,7 +713,14 @@ func (cp *EVMChainProvider) NewRelayTx(
 }
 
 // CreateCalldata creates the calldata for the relay transaction.
-func (cp *EVMChainProvider) CreateCalldata(tssMessage bytes.HexBytes, rAddress bytes.HexBytes, signature bytes.HexBytes) ([]byte, error) {
+func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, error) {
+	signing, err := chains.SelectSigning(packet)
+	if err != nil {
+		return nil, err
+	}
+
+	rAddress, signature := chains.ExtractEVMSignature(signing.EVMSignature)
+
 	rAddr, err := HexToAddress(rAddress.String())
 	if err != nil {
 		return nil, err
@@ -729,7 +728,7 @@ func (cp *EVMChainProvider) CreateCalldata(tssMessage bytes.HexBytes, rAddress b
 
 	return cp.TunnelRouterABI.Pack(
 		"relay",
-		tssMessage.Bytes(),
+		signing.Message.Bytes(),
 		rAddr,
 		new(big.Int).SetBytes(signature),
 	)
@@ -829,6 +828,10 @@ func (cp *EVMChainProvider) GetChainName() string {
 // ChainType retrieves the chain type from the chain provider.
 func (cp *EVMChainProvider) ChainType() types.ChainType {
 	return types.ChainTypeEVM
+}
+
+func (cp *EVMChainProvider) GetWallet() wallet.Wallet {
+	return cp.Wallet
 }
 
 // queryRelayerGasFee queries the relayer gas fee being set on tunnel router.

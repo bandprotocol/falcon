@@ -3,6 +3,8 @@ package chains
 import (
 	"fmt"
 
+	"github.com/cometbft/cometbft/libs/bytes"
+
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 )
 
@@ -17,4 +19,17 @@ func SelectSigning(packet *bandtypes.Packet) (*bandtypes.Signing, error) {
 	} else {
 		return nil, fmt.Errorf("missing signing")
 	}
+}
+
+// ExtractEVMSignature extracts the EVM signature from the signing.
+// If the signing is nil, it returns empty byte slices.
+func ExtractEVMSignature(evmSignature *bandtypes.EVMSignature) (bytes.HexBytes, bytes.HexBytes) {
+	rAddress := []byte{}
+	signature := []byte{}
+	if evmSignature != nil {
+		rAddress = evmSignature.RAddress
+		signature = evmSignature.Signature
+	}
+
+	return rAddress, signature
 }

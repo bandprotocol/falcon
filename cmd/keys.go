@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/bandprotocol/falcon/relayer"
-	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
+	"github.com/bandprotocol/falcon/relayer/types"
 )
 
 const (
@@ -481,7 +481,7 @@ func addKey(
 	chainName string,
 	keyName string,
 	input *AddKeyInput,
-) (*chainstypes.Key, error) {
+) (*types.Key, error) {
 	if input == nil {
 		return nil, fmt.Errorf("invalid input: input is nil")
 	}

@@ -76,11 +76,8 @@ func (s *LegacyProviderTestSuite) SetupTest() {
 	s.chainProvider.FreeSigners <- s.mockSigner
 
 	s.relayingPacket = mockPacket()
-	evmSig := s.relayingPacket.CurrentGroupSigning.EVMSignature
 	s.relayingCalldata, err = s.chainProvider.CreateCalldata(
-		s.relayingPacket.CurrentGroupSigning.Message,
-		evmSig.RAddress,
-		evmSig.Signature,
+		&s.relayingPacket,
 	)
 	s.Require().NoError(err)
 

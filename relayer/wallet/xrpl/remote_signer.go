@@ -3,7 +3,6 @@ package xrpl
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 
 	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
 	"github.com/bandprotocol/falcon/relayer/wallet"
@@ -28,10 +27,6 @@ func NewRemoteSigner(name, address, url string, key string) (*RemoteSigner, erro
 
 // Sign requests the remote KMS to sign the data and returns the tx blob.
 func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byte, error) {
-	if len(tssPayload.RandomAddr) == 0 || len(tssPayload.Signature) == 0 {
-		return nil, fmt.Errorf("random address and signature must be provided in TSS payload for remote signing")
-	}
-
 	var signerPayload SignerPayload
 	if err := json.Unmarshal(payload, &signerPayload); err != nil {
 		return nil, err

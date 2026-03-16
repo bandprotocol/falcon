@@ -73,11 +73,11 @@ func (s *SenderTestSuite) SetupTest() {
 	s.Require().NoError(err)
 
 	// Add two mock keys to the chain provider
-	_, err = chains.AddKeyByPrivateKey(wallet, keyName1, privateKey1)
+	_, err = wallet.SaveByPrivateKey(keyName1, privateKey1)
 	s.Require().NoError(err)
 
 	testKey := "testKey"
-	_, err = chains.AddRemoteSignerKey(wallet, keyName2, address2, url, testKey)
+	err = wallet.SaveRemoteSignerKey(keyName2, address2, url, testKey)
 	s.Require().NoError(err)
 }
 

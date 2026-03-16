@@ -72,7 +72,7 @@ func (w *BaseWallet) SaveByPrivateKey(name, privateKey string) (string, error) {
 		return "", err
 	}
 
-	return w.persistLocalSigner(name, record, signer, privateKey)
+	return w.persistSigner(name, record, signer, privateKey)
 }
 
 // SaveByMnemonic imports a key derived from a mnemonic phrase.
@@ -102,12 +102,12 @@ func (w *BaseWallet) SaveByMnemonic(
 		return "", err
 	}
 
-	return w.persistLocalSigner(name, record, signer, secret)
+	return w.persistSigner(name, record, signer, secret)
 }
 
-// persistLocalSigner stores the secret, fills in the address on the record,
+// persistSigner stores the secret, fills in the address on the record,
 // writes it to disk, and registers the signer.
-func (w *BaseWallet) persistLocalSigner(name string, record KeyRecord, signer Signer, secret string) (string, error) {
+func (w *BaseWallet) persistSigner(name string, record KeyRecord, signer Signer, secret string) (string, error) {
 	addr := signer.GetAddress()
 
 	if w.IsAddressExist(addr) {
@@ -143,7 +143,7 @@ func (w *BaseWallet) SaveRemoteSignerKey(name, address, url string, key string) 
 		return err
 	}
 
-	_, err = w.persistLocalSigner(name, record, signer, key)
+	_, err = w.persistSigner(name, record, signer, key)
 	return err
 }
 

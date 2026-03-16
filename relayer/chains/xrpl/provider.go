@@ -36,6 +36,7 @@ type XRPLChainProvider struct {
 	Alert alert.Alert
 
 	FreeSigners chan wallet.Signer
+	Wallet      wallet.Wallet
 }
 
 // NewXRPLChainProvider creates a new XRPL chain provider.
@@ -54,6 +55,7 @@ func NewXRPLChainProvider(
 		Log:         log.With("chain_name", chainName),
 		Alert:       alert,
 		FreeSigners: chains.LoadSigners(wallet),
+		Wallet:      wallet,
 	}
 }
 
@@ -139,12 +141,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			continue
 		}
 
-		rAddress := []byte{}
-		signature := []byte{}
-		if signing.EVMSignature != nil {
-			rAddress = signing.EVMSignature.RAddress
-			signature = signing.EVMSignature.Signature
-		}
+		rAddress, signature := chains.ExtractEVMSignature(signing.EVMSignature)
 		tssPayload := wallet.NewTssPayload(
 			signing.Message,
 			rAddress,
@@ -253,6 +250,10 @@ func (cp *XRPLChainProvider) GetChainName() string { return cp.ChainName }
 // ChainType retrieves the chain type from the chain provider.
 func (cp *XRPLChainProvider) ChainType() types.ChainType {
 	return types.ChainTypeXRPL
+}
+
+func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
+	return cp.Wallet
 }
 
 // prepareTransaction prepares the transaction to be stored in the database.

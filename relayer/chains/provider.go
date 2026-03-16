@@ -7,6 +7,7 @@ import (
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/db"
+	"github.com/bandprotocol/falcon/relayer/wallet"
 )
 
 // ChainProviders is a collection of ChainProvider interfaces (mapped by chainName)
@@ -38,4 +39,7 @@ type ChainProvider interface {
 
 	// GetChainType retrieves the chain type from the chain provider.
 	ChainType() chainstypes.ChainType
+
+	// GetWallet retrieves the wallet from the chain provider.
+	GetWallet() wallet.Wallet
 }

@@ -17,6 +17,7 @@ import (
 	types "github.com/bandprotocol/falcon/relayer/band/types"
 	types0 "github.com/bandprotocol/falcon/relayer/chains/types"
 	db "github.com/bandprotocol/falcon/relayer/db"
+	wallet "github.com/bandprotocol/falcon/relayer/wallet"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -70,6 +71,20 @@ func (m *MockChainProvider) GetChainName() string {
 func (mr *MockChainProviderMockRecorder) GetChainName() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetChainName", reflect.TypeOf((*MockChainProvider)(nil).GetChainName))
+}
+
+// GetWallet mocks base method.
+func (m *MockChainProvider) GetWallet() wallet.Wallet {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWallet")
+	ret0, _ := ret[0].(wallet.Wallet)
+	return ret0
+}
+
+// GetWallet indicates an expected call of GetWallet.
+func (mr *MockChainProviderMockRecorder) GetWallet() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWallet", reflect.TypeOf((*MockChainProvider)(nil).GetWallet))
 }
 
 // Init mocks base method.
