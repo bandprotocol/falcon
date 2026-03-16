@@ -43,7 +43,7 @@ type Application interface {
 	DeleteChainConfig(chainName string) error
 	GetChainConfig(chainName string) (chains.ChainProviderConfig, error)
 
-	AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*types.Key, error)
+	AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*types.KeyOutput, error)
 	AddKeyByMnemonic(
 		chainName string,
 		keyName string,
@@ -51,16 +51,16 @@ type Application interface {
 		coinType uint32,
 		account uint,
 		index uint,
-	) (*types.Key, error)
+	) (*types.KeyOutput, error)
 	AddRemoteSignerKey(
 		chainName string,
 		keyName string,
 		address string,
 		url string,
 		key string,
-	) (*types.Key, error)
+	) (*types.KeyOutput, error)
 	DeleteKey(chainName string, keyName string) error
-	ListKeys(chainName string) ([]*types.Key, error)
+	ListKeys(chainName string) ([]*types.KeyOutput, error)
 	ExportKey(chainName string, keyName string) (string, error)
 	ShowKey(chainName string, keyName string) (string, error)
 

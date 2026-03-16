@@ -12,7 +12,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
@@ -194,19 +193,19 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	latestSeq := targetContractInfo.LatestSequence
-	// always use lastRelayedSequence for XRPL
-	if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-		// use BandChain latest sequence - 1 to force relay the latest BandChain packet
-		// on the first relay; clamp to 0 when LatestSequence is 0 to avoid uint64 underflow
-		if t.lastRelayedAt.IsZero() {
-			latestSeq = max(tunnelInfo.LatestSequence, 1) - 1
-		} else {
-			latestSeq = t.lastRelayedSequence
-		}
-	}
+	chainLatestSeq := t.TargetChainProvider.ResolveLatestSequence(
+		tunnelInfo.LatestSequence,
+		targetContractInfo.LatestSequence,
+		t.lastRelayedAt,
+		t.lastRelayedSequence,
+	)
 
-	t.updateRelayerMetrics(tunnelInfo, targetContractInfo, latestSeq)
+	t.updateRelayerMetrics(
+		tunnelInfo.LatestSequence,
+		chainLatestSeq,
+		tunnelInfo.TargetChainID,
+		targetContractInfo.IsActive,
+	)
 
 	// check if the target contract is active
 	t.isTargetChainActive = targetContractInfo.IsActive
@@ -215,9 +214,9 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		return 0, nil
 	}
 
-	nextSeq := latestSeq + 1
+	nextSeq := chainLatestSeq + 1
 	if tunnelInfo.LatestSequence < nextSeq {
-		t.Log.Debug("No new packet to relay", "sequence", latestSeq)
+		t.Log.Debug("No new packet to relay", "sequence", chainLatestSeq)
 		return 0, nil
 	}
 
@@ -232,21 +231,22 @@ func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
 
 // updateRelayerMetrics updates the metrics for the relayer.
 func (t *TunnelRelayer) updateRelayerMetrics(
-	tunnelInfo *types.Tunnel,
-	targetContractInfo *chaintypes.Tunnel,
-	latestSeq uint64,
+	bandLatestSequence uint64,
+	chainLatestSeq uint64,
+	targetChainID string,
+	isTargetContractActive bool,
 ) {
 	chainType := t.TargetChainProvider.ChainType()
 	// update the metric for the number of active target contracts
-	if targetContractInfo.IsActive && !t.isTargetChainActive {
-		relayermetrics.IncActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType.String())
-	} else if !targetContractInfo.IsActive && t.isTargetChainActive {
-		relayermetrics.DecActiveTargetContractsCount(tunnelInfo.TargetChainID, chainType.String())
+	if isTargetContractActive && !t.isTargetChainActive {
+		relayermetrics.IncActiveTargetContractsCount(targetChainID, chainType.String())
+	} else if !isTargetContractActive && t.isTargetChainActive {
+		relayermetrics.DecActiveTargetContractsCount(targetChainID, chainType.String())
 	}
 
 	// update the metric for unrelayed packets based on the difference
 	// between the latest sequences on BandChain and the target chain
-	unrelayedPackets := tunnelInfo.LatestSequence - latestSeq
+	unrelayedPackets := bandLatestSequence - chainLatestSeq
 	relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPackets)
 }
 

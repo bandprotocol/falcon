@@ -834,6 +834,16 @@ func (cp *EVMChainProvider) GetWallet() wallet.Wallet {
 	return cp.Wallet
 }
 
+// ResolveLatestSequence returns the contract's latest sequence directly.
+func (cp *EVMChainProvider) ResolveLatestSequence(
+	_ uint64,
+	contractLatestSeq uint64,
+	_ time.Time,
+	_ uint64,
+) uint64 {
+	return contractLatestSeq
+}
+
 // queryRelayerGasFee queries the relayer gas fee being set on tunnel router.
 func (cp *EVMChainProvider) queryRelayerGasFee(ctx context.Context) (*big.Int, error) {
 	calldata, err := cp.TunnelRouterABI.Pack("gasFee")

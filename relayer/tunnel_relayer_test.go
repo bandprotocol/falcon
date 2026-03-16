@@ -393,6 +393,17 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				chainType = chaintypes.ChainTypeEVM
 			}
 			mockChainProvider.EXPECT().ChainType().Return(chainType).AnyTimes()
+			mockChainProvider.EXPECT().
+				ResolveLatestSequence(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(func(tunnelLatest, contractLatest uint64, lastRelayedAt time.Time, lastRelayedSeq uint64) uint64 {
+					if chainType == chaintypes.ChainTypeXRPL {
+						if lastRelayedAt.IsZero() {
+							return max(tunnelLatest, 1) - 1
+						}
+						return lastRelayedSeq
+					}
+					return contractLatest
+				}).AnyTimes()
 
 			// Helper to match helper functions that use the suite fields
 			// We temporarily swap the suite fields for the subtest

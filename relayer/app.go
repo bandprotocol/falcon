@@ -271,7 +271,7 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 }
 
 // AddKeyByPrivateKey adds a new key to the chain provider using a private key.
-func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*types.Key, error) {
+func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*types.KeyOutput, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey st
 		return nil, err
 	}
 
-	return types.NewKey("", addr, ""), err
+	return types.NewKeyOutput("", addr, ""), err
 }
 
 // AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
@@ -297,7 +297,7 @@ func (a *App) AddKeyByMnemonic(
 	coinType uint32,
 	account uint,
 	index uint,
-) (*types.Key, error) {
+) (*types.KeyOutput, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
@@ -325,7 +325,7 @@ func (a *App) AddKeyByMnemonic(
 		return nil, err
 	}
 
-	return types.NewKey(generatedMnemonic, addr, ""), nil
+	return types.NewKeyOutput(generatedMnemonic, addr, ""), nil
 }
 
 // AddRemoteSignerKey adds a new remote signer key to the chain provider.
@@ -335,7 +335,7 @@ func (a *App) AddRemoteSignerKey(
 	addr string,
 	url string,
 	key string,
-) (*types.Key, error) {
+) (*types.KeyOutput, error) {
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
@@ -345,7 +345,7 @@ func (a *App) AddRemoteSignerKey(
 		return nil, err
 	}
 
-	return types.NewKey("", addr, ""), nil
+	return types.NewKeyOutput("", addr, ""), nil
 }
 
 // DeleteKey deletes the key from the chain provider.
@@ -382,16 +382,16 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 }
 
 // ListKeys retrieves the list of keys from the chain provider.
-func (a *App) ListKeys(chainName string) ([]*types.Key, error) {
+func (a *App) ListKeys(chainName string) ([]*types.KeyOutput, error) {
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
 	}
 
 	signers := cp.GetWallet().GetSigners()
-	res := make([]*types.Key, 0, len(signers))
+	res := make([]*types.KeyOutput, 0, len(signers))
 	for _, signer := range signers {
-		key := types.NewKey("", signer.GetAddress(), signer.GetName())
+		key := types.NewKeyOutput("", signer.GetAddress(), signer.GetName())
 		res = append(res, key)
 	}
 

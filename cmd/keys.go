@@ -481,7 +481,7 @@ func addKey(
 	chainName string,
 	keyName string,
 	input *AddKeyInput,
-) (*types.Key, error) {
+) (*types.KeyOutput, error) {
 	if input == nil {
 		return nil, fmt.Errorf("invalid input: input is nil")
 	}
