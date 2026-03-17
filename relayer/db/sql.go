@@ -88,11 +88,11 @@ func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 		Error
 }
 
-func (sql SQL) GetLatestTransaction(chainName string) *Transaction {
+func (sql SQL) GetLatestTransaction(tunnelID uint64) *Transaction {
 	var tx Transaction
 	result := sql.db.
-		Where("chain_name = ? AND status = ?", chainName, chaintypes.TX_STATUS_SUCCESS).
-		Order("created_at DESC").
+		Where("tunnel_id = ? AND status = ?", tunnelID, chaintypes.TX_STATUS_SUCCESS).
+		Order("block_timestamp DESC").
 		First(&tx)
 	if result.Error != nil {
 		return nil

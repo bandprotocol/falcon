@@ -193,12 +193,19 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	chainLatestSeq := t.TargetChainProvider.ResolveLatestSequence(
-		tunnelInfo.LatestSequence,
-		targetContractInfo.LatestSequence,
-		t.lastRelayedAt,
-		t.lastRelayedSequence,
-	)
+	// For chains without on-chain sequence tracking (e.g. XRPL, identified by
+	// an empty TargetAddress), QueryTunnelInfo returns the DB-backed sequence
+	// when available. If that is zero (no DB or no prior records), fall back to
+	// the in-memory last-relayed state; on the very first relay use the
+	// BandChain latest sequence minus one so the most recent packet is picked up.
+	chainLatestSeq := targetContractInfo.LatestSequence
+	if tunnelInfo.TargetAddress == "" && chainLatestSeq == 0 {
+		if t.lastRelayedAt.IsZero() {
+			chainLatestSeq = max(tunnelInfo.LatestSequence, 1) - 1
+		} else {
+			chainLatestSeq = t.lastRelayedSequence
+		}
+	}
 
 	t.updateRelayerMetrics(
 		tunnelInfo.LatestSequence,

@@ -3,7 +3,6 @@ package chains
 import (
 	"context"
 	"math/big"
-	"time"
 
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -43,14 +42,4 @@ type ChainProvider interface {
 
 	// GetWallet retrieves the wallet from the chain provider.
 	GetWallet() wallet.Wallet
-
-	// ResolveLatestSequence returns the effective latest sequence to use when
-	// determining the next packet to relay. Each chain may override this with
-	// chain-specific tracking logic.
-	ResolveLatestSequence(
-		tunnelLatestSeq uint64,
-		contractLatestSeq uint64,
-		lastRelayedAt time.Time,
-		lastRelayedSeq uint64,
-	) uint64
 }

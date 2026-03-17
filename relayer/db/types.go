@@ -14,7 +14,7 @@ type Transaction struct {
 	TxHash            string          `gorm:"unique"`
 	TunnelID          uint64          `gorm:"not null"`
 	Sequence          uint64          `gorm:"not null"`
-	ChainName         string          `gorm:"not null;index"`
+	ChainName         string          `gorm:"not null"`
 	ChainType         types.ChainType `gorm:"type:chain_type;not null"`
 	Sender            string
 	Status            types.TxStatus      `gorm:"type:tx_status;not null"`

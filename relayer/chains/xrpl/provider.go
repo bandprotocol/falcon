@@ -75,21 +75,31 @@ func (cp *XRPLChainProvider) SetDatabase(database db.Database) {
 	cp.DB = database
 }
 
-// QueryTunnelInfo always returns active tunnel and 0 sequence
-// as XRPL Oracleset doesn't have the concept of tunnel and sequence.
+// QueryTunnelInfo returns an active tunnel for XRPL. Since XRPL does not track
+// sequence on-chain, the latest sequence is sourced from the database when
+// available, otherwise 0 is returned and the caller is responsible for the
+// fallback logic.
 func (cp *XRPLChainProvider) QueryTunnelInfo(
-	ctx context.Context,
+	_ context.Context,
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
-	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, 0, nil)
+	latestSeq := uint64(0)
+	if cp.DB != nil {
+		latestTx := cp.DB.GetLatestTransaction(tunnelID)
+		if latestTx != nil {
+			latestSeq = latestTx.Sequence
+		}
+	}
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, latestSeq, nil)
 	return tunnel, nil
 }
 
 // RelayPacket relays the packet to XRPL OracleSet transaction.
-func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
+func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Packet) error {
 	if err := cp.Client.CheckAndConnect(); err != nil {
-		return err
+		cp.Log.Error("Connect client error", err)
+		return fmt.Errorf("[XRPLProvider] failed to connect client: %w", err)
 	}
 
 	// get a free signer
@@ -111,7 +121,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 
 		// If it is the first attempt or previous attempt failed due to sequence error, fetch the latest account sequence number.
 		if sequence == 0 {
-			sequence, err = cp.Client.GetAccountSequenceNumber(ctx, freeSigner.GetAddress())
+			sequence, err = cp.Client.GetAccountSequenceNumber(freeSigner.GetAddress())
 			if err != nil {
 				log.Error("Get account sequence number error", "retry_count", retryCount, err)
 				lastErr = err
@@ -158,7 +168,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 
 		var balance *big.Int
 		if cp.DB != nil {
-			balance, err = cp.Client.GetBalance(ctx, freeSigner.GetAddress())
+			balance, err = cp.Client.GetBalance(freeSigner.GetAddress())
 			if err != nil {
 				log.Error("Failed to get balance", "retry_count", retryCount, err)
 				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
@@ -171,7 +181,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			}
 		}
 
-		txResult, err := cp.Client.BroadcastTx(ctx, txBlob)
+		txResult, err := cp.Client.BroadcastTx(txBlob)
 		if err != nil {
 			log.Error("Broadcast transaction error", "retry_count", retryCount, err)
 			lastErr = err
@@ -179,7 +189,6 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			// save failed tx in db
 			if cp.DB != nil {
 				tx := cp.prepareTransaction(
-					ctx,
 					txResult,
 					types.TX_STATUS_FAILED,
 					freeSigner.GetAddress(),
@@ -205,7 +214,6 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 		// save success tx in db
 		if cp.DB != nil {
 			tx := cp.prepareTransaction(
-				ctx,
 				txResult,
 				types.TX_STATUS_SUCCESS,
 				freeSigner.GetAddress(),
@@ -236,12 +244,12 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 		alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
 		lastErr.Error(),
 	)
-	return fmt.Errorf("failed to relay packet after %d attempts", cp.Config.MaxRetry)
+	return fmt.Errorf("[XRPLProvider] failed to relay packet after %d attempts", cp.Config.MaxRetry)
 }
 
 // QueryBalance queries balance by given address from the destination chain.
 func (cp *XRPLChainProvider) QueryBalance(ctx context.Context, address string) (*big.Int, error) {
-	return cp.Client.GetBalance(ctx, address)
+	return cp.Client.GetBalance(address)
 }
 
 // GetChainName retrieves the chain name from the chain provider.
@@ -256,33 +264,9 @@ func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
 	return cp.Wallet
 }
 
-// ResolveLatestSequence returns the last relayed sequence for XRPL, since XRPL
-// does not track the latest sequence on-chain. If a database is available it
-// looks up the highest recorded sequence; otherwise it falls back to the
-// in-memory last-relayed state, and on the very first relay it uses the
-// BandChain latest sequence minus one so the most recent packet is picked up.
-func (cp *XRPLChainProvider) ResolveLatestSequence(
-	tunnelLatestSeq uint64,
-	_ uint64,
-	lastRelayedAt time.Time,
-	lastRelayedSeq uint64,
-) uint64 {
-	if cp.DB != nil {
-		latestTx := cp.DB.GetLatestTransaction(cp.ChainName)
-		if latestTx != nil {
-			return latestTx.Sequence
-		}
-		return 0
-	}
-	if lastRelayedAt.IsZero() {
-		return max(tunnelLatestSeq, 1) - 1
-	}
-	return lastRelayedSeq
-}
 
 // prepareTransaction prepares the transaction to be stored in the database.
 func (cp *XRPLChainProvider) prepareTransaction(
-	ctx context.Context,
 	txResult TxResult,
 	txStatus types.TxStatus,
 	signerAddress string,
@@ -316,7 +300,7 @@ func (cp *XRPLChainProvider) prepareTransaction(
 	// Compute new balance
 	// Note: this may be incorrect if other transactions affected the user's balance during this period.
 	if oldBalance != nil {
-		newBalance, err := cp.Client.GetBalance(ctx, signerAddress)
+		newBalance, err := cp.Client.GetBalance(signerAddress)
 		if err != nil {
 			log.Error("Failed to get balance", "retry_count", retryCount, err)
 			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
@@ -331,6 +315,18 @@ func (cp *XRPLChainProvider) prepareTransaction(
 		}
 	}
 
+	closeTime, err := cp.Client.GetLedgerCloseTime(txResult.TxHash)
+	if err != nil {
+		log.Error("Failed to get ledger close time", "tx_hash", txResult.TxHash, "retry_count", retryCount, err)
+		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
+			WithTunnelID(packet.TunnelID).
+			WithChainName(cp.ChainName), err.Error())
+	}
+	alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
+		WithTunnelID(packet.TunnelID).
+		WithChainName(cp.ChainName),
+	)
+
 	tx := db.NewTransaction(
 		txResult.TxHash,
 		packet.TunnelID,
@@ -343,7 +339,7 @@ func (cp *XRPLChainProvider) prepareTransaction(
 		fee,
 		balanceDelta,
 		signalPrices,
-		nil, // blockTimestamp - XRPL doesn't provide this easily
+		closeTime,
 	)
 
 	return tx

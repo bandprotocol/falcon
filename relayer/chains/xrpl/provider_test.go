@@ -120,8 +120,8 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 
 	// s.client expectations
 	s.client.EXPECT().CheckAndConnect().Return(nil)
-	s.client.EXPECT().GetAccountSequenceNumber(gomock.Any(), mockSigner.GetAddress()).Return(uint32(10), nil)
-	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(
+	s.client.EXPECT().GetAccountSequenceNumber(mockSigner.GetAddress()).Return(uint32(10), nil)
+	s.client.EXPECT().BroadcastTx(gomock.Any()).Return(
 		xrpl.TxResult{TxHash: "HASH", Fee: "100"}, nil,
 	)
 
@@ -141,7 +141,7 @@ func (s *XRPLProviderTestSuite) TestRelayPacket_ConnectionError() {
 func (s *XRPLProviderTestSuite) TestQueryBalance() {
 	address := "rHb9CJAW8f5rjR5juUs6K3mJtr47MS9f2"
 	expectedBalance := big.NewInt(1000)
-	s.client.EXPECT().GetBalance(gomock.Any(), address).Return(expectedBalance, nil)
+	s.client.EXPECT().GetBalance(address).Return(expectedBalance, nil)
 
 	bal, err := s.chainProvider.QueryBalance(context.Background(), address)
 	s.Require().NoError(err)

@@ -22,6 +22,7 @@ func NewRemoteSigner(name, address, url string, key string) (*RemoteSigner, erro
 	if !common.IsHexAddress(address) {
 		return nil, fmt.Errorf("invalid EVM address: %s", address)
 	}
+
 	base, err := wallet.NewBaseRemoteSigner(name, common.HexToAddress(address).Hex(), url, key)
 	if err != nil {
 		return nil, err

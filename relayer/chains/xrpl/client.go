@@ -9,6 +9,7 @@ import (
 
 	xrplaccount "github.com/Peersyst/xrpl-go/xrpl/queries/account"
 	"github.com/Peersyst/xrpl-go/xrpl/queries/common"
+	"github.com/Peersyst/xrpl-go/xrpl/queries/ledger"
 	requests "github.com/Peersyst/xrpl-go/xrpl/queries/transactions"
 	"github.com/Peersyst/xrpl-go/xrpl/rpc"
 	"github.com/Peersyst/xrpl-go/xrpl/transaction"
@@ -32,10 +33,11 @@ type Client interface {
 	Connect() error
 	CheckAndConnect() error
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
-	GetAccountSequenceNumber(ctx context.Context, account string) (uint32, error)
-	GetBalance(ctx context.Context, account string) (*big.Int, error)
+	GetAccountSequenceNumber(account string) (uint32, error)
+	GetBalance(account string) (*big.Int, error)
 	Autofill(tx *transaction.FlatTransaction) error
-	BroadcastTx(ctx context.Context, txBlob string) (TxResult, error)
+	BroadcastTx(txBlob string) (TxResult, error)
+	GetLedgerCloseTime(txHash string) (*time.Time, error)
 }
 
 var _ Client = (*client)(nil)
@@ -169,7 +171,8 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	for range c.Endpoints {
 		r := <-ch
 		if r.Client != nil {
-			if r.LedgerIndex > result.LedgerIndex || (r.Endpoint == c.clients.GetSelectedEndpoint() && r.LedgerIndex == result.LedgerIndex) {
+			if r.LedgerIndex > result.LedgerIndex ||
+				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.LedgerIndex == result.LedgerIndex) {
 				result = r
 			}
 		}
@@ -218,7 +221,7 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 }
 
 // GetAccountSequenceNumber fetches the sequence for the given account.
-func (c *client) GetAccountSequenceNumber(ctx context.Context, account string) (uint32, error) {
+func (c *client) GetAccountSequenceNumber(account string) (uint32, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		return 0, err
@@ -237,11 +240,13 @@ func (c *client) GetAccountSequenceNumber(ctx context.Context, account string) (
 }
 
 // GetBalance fetches the XRP balance for the given account (drops).
-func (c *client) GetBalance(ctx context.Context, account string) (*big.Int, error) {
+func (c *client) GetBalance(account string) (*big.Int, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		return nil, err
 	}
+
+	client.GetCurrentLedger()
 
 	result, err := client.GetAccountInfo(&xrplaccount.InfoRequest{
 		Account: types.Address(account),
@@ -269,7 +274,7 @@ func (c *client) Autofill(tx *transaction.FlatTransaction) error {
 }
 
 // BroadcastTx submits a signed tx blob and returns its hash.
-func (c *client) BroadcastTx(ctx context.Context, txBlob string) (TxResult, error) {
+func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		return TxResult{}, err
@@ -314,4 +319,21 @@ func (c *client) BroadcastTx(ctx context.Context, txBlob string) (TxResult, erro
 		TxHash: txHash,
 		Fee:    fee,
 	}, nil
+}
+
+// GetLedgerCloseTime fetches the close time of the ledger that contains the transaction with the given hash.
+func (c *client) GetLedgerCloseTime(txHash string) (*time.Time, error) {
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		return nil, err
+	}
+
+	ledger, err := client.GetLedger(&ledger.Request{LedgerHash: common.LedgerHash(txHash)})
+	if err != nil {
+		return nil, err
+	}
+
+	closeTime := time.Unix(int64(ledger.Ledger.CloseTime), 0)
+
+	return &closeTime, nil
 }

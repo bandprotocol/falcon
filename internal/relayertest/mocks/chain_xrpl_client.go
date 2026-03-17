@@ -59,18 +59,18 @@ func (mr *MockXRPLClientMockRecorder) Autofill(tx any) *gomock.Call {
 }
 
 // BroadcastTx mocks base method.
-func (m *MockXRPLClient) BroadcastTx(ctx context.Context, txBlob string) (xrpl.TxResult, error) {
+func (m *MockXRPLClient) BroadcastTx(txBlob string) (xrpl.TxResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BroadcastTx", ctx, txBlob)
+	ret := m.ctrl.Call(m, "BroadcastTx", txBlob)
 	ret0, _ := ret[0].(xrpl.TxResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BroadcastTx indicates an expected call of BroadcastTx.
-func (mr *MockXRPLClientMockRecorder) BroadcastTx(ctx, txBlob any) *gomock.Call {
+func (mr *MockXRPLClientMockRecorder) BroadcastTx(txBlob any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastTx", reflect.TypeOf((*MockXRPLClient)(nil).BroadcastTx), ctx, txBlob)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastTx", reflect.TypeOf((*MockXRPLClient)(nil).BroadcastTx), txBlob)
 }
 
 // CheckAndConnect mocks base method.
@@ -102,33 +102,48 @@ func (mr *MockXRPLClientMockRecorder) Connect() *gomock.Call {
 }
 
 // GetAccountSequenceNumber mocks base method.
-func (m *MockXRPLClient) GetAccountSequenceNumber(ctx context.Context, account string) (uint32, error) {
+func (m *MockXRPLClient) GetAccountSequenceNumber(account string) (uint32, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAccountSequenceNumber", ctx, account)
+	ret := m.ctrl.Call(m, "GetAccountSequenceNumber", account)
 	ret0, _ := ret[0].(uint32)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAccountSequenceNumber indicates an expected call of GetAccountSequenceNumber.
-func (mr *MockXRPLClientMockRecorder) GetAccountSequenceNumber(ctx, account any) *gomock.Call {
+func (mr *MockXRPLClientMockRecorder) GetAccountSequenceNumber(account any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountSequenceNumber", reflect.TypeOf((*MockXRPLClient)(nil).GetAccountSequenceNumber), ctx, account)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAccountSequenceNumber", reflect.TypeOf((*MockXRPLClient)(nil).GetAccountSequenceNumber), account)
 }
 
 // GetBalance mocks base method.
-func (m *MockXRPLClient) GetBalance(ctx context.Context, account string) (*big.Int, error) {
+func (m *MockXRPLClient) GetBalance(account string) (*big.Int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBalance", ctx, account)
+	ret := m.ctrl.Call(m, "GetBalance", account)
 	ret0, _ := ret[0].(*big.Int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetBalance indicates an expected call of GetBalance.
-func (mr *MockXRPLClientMockRecorder) GetBalance(ctx, account any) *gomock.Call {
+func (mr *MockXRPLClientMockRecorder) GetBalance(account any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockXRPLClient)(nil).GetBalance), ctx, account)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockXRPLClient)(nil).GetBalance), account)
+}
+
+// GetLedgerCloseTime mocks base method.
+func (m *MockXRPLClient) GetLedgerCloseTime(txHash string) (*time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLedgerCloseTime", txHash)
+	ret0, _ := ret[0].(*time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLedgerCloseTime indicates an expected call of GetLedgerCloseTime.
+func (mr *MockXRPLClientMockRecorder) GetLedgerCloseTime(txHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLedgerCloseTime", reflect.TypeOf((*MockXRPLClient)(nil).GetLedgerCloseTime), txHash)
 }
 
 // StartLivelinessCheck mocks base method.

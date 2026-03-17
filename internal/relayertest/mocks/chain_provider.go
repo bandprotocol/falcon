@@ -13,7 +13,6 @@ import (
 	context "context"
 	big "math/big"
 	reflect "reflect"
-	time "time"
 
 	types "github.com/bandprotocol/falcon/relayer/band/types"
 	types0 "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -144,20 +143,6 @@ func (m *MockChainProvider) RelayPacket(ctx context.Context, packet *types.Packe
 func (mr *MockChainProviderMockRecorder) RelayPacket(ctx, packet any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelayPacket", reflect.TypeOf((*MockChainProvider)(nil).RelayPacket), ctx, packet)
-}
-
-// ResolveLatestSequence mocks base method.
-func (m *MockChainProvider) ResolveLatestSequence(tunnelLatestSeq, contractLatestSeq uint64, lastRelayedAt time.Time, lastRelayedSeq uint64) uint64 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveLatestSequence", tunnelLatestSeq, contractLatestSeq, lastRelayedAt, lastRelayedSeq)
-	ret0, _ := ret[0].(uint64)
-	return ret0
-}
-
-// ResolveLatestSequence indicates an expected call of ResolveLatestSequence.
-func (mr *MockChainProviderMockRecorder) ResolveLatestSequence(tunnelLatestSeq, contractLatestSeq, lastRelayedAt, lastRelayedSeq any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveLatestSequence", reflect.TypeOf((*MockChainProvider)(nil).ResolveLatestSequence), tunnelLatestSeq, contractLatestSeq, lastRelayedAt, lastRelayedSeq)
 }
 
 // SetDatabase mocks base method.

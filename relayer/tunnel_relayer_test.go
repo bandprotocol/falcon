@@ -34,6 +34,7 @@ const (
 	defaultTunnelID               = uint64(1)
 	defaultTargetChainID          = ""
 	defaultContractAddress        = ""
+	defaultEVMContractAddress     = "0xc0ffee254729296a45a3885639AC7E10F9d54979"
 	defaultCheckingPacketInterval = time.Minute
 	defaultBandLatestSequence     = uint64(1)
 	defaultTargetChainSequence    = uint64(0)
@@ -66,11 +67,11 @@ func TestTunnelRelayerTestSuite(t *testing.T) {
 }
 
 // Helper function to mock GetTunnel.
-func (s *TunnelRelayerTestSuite) mockGetTunnel(bandLatestSequence uint64) {
+func (s *TunnelRelayerTestSuite) mockGetTunnel(bandLatestSequence uint64, targetAddress string) {
 	s.client.EXPECT().GetTunnel(s.ctx, s.tunnelRelayer.TunnelID).Return(bandtypes.NewTunnel(
 		s.tunnelRelayer.TunnelID,
 		bandLatestSequence,
-		"",
+		targetAddress,
 		"",
 		true,
 		"0xc0ffee254729296a45a3885639AC7E10F9d54979",
@@ -146,8 +147,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "success",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, "")
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultEVMContractAddress)
 
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
@@ -161,8 +162,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
 
 				// Check and relay the packet for the second time
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultEVMContractAddress)
 			},
 			relayStatus: relayer.RelayStatusSuccess,
 			chainType:   chaintypes.ChainTypeEVM,
@@ -181,9 +182,9 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "failed to query chain tunnel info",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
 				s.chainProvider.EXPECT().
-					QueryTunnelInfo(gomock.Any(), s.tunnelRelayer.TunnelID, defaultContractAddress).
+					QueryTunnelInfo(gomock.Any(), s.tunnelRelayer.TunnelID, defaultEVMContractAddress).
 					Return(nil, fmt.Errorf("failed to query tunnel info"))
 			},
 			err:         fmt.Errorf("failed to query tunnel info"),
@@ -193,8 +194,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "target chain not active",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, false, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, false, defaultEVMContractAddress)
 			},
 			err:         nil,
 			relayStatus: relayer.RelayStatusSkipped,
@@ -203,8 +204,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "no new packet to relay",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultEVMContractAddress)
 			},
 			err:         nil,
 			relayStatus: relayer.RelayStatusSkipped,
@@ -213,8 +214,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "fail to get a new packet",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultEVMContractAddress)
 
 				s.client.EXPECT().
 					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
@@ -227,8 +228,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "fallen signing status of current group but incoming group success",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultEVMContractAddress)
 
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
@@ -242,8 +243,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
 
 				// Check and relay the packet for the second time
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultEVMContractAddress)
 			},
 			relayStatus: relayer.RelayStatusSuccess,
 			chainType:   chaintypes.ChainTypeEVM,
@@ -251,8 +252,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "incoming group signing status fallen",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultEVMContractAddress)
 
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
@@ -272,8 +273,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "signing status is waiting",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultEVMContractAddress)
 				waitingPacket := createMockPacket(
 					s.tunnelRelayer.TunnelID,
 					defaultTargetChainSequence+1,
@@ -302,8 +303,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), successPacket).Return(nil)
 
 				// Check and relay the packet for the second time
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence+1, true, defaultEVMContractAddress)
 			},
 			err:         nil,
 			relayStatus: relayer.RelayStatusSuccess,
@@ -312,8 +313,8 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 		{
 			name: "failed to relay packet",
 			preprocess: func() {
-				s.mockGetTunnel(defaultBandLatestSequence)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultEVMContractAddress)
 
 				packet := createMockPacket(
 					s.tunnelRelayer.TunnelID,
@@ -335,7 +336,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			name: "xrpl relays latest sequence when behind",
 			preprocess: func() {
 				bandLatest := uint64(3)
-				s.mockGetTunnel(bandLatest)
+				s.mockGetTunnel(bandLatest, defaultContractAddress)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
 
 				packet := createMockPacket(
@@ -350,7 +351,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
 
 				// Check and relay the packet for the second time
-				s.mockGetTunnel(bandLatest)
+				s.mockGetTunnel(bandLatest, defaultContractAddress)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
 			},
 			relayStatus: relayer.RelayStatusSuccess,
@@ -360,7 +361,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			name: "xrpl not relays when last relayed sequence equal Band latest sequence",
 			preprocess: func() {
 				bandLatest := uint64(0)
-				s.mockGetTunnel(bandLatest)
+				s.mockGetTunnel(bandLatest, defaultContractAddress)
 				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
 			},
 			err:         nil,
@@ -393,17 +394,6 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				chainType = chaintypes.ChainTypeEVM
 			}
 			mockChainProvider.EXPECT().ChainType().Return(chainType).AnyTimes()
-			mockChainProvider.EXPECT().
-				ResolveLatestSequence(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-				DoAndReturn(func(tunnelLatest, contractLatest uint64, lastRelayedAt time.Time, lastRelayedSeq uint64) uint64 {
-					if chainType == chaintypes.ChainTypeXRPL {
-						if lastRelayedAt.IsZero() {
-							return max(tunnelLatest, 1) - 1
-						}
-						return lastRelayedSeq
-					}
-					return contractLatest
-				}).AnyTimes()
 
 			// Helper to match helper functions that use the suite fields
 			// We temporarily swap the suite fields for the subtest
