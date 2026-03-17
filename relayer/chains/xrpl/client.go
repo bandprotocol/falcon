@@ -231,9 +231,7 @@ func (c *client) GetAccountSequenceNumber(account string) (uint32, error) {
 	}
 
 	result, err := client.GetAccountInfo(&xrplaccount.InfoRequest{
-		Account:     types.Address(account),
-		LedgerIndex: common.Validated,
-		Strict:      true,
+		Account: types.Address(account),
 	})
 	if err != nil {
 		return 0, err

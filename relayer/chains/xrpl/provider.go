@@ -91,7 +91,6 @@ func (cp *XRPLChainProvider) QueryTunnelInfo(
 			seq = latestTx.Sequence
 		}
 		latestSeqPtr = &seq
-
 	}
 	tunnel := types.NewTunnel(tunnelID, "", true, latestSeqPtr, nil)
 	return tunnel, nil
@@ -116,20 +115,16 @@ func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Pa
 	)
 
 	var lastErr error
-	var err error
-	sequence := uint32(0)
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
 
 		// If it is the first attempt or previous attempt failed due to sequence error, fetch the latest account sequence number.
-		if sequence == 0 {
-			sequence, err = cp.Client.GetAccountSequenceNumber(freeSigner.GetAddress())
-			if err != nil {
-				log.Error("Get account sequence number error", "retry_count", retryCount, err)
-				lastErr = err
-				time.Sleep(cp.Config.NonceInterval)
-				continue
-			}
+		sequence, err := cp.Client.GetAccountSequenceNumber(freeSigner.GetAddress())
+		if err != nil {
+			log.Error("Get account sequence number error", "retry_count", retryCount, err)
+			lastErr = err
+			time.Sleep(cp.Config.NonceInterval)
+			continue
 		}
 
 		signing, err := chains.SelectSigning(packet)
@@ -203,7 +198,6 @@ func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Pa
 			}
 
 			// Set sequence to 0 to fetch the latest account sequence number in the next attempt
-			sequence = 0
 			continue
 		}
 
