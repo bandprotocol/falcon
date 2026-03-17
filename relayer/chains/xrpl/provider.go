@@ -327,11 +327,12 @@ func (cp *XRPLChainProvider) prepareTransaction(
 		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
 			WithTunnelID(packet.TunnelID).
 			WithChainName(cp.ChainName), err.Error())
+	} else {
+		alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
+			WithTunnelID(packet.TunnelID).
+			WithChainName(cp.ChainName),
+		)
 	}
-	alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
-		WithTunnelID(packet.TunnelID).
-		WithChainName(cp.ChainName),
-	)
 
 	tx := db.NewTransaction(
 		txResult.TxHash,
