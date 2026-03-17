@@ -3,8 +3,8 @@ package xrpl
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/Peersyst/xrpl-go/xrpl/ledger-entry-types"
 	"github.com/Peersyst/xrpl-go/xrpl/transaction"
@@ -20,8 +20,8 @@ const (
 
 // Precomputed hex encodings of the constant provider and dataClass strings.
 var (
-	providerHex  = strings.ToUpper(hex.EncodeToString([]byte("Band Protocol")))
-	dataClassHex = strings.ToUpper(hex.EncodeToString([]byte("Currency")))
+	providerHex  = hex.EncodeToString([]byte("Band Protocol"))
+	dataClassHex = hex.EncodeToString([]byte("Currency"))
 )
 
 var _ wallet.Signer = (*LocalSigner)(nil)
@@ -111,10 +111,60 @@ func (l *LocalSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byte
 
 	flattenedTx := tx.Flatten()
 
+	formattedPriceTx, err := formatAssetPrice(flattenedTx)
+	if err != nil {
+		return nil, err
+	}
+
+	flattenedTx["PriceDataSeries"] = formattedPriceTx
+
 	txBlob, _, err := l.Wallet.Sign(flattenedTx)
 	if err != nil {
 		return nil, err
 	}
 
 	return []byte(txBlob), nil
+}
+
+func formatAssetPrice(tx map[string]any) ([]map[string]any, error) {
+	// Look for the PriceDataSeries in the flattened map
+	priceDataSeries, ok := tx["PriceDataSeries"].([]map[string]any)
+	if !ok {
+		// If it's not there, it's either not an OracleSet or already empty
+		return nil, nil
+	}
+
+	for i, priceDataWrapper := range priceDataSeries {
+		// Access the inner PriceData object
+		priceData, ok := priceDataWrapper["PriceData"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("failed to get PriceData at index %d", i)
+		}
+
+		// Ensure AssetPrice is a uint64 hex string
+		// In Go, after transaction flattening, AssetPrice might be a uint64 or a string
+		if rawPrice, ok := priceData["AssetPrice"]; ok {
+			var hexStr string
+			var err error
+			switch v := rawPrice.(type) {
+			case string:
+				hexStr, err = Uint64StrToHexStr(v)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert AssetPrice string at index %d: %w", i, err)
+				}
+			case uint64:
+				hexStr = fmt.Sprintf("%016X", v)
+			default:
+				return nil, fmt.Errorf("unexpected type for AssetPrice at index %d: %T", i, v)
+			}
+
+			// Re-assign as a clean uint64 hex string.
+			// The XRPL Binary Codec will encode this into the correct 8-byte big-endian format.
+			priceData["AssetPrice"] = hexStr
+		} else {
+			return nil, fmt.Errorf("failed to get AssetPrice at index %d", i)
+		}
+	}
+
+	return priceDataSeries, nil
 }

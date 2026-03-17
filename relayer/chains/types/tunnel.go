@@ -4,10 +4,11 @@ import "math/big"
 
 // Tunnel defines the tunnel information on target chain.
 type Tunnel struct {
-	ID             uint64   `json:"-"`
-	TargetAddress  string   `json:"-"`
-	IsActive       bool     `json:"is_active"`
-	LatestSequence uint64   `json:"latest_sequence"`
+	ID            uint64 `json:"-"`
+	TargetAddress string `json:"-"`
+	IsActive      bool   `json:"is_active"`
+	// pointer is used to distinguish between zero value and unknown value.
+	LatestSequence *uint64  `json:"latest_sequence"`
 	Balance        *big.Int `json:"balance"`
 }
 
@@ -16,7 +17,7 @@ func NewTunnel(
 	id uint64,
 	targetAddress string,
 	isActive bool,
-	latestSequence uint64,
+	latestSequence *uint64,
 	balance *big.Int,
 ) *Tunnel {
 	return &Tunnel{

@@ -39,6 +39,7 @@ type TunnelRelayer struct {
 	penaltySkipRemaining uint
 	lastRelayedSequence  uint64
 	lastRelayedAt        time.Time
+	skippedStaleSeq      uint64 // last sequence skipped due to a stale packet
 	mu                   *sync.Mutex
 }
 
@@ -62,6 +63,7 @@ func NewTunnelRelayer(
 		penaltySkipRemaining:   0,
 		lastRelayedSequence:    0,
 		lastRelayedAt:          time.Time{},
+		skippedStaleSeq:        0,
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -120,6 +122,17 @@ func (t *TunnelRelayer) CheckAndRelay(
 		packet, err := t.getTunnelPacket(ctx, seq)
 		if err != nil {
 			return RelayStatusFailed, err
+		}
+
+		// skip stale packets and scan forward to the next BandChain sequence
+		if t.isPacketStale(packet) {
+			t.Log.Debug(
+				"Packet is stale, scanning to next sequence",
+				"sequence", seq,
+				"created_at", packet.CreatedAt,
+			)
+			t.skippedStaleSeq = seq
+			continue
 		}
 
 		// relay the packet
@@ -198,8 +211,10 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// when available. If that is zero (no DB or no prior records), fall back to
 	// the in-memory last-relayed state; on the very first relay use the
 	// BandChain latest sequence minus one so the most recent packet is picked up.
-	chainLatestSeq := targetContractInfo.LatestSequence
-	if tunnelInfo.TargetAddress == "" && chainLatestSeq == 0 {
+	var chainLatestSeq uint64
+	if targetContractInfo.LatestSequence != nil {
+		chainLatestSeq = *targetContractInfo.LatestSequence
+	} else if targetContractInfo.TargetAddress == "" {
 		if t.lastRelayedAt.IsZero() {
 			chainLatestSeq = max(tunnelInfo.LatestSequence, 1) - 1
 		} else {
@@ -221,6 +236,9 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		return 0, nil
 	}
 
+	// Advance past any sequences already skipped due to stale packets.
+	chainLatestSeq = max(chainLatestSeq, t.skippedStaleSeq)
+
 	nextSeq := chainLatestSeq + 1
 	if tunnelInfo.LatestSequence < nextSeq {
 		t.Log.Debug("No new packet to relay", "sequence", chainLatestSeq)
@@ -234,6 +252,16 @@ func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
 	return !t.lastRelayedAt.IsZero() &&
 		seq <= t.lastRelayedSequence &&
 		time.Since(t.lastRelayedAt) < defaultLastSequenceValidityPeriod
+}
+
+// isPacketStale reports whether packet.CreatedAt exceeds the chain's
+// PacketStaleDuration. Returns false when the duration is zero (no check).
+func (t *TunnelRelayer) isPacketStale(packet *types.Packet) bool {
+	d := t.TargetChainProvider.PacketStaleDuration()
+	if d == 0 {
+		return false
+	}
+	return time.Since(time.Unix(packet.CreatedAt, 0)) > d
 }
 
 // updateRelayerMetrics updates the metrics for the relayer.

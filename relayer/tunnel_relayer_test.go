@@ -60,6 +60,7 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 
 	s.chainProvider.EXPECT().GetChainName().Return("").AnyTimes()
 	s.chainProvider.EXPECT().ChainType().Return(chaintypes.ChainTypeEVM).AnyTimes()
+	s.chainProvider.EXPECT().PacketStaleDuration().Return(time.Duration(0)).AnyTimes()
 }
 
 func TestTunnelRelayerTestSuite(t *testing.T) {
@@ -80,13 +81,17 @@ func (s *TunnelRelayerTestSuite) mockGetTunnel(bandLatestSequence uint64, target
 
 // Helper function to mock QueryTunnelInfo.
 func (s *TunnelRelayerTestSuite) mockQueryTunnelInfo(sequence uint64, isActive bool, contractAddress string) {
+	var seqPtr *uint64
+	if sequence != 0 {
+		seqPtr = &sequence
+	}
 	s.chainProvider.EXPECT().
 		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, contractAddress).
 		Return(&chaintypes.Tunnel{
 			ID:             s.tunnelRelayer.TunnelID,
 			TargetAddress:  contractAddress,
 			IsActive:       isActive,
-			LatestSequence: sequence,
+			LatestSequence: seqPtr,
 			Balance:        big.NewInt(1),
 		}, nil)
 }
@@ -388,6 +393,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			)
 
 			mockChainProvider.EXPECT().GetChainName().Return("").AnyTimes()
+			mockChainProvider.EXPECT().PacketStaleDuration().Return(time.Duration(0)).AnyTimes()
 
 			chainType := tc.chainType
 			if chainType == chaintypes.ChainTypeUndefined {

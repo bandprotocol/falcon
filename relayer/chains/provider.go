@@ -3,6 +3,7 @@ package chains
 import (
 	"context"
 	"math/big"
+	"time"
 
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -42,4 +43,8 @@ type ChainProvider interface {
 
 	// GetWallet retrieves the wallet from the chain provider.
 	GetWallet() wallet.Wallet
+
+	// PacketStaleDuration returns the maximum age a packet may have and still
+	// be relayed. Zero means no staleness check is applied.
+	PacketStaleDuration() time.Duration
 }

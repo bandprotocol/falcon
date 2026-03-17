@@ -84,14 +84,16 @@ func (cp *XRPLChainProvider) QueryTunnelInfo(
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
-	latestSeq := uint64(0)
+	var latestSeqPtr *uint64
+	seq := uint64(0)
 	if cp.DB != nil {
-		latestTx := cp.DB.GetLatestTransaction(tunnelID)
-		if latestTx != nil {
-			latestSeq = latestTx.Sequence
+		if latestTx := cp.DB.GetLatestTransaction(tunnelID); latestTx != nil {
+			seq = latestTx.Sequence
 		}
+		latestSeqPtr = &seq
+
 	}
-	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, latestSeq, nil)
+	tunnel := types.NewTunnel(tunnelID, "", true, latestSeqPtr, nil)
 	return tunnel, nil
 }
 
@@ -264,6 +266,10 @@ func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
 	return cp.Wallet
 }
 
+// PacketStaleDuration returns 5 minutes: XRPL rejects packets older than this.
+func (cp *XRPLChainProvider) PacketStaleDuration() time.Duration {
+	return 5 * time.Minute
+}
 
 // prepareTransaction prepares the transaction to be stored in the database.
 func (cp *XRPLChainProvider) prepareTransaction(
@@ -315,7 +321,7 @@ func (cp *XRPLChainProvider) prepareTransaction(
 		}
 	}
 
-	closeTime, err := cp.Client.GetLedgerCloseTime(txResult.TxHash)
+	closeTime, err := cp.Client.GetLedgerCloseTime(txResult.LedgerIndex)
 	if err != nil {
 		log.Error("Failed to get ledger close time", "tx_hash", txResult.TxHash, "retry_count", retryCount, err)
 		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).

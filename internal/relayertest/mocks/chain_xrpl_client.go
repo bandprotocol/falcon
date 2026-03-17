@@ -15,6 +15,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	common "github.com/Peersyst/xrpl-go/xrpl/queries/common"
 	transaction "github.com/Peersyst/xrpl-go/xrpl/transaction"
 	xrpl "github.com/bandprotocol/falcon/relayer/chains/xrpl"
 	gomock "go.uber.org/mock/gomock"
@@ -132,18 +133,18 @@ func (mr *MockXRPLClientMockRecorder) GetBalance(account any) *gomock.Call {
 }
 
 // GetLedgerCloseTime mocks base method.
-func (m *MockXRPLClient) GetLedgerCloseTime(txHash string) (*time.Time, error) {
+func (m *MockXRPLClient) GetLedgerCloseTime(ledgerIndex common.LedgerIndex) (*time.Time, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLedgerCloseTime", txHash)
+	ret := m.ctrl.Call(m, "GetLedgerCloseTime", ledgerIndex)
 	ret0, _ := ret[0].(*time.Time)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetLedgerCloseTime indicates an expected call of GetLedgerCloseTime.
-func (mr *MockXRPLClientMockRecorder) GetLedgerCloseTime(txHash any) *gomock.Call {
+func (mr *MockXRPLClientMockRecorder) GetLedgerCloseTime(ledgerIndex any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLedgerCloseTime", reflect.TypeOf((*MockXRPLClient)(nil).GetLedgerCloseTime), txHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLedgerCloseTime", reflect.TypeOf((*MockXRPLClient)(nil).GetLedgerCloseTime), ledgerIndex)
 }
 
 // StartLivelinessCheck mocks base method.

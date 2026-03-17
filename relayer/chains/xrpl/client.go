@@ -20,6 +20,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
+const RippleEpochOffset = 946684800
+
 // XRPLClients holds XRPL RPC clients and the selected endpoint.
 type XRPLClients = chains.ClientPool[rpc.Client]
 
@@ -37,7 +39,7 @@ type Client interface {
 	GetBalance(account string) (*big.Int, error)
 	Autofill(tx *transaction.FlatTransaction) error
 	BroadcastTx(txBlob string) (TxResult, error)
-	GetLedgerCloseTime(txHash string) (*time.Time, error)
+	GetLedgerCloseTime(ledgerIndex common.LedgerIndex) (*time.Time, error)
 }
 
 var _ Client = (*client)(nil)
@@ -54,8 +56,9 @@ type client struct {
 }
 
 type TxResult struct {
-	TxHash string
-	Fee    string
+	TxHash      string
+	Fee         string
+	LedgerIndex common.LedgerIndex
 }
 
 // NewClient creates a new XRPL client from config.
@@ -246,8 +249,6 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 		return nil, err
 	}
 
-	client.GetCurrentLedger()
-
 	result, err := client.GetAccountInfo(&xrplaccount.InfoRequest{
 		Account: types.Address(account),
 	})
@@ -316,24 +317,25 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 	}
 
 	return TxResult{
-		TxHash: txHash,
-		Fee:    fee,
+		TxHash:      txHash,
+		Fee:         fee,
+		LedgerIndex: result.ValidatedLedgerIndex,
 	}, nil
 }
 
-// GetLedgerCloseTime fetches the close time of the ledger that contains the transaction with the given hash.
-func (c *client) GetLedgerCloseTime(txHash string) (*time.Time, error) {
+// GetLedgerCloseTime fetches the close time of the ledger with the given index.
+func (c *client) GetLedgerCloseTime(ledgerIndex common.LedgerIndex) (*time.Time, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		return nil, err
 	}
 
-	ledger, err := client.GetLedger(&ledger.Request{LedgerHash: common.LedgerHash(txHash)})
+	ledger, err := client.GetLedger(&ledger.Request{LedgerIndex: ledgerIndex})
 	if err != nil {
 		return nil, err
 	}
 
-	closeTime := time.Unix(int64(ledger.Ledger.CloseTime), 0)
+	closeTime := time.Unix(int64(ledger.Ledger.CloseTime)+RippleEpochOffset, 0)
 
 	return &closeTime, nil
 }

@@ -13,6 +13,7 @@ import (
 	context "context"
 	big "math/big"
 	reflect "reflect"
+	time "time"
 
 	types "github.com/bandprotocol/falcon/relayer/band/types"
 	types0 "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -99,6 +100,20 @@ func (m *MockChainProvider) Init(ctx context.Context) error {
 func (mr *MockChainProviderMockRecorder) Init(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockChainProvider)(nil).Init), ctx)
+}
+
+// PacketStaleDuration mocks base method.
+func (m *MockChainProvider) PacketStaleDuration() time.Duration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PacketStaleDuration")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+// PacketStaleDuration indicates an expected call of PacketStaleDuration.
+func (mr *MockChainProviderMockRecorder) PacketStaleDuration() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PacketStaleDuration", reflect.TypeOf((*MockChainProvider)(nil).PacketStaleDuration))
 }
 
 // QueryBalance mocks base method.
