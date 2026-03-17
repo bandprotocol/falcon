@@ -366,7 +366,14 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 		"0xc0ffee254729296a45a3885639AC7E10F9d54979",
 	)
 	chainSeq := uint64(0)
-	mockTunnelChainInfo := chainstypes.NewTunnel(1, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", false, &chainSeq, nil)
+	mockTunnelChainInfo := chainstypes.NewTunnel(
+		1,
+		"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+		false,
+		&chainSeq,
+		nil,
+		true,
+	)
 
 	testcases := []struct {
 		name       string

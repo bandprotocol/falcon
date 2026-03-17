@@ -14,6 +14,7 @@ type Packet struct {
 	CurrentGroupSigning  *Signing      `json:"current_group_signing"`
 	IncomingGroupSigning *Signing      `json:"incoming_group_signing"`
 	CreatedAt            int64         `json:"-"`
+	TargetAddress        string        `json:"-"`
 }
 
 // NewPacket creates a new Packet instance.

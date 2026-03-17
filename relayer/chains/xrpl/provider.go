@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -87,17 +89,49 @@ func (cp *XRPLChainProvider) QueryTunnelInfo(
 	var latestSeqPtr *uint64
 	seq := uint64(0)
 	if cp.DB != nil {
-		if latestTx := cp.DB.GetLatestTransaction(tunnelID); latestTx != nil {
+		if latestTx, err := cp.DB.GetLatestTransaction(tunnelID); err != nil {
+			return nil, fmt.Errorf("failed to get latest transaction for tunnel %d: %w", tunnelID, err)
+		} else if latestTx != nil {
 			seq = latestTx.Sequence
 		}
 		latestSeqPtr = &seq
 	}
-	tunnel := types.NewTunnel(tunnelID, "", true, latestSeqPtr, nil)
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, latestSeqPtr, nil, false)
 	return tunnel, nil
+}
+
+// validateTargetAddress parses the BandChain target address in "sender:tunnelID"
+// format and verifies that the sender is a known wallet signer and the tunnelID
+// matches the packet.
+func (cp *XRPLChainProvider) validateTargetAddress(targetAddress string, packet *bandtypes.Packet) error {
+	parts := strings.SplitN(targetAddress, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid target address format %q: expected sender:tunnelID", targetAddress)
+	}
+	sender, tunnelIDStr := parts[0], parts[1]
+
+	tunnelID, err := strconv.ParseUint(tunnelIDStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid tunnel ID in target address %q: %w", targetAddress, err)
+	}
+	if tunnelID != packet.TunnelID {
+		return fmt.Errorf("target address tunnel ID %d does not match packet tunnel ID %d", tunnelID, packet.TunnelID)
+	}
+
+	for _, s := range cp.Wallet.GetSigners() {
+		if s.GetAddress() == sender {
+			return nil
+		}
+	}
+	return fmt.Errorf("sender %q in target address is not a known wallet signer", sender)
 }
 
 // RelayPacket relays the packet to XRPL OracleSet transaction.
 func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Packet) error {
+	if err := cp.validateTargetAddress(packet.TargetAddress, packet); err != nil {
+		return fmt.Errorf("[XRPLProvider] invalid target address: %w", err)
+	}
+
 	if err := cp.Client.CheckAndConnect(); err != nil {
 		cp.Log.Error("Connect client error", err)
 		return fmt.Errorf("[XRPLProvider] failed to connect client: %w", err)

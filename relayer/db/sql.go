@@ -88,14 +88,14 @@ func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 		Error
 }
 
-func (sql SQL) GetLatestTransaction(tunnelID uint64) *Transaction {
+func (sql SQL) GetLatestTransaction(tunnelID uint64) (*Transaction, error) {
 	var tx Transaction
 	result := sql.db.
 		Where("tunnel_id = ? AND status = ?", tunnelID, chaintypes.TX_STATUS_SUCCESS).
 		Order("block_timestamp DESC").
 		First(&tx)
 	if result.Error != nil {
-		return nil
+		return nil, result.Error
 	}
-	return &tx
+	return &tx, nil
 }

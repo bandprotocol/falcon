@@ -56,7 +56,7 @@ func (s *XRPLProviderTestSuite) SetupTest() {
 		NonceInterval: time.Millisecond, // reduce wait time in tests
 	}
 
-	s.wallet.EXPECT().GetSigners().Return(nil).AnyTimes()
+	s.wallet.EXPECT().GetSigners().Return(nil) // consumed by LoadSigners in NewXRPLChainProvider
 
 	cp := xrpl.NewXRPLChainProvider("xrpl-test", s.client, cfg, s.log, s.wallet, s.alert)
 	s.chainProvider = cp
@@ -102,8 +102,9 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 	s.Require().NoError(err)
 
 	packet := &bandtypes.Packet{
-		TunnelID: 1,
-		Sequence: 1,
+		TunnelID:      1,
+		Sequence:      1,
+		TargetAddress: mockSigner.GetAddress() + ":1",
 		SignalPrices: []bandtypes.SignalPrice{
 			{SignalID: "CS:BAND-USD", Price: 2},
 		},
@@ -119,6 +120,7 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 	}
 
 	// s.client expectations
+	s.wallet.EXPECT().GetSigners().Return([]wallet.Signer{mockSigner})
 	s.client.EXPECT().CheckAndConnect().Return(nil)
 	s.client.EXPECT().GetAccountSequenceNumber(mockSigner.GetAddress()).Return(uint32(10), nil)
 	s.client.EXPECT().BroadcastTx(gomock.Any()).Return(
@@ -131,9 +133,19 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 }
 
 func (s *XRPLProviderTestSuite) TestRelayPacket_ConnectionError() {
+	seed := "sEdVeuhfwHB6dMxgSBccJ7ZYGyLfySa"
+	w, _ := xrplwallet.FromSecret(seed)
+	mockSigner := walletxrpl.NewLocalSigner("test-local-signer", &w)
+
+	packet := &bandtypes.Packet{
+		TunnelID:      1,
+		TargetAddress: mockSigner.GetAddress() + ":1",
+	}
+
+	s.wallet.EXPECT().GetSigners().Return([]wallet.Signer{mockSigner})
 	s.client.EXPECT().CheckAndConnect().Return(fmt.Errorf("connection error"))
 
-	err := s.chainProvider.RelayPacket(context.Background(), &bandtypes.Packet{})
+	err := s.chainProvider.RelayPacket(context.Background(), packet)
 	s.Require().Error(err)
 	s.Contains(err.Error(), "connection error")
 }

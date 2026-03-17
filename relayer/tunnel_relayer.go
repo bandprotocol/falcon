@@ -97,7 +97,7 @@ func (t *TunnelRelayer) CheckAndRelay(
 	isPacketRelayed := false
 	for {
 		// get next packet sequence to relay
-		seq, err := t.getNextPacketSequence(ctx, isForce)
+		seq, targetAddr, err := t.getNextPacketSequence(ctx, isForce)
 		if err != nil {
 			return RelayStatusFailed, err
 		}
@@ -123,6 +123,9 @@ func (t *TunnelRelayer) CheckAndRelay(
 		if err != nil {
 			return RelayStatusFailed, err
 		}
+
+		// attach the BandChain target address so chain providers can validate it
+		packet.TargetAddress = targetAddr
 
 		// skip stale packets and scan forward to the next BandChain sequence
 		if t.isPacketStale(packet) {
@@ -155,7 +158,7 @@ func (t *TunnelRelayer) CheckAndRelay(
 // getNextPacketSequence returns the next packet sequence to relay. Sequence 0 is returned
 // if the tunnel status on BandChain is inactive (and not being forced) or the target contract
 // is inactive or the current packet is already relayed.
-func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool) (uint64, error) {
+func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool) (uint64, string, error) {
 	// Query tunnel info from BandChain
 	tunnelInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 	if err != nil {
@@ -167,7 +170,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			err.Error(),
 		)
 		t.Log.Error("Failed to get tunnel", err)
-		return 0, err
+		return 0, "", err
 	}
 	alert.HandleReset(
 		t.Alert,
@@ -179,7 +182,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
 		t.Log.Debug("Tunnel is not active on BandChain")
-		return 0, nil
+		return 0, "", nil
 	}
 
 	// Query tunnel info from TargetChain
@@ -197,7 +200,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			err.Error(),
 		)
 		t.Log.Error("Failed to get target contract info", err)
-		return 0, err
+		return 0, "", err
 	}
 	alert.HandleReset(
 		t.Alert,
@@ -206,15 +209,13 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	// For chains without on-chain sequence tracking (e.g. XRPL, identified by
-	// an empty TargetAddress), QueryTunnelInfo returns the DB-backed sequence
-	// when available. If that is zero (no DB or no prior records), fall back to
-	// the in-memory last-relayed state; on the very first relay use the
-	// BandChain latest sequence minus one so the most recent packet is picked up.
+	// For chains that support fetching the latest sequence, use it directly.
+	// For chains that do not support it, use the last relayed sequence or the tunnel info from BandChain
+	// to estimate the latest sequence on chain.
 	var chainLatestSeq uint64
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
-	} else if targetContractInfo.TargetAddress == "" {
+	} else if !targetContractInfo.SupportContract {
 		if t.lastRelayedAt.IsZero() {
 			chainLatestSeq = max(tunnelInfo.LatestSequence, 1) - 1
 		} else {
@@ -233,7 +234,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	t.isTargetChainActive = targetContractInfo.IsActive
 	if !t.isTargetChainActive {
 		t.Log.Debug("Tunnel is not active on target chain")
-		return 0, nil
+		return 0, "", nil
 	}
 
 	// Advance past any sequences already skipped due to stale packets.
@@ -242,10 +243,10 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	nextSeq := chainLatestSeq + 1
 	if tunnelInfo.LatestSequence < nextSeq {
 		t.Log.Debug("No new packet to relay", "sequence", chainLatestSeq)
-		return 0, nil
+		return 0, "", nil
 	}
 
-	return nextSeq, nil
+	return nextSeq, tunnelInfo.TargetAddress, nil
 }
 
 func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {

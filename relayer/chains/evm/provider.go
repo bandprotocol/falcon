@@ -134,7 +134,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 		return nil, fmt.Errorf("[EVMProvider] failed to query contract: %w", err)
 	}
 
-	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, info.IsActive, &info.LatestSequence, info.Balance)
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, info.IsActive, &info.LatestSequence, info.Balance, true)
 
 	return tunnel, nil
 }
