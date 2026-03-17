@@ -152,7 +152,6 @@ func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Pa
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
 
-		// If it is the first attempt or previous attempt failed due to sequence error, fetch the latest account sequence number.
 		sequence, err := cp.Client.GetAccountSequenceNumber(freeSigner.GetAddress())
 		if err != nil {
 			log.Error("Get account sequence number error", "retry_count", retryCount, err)
@@ -218,20 +217,15 @@ func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Pa
 			lastErr = err
 
 			// save failed tx in db
-			if cp.DB != nil {
-				tx := cp.prepareTransaction(
-					txResult,
-					types.TX_STATUS_FAILED,
-					freeSigner.GetAddress(),
-					packet,
-					balance,
-					log,
-					retryCount,
-				)
-				chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
-			}
-
-			// Set sequence to 0 to fetch the latest account sequence number in the next attempt
+			cp.handleSaveTransaction(
+				txResult,
+				types.TX_STATUS_FAILED,
+				freeSigner.GetAddress(),
+				packet,
+				balance,
+				log,
+				retryCount,
+			)
 			continue
 		}
 
@@ -242,18 +236,15 @@ func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Pa
 		)
 
 		// save success tx in db
-		if cp.DB != nil {
-			tx := cp.prepareTransaction(
-				txResult,
-				types.TX_STATUS_SUCCESS,
-				freeSigner.GetAddress(),
-				packet,
-				balance,
-				log,
-				retryCount,
-			)
-			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
-		}
+		cp.handleSaveTransaction(
+			txResult,
+			types.TX_STATUS_SUCCESS,
+			freeSigner.GetAddress(),
+			packet,
+			balance,
+			log,
+			retryCount,
+		)
 
 		relayermetrics.IncTxsCount(
 			packet.TunnelID,
@@ -297,6 +288,30 @@ func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
 // PacketStaleDuration returns 5 minutes: XRPL rejects packets older than this.
 func (cp *XRPLChainProvider) PacketStaleDuration() time.Duration {
 	return 5 * time.Minute
+}
+
+// handleSaveTransaction handles saving the transaction result to the database, including computing fee and balance delta.
+func (cp *XRPLChainProvider) handleSaveTransaction(
+	txResult TxResult,
+	txStatus types.TxStatus,
+	signerAddress string,
+	packet *bandtypes.Packet,
+	oldBalance *big.Int,
+	log logger.Logger,
+	retryCount int,
+) {
+	if cp.DB != nil {
+		tx := cp.prepareTransaction(
+			txResult,
+			txStatus,
+			signerAddress,
+			packet,
+			oldBalance,
+			log,
+			retryCount,
+		)
+		chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
+	}
 }
 
 // prepareTransaction prepares the transaction to be stored in the database.
