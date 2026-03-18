@@ -372,7 +372,6 @@ func (s *AppTestSuite) TestQueryTunnelInfo() {
 		false,
 		&chainSeq,
 		nil,
-		true,
 	)
 
 	testcases := []struct {

@@ -214,8 +214,9 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// to estimate the latest sequence on chain.
 	var chainLatestSeq uint64
 	if targetContractInfo.LatestSequence != nil {
+		// use latest sequence from target contract if know latest sequence
 		chainLatestSeq = *targetContractInfo.LatestSequence
-	} else if !targetContractInfo.SupportContract {
+	} else {
 		if t.lastRelayedAt.IsZero() {
 			chainLatestSeq = max(tunnelInfo.LatestSequence, 1) - 1
 		} else {

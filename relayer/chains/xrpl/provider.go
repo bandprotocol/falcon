@@ -81,24 +81,24 @@ func (cp *XRPLChainProvider) SetDatabase(database db.Database) {
 
 // QueryTunnelInfo returns an active tunnel for XRPL. Since XRPL does not track
 // sequence on-chain, the latest sequence is sourced from the database when
-// available, otherwise 0 is returned and the caller is responsible for the
+// available, otherwise nil is returned and the caller is responsible for the
 // fallback logic.
 func (cp *XRPLChainProvider) QueryTunnelInfo(
 	_ context.Context,
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
-	var latestSeqPtr *uint64
-	seq := uint64(0)
+	var latestSequence *uint64
 	if cp.DB != nil {
-		if latestTx, err := cp.DB.GetLatestTransaction(tunnelID); err != nil {
-			return nil, fmt.Errorf("failed to get latest transaction for tunnel %d: %w", tunnelID, err)
-		} else if latestTx != nil {
-			seq = latestTx.Sequence
+		tx, err := cp.DB.GetLatestTransaction(tunnelID)
+		if err != nil {
+			return nil, fmt.Errorf("[XRPLProvider] failed to get latest transaction: %w", err)
 		}
-		latestSeqPtr = &seq
+		if tx != nil {
+			latestSequence = &tx.Sequence
+		}
 	}
-	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, latestSeqPtr, nil, false)
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, latestSequence, nil)
 	return tunnel, nil
 }
 
