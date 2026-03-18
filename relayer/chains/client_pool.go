@@ -6,7 +6,7 @@ import (
 )
 
 // ClientPool is a thread-safe pool of RPC clients keyed by endpoint URL.
-// T is the underlying client type (e.g. *ethclient.Client, *rpc.Client).
+// T is the underlying concrete client type (e.g. *ethclient.Client, *rpc.Client).
 type ClientPool[T any] struct {
 	mu               sync.RWMutex
 	selectedEndpoint string
