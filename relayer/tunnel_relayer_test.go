@@ -60,7 +60,6 @@ func (s *TunnelRelayerTestSuite) SetupTest() {
 
 	s.chainProvider.EXPECT().GetChainName().Return("").AnyTimes()
 	s.chainProvider.EXPECT().ChainType().Return(chaintypes.ChainTypeEVM).AnyTimes()
-	s.chainProvider.EXPECT().PacketStaleDuration().Return(time.Duration(0)).AnyTimes()
 }
 
 func TestTunnelRelayerTestSuite(t *testing.T) {
@@ -79,7 +78,7 @@ func (s *TunnelRelayerTestSuite) mockGetTunnel(bandLatestSequence uint64, target
 	), nil)
 }
 
-// Helper function to mock QueryTunnelInfo.
+// Helper function to mock QueryTunnelInfo for EVM-style chains.
 func (s *TunnelRelayerTestSuite) mockQueryTunnelInfo(sequence uint64, isActive bool, contractAddress string) {
 	var seqPtr *uint64
 	if sequence != 0 {
@@ -93,6 +92,17 @@ func (s *TunnelRelayerTestSuite) mockQueryTunnelInfo(sequence uint64, isActive b
 			IsActive:       isActive,
 			LatestSequence: seqPtr,
 			Balance:        big.NewInt(1),
+		}, nil)
+}
+
+// Helper function to mock QueryTunnelInfo for XRPL (nil LatestSequence = skip-floor mode).
+func (s *TunnelRelayerTestSuite) mockQueryXRPLTunnelInfo(isActive bool, contractAddress string) {
+	s.chainProvider.EXPECT().
+		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, contractAddress).
+		Return(&chaintypes.Tunnel{
+			ID:            s.tunnelRelayer.TunnelID,
+			TargetAddress: contractAddress,
+			IsActive:      isActive,
 		}, nil)
 }
 
@@ -338,36 +348,21 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			chainType:   chaintypes.ChainTypeEVM,
 		},
 		{
-			name: "xrpl relays latest sequence when behind",
+			name: "xrpl cold start: skips current latest and waits for next",
 			preprocess: func() {
 				bandLatest := uint64(3)
 				s.mockGetTunnel(bandLatest, defaultContractAddress)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
-
-				packet := createMockPacket(
-					s.tunnelRelayer.TunnelID,
-					bandLatest,
-					int32(tss.SIGNING_STATUS_SUCCESS),
-					-1,
-				)
-				s.client.EXPECT().
-					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, bandLatest).
-					Return(packet, nil)
-				s.chainProvider.EXPECT().RelayPacket(gomock.Any(), packet).Return(nil)
-
-				// Check and relay the packet for the second time
-				s.mockGetTunnel(bandLatest, defaultContractAddress)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+				s.mockQueryXRPLTunnelInfo(true, defaultContractAddress)
 			},
-			relayStatus: relayer.RelayStatusSuccess,
+			relayStatus: relayer.RelayStatusSkipped,
 			chainType:   chaintypes.ChainTypeXRPL,
 		},
 		{
-			name: "xrpl not relays when last relayed sequence equal Band latest sequence",
+			name: "xrpl cold start: no new packet when band latest is zero",
 			preprocess: func() {
 				bandLatest := uint64(0)
 				s.mockGetTunnel(bandLatest, defaultContractAddress)
-				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+				s.mockQueryXRPLTunnelInfo(true, defaultContractAddress)
 			},
 			err:         nil,
 			relayStatus: relayer.RelayStatusSkipped,
@@ -393,7 +388,6 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			)
 
 			mockChainProvider.EXPECT().GetChainName().Return("").AnyTimes()
-			mockChainProvider.EXPECT().PacketStaleDuration().Return(time.Duration(0)).AnyTimes()
 
 			chainType := tc.chainType
 			if chainType == chaintypes.ChainTypeUndefined {

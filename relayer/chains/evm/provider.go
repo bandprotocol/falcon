@@ -134,7 +134,7 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 		return nil, fmt.Errorf("[EVMProvider] failed to query contract: %w", err)
 	}
 
-	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, info.IsActive, &info.LatestSequence, info.Balance, true)
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, info.IsActive, &info.LatestSequence, info.Balance)
 
 	return tunnel, nil
 }
@@ -832,11 +832,6 @@ func (cp *EVMChainProvider) ChainType() types.ChainType {
 
 func (cp *EVMChainProvider) GetWallet() wallet.Wallet {
 	return cp.Wallet
-}
-
-// PacketStaleDuration returns 0: EVM has no packet age limit.
-func (cp *EVMChainProvider) PacketStaleDuration() time.Duration {
-	return 0
 }
 
 // queryRelayerGasFee queries the relayer gas fee being set on tunnel router.

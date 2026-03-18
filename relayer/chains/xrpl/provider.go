@@ -22,8 +22,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
-const defaultXRPLPacketStaleDuration = 5 * time.Minute
-
 var _ chains.ChainProvider = (*XRPLChainProvider)(nil)
 
 // XRPLChainProvider handles interactions with XRPL.
@@ -79,26 +77,16 @@ func (cp *XRPLChainProvider) SetDatabase(database db.Database) {
 	cp.DB = database
 }
 
-// QueryTunnelInfo returns an active tunnel for XRPL. Since XRPL does not track
-// sequence on-chain, the latest sequence is sourced from the database when
-// available, otherwise 0 is returned and the caller is responsible for the
-// fallback logic.
+// QueryTunnelInfo returns an active XRPL tunnel with Skippable=true.
+// No sequence is tracked here; the TunnelRelayer uses its in-memory
+// lastRelayedSequence on warm starts and treats the current BandChain latest
+// as already done on cold starts, avoiding both duplicates and stale sends.
 func (cp *XRPLChainProvider) QueryTunnelInfo(
 	_ context.Context,
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
-	var latestSeqPtr *uint64
-	seq := uint64(0)
-	if cp.DB != nil {
-		if latestTx, err := cp.DB.GetLatestTransaction(tunnelID); err != nil {
-			return nil, fmt.Errorf("failed to get latest transaction for tunnel %d: %w", tunnelID, err)
-		} else if latestTx != nil {
-			seq = latestTx.Sequence
-		}
-		latestSeqPtr = &seq
-	}
-	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, latestSeqPtr, nil, false)
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, nil, nil)
 	return tunnel, nil
 }
 
@@ -282,12 +270,6 @@ func (cp *XRPLChainProvider) ChainType() types.ChainType {
 
 func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
 	return cp.Wallet
-}
-
-// PacketStaleDuration returns the configured stale duration, falling back to
-// 5 minutes (the XRPL ledger close window) when not explicitly set.
-func (cp *XRPLChainProvider) PacketStaleDuration() time.Duration {
-	return defaultXRPLPacketStaleDuration
 }
 
 // validateTargetAddress parses the BandChain target address in "sender:tunnelID"
