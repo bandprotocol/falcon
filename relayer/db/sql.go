@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -95,6 +96,10 @@ func (sql SQL) GetLatestTransaction(tunnelID uint64) (*Transaction, error) {
 		Order("block_timestamp DESC").
 		First(&tx)
 	if result.Error != nil {
+		// Check if the error is specifically "Record Not Found"
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, result.Error
 	}
 	return &tx, nil

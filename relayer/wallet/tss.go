@@ -27,7 +27,7 @@ var (
 	}
 )
 
-const EncoderABIPrefixLength = 4
+const EncoderABIPrefixLength = 56
 
 type TssPayload struct {
 	TssMessage []byte
