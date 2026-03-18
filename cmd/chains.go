@@ -118,7 +118,13 @@ chains list`),
 
 			i := 1
 			for chainName, chainProviderConfig := range cfg.TargetChains {
-				fmt.Fprintf(cmd.OutOrStdout(), "%d: %s -> type(%s)\n", i, chainName, chainProviderConfig.GetChainType())
+				fmt.Fprintf(
+					cmd.OutOrStdout(),
+					"%d: %s -> type(%v)\n",
+					i,
+					chainName,
+					chainProviderConfig.GetChainType(),
+				)
 				i++
 			}
 			return nil
