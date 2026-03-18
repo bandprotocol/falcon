@@ -302,10 +302,6 @@ func (a *App) AddKeyByMnemonic(
 		return nil, err
 	}
 
-	if _, ok := a.Config.TargetChains[chainName]; !ok {
-		return nil, fmt.Errorf("chain name does not exist: %s", chainName)
-	}
-
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err

@@ -75,31 +75,31 @@ func (mr *MockXRPLClientMockRecorder) BroadcastTx(txBlob any) *gomock.Call {
 }
 
 // CheckAndConnect mocks base method.
-func (m *MockXRPLClient) CheckAndConnect() error {
+func (m *MockXRPLClient) CheckAndConnect(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckAndConnect")
+	ret := m.ctrl.Call(m, "CheckAndConnect", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CheckAndConnect indicates an expected call of CheckAndConnect.
-func (mr *MockXRPLClientMockRecorder) CheckAndConnect() *gomock.Call {
+func (mr *MockXRPLClientMockRecorder) CheckAndConnect(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndConnect", reflect.TypeOf((*MockXRPLClient)(nil).CheckAndConnect))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndConnect", reflect.TypeOf((*MockXRPLClient)(nil).CheckAndConnect), ctx)
 }
 
 // Connect mocks base method.
-func (m *MockXRPLClient) Connect() error {
+func (m *MockXRPLClient) Connect(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Connect")
+	ret := m.ctrl.Call(m, "Connect", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Connect indicates an expected call of Connect.
-func (mr *MockXRPLClientMockRecorder) Connect() *gomock.Call {
+func (mr *MockXRPLClientMockRecorder) Connect(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockXRPLClient)(nil).Connect))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Connect", reflect.TypeOf((*MockXRPLClient)(nil).Connect), ctx)
 }
 
 // GetAccountSequenceNumber mocks base method.

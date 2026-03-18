@@ -63,7 +63,7 @@ func (s *XRPLProviderTestSuite) SetupTest() {
 }
 
 func (s *XRPLProviderTestSuite) TestInit() {
-	s.client.EXPECT().Connect().Return(nil)
+	s.client.EXPECT().Connect(gomock.Any()).Return(nil)
 	s.client.EXPECT().StartLivelinessCheck(gomock.Any(), gomock.Any()).Return()
 
 	err := s.chainProvider.Init(context.Background())
@@ -72,7 +72,7 @@ func (s *XRPLProviderTestSuite) TestInit() {
 }
 
 func (s *XRPLProviderTestSuite) TestInit_ConnectError() {
-	s.client.EXPECT().Connect().Return(fmt.Errorf("connection failed"))
+	s.client.EXPECT().Connect(gomock.Any()).Return(fmt.Errorf("connection failed"))
 
 	err := s.chainProvider.Init(context.Background())
 	s.Require().Error(err)
@@ -121,7 +121,7 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 
 	// s.client expectations
 	s.wallet.EXPECT().GetSigners().Return([]wallet.Signer{mockSigner})
-	s.client.EXPECT().CheckAndConnect().Return(nil)
+	s.client.EXPECT().CheckAndConnect(gomock.Any()).Return(nil)
 	s.client.EXPECT().GetAccountSequenceNumber(mockSigner.GetAddress()).Return(uint32(10), nil)
 	s.client.EXPECT().BroadcastTx(gomock.Any()).Return(
 		xrpl.TxResult{TxHash: "HASH", Fee: "100"}, nil,
@@ -143,7 +143,7 @@ func (s *XRPLProviderTestSuite) TestRelayPacket_ConnectionError() {
 	}
 
 	s.wallet.EXPECT().GetSigners().Return([]wallet.Signer{mockSigner})
-	s.client.EXPECT().CheckAndConnect().Return(fmt.Errorf("connection error"))
+	s.client.EXPECT().CheckAndConnect(gomock.Any()).Return(fmt.Errorf("connection error"))
 
 	err := s.chainProvider.RelayPacket(context.Background(), packet)
 	s.Require().Error(err)

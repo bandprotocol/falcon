@@ -32,8 +32,8 @@ func NewXRPLClients() XRPLClients {
 
 // Client is the interface that handles interactions with the XRPL chain.
 type Client interface {
-	Connect() error
-	CheckAndConnect() error
+	Connect(ctx context.Context) error
+	CheckAndConnect(ctx context.Context) error
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	GetAccountSequenceNumber(account string) (uint32, error)
 	GetBalance(account string) (*big.Int, error)
@@ -80,7 +80,7 @@ type ClientConnectionResult struct {
 }
 
 // Connect selects a responsive endpoint with the highest ledger index.
-func (c *client) Connect() error {
+func (c *client) Connect(_ context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.Endpoints {
 		_, ok := c.clients.GetClient(endpoint)
@@ -196,9 +196,9 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 }
 
 // CheckAndConnect checks if the client is connected to the XRPL chain, if not connect it.
-func (c *client) CheckAndConnect() error {
+func (c *client) CheckAndConnect(ctx context.Context) error {
 	if _, err := c.clients.GetSelectedClient(); err != nil {
-		return c.Connect()
+		return c.Connect(ctx)
 	}
 
 	return nil
@@ -215,7 +215,7 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 			c.Log.Info("Stopping liveliness check")
 			return
 		case <-ticker.C:
-			err := c.Connect()
+			err := c.Connect(ctx)
 			if err != nil {
 				c.Log.Error("Liveliness check: unable to reconnect to any endpoints", err)
 			}

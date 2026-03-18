@@ -22,6 +22,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
+const defaultXRPLPacketStaleDuration = 5 * time.Minute
+
 var _ chains.ChainProvider = (*XRPLChainProvider)(nil)
 
 // XRPLChainProvider handles interactions with XRPL.
@@ -63,7 +65,7 @@ func NewXRPLChainProvider(
 
 // Init connects to the XRPL chain.
 func (cp *XRPLChainProvider) Init(ctx context.Context) error {
-	if err := cp.Client.Connect(); err != nil {
+	if err := cp.Client.Connect(ctx); err != nil {
 		return err
 	}
 
@@ -107,7 +109,7 @@ func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 		return fmt.Errorf("[XRPLProvider] invalid target address: %w", err)
 	}
 
-	if err := cp.Client.CheckAndConnect(); err != nil {
+	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error("Connect client error", err)
 		return fmt.Errorf("[XRPLProvider] failed to connect client: %w", err)
 	}
@@ -282,9 +284,10 @@ func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
 	return cp.Wallet
 }
 
-// PacketStaleDuration returns 5 minutes: XRPL rejects packets older than this.
+// PacketStaleDuration returns the configured stale duration, falling back to
+// 5 minutes (the XRPL ledger close window) when not explicitly set.
 func (cp *XRPLChainProvider) PacketStaleDuration() time.Duration {
-	return 5 * time.Minute
+	return defaultXRPLPacketStaleDuration
 }
 
 // validateTargetAddress parses the BandChain target address in "sender:tunnelID"
