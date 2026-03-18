@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
+
+	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 var _ Database = &SQL{}
@@ -84,4 +87,20 @@ func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 		}).
 		Create(transaction).
 		Error
+}
+
+func (sql SQL) GetLatestTransaction(tunnelID uint64) (*Transaction, error) {
+	var tx Transaction
+	result := sql.db.
+		Where("tunnel_id = ? AND status = ?", tunnelID, chaintypes.TX_STATUS_SUCCESS).
+		Order("block_timestamp DESC").
+		First(&tx)
+	if result.Error != nil {
+		// Check if the error is specifically "Record Not Found"
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, result.Error
+	}
+	return &tx, nil
 }

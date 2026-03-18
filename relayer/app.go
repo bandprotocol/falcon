@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/bsv-blockchain/go-sdk/compat/bip39"
+
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/band"
 	bandtypes "github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
@@ -107,7 +108,6 @@ func (a *App) InitTargetChain(chainName string) error {
 		)
 		return err
 	}
-
 	cp, err := chainConfig.NewChainProvider(chainName, a.Log, wallet, a.Alert)
 	if err != nil {
 		a.Log.Error("Cannot create chain provider",
@@ -271,7 +271,7 @@ func (a *App) GetChainConfig(chainName string) (chains.ChainProviderConfig, erro
 }
 
 // AddKeyByPrivateKey adds a new key to the chain provider using a private key.
-func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*chainstypes.Key, error) {
+func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey string) (*types.KeyOutput, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
@@ -281,7 +281,12 @@ func (a *App) AddKeyByPrivateKey(chainName string, keyName string, privateKey st
 		return nil, err
 	}
 
-	return cp.AddKeyByPrivateKey(keyName, privateKey)
+	addr, err := cp.GetWallet().SaveByPrivateKey(keyName, privateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return types.NewKeyOutput("", addr, ""), err
 }
 
 // AddKeyByMnemonic adds a new key to the chain provider using a mnemonic phrase.
@@ -292,7 +297,7 @@ func (a *App) AddKeyByMnemonic(
 	coinType uint32,
 	account uint,
 	index uint,
-) (*chainstypes.Key, error) {
+) (*types.KeyOutput, error) {
 	if err := a.Store.ValidatePassphrase(a.Passphrase); err != nil {
 		return nil, err
 	}
@@ -302,7 +307,21 @@ func (a *App) AddKeyByMnemonic(
 		return nil, err
 	}
 
-	return cp.AddKeyByMnemonic(keyName, mnemonic, coinType, account, index)
+	generatedMnemonic := ""
+	if mnemonic == "" {
+		mnemonic, err = generateMnemonic(256)
+		if err != nil {
+			return nil, err
+		}
+		generatedMnemonic = mnemonic
+	}
+
+	addr, err := cp.GetWallet().SaveByMnemonic(keyName, mnemonic, coinType, account, index)
+	if err != nil {
+		return nil, err
+	}
+
+	return types.NewKeyOutput(generatedMnemonic, addr, ""), nil
 }
 
 // AddRemoteSignerKey adds a new remote signer key to the chain provider.
@@ -311,14 +330,18 @@ func (a *App) AddRemoteSignerKey(
 	keyName string,
 	addr string,
 	url string,
-	key *string,
-) (*chainstypes.Key, error) {
+	key string,
+) (*types.KeyOutput, error) {
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.AddRemoteSignerKey(keyName, addr, url, key)
+	if err := cp.GetWallet().SaveRemoteSignerKey(keyName, addr, url, key); err != nil {
+		return nil, err
+	}
+
+	return types.NewKeyOutput("", addr, ""), nil
 }
 
 // DeleteKey deletes the key from the chain provider.
@@ -332,7 +355,7 @@ func (a *App) DeleteKey(chainName string, keyName string) error {
 		return err
 	}
 
-	return cp.DeleteKey(keyName)
+	return cp.GetWallet().DeleteKey(keyName)
 }
 
 // ExportKey exports the private key from the chain provider.
@@ -346,17 +369,29 @@ func (a *App) ExportKey(chainName string, keyName string) (string, error) {
 		return "", err
 	}
 
-	return cp.ExportPrivateKey(keyName)
+	w, ok := cp.GetWallet().GetSigner(keyName)
+	if !ok {
+		return "", fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	return w.ExportPrivateKey()
 }
 
 // ListKeys retrieves the list of keys from the chain provider.
-func (a *App) ListKeys(chainName string) ([]*chainstypes.Key, error) {
+func (a *App) ListKeys(chainName string) ([]*types.KeyOutput, error) {
 	cp, err := a.getChainProvider(chainName)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.ListKeys(), nil
+	signers := cp.GetWallet().GetSigners()
+	res := make([]*types.KeyOutput, 0, len(signers))
+	for _, signer := range signers {
+		key := types.NewKeyOutput("", signer.GetAddress(), signer.GetName())
+		res = append(res, key)
+	}
+
+	return res, nil
 }
 
 // ShowKey retrieves the key information from the chain provider.
@@ -366,7 +401,12 @@ func (a *App) ShowKey(chainName string, keyName string) (string, error) {
 		return "", err
 	}
 
-	return cp.ShowKey(keyName)
+	signer, ok := cp.GetWallet().GetSigner(keyName)
+	if !ok {
+		return "", fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	return signer.GetAddress(), nil
 }
 
 // QueryBalance retrieves the balance of the key from the chain provider.
@@ -376,7 +416,12 @@ func (a *App) QueryBalance(ctx context.Context, chainName string, keyName string
 		return nil, err
 	}
 
-	return cp.QueryBalance(ctx, keyName)
+	signer, ok := cp.GetWallet().GetSigner(keyName)
+	if !ok {
+		return nil, fmt.Errorf("key name does not exist: %s", keyName)
+	}
+
+	return cp.QueryBalance(ctx, signer.GetAddress())
 }
 
 // Start starts the tunnel relayer program.
@@ -406,14 +451,6 @@ func (a *App) Start(ctx context.Context, tunnelIDs []uint64, tunnelCreator strin
 
 	// initialize target chain providers
 	for chainName, chainProvider := range a.TargetChains {
-		if err := chainProvider.LoadSigners(); err != nil {
-			a.Log.Error("Cannot load keys in target chain",
-				"chain_name", chainName,
-				err,
-			)
-			return err
-		}
-
 		if err := chainProvider.Init(ctx); err != nil {
 			a.Log.Error("Cannot initialize chain provider",
 				"chain_name", chainName,
@@ -464,14 +501,6 @@ func (a *App) Relay(ctx context.Context, tunnelID uint64, isForce bool) error {
 		return fmt.Errorf("target chain provider not found: %s", tunnel.TargetChainID)
 	}
 
-	if err := chainProvider.LoadSigners(); err != nil {
-		a.Log.Error("Cannot load keys in target chain",
-			"chain_name", tunnel.TargetChainID,
-			err,
-		)
-		return err
-	}
-
 	tr := NewTunnelRelayer(
 		a.Log,
 		tunnel.ID,
@@ -510,6 +539,16 @@ func (a *App) getChainProvider(chainName string) (chains.ChainProvider, error) {
 	}
 
 	return cp, nil
+}
+
+// generateMnemonic creates a BIP-39 mnemonic with the requested entropy size.
+func generateMnemonic(bitSize int) (string, error) {
+	entropy, err := bip39.NewEntropy(bitSize)
+	if err != nil {
+		return "", err
+	}
+
+	return bip39.NewMnemonic(entropy)
 }
 
 // getTunnelsByIDs retrieves the tunnels by given tunnel IDs.

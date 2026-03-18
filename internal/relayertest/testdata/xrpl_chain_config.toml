@@ -1,0 +1,7 @@
+endpoints = ['http://localhost:8545']
+chain_type = 'xrpl'
+max_retry = 3
+chain_id = 144
+fee = "10"
+nonce_interval = 300000000000
+liveliness_checking_interval = 300000000000

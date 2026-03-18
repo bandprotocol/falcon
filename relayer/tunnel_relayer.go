@@ -12,7 +12,6 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
-	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
@@ -40,7 +39,11 @@ type TunnelRelayer struct {
 	penaltySkipRemaining uint
 	lastRelayedSequence  uint64
 	lastRelayedAt        time.Time
-	mu                   *sync.Mutex
+	// seqFloor is set once for nil-sequence chains (e.g. XRPL) on the first
+	// call to record the BandChain latest at startup as the skip floor.
+	// nil means the cold-start snapshot has not been taken yet.
+	seqFloor *uint64
+	mu       *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -63,6 +66,7 @@ func NewTunnelRelayer(
 		penaltySkipRemaining:   0,
 		lastRelayedSequence:    0,
 		lastRelayedAt:          time.Time{},
+		seqFloor:               nil,
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -96,7 +100,7 @@ func (t *TunnelRelayer) CheckAndRelay(
 	isPacketRelayed := false
 	for {
 		// get next packet sequence to relay
-		seq, err := t.getNextPacketSequence(ctx, isForce)
+		seq, targetAddr, err := t.getNextPacketSequence(ctx, isForce)
 		if err != nil {
 			return RelayStatusFailed, err
 		}
@@ -123,6 +127,9 @@ func (t *TunnelRelayer) CheckAndRelay(
 			return RelayStatusFailed, err
 		}
 
+		// attach the BandChain target address so chain providers can validate it
+		packet.TargetAddress = targetAddr
+
 		// relay the packet
 		if err := t.relayPacket(ctx, packet); err != nil {
 			return RelayStatusFailed, err
@@ -143,7 +150,7 @@ func (t *TunnelRelayer) CheckAndRelay(
 // getNextPacketSequence returns the next packet sequence to relay. Sequence 0 is returned
 // if the tunnel status on BandChain is inactive (and not being forced) or the target contract
 // is inactive or the current packet is already relayed.
-func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool) (uint64, error) {
+func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool) (uint64, string, error) {
 	// Query tunnel info from BandChain
 	tunnelInfo, err := t.BandClient.GetTunnel(ctx, t.TunnelID)
 	if err != nil {
@@ -155,7 +162,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			err.Error(),
 		)
 		t.Log.Error("Failed to get tunnel", err)
-		return 0, err
+		return 0, "", err
 	}
 	alert.HandleReset(
 		t.Alert,
@@ -167,7 +174,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
 		t.Log.Debug("Tunnel is not active on BandChain")
-		return 0, nil
+		return 0, "", nil
 	}
 
 	// Query tunnel info from TargetChain
@@ -185,7 +192,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			err.Error(),
 		)
 		t.Log.Error("Failed to get target contract info", err)
-		return 0, err
+		return 0, "", err
 	}
 	alert.HandleReset(
 		t.Alert,
@@ -194,24 +201,45 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	t.updateRelayerMetrics(tunnelInfo, targetContractInfo)
+	// Determine the latest sequence confirmed on the target chain.
+	// A non-nil LatestSequence means the chain tracks sequence on-chain (e.g. EVM):
+	// use it directly. A nil value (e.g. XRPL) means sequence is not tracked
+	// on-chain: record the current BandChain latest as a skip floor on the first
+	// call (cold start), then always target max(skipFloor, lastRelayedSequence)+1.
+	// This ensures: no duplicate on restart, correct retry after failed relay,
+	// and forward progress after a successful relay.
+	var chainLatestSeq uint64
+	if targetContractInfo.LatestSequence != nil {
+		chainLatestSeq = *targetContractInfo.LatestSequence
+	} else {
+		if t.seqFloor == nil {
+			floor := tunnelInfo.LatestSequence
+			t.seqFloor = &floor
+		}
+		chainLatestSeq = max(*t.seqFloor, t.lastRelayedSequence)
+	}
+
+	t.updateRelayerMetrics(
+		tunnelInfo.LatestSequence,
+		chainLatestSeq,
+		tunnelInfo.TargetChainID,
+		targetContractInfo.IsActive,
+	)
 
 	// check if the target contract is active
 	t.isTargetChainActive = targetContractInfo.IsActive
 	if !t.isTargetChainActive {
 		t.Log.Debug("Tunnel is not active on target chain")
-		return 0, nil
+		return 0, "", nil
 	}
 
-	// end process if current packet is already relayed
-	latestSeq := targetContractInfo.LatestSequence
-	nextSeq := latestSeq + 1
+	nextSeq := chainLatestSeq + 1
 	if tunnelInfo.LatestSequence < nextSeq {
-		t.Log.Debug("No new packet to relay", "sequence", latestSeq)
-		return 0, nil
+		t.Log.Debug("No new packet to relay", "sequence", chainLatestSeq)
+		return 0, "", nil
 	}
 
-	return nextSeq, nil
+	return nextSeq, tunnelInfo.TargetAddress, nil
 }
 
 func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
@@ -222,20 +250,23 @@ func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
 
 // updateRelayerMetrics updates the metrics for the relayer.
 func (t *TunnelRelayer) updateRelayerMetrics(
-	tunnelInfo *types.Tunnel,
-	targetContractInfo *chaintypes.Tunnel,
+	bandLatestSequence uint64,
+	chainLatestSeq uint64,
+	targetChainID string,
+	isTargetContractActive bool,
 ) {
+	chainType := t.TargetChainProvider.ChainType()
+	// update the metric for the number of active target contracts
+	if isTargetContractActive && !t.isTargetChainActive {
+		relayermetrics.IncActiveTargetContractsCount(targetChainID, chainType.String())
+	} else if !isTargetContractActive && t.isTargetChainActive {
+		relayermetrics.DecActiveTargetContractsCount(targetChainID, chainType.String())
+	}
+
 	// update the metric for unrelayed packets based on the difference
 	// between the latest sequences on BandChain and the target chain
-	unrelayedPackets := tunnelInfo.LatestSequence - targetContractInfo.LatestSequence
+	unrelayedPackets := bandLatestSequence - chainLatestSeq
 	relayermetrics.SetUnrelayedPackets(t.TunnelID, unrelayedPackets)
-
-	// update the metric for the number of active target contracts
-	if targetContractInfo.IsActive && !t.isTargetChainActive {
-		relayermetrics.IncActiveTargetContractsCount(tunnelInfo.TargetChainID)
-	} else if !targetContractInfo.IsActive && t.isTargetChainActive {
-		relayermetrics.DecActiveTargetContractsCount(tunnelInfo.TargetChainID)
-	}
 }
 
 // relayPacket relays the packet to the target chain.
@@ -266,7 +297,9 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		if err != nil {
 			alert.HandleAlert(
 				t.Alert,
-				alert.NewTopic(alert.GetTunnelPacketErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()),
+				alert.NewTopic(alert.GetTunnelPacketErrorMsg).
+					WithTunnelID(t.TunnelID).
+					WithChainName(t.TargetChainProvider.GetChainName()),
 				err.Error(),
 			)
 			t.Log.Error("Failed to get packet", "sequence", seq, err)
@@ -274,7 +307,9 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		}
 		alert.HandleReset(
 			t.Alert,
-			alert.NewTopic(alert.GetTunnelPacketErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()),
+			alert.NewTopic(alert.GetTunnelPacketErrorMsg).
+				WithTunnelID(t.TunnelID).
+				WithChainName(t.TargetChainProvider.GetChainName()),
 		)
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
 		// If it is not success (Failed or Undefined), return error.
@@ -300,7 +335,9 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		}
 		alert.HandleReset(
 			t.Alert,
-			alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()),
+			alert.NewTopic(alert.PacketSigningStatusErrorMsg).
+				WithTunnelID(t.TunnelID).
+				WithChainName(t.TargetChainProvider.GetChainName()),
 		)
 
 		return packet, nil

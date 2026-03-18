@@ -41,10 +41,10 @@ type EVMChainProvider struct {
 
 	Log logger.Logger
 
-	Wallet wallet.Wallet
-	DB     db.Database
+	DB db.Database
 
-	Alert alert.Alert
+	Alert  alert.Alert
+	Wallet wallet.Wallet
 }
 
 // NewEVMChainProvider creates a new EVM chain provider.
@@ -53,8 +53,8 @@ func NewEVMChainProvider(
 	client Client,
 	cfg *EVMChainProviderConfig,
 	log logger.Logger,
-	wallet wallet.Wallet,
-	alert alert.Alert,
+	w wallet.Wallet,
+	a alert.Alert,
 ) (*EVMChainProvider, error) {
 	// load abis here
 	abi, err := abi.JSON(strings.NewReader(gasPriceTunnelRouterABI))
@@ -83,8 +83,9 @@ func NewEVMChainProvider(
 		TunnelRouterAddress: addr,
 		TunnelRouterABI:     abi,
 		Log:                 log.With("chain_name", chainName),
-		Wallet:              wallet,
-		Alert:               alert,
+		Alert:               a,
+		FreeSigners:         chains.LoadSigners(w),
+		Wallet:              w,
 	}, nil
 }
 
@@ -133,13 +134,9 @@ func (cp *EVMChainProvider) QueryTunnelInfo(
 		return nil, fmt.Errorf("[EVMProvider] failed to query contract: %w", err)
 	}
 
-	return &types.Tunnel{
-		ID:             tunnelID,
-		TargetAddress:  tunnelDestinationAddr,
-		IsActive:       info.IsActive,
-		LatestSequence: info.LatestSequence,
-		Balance:        info.Balance,
-	}, nil
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, info.IsActive, &info.LatestSequence, info.Balance)
+
+	return tunnel, nil
 }
 
 // RelayPacket relays the packet from the source chain to the destination chain.
@@ -229,7 +226,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 		// save pending tx in db
 		if cp.DB != nil {
 			tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, nil, balance, log, retryCount)
-			cp.handleSaveTransaction(tx, log, retryCount)
+			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 		}
 
 		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
@@ -246,7 +243,7 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 				log,
 				retryCount,
 			)
-			cp.handleSaveTransaction(tx, log, retryCount)
+			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 		}
 
 		if txResult.Status == types.TX_STATUS_SUCCESS {
@@ -377,7 +374,7 @@ func (cp *EVMChainProvider) WaitForConfirmedTx(
 // handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.
 func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, txResult TxResult) {
 	// increment the transactions count metric
-	relayermetrics.IncTxsCount(tunnelID, cp.ChainName, txResult.Status.String())
+	relayermetrics.IncTxsCount(tunnelID, cp.ChainName, types.ChainTypeEVM.String(), txResult.Status.String())
 
 	switch txResult.Status {
 	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
@@ -385,6 +382,7 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 		relayermetrics.ObserveTxProcessTime(
 			tunnelID,
 			cp.ChainName,
+			types.ChainTypeEVM.String(),
 			txResult.Status.String(),
 			time.Since(createdAt).Milliseconds(),
 		)
@@ -393,6 +391,7 @@ func (cp *EVMChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, 
 		relayermetrics.ObserveGasUsed(
 			tunnelID,
 			cp.ChainName,
+			types.ChainTypeEVM.String(),
 			txResult.Status.String(),
 			txResult.GasUsed.Decimal.InexactFloat64(),
 		)
@@ -483,24 +482,6 @@ func (cp *EVMChainProvider) prepareTransaction(
 	)
 
 	return tx
-}
-
-// handleSaveTransaction saves the transaction to the database and triggers alert if any error occurs.
-func (cp *EVMChainProvider) handleSaveTransaction(tx *db.Transaction, log logger.Logger, retryCount int) {
-	if cp.DB == nil {
-		log.Debug("Database is not set; skipping saving transaction")
-		return
-	}
-	if err := cp.DB.AddOrUpdateTransaction(tx); err != nil {
-		log.Error("Save transaction error", "retry_count", retryCount, err)
-		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
-			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName), err.Error())
-	} else {
-		alert.HandleReset(cp.Alert, alert.NewTopic(alert.SaveDatabaseErrorMsg).
-			WithTunnelID(tx.TunnelID).
-			WithChainName(cp.ChainName))
-	}
 }
 
 // CheckConfirmedTx checks the confirmed transaction status.
@@ -733,19 +714,14 @@ func (cp *EVMChainProvider) NewRelayTx(
 
 // CreateCalldata creates the calldata for the relay transaction.
 func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, error) {
-	var signing *bandtypes.Signing
-
-	// get signing from packet; prefer to use signing from
-	// current group than incoming group
-	if packet.CurrentGroupSigning != nil {
-		signing = packet.CurrentGroupSigning
-	} else if packet.IncomingGroupSigning != nil {
-		signing = packet.IncomingGroupSigning
-	} else {
-		return nil, fmt.Errorf("missing signing")
+	signing, err := chains.SelectSigning(packet)
+	if err != nil {
+		return nil, err
 	}
 
-	rAddr, err := HexToAddress(signing.EVMSignature.RAddress.String())
+	rAddress, signature := chains.ExtractEVMSignature(signing.EVMSignature)
+
+	rAddr, err := HexToAddress(rAddress.String())
 	if err != nil {
 		return nil, err
 	}
@@ -754,7 +730,7 @@ func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, er
 		"relay",
 		signing.Message.Bytes(),
 		rAddr,
-		new(big.Int).SetBytes(signing.EVMSignature.Signature),
+		new(big.Int).SetBytes(signature),
 	)
 }
 
@@ -814,7 +790,7 @@ func (cp *EVMChainProvider) signTx(
 		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
 	}
 
-	signature, err := signer.Sign(rlpEncoded)
+	signature, err := signer.Sign(rlpEncoded, wallet.TssPayload{})
 	if err != nil {
 		return nil, err
 	}
@@ -825,7 +801,7 @@ func (cp *EVMChainProvider) signTx(
 // QueryBalance queries balance of specific account address.
 func (cp *EVMChainProvider) QueryBalance(
 	ctx context.Context,
-	keyName string,
+	address string,
 ) (*big.Int, error) {
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		cp.Log.Error(
@@ -836,23 +812,26 @@ func (cp *EVMChainProvider) QueryBalance(
 		return nil, fmt.Errorf("[EVMProvider] failed to connect client: %w", err)
 	}
 
-	signer, ok := cp.Wallet.GetSigner(keyName)
-	if !ok {
-		cp.Log.Error("Key name does not exist", "key_name", keyName)
-		return nil, fmt.Errorf("key name does not exist: %s", keyName)
-	}
-
-	address, err := HexToAddress(signer.GetAddress())
+	addr, err := HexToAddress(address)
 	if err != nil {
 		return nil, err
 	}
 
-	return cp.Client.GetBalance(ctx, address, nil)
+	return cp.Client.GetBalance(ctx, addr, nil)
 }
 
 // GetChainName retrieves the chain name from the chain provider.
 func (cp *EVMChainProvider) GetChainName() string {
 	return cp.ChainName
+}
+
+// ChainType retrieves the chain type from the chain provider.
+func (cp *EVMChainProvider) ChainType() types.ChainType {
+	return types.ChainTypeEVM
+}
+
+func (cp *EVMChainProvider) GetWallet() wallet.Wallet {
+	return cp.Wallet
 }
 
 // queryRelayerGasFee queries the relayer gas fee being set on tunnel router.

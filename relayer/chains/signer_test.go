@@ -1,4 +1,4 @@
-package evm_test
+package chains_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
-	"github.com/bandprotocol/falcon/relayer/wallet/geth"
+	walletevm "github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 const (
@@ -26,20 +26,20 @@ const (
 
 var evmCfg = &evm.EVMChainProviderConfig{
 	BaseChainProviderConfig: chains.BaseChainProviderConfig{
-		Endpoints:           []string{"http://localhost:8545"},
-		ChainType:           chainstypes.ChainTypeEVM,
-		MaxRetry:            3,
-		ChainID:             31337,
-		TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-		QueryTimeout:        3 * time.Second,
-		ExecuteTimeout:      3 * time.Second,
+		Endpoints:                  []string{"http://localhost:8545"},
+		ChainType:                  chainstypes.ChainTypeEVM,
+		MaxRetry:                   3,
+		ChainID:                    31337,
+		QueryTimeout:               3 * time.Second,
+		ExecuteTimeout:             3 * time.Second,
+		LivelinessCheckingInterval: 15 * time.Minute,
 	},
-	BlockConfirmation:          5,
-	WaitingTxDuration:          time.Second * 3,
-	CheckingTxInterval:         time.Second,
-	LivelinessCheckingInterval: 15 * time.Minute,
-	GasType:                    evm.GasTypeEIP1559,
-	GasMultiplier:              1.1,
+	TunnelRouterAddress: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+	BlockConfirmation:   5,
+	WaitingTxDuration:   time.Second * 3,
+	CheckingTxInterval:  time.Second,
+	GasType:             evm.GasTypeEIP1559,
+	GasMultiplier:       1.1,
 }
 
 type SenderTestSuite struct {
@@ -66,18 +66,18 @@ func (s *SenderTestSuite) SetupTest() {
 
 	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
-	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	wallet, err := walletevm.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
-	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
+	_, err = evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
 	s.Require().NoError(err)
 
 	// Add two mock keys to the chain provider
-	_, err = chainProvider.AddKeyByPrivateKey(keyName1, privateKey1)
+	_, err = wallet.SaveByPrivateKey(keyName1, privateKey1)
 	s.Require().NoError(err)
 
 	testKey := "testKey"
-	_, err = chainProvider.AddRemoteSignerKey(keyName2, address2, url, &testKey)
+	err = wallet.SaveRemoteSignerKey(keyName2, address2, url, testKey)
 	s.Require().NoError(err)
 }
 
@@ -86,16 +86,13 @@ func (s *SenderTestSuite) TestLoadFreeSenders() {
 
 	client := evm.NewClient(s.chainName, evmCfg, log, nil)
 
-	wallet, err := geth.NewGethWallet("", s.homePath, s.chainName)
+	wallet, err := walletevm.NewWallet("", s.homePath, s.chainName)
 	s.Require().NoError(err)
 
 	chainProvider, err := evm.NewEVMChainProvider(s.chainName, client, evmCfg, log, wallet, nil)
 	s.Require().NoError(err)
 
-	err = chainProvider.LoadSigners()
-	s.Require().NoError(err)
-
-	count := len(chainProvider.Wallet.GetSigners())
+	count := len(wallet.GetSigners())
 	s.Require().
 		Equal(count, len(chainProvider.FreeSigners))
 
