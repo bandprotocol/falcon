@@ -208,12 +208,13 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// call (cold start), then always target max(skipFloor, lastRelayedSequence)+1.
 	// This ensures: no duplicate on restart, correct retry after failed relay,
 	// and forward progress after a successful relay.
-	chainLatestSeq := tunnelInfo.LatestSequence
+	var chainLatestSeq uint64
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
 	} else {
 		if t.seqFloor == nil {
 			t.seqFloor = &tunnelInfo.LatestSequence
+			chainLatestSeq = tunnelInfo.LatestSequence
 		} else {
 			chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1)
 		}
