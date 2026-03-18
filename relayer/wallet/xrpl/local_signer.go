@@ -21,7 +21,7 @@ const (
 // Precomputed hex encodings of the constant provider and dataClass strings.
 var (
 	providerHex  = hex.EncodeToString([]byte("Band Protocol"))
-	dataClassHex = hex.EncodeToString([]byte("Currency"))
+	dataClassHex = hex.EncodeToString([]byte("currency"))
 )
 
 var _ wallet.Signer = (*LocalSigner)(nil)
