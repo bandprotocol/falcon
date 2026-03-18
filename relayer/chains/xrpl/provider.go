@@ -100,35 +100,10 @@ func (cp *XRPLChainProvider) QueryTunnelInfo(
 	return tunnel, nil
 }
 
-// validateTargetAddress parses the BandChain target address in "sender:tunnelID"
-// format and verifies that the sender is a known wallet signer and the tunnelID
-// matches the packet.
-func (cp *XRPLChainProvider) validateTargetAddress(targetAddress string, packet *bandtypes.Packet) error {
-	parts := strings.SplitN(targetAddress, ":", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid target address format %q: expected sender:tunnelID", targetAddress)
-	}
-	sender, tunnelIDStr := parts[0], parts[1]
-
-	tunnelID, err := strconv.ParseUint(tunnelIDStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid tunnel ID in target address %q: %w", targetAddress, err)
-	}
-	if tunnelID != packet.TunnelID {
-		return fmt.Errorf("target address tunnel ID %d does not match packet tunnel ID %d", tunnelID, packet.TunnelID)
-	}
-
-	for _, s := range cp.Wallet.GetSigners() {
-		if s.GetAddress() == sender {
-			return nil
-		}
-	}
-	return fmt.Errorf("sender %q in target address is not a known wallet signer", sender)
-}
-
 // RelayPacket relays the packet to XRPL OracleSet transaction.
-func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Packet) error {
-	if err := cp.validateTargetAddress(packet.TargetAddress, packet); err != nil {
+func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
+	validSender, err := cp.validateTargetAddress(packet)
+	if err != nil {
 		return fmt.Errorf("[XRPLProvider] invalid target address: %w", err)
 	}
 
@@ -138,9 +113,31 @@ func (cp *XRPLChainProvider) RelayPacket(_ context.Context, packet *bandtypes.Pa
 	}
 
 	// get a free signer
-	cp.Log.Debug("Waiting for a free signer...")
-	freeSigner := <-cp.FreeSigners
-	defer func() { cp.FreeSigners <- freeSigner }()
+	var freeSigner wallet.Signer
+	defer func() {
+		if freeSigner != nil {
+			cp.FreeSigners <- freeSigner
+		}
+	}()
+
+	// Loop until we find the right signer or the context cancels
+SignerLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("[XRPLProvider] context canceled while waiting for signer: %w", ctx.Err())
+		case s := <-cp.FreeSigners:
+			if s.GetAddress() == validSender {
+				freeSigner = s
+				break SignerLoop
+			}
+			// Wrong signer. Put it back.
+			cp.FreeSigners <- s
+			time.Sleep(1 * time.Second)
+		}
+	}
+
+	// Guarantee the signer is returned to the pool when the function exits
 
 	log := cp.Log.With(
 		"tunnel_id", packet.TunnelID,
@@ -290,6 +287,37 @@ func (cp *XRPLChainProvider) PacketStaleDuration() time.Duration {
 	return 5 * time.Minute
 }
 
+// validateTargetAddress parses the BandChain target address in "sender:tunnelID"
+// format and verifies that the sender is a known wallet signer and the tunnelID
+// matches the packet.
+func (cp *XRPLChainProvider) validateTargetAddress(packet *bandtypes.Packet) (string, error) {
+	targetAddress := packet.TargetAddress
+	parts := strings.SplitN(targetAddress, ":", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid target address format %q: expected sender:tunnelID", targetAddress)
+	}
+	sender, tunnelIDStr := parts[0], parts[1]
+
+	tunnelID, err := strconv.ParseUint(tunnelIDStr, 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("invalid tunnel ID in target address %q: %w", targetAddress, err)
+	}
+	if tunnelID != packet.TunnelID {
+		return "", fmt.Errorf(
+			"target address tunnel ID %d does not match packet tunnel ID %d",
+			tunnelID,
+			packet.TunnelID,
+		)
+	}
+
+	for _, s := range cp.Wallet.GetSigners() {
+		if s.GetAddress() == sender {
+			return sender, nil
+		}
+	}
+	return "", fmt.Errorf("sender %q in target address is not a known wallet signer", sender)
+}
+
 // handleSaveTransaction handles saving the transaction result to the database, including computing fee and balance delta.
 func (cp *XRPLChainProvider) handleSaveTransaction(
 	txResult TxResult,
@@ -364,17 +392,21 @@ func (cp *XRPLChainProvider) prepareTransaction(
 		}
 	}
 
-	closeTime, err := cp.Client.GetLedgerCloseTime(txResult.LedgerIndex)
-	if err != nil {
-		log.Error("Failed to get ledger close time", "tx_hash", txResult.TxHash, "retry_count", retryCount, err)
-		alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
-			WithTunnelID(packet.TunnelID).
-			WithChainName(cp.ChainName), err.Error())
-	} else {
-		alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
-			WithTunnelID(packet.TunnelID).
-			WithChainName(cp.ChainName),
-		)
+	var closeTime *time.Time
+	var err error
+	if txStatus == types.TX_STATUS_SUCCESS {
+		closeTime, err = cp.Client.GetLedgerCloseTime(txResult.LedgerIndex)
+		if err != nil {
+			log.Error("Failed to get ledger close time", "tx_hash", txResult.TxHash, "retry_count", retryCount, err)
+			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName), err.Error())
+		} else {
+			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName),
+			)
+		}
 	}
 
 	tx := db.NewTransaction(
