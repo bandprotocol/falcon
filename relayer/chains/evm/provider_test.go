@@ -145,12 +145,11 @@ func (s *ProviderTestSuite) TestQueryTunnelInfo() {
 					Return(queryTunnelResponse, nil)
 			},
 			out: &chaintypes.Tunnel{
-				ID:              1,
-				TargetAddress:   "0xe688b84b23f322a994A53dbF8E15FA82CDB71127",
-				IsActive:        true,
-				LatestSequence:  func() *uint64 { v := uint64(1); return &v }(),
-				Balance:         big.NewInt(1000000000000000000),
-				SupportContract: true,
+				ID:             1,
+				TargetAddress:  "0xe688b84b23f322a994A53dbF8E15FA82CDB71127",
+				IsActive:       true,
+				LatestSequence: func() *uint64 { v := uint64(1); return &v }(),
+				Balance:        big.NewInt(1000000000000000000),
 			},
 		},
 		{

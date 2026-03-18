@@ -79,11 +79,9 @@ func (s *TunnelRelayerTestSuite) mockGetTunnel(bandLatestSequence uint64, target
 }
 
 // Helper function to mock QueryTunnelInfo for EVM-style chains.
+// Always returns a non-nil LatestSequence so the EVM on-chain path is taken.
 func (s *TunnelRelayerTestSuite) mockQueryTunnelInfo(sequence uint64, isActive bool, contractAddress string) {
-	var seqPtr *uint64
-	if sequence != 0 {
-		seqPtr = &sequence
-	}
+	seqPtr := &sequence
 	s.chainProvider.EXPECT().
 		QueryTunnelInfo(s.ctx, s.tunnelRelayer.TunnelID, contractAddress).
 		Return(&chaintypes.Tunnel{
