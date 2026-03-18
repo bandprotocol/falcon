@@ -213,10 +213,11 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 		chainLatestSeq = *targetContractInfo.LatestSequence
 	} else {
 		if t.seqFloor == nil {
-			floor := tunnelInfo.LatestSequence
-			t.seqFloor = &floor
+			t.seqFloor = &tunnelInfo.LatestSequence
+			chainLatestSeq = tunnelInfo.LatestSequence
+		} else {
+			chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1)
 		}
-		chainLatestSeq = max(*t.seqFloor, t.lastRelayedSequence)
 	}
 
 	t.updateRelayerMetrics(
