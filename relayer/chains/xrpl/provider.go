@@ -198,6 +198,8 @@ SignerLoop:
 			}
 		}
 
+		log.Info("Broadcasting transaction", "tx_blob", txBlob, "retry_count", retryCount)
+
 		txResult, err := cp.Client.BroadcastTx(txBlob)
 		if err != nil {
 			log.Error("Broadcast transaction error", "retry_count", retryCount, err)
