@@ -90,7 +90,13 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 
 	// Valid FixedPointABI-encoded TSS message (from chain's encoding_tss_test.go):
 	// sequence=3, prices=[{CS:BAND-USD, price=2}], createdAt=123
-	rawHex := ("cba0ad5a" +
+	rawHex := (
+	// 52 bytes of zero padding before the 4-byte selector
+	// (EncoderABIPrefixLength = 52 bytes + 4-byte selector = 56 bytes total)
+	"0000000000000000000000000000000000000000000000000000000000000000" +
+		"0000000000000000000000000000000000000000" +
+		"cba0ad5a" +
+		// ABI-encoded payload
 		"0000000000000000000000000000000000000000000000000000000000000020" +
 		"0000000000000000000000000000000000000000000000000000000000000003" +
 		"0000000000000000000000000000000000000000000000000000000000000060" +

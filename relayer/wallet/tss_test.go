@@ -25,7 +25,13 @@ func signalIDFromString(s string) [32]byte {
 // FixedPointABI-encoded TSS message produced by the chain.
 // Encoded with: sequence=3, prices=[{CS:BAND-USD, 2}], createdAt=123
 func TestToTSSPacketFixedPoint(t *testing.T) {
-	rawHex := ("cba0ad5a" +
+	rawHex := (
+	// 52 bytes of zero padding before the 4-byte selector
+	// (EncoderABIPrefixLength = 52 bytes + 4-byte selector = 56 bytes total)
+	"0000000000000000000000000000000000000000000000000000000000000000" +
+		"0000000000000000000000000000000000000000" +
+		"cba0ad5a" +
+		// ABI-encoded payload
 		"0000000000000000000000000000000000000000000000000000000000000020" +
 		"0000000000000000000000000000000000000000000000000000000000000003" +
 		"0000000000000000000000000000000000000000000000000000000000000060" +
@@ -52,7 +58,13 @@ func TestToTSSPacketFixedPoint(t *testing.T) {
 // TickABI-encoded TSS message produced by the chain.
 // Encoded with: sequence=3, prices=[{CS:BAND-USD, 2 (→tick 0xf188)}], createdAt=123
 func TestToTSSPacketTick(t *testing.T) {
-	rawHex := ("db99b2b3" +
+	rawHex := (
+	// 52 bytes of zero padding before the 4-byte selector
+	// (EncoderABIPrefixLength = 52 bytes + 4-byte selector = 56 bytes total)
+	"0000000000000000000000000000000000000000000000000000000000000000" +
+		"0000000000000000000000000000000000000000" +
+		"db99b2b3" +
+		// ABI-encoded payload
 		"0000000000000000000000000000000000000000000000000000000000000020" +
 		"0000000000000000000000000000000000000000000000000000000000000003" +
 		"0000000000000000000000000000000000000000000000000000000000000060" +
@@ -75,7 +87,7 @@ func TestToTSSPacketTick(t *testing.T) {
 	require.Equal(t, uint64(0xf188), pkt.RelayPrices[0].Price)
 }
 
-// TestToTSSPacketTooShort verifies that a message shorter than the 4-byte
+// TestToTSSPacketTooShort verifies that a message shorter than the 56-byte
 // prefix returns an error.
 func TestToTSSPacketTooShort(t *testing.T) {
 	for _, msg := range [][]byte{
@@ -90,10 +102,16 @@ func TestToTSSPacketTooShort(t *testing.T) {
 	}
 }
 
-// TestToTSSPacketInvalidABI verifies that garbage bytes after the 4-byte
+// TestToTSSPacketInvalidABI verifies that garbage bytes after the 56-byte
 // prefix produce an unpack error.
 func TestToTSSPacketInvalidABI(t *testing.T) {
-	msg := []byte{0x00, 0x00, 0x00, 0x00, 0xDE, 0xAD, 0xBE, 0xEF}
+	// 56-byte prefix (4-byte selector + 52 zero bytes) followed by garbage
+	// to trigger ABI decode failure.
+	msg := make([]byte, 60)
+	msg[56] = 0xDE
+	msg[57] = 0xAD
+	msg[58] = 0xBE
+	msg[59] = 0xEF
 	payload := wallet.NewTssPayload(msg, nil, nil)
 	_, err := payload.ToTSSPacket()
 	require.Error(t, err)
