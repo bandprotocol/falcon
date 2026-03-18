@@ -92,7 +92,7 @@ func (cp *XRPLChainProvider) QueryTunnelInfo(
 
 // RelayPacket relays the packet to XRPL OracleSet transaction.
 func (cp *XRPLChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
-	validSender, err := cp.validateTargetAddress(packet)
+	validSender, oracleID, err := cp.validateTargetAddress(packet)
 	if err != nil {
 		return fmt.Errorf("[XRPLProvider] invalid target address: %w", err)
 	}
@@ -156,7 +156,7 @@ SignerLoop:
 
 		signerPayload := xrpl.NewSignerPayload(
 			freeSigner.GetAddress(),
-			packet.TunnelID,
+			oracleID,
 			cp.Config.Fee,
 			sequence,
 		)
@@ -275,32 +275,25 @@ func (cp *XRPLChainProvider) GetWallet() wallet.Wallet {
 // validateTargetAddress parses the BandChain target address in "sender:tunnelID"
 // format and verifies that the sender is a known wallet signer and the tunnelID
 // matches the packet.
-func (cp *XRPLChainProvider) validateTargetAddress(packet *bandtypes.Packet) (string, error) {
+func (cp *XRPLChainProvider) validateTargetAddress(packet *bandtypes.Packet) (string, uint64, error) {
 	targetAddress := packet.TargetAddress
 	parts := strings.SplitN(targetAddress, ":", 2)
 	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid target address format %q: expected sender:tunnelID", targetAddress)
+		return "", 0, fmt.Errorf("invalid target address format %q: expected sender:tunnelID", targetAddress)
 	}
-	sender, tunnelIDStr := parts[0], parts[1]
+	sender, oracleIDStr := parts[0], parts[1]
 
-	tunnelID, err := strconv.ParseUint(tunnelIDStr, 10, 64)
+	oracleID, err := strconv.ParseUint(oracleIDStr, 10, 64)
 	if err != nil {
-		return "", fmt.Errorf("invalid tunnel ID in target address %q: %w", targetAddress, err)
-	}
-	if tunnelID != packet.TunnelID {
-		return "", fmt.Errorf(
-			"target address tunnel ID %d does not match packet tunnel ID %d",
-			tunnelID,
-			packet.TunnelID,
-		)
+		return "", 0, fmt.Errorf("invalid tunnel ID in target address %q: %w", targetAddress, err)
 	}
 
 	for _, s := range cp.Wallet.GetSigners() {
 		if s.GetAddress() == sender {
-			return sender, nil
+			return sender, oracleID, nil
 		}
 	}
-	return "", fmt.Errorf("sender %q in target address is not a known wallet signer", sender)
+	return "", 0, fmt.Errorf("sender %q in target address is not a known wallet signer", sender)
 }
 
 // handleSaveTransaction handles saving the transaction result to the database, including computing fee and balance delta.
