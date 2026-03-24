@@ -14,6 +14,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/chains/flow"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 	"github.com/bandprotocol/falcon/relayer/config"
@@ -88,6 +89,21 @@ func TestParseChainProviderConfig(t *testing.T) {
 					ChainType: chainstypes.ChainTypeXRPL,
 				},
 				Fee: "10",
+			},
+		},
+		{
+			name: "valid flow chain",
+			in: config.ChainProviderConfigWrapper{
+				"chain_type":    "flow",
+				"endpoints":     []string{"https://rest-testnet.onflow.org/v1"},
+				"compute_limit": uint64(2000),
+			},
+			out: &flow.FlowChainProviderConfig{
+				BaseChainProviderConfig: chains.BaseChainProviderConfig{
+					Endpoints: []string{"https://rest-testnet.onflow.org/v1"},
+					ChainType: chainstypes.ChainTypeFlow,
+				},
+				ComputeLimit: 2000,
 			},
 		},
 		{
@@ -207,6 +223,36 @@ func TestLoadXrplChainConfig(t *testing.T) {
 		},
 		Fee:           "10",
 		NonceInterval: 5 * time.Minute,
+	}
+
+	require.Equal(t, expect, actual)
+}
+
+func TestLoadFlowChainConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := path.Join(tmpDir, "flow_chain_config.toml")
+
+	// write config file
+	err := os.WriteFile(cfgPath, []byte(relayertest.FlowChainCfgText), 0o600)
+	require.NoError(t, err)
+
+	// load chain config
+	actual, err := config.LoadChainConfig(cfgPath)
+	require.NoError(t, err)
+
+	expect := &flow.FlowChainProviderConfig{
+		BaseChainProviderConfig: chains.BaseChainProviderConfig{
+			Endpoints:                  []string{"https://rest-testnet.onflow.org/v1"},
+			ChainType:                  chainstypes.ChainTypeFlow,
+			MaxRetry:                   3,
+			ChainID:                    539,
+			QueryTimeout:               3 * time.Second,
+			ExecuteTimeout:             3 * time.Second,
+			LivelinessCheckingInterval: 200 * time.Second,
+		},
+		ComputeLimit:       2000,
+		WaitingTxDuration:  50 * time.Second,
+		CheckingTxInterval: 5 * time.Second,
 	}
 
 	require.Equal(t, expect, actual)

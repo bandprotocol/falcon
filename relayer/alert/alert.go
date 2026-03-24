@@ -15,6 +15,7 @@ const (
 	GetLedgerCloseTimeErrorMsg       = "Failed to get ledger close time from chain"
 	GetBalanceErrorMsg               = "Failed to get balance from chain"
 	SaveDatabaseErrorMsg             = "Failed to save to database"
+	ExecuteScriptErrorMsg            = "Failed to execute script on chain"
 )
 
 // Alert represents an object that triggers and resets alerts.

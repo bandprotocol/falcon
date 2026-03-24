@@ -1,0 +1,10 @@
+endpoints = ["https://rest-testnet.onflow.org/v1"]
+liveliness_checking_interval = 200000000000
+chain_type = "flow"
+max_retry = 3
+query_timeout = 3000000000
+execute_timeout = 3000000000
+waiting_tx_duration = '50s'
+checking_tx_interval = '5s'
+chain_id = 539
+compute_limit = 2000
