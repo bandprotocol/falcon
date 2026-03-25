@@ -374,7 +374,7 @@ func (cp *XRPLChainProvider) prepareTransaction(
 
 	var closeTime *time.Time
 	var err error
-	if txStatus == types.TX_STATUS_SUCCESS {
+	if txResult.LedgerIndex != 0 {
 		closeTime, err = cp.Client.GetLedgerCloseTime(txResult.LedgerIndex)
 		if err != nil {
 			log.Error("Failed to get ledger close time", "tx_hash", txResult.TxHash, "retry_count", retryCount, err)
