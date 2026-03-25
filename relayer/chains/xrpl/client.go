@@ -297,21 +297,23 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 		return TxResult{}, fmt.Errorf("missing tx hash in submit response")
 	}
 
-	if result.EngineResult != "tesSUCCESS" {
-		return TxResult{
-				TxHash: txHash,
-			}, fmt.Errorf(
-				"failed to broadcast with engine result %s: %s",
-				result.EngineResult,
-				result.EngineResultMessage,
-			)
-	}
-
 	fee, ok := result.Tx["Fee"].(string)
 	if !ok || fee == "" {
 		return TxResult{
 			TxHash: txHash,
 		}, fmt.Errorf("missing fee in submit response")
+	}
+
+	if result.EngineResult != "tesSUCCESS" {
+		return TxResult{
+				TxHash:      txHash,
+				Fee:         fee,
+				LedgerIndex: result.ValidatedLedgerIndex,
+			}, fmt.Errorf(
+				"failed to broadcast with engine result %s: %s",
+				result.EngineResult,
+				result.EngineResultMessage,
+			)
 	}
 
 	return TxResult{
