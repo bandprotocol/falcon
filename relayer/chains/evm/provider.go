@@ -457,7 +457,7 @@ func (cp *EVMChainProvider) prepareTransaction(
 						WithChainName(cp.ChainName), err.Error())
 				} else {
 					diff := new(big.Int).Sub(newBalance, oldBalance)
-					balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, -18))
+					balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
 					alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
 						WithTunnelID(packet.TunnelID).
 						WithChainName(cp.ChainName))
@@ -502,9 +502,8 @@ func (cp *EVMChainProvider) CheckConfirmedTx(
 	}
 
 	// calculate gas used and effective gas price
-	// gas_used is gas units (dimensionless), effective_gas_price stored in ETH (converted from wei)
 	gasUsed := decimal.NewNullDecimal(decimal.New(int64(receipt.GasUsed), 0))
-	gasPrice := decimal.NewNullDecimal(decimal.NewFromBigInt(receipt.EffectiveGasPrice, -18))
+	gasPrice := decimal.NewNullDecimal(decimal.New(int64(receipt.EffectiveGasPrice.Uint64()), 0))
 
 	if receipt.Status == gethtypes.ReceiptStatusFailed {
 		return NewTxResult(

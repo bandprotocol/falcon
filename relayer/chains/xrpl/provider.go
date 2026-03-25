@@ -22,6 +22,8 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 
+const xrplToWeiExp = 12
+
 var _ chains.ChainProvider = (*XRPLChainProvider)(nil)
 
 // XRPLChainProvider handles interactions with XRPL.
@@ -342,13 +344,13 @@ func (cp *XRPLChainProvider) prepareTransaction(
 	fee := decimal.NullDecimal{}
 	balanceDelta := decimal.NullDecimal{}
 
-	// Convert fee from drops (string) to XRP decimal
+	// Convert fee from drops (string) to XRP decimal, scaled by 10^12 to match EVM wei
 	if txResult.Fee != "" {
 		feeDecimal, err := decimal.NewFromString(txResult.Fee)
 		if err != nil {
 			log.Error("Failed to parse fee", "fee", txResult.Fee, "retry_count", retryCount, err)
 		} else {
-			fee = decimal.NewNullDecimal(feeDecimal.Shift(-6))
+			fee = decimal.NewNullDecimal(feeDecimal.Mul(decimal.NewFromInt(1).Shift(xrplToWeiExp)))
 		}
 	}
 
@@ -363,7 +365,7 @@ func (cp *XRPLChainProvider) prepareTransaction(
 				WithChainName(cp.ChainName), err.Error())
 		} else {
 			diff := new(big.Int).Sub(newBalance, oldBalance)
-			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, -6))
+			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, xrplToWeiExp))
 			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
 				WithTunnelID(packet.TunnelID).
 				WithChainName(cp.ChainName))

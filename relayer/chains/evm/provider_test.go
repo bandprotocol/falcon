@@ -235,7 +235,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 			out: evm.NewTxResult(
 				chaintypes.TX_STATUS_SUCCESS,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
-				decimal.NewNullDecimal(decimal.NewFromBigInt(big.NewInt(20000), -18)),
+				decimal.NewNullDecimal(decimal.New(20000, 0)),
 				big.NewInt(100),
 				"",
 			),
@@ -253,7 +253,7 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 			out: evm.NewTxResult(
 				chaintypes.TX_STATUS_FAILED,
 				decimal.NewNullDecimal(decimal.New(21000, 0)),
-				decimal.NewNullDecimal(decimal.NewFromBigInt(big.NewInt(20000), -18)),
+				decimal.NewNullDecimal(decimal.New(20000, 0)),
 				big.NewInt(100),
 				"transaction reverted on-chain",
 			),
