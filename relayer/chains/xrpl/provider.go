@@ -344,7 +344,7 @@ func (cp *XRPLChainProvider) prepareTransaction(
 	fee := decimal.NullDecimal{}
 	balanceDelta := decimal.NullDecimal{}
 
-	// Convert fee from drops (string) to XRP decimal, scaled by 10^12 to match EVM wei
+	// Convert fee from drops (string) to a wei-like XRPL unit (drops × 10^12) to align with EVM-style wei scaling
 	if txResult.Fee != "" {
 		feeDecimal, err := decimal.NewFromString(txResult.Fee)
 		if err != nil {

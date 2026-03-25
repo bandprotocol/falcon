@@ -201,10 +201,15 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	// determine the latest sequence on the target chain to relay the next packet. The logic is as follows:
-	// 1. If the target contract provides the latest sequence, use it.
-	// 2. If the target contract does not provide the latest sequence, use the tunnel info from BandChain to determine the latest sequence:
-	//  a. If seqFloor is not set, set it to the latest sequence from BandChain and use it as the latest sequence.
+	// Determine the latest sequence on the target chain to relay the next packet. The logic is as follows:
+	// 1. If the target contract provides LatestSequence, use that value directly.
+	// 2. If the target contract does not provide LatestSequence (i.e. it is nil), fall back to BandChain tunnel info:
+	//    a. If seqFloor is not set, initialize seqFloor to BandChain's LatestSequence and use that value.
+	//    b. If seqFloor is already set, choose the maximum of:
+	//       - seqFloor,
+	//       - BandChain's LatestSequence - 1, and
+	//       - lastRelayedSequence
+	//       This avoids re-relaying already processed packets and prevents skipping sequences when BandChain or the target chain lags.
 	var chainLatestSeq uint64
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
