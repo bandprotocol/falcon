@@ -201,13 +201,10 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	// Determine the latest sequence confirmed on the target chain.
-	// A non-nil LatestSequence means the chain tracks sequence on-chain (e.g. EVM):
-	// use it directly. A nil value (e.g. XRPL) means sequence is not tracked
-	// on-chain: record the current BandChain latest as a skip floor on the first
-	// call (cold start), then always target max(skipFloor, lastRelayedSequence)+1.
-	// This ensures: no duplicate on restart, correct retry after failed relay,
-	// and forward progress after a successful relay.
+	// determine the latest sequence on the target chain to relay the next packet. The logic is as follows:
+	// 1. If the target contract provides the latest sequence, use it.
+	// 2. If the target contract does not provide the latest sequence, use the tunnel info from BandChain to determine the latest sequence:
+	//  a. If seqFloor is not set, set it to the latest sequence from BandChain and use it as the latest sequence.
 	var chainLatestSeq uint64
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
@@ -216,7 +213,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			t.seqFloor = &tunnelInfo.LatestSequence
 			chainLatestSeq = tunnelInfo.LatestSequence
 		} else {
-			chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1)
+			chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1, t.lastRelayedSequence)
 		}
 	}
 
