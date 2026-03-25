@@ -342,13 +342,13 @@ func (cp *XRPLChainProvider) prepareTransaction(
 	fee := decimal.NullDecimal{}
 	balanceDelta := decimal.NullDecimal{}
 
-	// Convert fee from string to decimal
+	// Convert fee from drops (string) to XRP decimal
 	if txResult.Fee != "" {
 		feeDecimal, err := decimal.NewFromString(txResult.Fee)
 		if err != nil {
 			log.Error("Failed to parse fee", "fee", txResult.Fee, "retry_count", retryCount, err)
 		} else {
-			fee = decimal.NewNullDecimal(feeDecimal)
+			fee = decimal.NewNullDecimal(feeDecimal.Shift(-6))
 		}
 	}
 
@@ -363,7 +363,7 @@ func (cp *XRPLChainProvider) prepareTransaction(
 				WithChainName(cp.ChainName), err.Error())
 		} else {
 			diff := new(big.Int).Sub(newBalance, oldBalance)
-			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
+			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, -6))
 			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
 				WithTunnelID(packet.TunnelID).
 				WithChainName(cp.ChainName))
