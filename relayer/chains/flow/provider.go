@@ -23,7 +23,10 @@ import (
 	flowwallet "github.com/bandprotocol/falcon/relayer/wallet/flow"
 )
 
-const flowFeeEvent = "FlowFees.FeesDeducted"
+const (
+	flowFeeEvent = "FlowFees.FeesDeducted"
+	flowToWeiExp = 10
+)
 
 var _ chains.ChainProvider = (*FlowChainProvider)(nil)
 
@@ -407,8 +410,9 @@ func (cp *FlowChainProvider) handleSaveTransaction(
 				WithTunnelID(packet.TunnelID).
 				WithChainName(cp.ChainName))
 		}
+		weiScale := decimal.New(1, flowToWeiExp)
 		if fee != nil {
-			feeDecimal = decimal.NewNullDecimal(decimal.NewFromInt(int64(*fee)))
+			feeDecimal = decimal.NewNullDecimal(decimal.NewFromInt(int64(*fee)).Mul(weiScale))
 		}
 		if oldBalance != nil {
 			newBalance, err := cp.Client.GetBalance(ctx, signerAddress)
@@ -419,7 +423,7 @@ func (cp *FlowChainProvider) handleSaveTransaction(
 					WithChainName(cp.ChainName), err.Error())
 			} else {
 				diff := new(big.Int).Sub(newBalance, oldBalance)
-				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
+				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0).Mul(weiScale))
 				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
 					WithTunnelID(packet.TunnelID).
 					WithChainName(cp.ChainName))
