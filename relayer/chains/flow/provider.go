@@ -90,21 +90,26 @@ func (cp *FlowChainProvider) SetDatabase(database db.Database) {
 	cp.DB = database
 }
 
-// QueryTunnelInfo returns an active Flow tunnel with Skippable=true.
-// No on-chain sequence tracking is needed; the relayer uses its in-memory state.
+// QueryTunnelInfo returns an active Flow tunnel
+// Flow does not require on-chain sequence tracking. If a database is configured,
+// the latest successful sequence for the given tunnel is read from the DB and
+// attached to the returned Tunnel; otherwise no sequence is provided.
 func (cp *FlowChainProvider) QueryTunnelInfo(
 	_ context.Context,
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
 	var seq *uint64
+	// Keep the latest successful sequence in the database for reference
+	// because it cannot be tracked on-chain.
 	if cp.DB != nil {
 		latestSequence, err := cp.DB.GetLatestSuccessSequence(tunnelID)
 		if err != nil {
-			return nil, fmt.Errorf("[FlowProvider] failed to get latest transaction: %w", err)
+			return nil, fmt.Errorf("[FlowProvider] failed to get latest success sequence: %w", err)
 		}
 		seq = &latestSequence
 	}
+	// If db is not set, seq will be nil, which means relayer doesn't know the latest successful sequence.
 	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, seq, nil)
 	return tunnel, nil
 }
@@ -364,7 +369,7 @@ func (cp *FlowChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time,
 		relayermetrics.ObserveTxProcessTime(
 			tunnelID,
 			cp.ChainName,
-			types.ChainTypeEVM.String(),
+			cp.ChainType().String(),
 			txStatus.String(),
 			time.Since(createdAt).Milliseconds(),
 		)

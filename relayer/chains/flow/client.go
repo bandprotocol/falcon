@@ -318,5 +318,5 @@ func (c *client) GetBalance(ctx context.Context, address string) (*big.Int, erro
 		return nil, err
 	}
 
-	return big.NewInt(int64(acc.Balance)), nil
+	return new(big.Int).SetUint64(acc.Balance), nil
 }
