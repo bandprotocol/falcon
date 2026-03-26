@@ -65,7 +65,7 @@ func NewIconChainProvider(
 
 // Init connects to the Icon chain.
 func (cp *IconChainProvider) Init(ctx context.Context) error {
-	if err := cp.Client.Connect(); err != nil {
+	if err := cp.Client.Connect(ctx); err != nil {
 		return err
 	}
 
@@ -91,7 +91,7 @@ func (cp *IconChainProvider) QueryTunnelInfo(
 
 // RelayPacket relays the packet to Icon.
 func (cp *IconChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
-	if err := cp.Client.CheckAndConnect(); err != nil {
+	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		return err
 	}
 

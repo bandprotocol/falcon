@@ -27,12 +27,10 @@ func NewIconClients() IconClients {
 var _ Client = (*client)(nil)
 
 type Client interface {
-	Connect() error
-	CheckAndConnect() error
+	Connect(ctx context.Context) error
+	CheckAndConnect(ctx context.Context) error
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	BroadcastTx(txParams v3.TransactionParam) (string, error)
-	GetTx(txHash string) (*iconclient.TransactionResult, error)
-	GetContractPrices(contract string, symbols []string) ([]ContractOutput, error)
 	GetBalance(account string) (*big.Int, error)
 }
 
@@ -59,7 +57,7 @@ func NewClient(chainName string, cfg *IconChainProviderConfig, log logger.Logger
 }
 
 // Connect connects to the EVM chain.
-func (c *client) Connect() error {
+func (c *client) Connect(_ context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.Endpoints {
 		_, ok := c.clients.GetClient(endpoint)
@@ -103,7 +101,7 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 			c.Log.Info("Stopping liveliness check")
 			return
 		case <-ticker.C:
-			err := c.Connect()
+			err := c.Connect(ctx)
 			if err != nil {
 				c.Log.Error("Liveliness check: unable to reconnect to any endpoints", err)
 			}
@@ -183,9 +181,9 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 }
 
 // checkAndConnect checks if the client is connected to the EVM chain, if not connect it.
-func (c *client) CheckAndConnect() error {
+func (c *client) CheckAndConnect(ctx context.Context) error {
 	if _, err := c.clients.GetSelectedClient(); err != nil {
-		return c.Connect()
+		return c.Connect(ctx)
 	}
 
 	return nil
@@ -217,73 +215,6 @@ func (c *client) BroadcastTx(txParams v3.TransactionParam) (string, error) {
 	}
 
 	return string(result), nil
-}
-
-func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
-	client, err := c.clients.GetSelectedClient()
-	if err != nil {
-		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[IconClient] failed to get client: %w", err)
-	}
-
-	txResult, err := client.GetTransactionResult(&v3.TransactionHashParam{Hash: jsonrpc.HexBytes(txHash)})
-	if err != nil {
-		c.Log.Error("Failed to get transaction result", "endpoint", c.clients.GetSelectedEndpoint(), "txHash", txHash, err)
-		return nil, fmt.Errorf("[IconClient] failed to get transaction result: %w", err)
-	}
-	return txResult, nil
-}
-
-// GetContractPrices retrieves contract prices for the given symbols.
-func (c *client) GetContractPrices(contract string, symbols []string) ([]ContractOutput, error) {
-	message := v3.CallParam{
-		ToAddress: jsonrpc.Address(contract),
-		DataType:  "call",
-		Data: ContractData{
-			Method: "getReferenceDataBulk",
-			Params: GetRefDataBulkParams{
-				Bases:  symbols,
-				Quotes: make([]string, len(symbols)), // Fill with "USD"
-			},
-		},
-	}
-
-	for i := range message.Data.(ContractData).Params.(GetRefDataBulkParams).Quotes {
-		message.Data.(ContractData).Params.(GetRefDataBulkParams).Quotes[i] = "USD"
-	}
-
-	latestPrices := make([]ContractOutput, len(symbols))
-	success := false
-
-	client, err := c.clients.GetSelectedClient()
-	if err != nil {
-		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[IconClient] failed to get client: %w", err)
-	}
-
-	var contractPrices []ContractOutput
-	if _, err := client.Do("icx_call", message, &contractPrices); err != nil {
-		c.Log.Error("Failed to get contract prices", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[IconClient] failed to get contract prices: %w", err)
-	}
-
-	if len(contractPrices) != len(latestPrices) {
-		c.Log.Error("Mismatch in symbol count", "expected", len(latestPrices), "got", len(contractPrices))
-		return nil, fmt.Errorf("expected %d symbols, got %d", len(latestPrices), len(contractPrices))
-	}
-
-	for i := range contractPrices {
-		if latestPrices[i].LastUpdateBase.Value() < contractPrices[i].LastUpdateBase.Value() {
-			latestPrices[i] = contractPrices[i]
-		}
-	}
-	success = true
-
-	if !success {
-		return nil, fmt.Errorf("cannot get contract price from endpoint")
-	}
-
-	return latestPrices, nil
 }
 
 func (c *client) GetBalance(account string) (*big.Int, error) {
