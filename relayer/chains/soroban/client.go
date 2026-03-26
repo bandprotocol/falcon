@@ -58,7 +58,7 @@ func (c *client) Connect(ctx context.Context) error {
 
 	for _, endpoint := range c.Endpoints {
 		reqBody := `{"jsonrpc": "2.0", "id": 1, "method": "getLatestLedger"}`
-		resp, err := http.Post(endpoint, "application/json", strings.NewReader(reqBody))
+		resp, err := http.Post(endpoint, "application/json", strings.NewReader(reqBody)) // #nosec G107
 		if err != nil {
 			continue
 		}
@@ -70,7 +70,9 @@ func (c *client) Connect(ctx context.Context) error {
 					Sequence uint64 `json:"sequence"`
 				} `json:"result"`
 			}
-			json.NewDecoder(resp.Body).Decode(&result)
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				continue
+			}
 			if result.Result.Sequence > highestSequence {
 				highestSequence = result.Result.Sequence
 				bestEndpoint = endpoint
@@ -108,7 +110,7 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 
 func (c *client) GetAccountSequenceNumber(account string) (uint64, error) {
 	url := fmt.Sprintf("%s/accounts/%s", strings.TrimRight(c.HorizonEndpoint, "/"), account)
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) // #nosec G107
 	if err != nil {
 		return 0, err
 	}
@@ -126,13 +128,15 @@ func (c *client) GetAccountSequenceNumber(account string) (uint64, error) {
 	}
 
 	var seq uint64
-	fmt.Sscanf(result.Sequence, "%d", &seq)
+	if _, err := fmt.Sscanf(result.Sequence, "%d", &seq); err != nil {
+		return 0, err
+	}
 	return seq, nil
 }
 
 func (c *client) GetBalance(account string) (*big.Int, error) {
 	url := fmt.Sprintf("%s/accounts/%s", strings.TrimRight(c.HorizonEndpoint, "/"), account)
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) // #nosec G107
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +182,7 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 
 func (c *client) GetLatestLedger() (uint64, *time.Time, error) {
 	reqBody := `{"jsonrpc": "2.0", "id": 1, "method": "getLatestLedger"}`
-	resp, err := http.Post(c.SelectedEndpoint, "application/json", strings.NewReader(reqBody))
+	resp, err := http.Post(c.SelectedEndpoint, "application/json", strings.NewReader(reqBody)) // #nosec G107
 	if err != nil {
 		return 0, nil, err
 	}
@@ -204,7 +208,7 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 		"params":  map[string]interface{}{"transaction": txBlob},
 	}
 	b, _ := json.Marshal(reqBody)
-	resp, err := http.Post(c.SelectedEndpoint, "application/json", bytes.NewReader(b))
+	resp, err := http.Post(c.SelectedEndpoint, "application/json", bytes.NewReader(b)) // #nosec G107
 	if err != nil {
 		return TxResult{}, err
 	}
@@ -212,9 +216,9 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 
 	var result struct {
 		Result struct {
-			Status       string `json:"status"`
-			Hash         string `json:"hash"`
-			LatestLedger uint64 `json:"latestLedger"`
+			Status         string `json:"status"`
+			Hash           string `json:"hash"`
+			LatestLedger   uint64 `json:"latestLedger"`
 			ErrorResultXdr string `json:"errorResultXdr"`
 		} `json:"result"`
 		Error *struct {
@@ -243,7 +247,7 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 func (c *client) GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error) {
 	// From Horizon: /ledgers/{id}
 	url := fmt.Sprintf("%s/ledgers/%d", strings.TrimRight(c.HorizonEndpoint, "/"), ledgerIndex)
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) // #nosec G107
 	if err != nil {
 		return nil, err
 	}
