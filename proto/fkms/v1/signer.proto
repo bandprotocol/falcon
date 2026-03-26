@@ -7,6 +7,7 @@ option go_package = "github.com/bandprotocol/falcon/proto/fkms/v1;fkmsv1";
 service FkmsService {
   rpc SignEvm(SignEvmRequest) returns (SignEvmResponse);
   rpc SignXrpl(SignXrplRequest) returns (SignXrplResponse);
+  rpc SignIcon(SignIconRequest) returns (SignIconResponse);
   rpc GetSignerAddresses(GetSignerAddressesRequest) returns (GetSignerAddressesResponse);
 }
 
@@ -28,6 +29,15 @@ message SignXrplResponse {
   bytes tx_blob = 1;
 }
 
+message SignIconRequest {
+  IconSignerPayload signer_payload = 1;
+  Tss tss = 2;
+}
+
+message SignIconResponse {
+  bytes tx_params = 1;
+}
+
 message GetSignerAddressesRequest {}
 
 message GetSignerAddressesResponse {
@@ -39,6 +49,13 @@ message XrplSignerPayload {
   uint64 oracle_id = 2;
   string fee = 3;
   uint64 sequence = 4;
+}
+
+message IconSignerPayload {
+  string relayer = 1;
+  string contract_address = 2;
+  uint64 step_limit = 3;
+  string network_id = 4;
 }
 
 message Tss {
@@ -55,4 +72,5 @@ message Signers {
 enum ChainType {
   EVM = 0;
   XRPL = 1;
+  ICON = 2;
 }
