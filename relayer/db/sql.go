@@ -95,7 +95,7 @@ func (sql SQL) GetLatestSuccessSequence(tunnelID uint64) (uint64, error) {
 	result := sql.Db.
 		Select("sequence").
 		Where("tunnel_id = ? AND status = ?", tunnelID, chaintypes.TX_STATUS_SUCCESS).
-		Order("block_timestamp DESC").
+		Order("sequence DESC").
 		First(&tx)
 	if result.Error != nil {
 		// Check if the error is specifically "Record Not Found"

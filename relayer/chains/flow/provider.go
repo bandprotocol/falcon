@@ -417,7 +417,7 @@ func (cp *FlowChainProvider) handleSaveTransaction(
 		}
 		weiScale := decimal.New(1, flowToWeiExp)
 		if fee != nil {
-			feeDecimal = decimal.NewNullDecimal(decimal.NewFromInt(int64(*fee)).Mul(weiScale))
+			feeDecimal = decimal.NewNullDecimal(decimal.NewFromBigInt(new(big.Int).SetUint64(*fee), 0).Mul(weiScale))
 		}
 		if oldBalance != nil {
 			newBalance, err := cp.Client.GetBalance(ctx, signerAddress)
