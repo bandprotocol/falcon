@@ -83,23 +83,10 @@ func (cp *SorobanChainProvider) RelayPacket(ctx context.Context, packet *bandtyp
 		return fmt.Errorf("[SorobanProvider] failed to connect client: %w", err)
 	}
 
-	var freeSigner wallet.Signer
-	defer func() {
-		if freeSigner != nil {
-			cp.FreeSigners <- freeSigner
-		}
-	}()
-
-SignerLoop:
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("[SorobanProvider] context canceled while waiting for signer: %w", ctx.Err())
-		case s := <-cp.FreeSigners:
-			freeSigner = s
-			break SignerLoop
-		}
-	}
+	// get a free signer
+	cp.Log.Debug("Waiting for a free signer...")
+	freeSigner := <-cp.FreeSigners
+	defer func() { cp.FreeSigners <- freeSigner }()
 
 	log := cp.Log.With(
 		"tunnel_id", packet.TunnelID,
@@ -223,9 +210,9 @@ func (cp *SorobanChainProvider) QueryBalance(ctx context.Context, address string
 	return cp.Client.GetBalance(address)
 }
 
-func (cp *SorobanChainProvider) GetChainName() string { return cp.ChainName }
+func (cp *SorobanChainProvider) GetChainName() string       { return cp.ChainName }
 func (cp *SorobanChainProvider) ChainType() types.ChainType { return types.ChainTypeSoroban }
-func (cp *SorobanChainProvider) GetWallet() wallet.Wallet { return cp.Wallet }
+func (cp *SorobanChainProvider) GetWallet() wallet.Wallet   { return cp.Wallet }
 
 func (cp *SorobanChainProvider) handleSaveTransaction(
 	txResult TxResult,
