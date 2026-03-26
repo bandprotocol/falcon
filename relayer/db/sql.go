@@ -89,20 +89,19 @@ func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
 		Error
 }
 
-// GetLatestSuccessSequence retrieves the sequence number of the latest successful transaction for a given tunnel ID.
-func (sql SQL) GetLatestSuccessSequence(tunnelID uint64) (uint64, error) {
+// GetLatestSuccessTransaction retrieves the latest successful transaction for a given tunnel ID.
+func (sql SQL) GetLatestSuccessTransaction(tunnelID uint64) (*Transaction, error) {
 	var tx Transaction
 	result := sql.Db.
-		Select("sequence").
 		Where("tunnel_id = ? AND status = ?", tunnelID, chaintypes.TX_STATUS_SUCCESS).
 		Order("sequence DESC").
 		First(&tx)
 	if result.Error != nil {
 		// Check if the error is specifically "Record Not Found"
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return 0, nil
+			return nil, nil
 		}
-		return 0, result.Error
+		return nil, result.Error
 	}
-	return tx.Sequence, nil
+	return &tx, nil
 }
