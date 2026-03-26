@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bandprotocol/falcon/relayer/alert"
-	"github.com/bandprotocol/falcon/relayer/chains"
-	"github.com/bandprotocol/falcon/relayer/logger"
 	iconclient "github.com/icon-project/goloop/client"
 	"github.com/icon-project/goloop/server/jsonrpc"
 	v3 "github.com/icon-project/goloop/server/v3"
+
+	"github.com/bandprotocol/falcon/relayer/alert"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 // IconClients holds Icon RPC clients and the selected endpoint.
@@ -231,7 +232,6 @@ func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
 		return nil, fmt.Errorf("[IconClient] failed to get transaction result: %w", err)
 	}
 	return txResult, nil
-
 }
 
 // GetContractPrices retrieves contract prices for the given symbols.
