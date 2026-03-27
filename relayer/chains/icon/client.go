@@ -249,7 +249,7 @@ func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
 
 	txResult, err := client.GetTransactionResult(&v3.TransactionHashParam{Hash: jsonrpc.HexBytes(txHash)})
 	if err != nil {
-		c.Log.Error("Failed to get transaction result", "endpoint", c.clients.GetSelectedEndpoint(), "txHash", txHash, err)
+		c.Log.Debug("Failed to get transaction result", "endpoint", c.clients.GetSelectedEndpoint(), "txHash", txHash, err)
 		return nil, fmt.Errorf("[IconClient] failed to get transaction result: %w", err)
 	}
 	return txResult, nil
