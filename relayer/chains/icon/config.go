@@ -1,6 +1,8 @@
 package icon
 
 import (
+	"time"
+
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
@@ -14,9 +16,11 @@ var _ chains.ChainProviderConfig = &IconChainProviderConfig{}
 type IconChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	ContractAddress string `mapstructure:"contract_address" toml:"contract_address"`
-	NetworkID       string `mapstructure:"network_id"       toml:"network_id"`
-	StepLimit       uint64 `mapstructure:"step_limit" toml:"step_limit"`
+	ContractAddress    string        `mapstructure:"contract_address"     toml:"contract_address"`
+	NetworkID          string        `mapstructure:"network_id"           toml:"network_id"`
+	StepLimit          uint64        `mapstructure:"step_limit"           toml:"step_limit"`
+	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration"  toml:"waiting_tx_duration"`
+	CheckingTxInterval time.Duration `mapstructure:"checking_tx_interval" toml:"checking_tx_interval"`
 }
 
 // NewChainProvider creates a new Icon chain provider.

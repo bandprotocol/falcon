@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
 
 	v3 "github.com/icon-project/goloop/server/v3"
 	"github.com/shopspring/decimal"
@@ -36,9 +37,7 @@ type IconChainProvider struct {
 
 	Alert alert.Alert
 
-	ContractAddress string
-	NetworkID       string
-	FreeSigners     chan wallet.Signer
+	FreeSigners chan wallet.Signer
 }
 
 // NewIconChainProvider creates a new Icon chain provider.
@@ -51,15 +50,13 @@ func NewIconChainProvider(
 	alert alert.Alert,
 ) *IconChainProvider {
 	return &IconChainProvider{
-		Config:          cfg,
-		ChainName:       chainName,
-		Client:          client,
-		Log:             log.With("chain_name", chainName),
-		Wallet:          wallet,
-		Alert:           alert,
-		ContractAddress: cfg.ContractAddress,
-		NetworkID:       cfg.NetworkID,
-		FreeSigners:     chains.LoadSigners(wallet),
+		Config:      cfg,
+		ChainName:   chainName,
+		Client:      client,
+		Log:         log.With("chain_name", chainName),
+		Wallet:      wallet,
+		Alert:       alert,
+		FreeSigners: chains.LoadSigners(wallet),
 	}
 }
 
@@ -119,9 +116,9 @@ func (cp *IconChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 
 		signerPayload := iconwallet.NewSignerPayload(
 			freeSigner.GetAddress(),
-			cp.ContractAddress,
+			cp.Config.ContractAddress,
 			cp.Config.StepLimit,
-			cp.NetworkID,
+			cp.Config.NetworkID,
 		)
 
 		payloadBytes, err := json.Marshal(signerPayload)
@@ -172,34 +169,52 @@ func (cp *IconChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			log.Error("Broadcast transaction error", "retry_count", retryCount, err)
 			lastErr = err
 
-			// save failed tx in db
-			if cp.DB != nil {
-				tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, balance, log, retryCount)
-				chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
-			}
-
 			continue
 		}
 
+		createdAt := time.Now()
+
 		log.Info(
-			"Packet is successfully relayed",
+			"Submitted a message; checking transaction status",
 			"tx_hash", txHash,
 			"retry_count", retryCount,
 		)
 
-		// save success tx in db
+		// save pending tx in db
 		if cp.DB != nil {
-			tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, balance, log, retryCount)
+			tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, nil, balance, log, retryCount)
 			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 		}
 
-		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, types.ChainTypeIcon.String(), types.TX_STATUS_SUCCESS.String())
-		alert.HandleReset(
-			cp.Alert,
-			alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
-		)
+		txResult := cp.WaitForConfirmedTx(ctx, txHash, log)
 
-		return nil
+		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
+
+		if cp.DB != nil {
+			tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, &txResult, balance, log, retryCount)
+			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
+		}
+
+		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, types.ChainTypeIcon.String(), txResult.Status.String())
+
+		if txResult.Status == types.TX_STATUS_SUCCESS {
+			log.Info(
+				"Packet is successfully relayed",
+				"tx_hash", txHash,
+				"retry_count", retryCount,
+			)
+
+			alert.HandleReset(
+				cp.Alert,
+				alert.NewTopic(alert.RelayTxErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
+			)
+
+			return nil
+		} else {
+			log.Error("Transaction failed", "tx_hash", txHash, "failure_reason", txResult.FailureReason)
+			lastErr = fmt.Errorf("transaction failed: %s", txResult.FailureReason)
+			continue
+		}
 	}
 
 	alert.HandleAlert(
@@ -234,18 +249,13 @@ func (cp *IconChainProvider) GetWallet() wallet.Wallet {
 	return cp.Wallet
 }
 
-// LoadSigners loads signers to prepare to relay the packet.
-func (cp *IconChainProvider) LoadSigners() error {
-	cp.FreeSigners = chains.LoadSigners(cp.Wallet)
-	return nil
-}
-
 // prepareTransaction prepares the transaction to be stored in the database.
 func (cp *IconChainProvider) prepareTransaction(
-	ctx context.Context,
+	_ context.Context,
 	txHash string,
 	signerAddress string,
 	packet *bandtypes.Packet,
+	txResult *TxResult,
 	oldBalance *big.Int,
 	log logger.Logger,
 	retryCount int,
@@ -259,25 +269,52 @@ func (cp *IconChainProvider) prepareTransaction(
 		signalPrices = append(signalPrices, *db.NewSignalPrice(p.SignalID, p.Price))
 	}
 
-	// For ICON, we don't have detailed fee/gas info like EVM
-	// Using placeholder values
-	fee := decimal.NullDecimal{}
+	txStatus := types.TX_STATUS_PENDING
+	gasUsed := decimal.NullDecimal{}
+	effectiveGasPrice := decimal.NullDecimal{}
 	balanceDelta := decimal.NullDecimal{}
 
-	// Compute new balance if old balance was provided
-	if oldBalance != nil {
-		newBalance, err := cp.Client.GetBalance(signerAddress)
-		if err != nil {
-			log.Error("Failed to get balance", "retry_count", retryCount, err)
-			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
-				WithTunnelID(packet.TunnelID).
-				WithChainName(cp.ChainName), err.Error())
-		} else {
-			diff := new(big.Int).Sub(newBalance, oldBalance)
-			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
-			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
-				WithTunnelID(packet.TunnelID).
-				WithChainName(cp.ChainName))
+	var blockTimestamp *time.Time
+
+	if txResult != nil {
+		txStatus = txResult.Status
+		gasUsed = txResult.GasUsed
+		effectiveGasPrice = txResult.EffectiveGasPrice
+
+		if txResult.Status == types.TX_STATUS_SUCCESS || txResult.Status == types.TX_STATUS_FAILED {
+			if txResult.BlockHeight != nil {
+				block, err := cp.Client.GetBlockByHeight(txResult.BlockHeight)
+				if err != nil {
+					log.Error("Failed to get block by height", "retry_count", retryCount, "block_height", txResult.BlockHeight, err)
+					alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetHeaderBlockErrorMsg).
+						WithTunnelID(packet.TunnelID).
+						WithChainName(cp.ChainName), err.Error())
+				} else {
+					// Block.Timestamp is in microseconds.
+					timestamp := time.Unix(0, block.Timestamp*int64(time.Microsecond)).UTC()
+					blockTimestamp = &timestamp
+					alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetHeaderBlockErrorMsg).
+						WithTunnelID(packet.TunnelID).
+						WithChainName(cp.ChainName))
+				}
+			}
+		}
+
+		// Compute new balance
+		if oldBalance != nil {
+			newBalance, err := cp.Client.GetBalance(signerAddress)
+			if err != nil {
+				log.Error("Failed to get balance", "retry_count", retryCount, err)
+				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName), err.Error())
+			} else {
+				diff := new(big.Int).Sub(newBalance, oldBalance)
+				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
+				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
+					WithTunnelID(packet.TunnelID).
+					WithChainName(cp.ChainName))
+			}
 		}
 	}
 
@@ -288,13 +325,145 @@ func (cp *IconChainProvider) prepareTransaction(
 		cp.ChainName,
 		types.ChainTypeIcon,
 		signerAddress,
-		types.TX_STATUS_SUCCESS, // Assume success for now, could be updated later
-		decimal.NewNullDecimal(decimal.NewFromInt(1)), // gasUsed placeholder
-		fee,
+		txStatus,
+		gasUsed,
+		effectiveGasPrice,
 		balanceDelta,
 		signalPrices,
-		nil, // blockTimestamp
+		blockTimestamp,
 	)
 
 	return tx
+}
+
+// CheckConfirmedTx checks the confirmed transaction status.
+func (cp *IconChainProvider) CheckConfirmedTx(
+	ctx context.Context,
+	txHash string,
+) (TxResult, error) {
+	tx, err := cp.Client.GetTx(txHash)
+	if err != nil {
+		err = fmt.Errorf("failed to get transaction: %w", err)
+		return NewTxResult(
+			types.TX_STATUS_PENDING,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+			err.Error(),
+		), err
+	}
+
+	// calculate gas used and effective gas price
+	gasUsed := decimal.NewNullDecimal(decimal.NewFromInt(tx.StepUsed.Value()))
+	effectiveGasPrice := decimal.NewNullDecimal(decimal.NewFromInt(tx.StepPrice.Value()))
+	blockHeight, err := tx.BlockHeight.BigInt()
+	if err != nil {
+		err = fmt.Errorf("failed to parse block height: %w", err)
+		return NewTxResult(
+			types.TX_STATUS_PENDING,
+			decimal.NullDecimal{},
+			decimal.NullDecimal{},
+			nil,
+			err.Error(),
+		), err
+	}
+
+	if tx.Status.Value() == 0 {
+		return NewTxResult(
+			types.TX_STATUS_FAILED,
+			gasUsed,
+			effectiveGasPrice,
+			blockHeight,
+			fmt.Sprintf("transaction failed with failure message %s", tx.Failure.MessageValue),
+		), nil
+	}
+
+	return NewTxResult(
+		types.TX_STATUS_SUCCESS,
+		gasUsed,
+		effectiveGasPrice,
+		blockHeight,
+		"",
+	), nil
+}
+
+// WaitForConfirmedTx polls the transaction until it reaches a terminal state.
+// It NEVER returns an error. Instead, it always returns a TxResult where:
+//   - Status == TX_STATUS_SUCCESS or TX_STATUS_FAILED when confirmed.
+//   - Status == TX_STATUS_TIMEOUT if it did not reach the required confirmations
+//     within WaitingTxDuration (or the context was canceled); in this case,
+//     the result's FailureReason field is populated with details.
+//
+// The function sleeps for CheckingTxInterval between polls.
+func (cp *IconChainProvider) WaitForConfirmedTx(
+	ctx context.Context,
+	txHash string,
+	log logger.Logger,
+) TxResult {
+	createdAt := time.Now()
+	var lastErr error
+	for time.Since(createdAt) <= cp.Config.WaitingTxDuration {
+		result, err := cp.CheckConfirmedTx(ctx, txHash)
+		if err != nil {
+			lastErr = err
+			log.Debug(
+				"Failed to check tx status",
+				"tx_hash", txHash,
+				err,
+			)
+		}
+
+		switch result.Status {
+		case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
+			return result
+		case types.TX_STATUS_PENDING:
+			log.Debug(
+				"Waiting for tx to be mined",
+				"tx_hash", txHash,
+			)
+			time.Sleep(cp.Config.CheckingTxInterval)
+		}
+	}
+
+	failureReason := fmt.Sprintf("timed out waiting %s for tx %s to be confirmed",
+		cp.Config.WaitingTxDuration, txHash)
+
+	if lastErr != nil {
+		failureReason = fmt.Sprintf("%s: %v", failureReason, lastErr)
+	}
+
+	return NewTxResult(
+		types.TX_STATUS_TIMEOUT,
+		decimal.NullDecimal{},
+		decimal.NullDecimal{},
+		nil,
+		failureReason,
+	)
+}
+
+// handleMetrics increments tx count and, for success/failed, records processing time (ms) and gas used.
+func (cp *IconChainProvider) handleMetrics(tunnelID uint64, createdAt time.Time, txResult TxResult) {
+	// increment the transactions count metric
+	relayermetrics.IncTxsCount(tunnelID, cp.ChainName, types.ChainTypeIcon.String(), txResult.Status.String())
+
+	switch txResult.Status {
+	case types.TX_STATUS_SUCCESS, types.TX_STATUS_FAILED:
+		// track transaction processing time (ms)
+		relayermetrics.ObserveTxProcessTime(
+			tunnelID,
+			cp.ChainName,
+			types.ChainTypeIcon.String(),
+			txResult.Status.String(),
+			time.Since(createdAt).Milliseconds(),
+		)
+
+		// track gas used for the relayed transaction
+		relayermetrics.ObserveGasUsed(
+			tunnelID,
+			cp.ChainName,
+			types.ChainTypeIcon.String(),
+			txResult.Status.String(),
+			txResult.GasUsed.Decimal.InexactFloat64(),
+		)
+	}
 }

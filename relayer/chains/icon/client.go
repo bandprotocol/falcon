@@ -32,6 +32,8 @@ type Client interface {
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	BroadcastTx(txParams v3.TransactionParam) (string, error)
 	GetBalance(account string) (*big.Int, error)
+	GetTx(txHash string) (*iconclient.TransactionResult, error)
+	GetBlockByHeight(height *big.Int) (*iconclient.Block, error)
 }
 
 // Client is the struct that handles interactions with the Icon chain.
@@ -236,4 +238,35 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 	}
 
 	return res.BigInt()
+}
+
+func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[IconClient] failed to get client: %w", err)
+	}
+
+	txResult, err := client.GetTransactionResult(&v3.TransactionHashParam{Hash: jsonrpc.HexBytes(txHash)})
+	if err != nil {
+		c.Log.Error("Failed to get transaction result", "endpoint", c.clients.GetSelectedEndpoint(), "txHash", txHash, err)
+		return nil, fmt.Errorf("[IconClient] failed to get transaction result: %w", err)
+	}
+	return txResult, nil
+}
+
+func (c *client) GetBlockByHeight(height *big.Int) (*iconclient.Block, error) {
+	client, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[IconClient] failed to get client: %w", err)
+	}
+
+	block, err := client.GetBlockByHeight(&v3.BlockHeightParam{Height: jsonrpc.HexIntFromBigInt(height)})
+	if err != nil {
+		c.Log.Error("Failed to get block by height", "endpoint", c.clients.GetSelectedEndpoint(), "height", height, err)
+		return nil, fmt.Errorf("[IconClient] failed to get block by height: %w", err)
+	}
+
+	return block, nil
 }
