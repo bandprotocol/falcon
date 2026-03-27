@@ -16,11 +16,13 @@ const (
 	ChainTypeUndefined ChainType = iota
 	ChainTypeEVM
 	ChainTypeXRPL
+	ChainTypeIcon
 )
 
 var chainTypeNameMap = map[ChainType]string{
 	ChainTypeEVM:  "evm",
 	ChainTypeXRPL: "xrpl",
+	ChainTypeIcon: "icon",
 }
 
 var nameToChainTypeMap map[string]ChainType

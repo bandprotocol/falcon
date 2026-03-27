@@ -82,6 +82,26 @@ func (mr *MockFkmsServiceClientMockRecorder) SignEvm(ctx, in any, opts ...any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignEvm", reflect.TypeOf((*MockFkmsServiceClient)(nil).SignEvm), varargs...)
 }
 
+// SignIcon mocks base method.
+func (m *MockFkmsServiceClient) SignIcon(ctx context.Context, in *fkmsv1.SignIconRequest, opts ...grpc.CallOption) (*fkmsv1.SignIconResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SignIcon", varargs...)
+	ret0, _ := ret[0].(*fkmsv1.SignIconResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SignIcon indicates an expected call of SignIcon.
+func (mr *MockFkmsServiceClientMockRecorder) SignIcon(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIcon", reflect.TypeOf((*MockFkmsServiceClient)(nil).SignIcon), varargs...)
+}
+
 // SignXrpl mocks base method.
 func (m *MockFkmsServiceClient) SignXrpl(ctx context.Context, in *fkmsv1.SignXrplRequest, opts ...grpc.CallOption) (*fkmsv1.SignXrplResponse, error) {
 	m.ctrl.T.Helper()
@@ -154,6 +174,21 @@ func (m *MockFkmsServiceServer) SignEvm(arg0 context.Context, arg1 *fkmsv1.SignE
 func (mr *MockFkmsServiceServerMockRecorder) SignEvm(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignEvm", reflect.TypeOf((*MockFkmsServiceServer)(nil).SignEvm), arg0, arg1)
+}
+
+// SignIcon mocks base method.
+func (m *MockFkmsServiceServer) SignIcon(arg0 context.Context, arg1 *fkmsv1.SignIconRequest) (*fkmsv1.SignIconResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SignIcon", arg0, arg1)
+	ret0, _ := ret[0].(*fkmsv1.SignIconResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SignIcon indicates an expected call of SignIcon.
+func (mr *MockFkmsServiceServerMockRecorder) SignIcon(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIcon", reflect.TypeOf((*MockFkmsServiceServer)(nil).SignIcon), arg0, arg1)
 }
 
 // SignXrpl mocks base method.
