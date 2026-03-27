@@ -16,7 +16,6 @@ var _ chains.ChainProviderConfig = &IconChainProviderConfig{}
 type IconChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	ContractAddress    string        `mapstructure:"contract_address"     toml:"contract_address"`
 	NetworkID          string        `mapstructure:"network_id"           toml:"network_id"`
 	StepLimit          uint64        `mapstructure:"step_limit"           toml:"step_limit"`
 	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration"  toml:"waiting_tx_duration"`

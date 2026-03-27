@@ -116,7 +116,7 @@ func (cp *IconChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 
 		signerPayload := iconwallet.NewSignerPayload(
 			freeSigner.GetAddress(),
-			cp.Config.ContractAddress,
+			packet.TargetAddress,
 			cp.Config.StepLimit,
 			cp.Config.NetworkID,
 		)
