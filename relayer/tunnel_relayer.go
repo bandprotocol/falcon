@@ -171,6 +171,13 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
+	// assign seq floor value,
+	// which is used to determine the next packet sequence
+	// to relay for nil-sequence target chains
+	if t.seqFloor == nil {
+		t.seqFloor = &tunnelInfo.LatestSequence
+	}
+
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
 		t.Log.Debug("Tunnel is not active on BandChain")
@@ -204,8 +211,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// Determine the latest sequence on the target chain to relay the next packet. The logic is as follows:
 	// 1. If the target contract provides LatestSequence, use that value directly.
 	// 2. If the target contract does not provide LatestSequence (i.e. it is nil), fall back to BandChain tunnel info:
-	//    a. If seqFloor is not set, initialize seqFloor to BandChain's LatestSequence and use that value.
-	//    b. If seqFloor is already set, choose the maximum of:
+	//    choose the maximum of:
 	//       - seqFloor,
 	//       - BandChain's LatestSequence - 1, and
 	//       - lastRelayedSequence
@@ -214,12 +220,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
 	} else {
-		if t.seqFloor == nil {
-			t.seqFloor = &tunnelInfo.LatestSequence
-			chainLatestSeq = tunnelInfo.LatestSequence
-		} else {
-			chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1, t.lastRelayedSequence)
-		}
+		chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1, t.lastRelayedSequence)
 	}
 
 	t.updateRelayerMetrics(

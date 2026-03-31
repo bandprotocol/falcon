@@ -58,7 +58,7 @@ func NewClient(chainName string, cfg *IconChainProviderConfig, log logger.Logger
 	}
 }
 
-// Connect connects to the EVM chain.
+// Connect connects to the ICON chain.
 func (c *client) Connect(_ context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.Endpoints {
@@ -78,13 +78,13 @@ func (c *client) Connect(_ context.Context) error {
 	wg.Wait()
 	res, err := c.getClientWithMaxHeight()
 	if err != nil {
-		c.Log.Error("Failed to connect to EVM chain", err)
+		c.Log.Error("Failed to connect to ICON chain", err)
 		return err
 	}
 
 	// only log when new endpoint is used
 	if c.clients.GetSelectedEndpoint() != res.Endpoint {
-		c.Log.Info("Connected to EVM chain", "endpoint", res.Endpoint)
+		c.Log.Info("Connected to ICON chain", "endpoint", res.Endpoint)
 	}
 
 	c.clients.SetSelectedEndpoint(res.Endpoint)
@@ -92,7 +92,7 @@ func (c *client) Connect(_ context.Context) error {
 	return nil
 }
 
-// StartLivelinessCheck starts the liveliness check for the EVM chain.
+// StartLivelinessCheck starts the liveliness check for the ICON chain.
 func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -162,7 +162,8 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight > result.BlockHeight || (r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
+			if r.BlockHeight > result.BlockHeight ||
+				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
 				result = r
 			}
 		}
@@ -223,7 +224,7 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("[ICONClient] failed to get client: %w", err)
 	}
 
 	res, err := client.GetBalance(&v3.AddressParam{Address: jsonrpc.Address(account)})
@@ -249,7 +250,14 @@ func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
 
 	txResult, err := client.GetTransactionResult(&v3.TransactionHashParam{Hash: jsonrpc.HexBytes(txHash)})
 	if err != nil {
-		c.Log.Debug("Failed to get transaction result", "endpoint", c.clients.GetSelectedEndpoint(), "txHash", txHash, err)
+		c.Log.Debug(
+			"Failed to get transaction result",
+			"endpoint",
+			c.clients.GetSelectedEndpoint(),
+			"txHash",
+			txHash,
+			err,
+		)
 		return nil, fmt.Errorf("[IconClient] failed to get transaction result: %w", err)
 	}
 	return txResult, nil
@@ -264,7 +272,14 @@ func (c *client) GetBlockByHeight(height *big.Int) (*iconclient.Block, error) {
 
 	block, err := client.GetBlockByHeight(&v3.BlockHeightParam{Height: jsonrpc.HexIntFromBigInt(height)})
 	if err != nil {
-		c.Log.Error("Failed to get block by height", "endpoint", c.clients.GetSelectedEndpoint(), "height", height, err)
+		c.Log.Error(
+			"Failed to get block by height",
+			"endpoint",
+			c.clients.GetSelectedEndpoint(),
+			"height",
+			height,
+			err,
+		)
 		return nil, fmt.Errorf("[IconClient] failed to get block by height: %w", err)
 	}
 
