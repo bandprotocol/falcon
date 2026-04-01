@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
+	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
@@ -37,13 +38,12 @@ type TunnelRelayer struct {
 
 	isTargetChainActive  bool
 	penaltySkipRemaining uint
-	lastRelayedSequence  uint64
-	lastRelayedAt        time.Time
-	// seqFloor is set once for nil-sequence chains (e.g. XRPL) on the first
-	// call to record the BandChain latest at startup as the skip floor.
-	// nil means the cold-start snapshot has not been taken yet.
-	seqFloor *uint64
-	mu       *sync.Mutex
+	// lastRelayedSequence tracks the highest sequence already handled.
+	// On the first call it is seeded from BandChain's LatestSequence so
+	// we never re-relay packets that were processed before this process started.
+	lastRelayedSequence *uint64
+	lastRelayedAt       time.Time
+	mu                  *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -64,9 +64,8 @@ func NewTunnelRelayer(
 		Alert:                  alert,
 		isTargetChainActive:    false,
 		penaltySkipRemaining:   0,
-		lastRelayedSequence:    0,
+		lastRelayedSequence:    nil,
 		lastRelayedAt:          time.Time{},
-		seqFloor:               nil,
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -171,6 +170,12 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
+	// seed lastRelayedSequence on first call so we never re-relay packets
+	// that were already processed before this process started
+	if t.lastRelayedSequence == nil {
+		t.lastRelayedSequence = &tunnelInfo.LatestSequence
+	}
+
 	// exit if the tunnel is not active and isForce is false
 	if !isForce && !tunnelInfo.IsActive {
 		t.Log.Debug("Tunnel is not active on BandChain")
@@ -204,21 +209,23 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// Determine the latest sequence on the target chain to relay the next packet. The logic is as follows:
 	// 1. If the target contract provides LatestSequence, use that value directly.
 	// 2. If the target contract does not provide LatestSequence (i.e. it is nil), fall back to BandChain tunnel info:
-	//    a. If seqFloor is not set, initialize seqFloor to BandChain's LatestSequence and use that value.
-	//    b. If seqFloor is already set, choose the maximum of:
-	//       - seqFloor,
-	//       - BandChain's LatestSequence - 1, and
-	//       - lastRelayedSequence
-	//       This avoids re-relaying already processed packets and prevents skipping sequences when BandChain or the target chain lags.
+	//  a. Use the lastRelayedSequence tracked by the relayer
+	//  b. If chain type is XRPL, also consider the possibility
+	//     that there are already packets relayed on BandChain but not yet reflected on the target chain
+	//     by taking the max between lastRelayedSequence and (BandChain's LatestSequence - 1).
 	var chainLatestSeq uint64
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
 	} else {
-		if t.seqFloor == nil {
-			t.seqFloor = &tunnelInfo.LatestSequence
-			chainLatestSeq = tunnelInfo.LatestSequence
-		} else {
-			chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1, t.lastRelayedSequence)
+		chainLatestSeq = *t.lastRelayedSequence
+		if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
+			// Guard against underflow when LatestSequence is 0 by only subtracting 1
+			// when there is at least one packet on BandChain.
+			bandLatestSeqMinusOne := uint64(0)
+			if tunnelInfo.LatestSequence > 0 {
+				bandLatestSeqMinusOne = tunnelInfo.LatestSequence - 1
+			}
+			chainLatestSeq = max(chainLatestSeq, bandLatestSeqMinusOne)
 		}
 	}
 
@@ -247,7 +254,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 
 func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
 	return !t.lastRelayedAt.IsZero() &&
-		seq <= t.lastRelayedSequence &&
+		seq <= *t.lastRelayedSequence &&
 		time.Since(t.lastRelayedAt) < defaultLastSequenceValidityPeriod
 }
 
@@ -283,7 +290,8 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 	}
 
 	// Increment the metric for successfully relayed packets
-	t.lastRelayedSequence = packet.Sequence
+	seq := packet.Sequence
+	t.lastRelayedSequence = &seq
 	t.lastRelayedAt = time.Now()
 	relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 	t.Log.Info("Successfully relayed packet", "sequence", packet.Sequence)

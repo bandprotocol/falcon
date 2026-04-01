@@ -155,7 +155,7 @@ func (c *client) NonceAt(ctx context.Context, address gethcommon.Address) (uint6
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return 0, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return 0, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	nonce, err := client.NonceAt(newCtx, address, nil)
@@ -166,7 +166,7 @@ func (c *client) NonceAt(ctx context.Context, address gethcommon.Address) (uint6
 			"evm_address", address.Hex(),
 			err,
 		)
-		return 0, fmt.Errorf("[EVMClient] failed to get nonce: %w", err)
+		return 0, fmt.Errorf("failed to get nonce: %w", err)
 	}
 
 	return nonce, nil
@@ -180,13 +180,13 @@ func (c *client) GetBlockHeight(ctx context.Context) (uint64, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return 0, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return 0, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	blockHeight, err := client.BlockNumber(newCtx)
 	if err != nil {
 		c.Log.Error("Failed to get block height", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return 0, fmt.Errorf("[EVMClient] failed to get block height: %w", err)
+		return 0, fmt.Errorf("failed to get block height: %w", err)
 	}
 
 	return blockHeight, nil
@@ -200,7 +200,7 @@ func (c *client) GetHeaderBlock(ctx context.Context, height *big.Int) (*gethtype
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	header, err := client.HeaderByNumber(newCtx, height)
@@ -211,7 +211,7 @@ func (c *client) GetHeaderBlock(ctx context.Context, height *big.Int) (*gethtype
 			"height", height.String(),
 			err,
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to get header block by height: %w", err)
+		return nil, fmt.Errorf("failed to get header block by height: %w", err)
 	}
 
 	return header, nil
@@ -225,7 +225,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	var receipt *TxReceipt
@@ -242,7 +242,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 			"tx_hash", txHash,
 			err,
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to get tx receipt: %w", err)
+		return nil, fmt.Errorf("failed to get tx receipt: %w", err)
 	}
 
 	if receipt.EffectiveGasPrice == nil {
@@ -253,7 +253,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 				"endpoint", c.clients.GetSelectedEndpoint(),
 				"tx_hash", txHash,
 			)
-			return nil, fmt.Errorf("[EVMClient] failed to get tx by hash to retrieve EffectiveGasPrice: %w", err)
+			return nil, fmt.Errorf("failed to get tx by hash to retrieve EffectiveGasPrice: %w", err)
 		}
 
 		// For EIP-1559 transactions, we need to calculate effective gas price using the block's base fee
@@ -266,7 +266,7 @@ func (c *client) GetTxReceipt(ctx context.Context, txHash string) (*TxReceipt, e
 					"endpoint", c.clients.GetSelectedEndpoint(),
 					"block_number", receipt.BlockNumber.String(),
 				)
-				return nil, fmt.Errorf("[EVMClient] failed to get block header: %w", err)
+				return nil, fmt.Errorf("failed to get block header: %w", err)
 			}
 
 			// effectiveGasPrice = min(tx.GasFeeCap, baseFee + tx.GasTipCap)
@@ -292,7 +292,7 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, false, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, false, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	tx, isPending, err := client.TransactionByHash(newCtx, gethcommon.HexToHash(txHash))
@@ -303,7 +303,7 @@ func (c *client) GetTxByHash(ctx context.Context, txHash string) (*gethtypes.Tra
 			"tx_hash", txHash,
 			err,
 		)
-		return nil, false, fmt.Errorf("[EVMClient] failed to get tx by hash: %w", err)
+		return nil, false, fmt.Errorf("failed to get tx by hash: %w", err)
 	}
 
 	return tx, isPending, nil
@@ -322,7 +322,7 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	var result string
@@ -334,12 +334,12 @@ func (c *client) Query(ctx context.Context, gethAddr gethcommon.Address, data []
 			"evm_address", gethAddr.Hex(),
 			err,
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to query contract: %w", err)
+		return nil, fmt.Errorf("failed to query contract: %w", err)
 	}
 
 	// Convert hex result to bytes
 	if len(result) < 2 || result[:2] != "0x" {
-		return nil, fmt.Errorf("[EVMClient] invalid hex result: %s", result)
+		return nil, fmt.Errorf("invalid hex result: %s", result)
 	}
 
 	return gethcommon.FromHex(result), nil
@@ -353,7 +353,7 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return 0, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return 0, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	var gasHex hexutil.Uint64
@@ -365,7 +365,7 @@ func (c *client) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64,
 			"evm_address", msg.To.Hex(),
 			err,
 		)
-		return 0, fmt.Errorf("[EVMClient] failed to estimate gas: %w", err)
+		return 0, fmt.Errorf("failed to estimate gas: %w", err)
 	}
 
 	return uint64(gasHex), nil
@@ -379,7 +379,7 @@ func (c *client) EstimateGasPrice(ctx context.Context) (*big.Int, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	gasPrice, err := client.SuggestGasPrice(newCtx)
@@ -404,12 +404,12 @@ func (c *client) EstimateBaseFee(ctx context.Context) (*big.Int, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	latestHeader, err := client.HeaderByNumber(newCtx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("[EVMClient] failed to get latest header: %w", err)
+		return nil, fmt.Errorf("failed to get latest header: %w", err)
 	}
 
 	estimatedBaseFee := MultiplyBigIntWithFloat64(latestHeader.BaseFee, 1.125)
@@ -424,7 +424,7 @@ func (c *client) EstimateGasTipCap(ctx context.Context) (*big.Int, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	gasTipCap, err := client.SuggestGasTipCap(newCtx)
@@ -459,7 +459,7 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return "", fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return "", fmt.Errorf("failed to get client: %w", err)
 	}
 
 	if err := client.SendTransaction(newCtx, tx); err != nil {
@@ -470,7 +470,7 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 			err,
 		)
 
-		return "", fmt.Errorf("[EVMClient] failed to broadcast tx with error %s", err.Error())
+		return "", fmt.Errorf("failed to broadcast tx: %w", err)
 	}
 
 	return tx.Hash().Hex(), nil
@@ -542,7 +542,7 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 			alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName),
 			fmt.Sprintf("failed to connect to EVM chain on all endpoints: %s", c.Endpoints),
 		)
-		return ClientConnectionResult{}, fmt.Errorf("[EVMClient] failed to connect to EVM chain")
+		return ClientConnectionResult{}, fmt.Errorf("failed to connect to EVM chain")
 	}
 
 	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName))
@@ -567,7 +567,7 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address, bl
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[EVMClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	res, err := client.BalanceAt(newCtx, gethAddr, blockNumber)
@@ -578,7 +578,7 @@ func (c *client) GetBalance(ctx context.Context, gethAddr gethcommon.Address, bl
 			"evm_address", gethAddr.Hex(),
 			err,
 		)
-		return nil, fmt.Errorf("[EVMClient] failed to query balance: %w", err)
+		return nil, fmt.Errorf("failed to query balance: %w", err)
 	}
 
 	return res, nil
