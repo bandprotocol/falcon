@@ -290,7 +290,8 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 	}
 
 	// Increment the metric for successfully relayed packets
-	t.lastRelayedSequence = &packet.Sequence
+	seq := packet.Sequence
+	t.lastRelayedSequence = &seq
 	t.lastRelayedAt = time.Now()
 	relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 	t.Log.Info("Successfully relayed packet", "sequence", packet.Sequence)

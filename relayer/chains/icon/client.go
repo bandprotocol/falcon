@@ -254,7 +254,7 @@ func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
 			"Failed to get transaction result",
 			"endpoint",
 			c.clients.GetSelectedEndpoint(),
-			"txHash",
+			"tx_hash",
 			txHash,
 			err,
 		)
