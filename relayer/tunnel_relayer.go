@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/band/types"
 	"github.com/bandprotocol/falcon/relayer/chains"
+	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
@@ -37,13 +38,12 @@ type TunnelRelayer struct {
 
 	isTargetChainActive  bool
 	penaltySkipRemaining uint
-	lastRelayedSequence  uint64
-	lastRelayedAt        time.Time
-	// seqFloor is set once for nil-sequence chains (e.g. XRPL) on the first
-	// call to record the BandChain latest at startup as the skip floor.
-	// nil means the cold-start snapshot has not been taken yet.
-	seqFloor *uint64
-	mu       *sync.Mutex
+	// lastRelayedSequence tracks the highest sequence already handled.
+	// On the first call it is seeded from BandChain's LatestSequence so
+	// we never re-relay packets that were processed before this process started.
+	lastRelayedSequence uint64
+	lastRelayedAt       time.Time
+	mu                  *sync.Mutex
 }
 
 // NewTunnelRelayer creates a new TunnelRelayer
@@ -66,7 +66,6 @@ func NewTunnelRelayer(
 		penaltySkipRemaining:   0,
 		lastRelayedSequence:    0,
 		lastRelayedAt:          time.Time{},
-		seqFloor:               nil,
 		mu:                     &sync.Mutex{},
 	}
 }
@@ -171,11 +170,10 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 			WithChainName(t.TargetChainProvider.GetChainName()),
 	)
 
-	// assign seq floor value,
-	// which is used to determine the next packet sequence
-	// to relay for nil-sequence target chains
-	if t.seqFloor == nil {
-		t.seqFloor = &tunnelInfo.LatestSequence
+	// seed lastRelayedSequence on first call so we never re-relay packets
+	// that were already processed before this process started
+	if t.lastRelayedSequence == 0 {
+		t.lastRelayedSequence = tunnelInfo.LatestSequence
 	}
 
 	// exit if the tunnel is not active and isForce is false
@@ -220,7 +218,10 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
 	} else {
-		chainLatestSeq = max(*t.seqFloor, tunnelInfo.LatestSequence-1, t.lastRelayedSequence)
+		chainLatestSeq = t.lastRelayedSequence
+		if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
+			chainLatestSeq = max(chainLatestSeq, tunnelInfo.LatestSequence-1)
+		}
 	}
 
 	t.updateRelayerMetrics(
