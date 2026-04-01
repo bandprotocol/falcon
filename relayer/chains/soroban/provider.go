@@ -73,8 +73,9 @@ func (cp *SorobanChainProvider) QueryTunnelInfo(
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
+	s := uint64(123)
 	// Soroban uses Skipable tunnels without sequence tracking similar to XRPL
-	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, nil, nil)
+	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, &s, nil)
 	return tunnel, nil
 }
 
@@ -119,6 +120,7 @@ func (cp *SorobanChainProvider) RelayPacket(ctx context.Context, packet *bandtyp
 			cp.Config.Fee,
 			sequence,
 			cp.Config.NetworkPassphrase,
+			cp.Client.GetEndpoint(),
 		)
 
 		payloadBytes, err := json.Marshal(signerPayload)

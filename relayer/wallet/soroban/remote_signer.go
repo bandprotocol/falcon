@@ -1,7 +1,6 @@
 package soroban
 
 import (
-	"encoding/hex"
 	"encoding/json"
 
 	fkmsv1 "github.com/bandprotocol/falcon/proto/fkms/v1"
@@ -40,6 +39,7 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 				Fee:               signerPayload.Fee,
 				Sequence:          signerPayload.Sequence,
 				NetworkPassphrase: signerPayload.NetworkPassphrase,
+				RpcUrl:            signerPayload.RpcUrl,
 			},
 			Tss: &fkmsv1.Tss{
 				Message:    tssPayload.TssMessage,
@@ -52,5 +52,5 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 		return nil, err
 	}
 
-	return []byte(hex.EncodeToString(res.TxBlob)), nil
+	return res.TxBlob, nil
 }

@@ -93,6 +93,7 @@ message SorobanSignerPayload {
   string fee = 3;
   uint64 sequence = 4;
   string network_passphrase = 5;
+  string rpc_url = 6;
 }
 
 message Tss {

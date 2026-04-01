@@ -24,6 +24,7 @@ type Client interface {
 	GetLatestLedger() (uint64, *time.Time, error)
 	BroadcastTx(txBlob string) (TxResult, error)
 	GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error)
+	GetEndpoint() string
 }
 
 type client struct {
@@ -242,6 +243,10 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 		TxHash:      result.Result.Hash,
 		LedgerIndex: result.Result.LatestLedger,
 	}, nil
+}
+
+func (c *client) GetEndpoint() string {
+	return c.SelectedEndpoint
 }
 
 func (c *client) GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error) {

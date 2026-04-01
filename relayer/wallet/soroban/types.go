@@ -6,6 +6,7 @@ type SignerPayload struct {
 	Fee               string
 	Sequence          uint64
 	NetworkPassphrase string
+	RpcUrl            string
 }
 
 func NewSignerPayload(
@@ -14,6 +15,7 @@ func NewSignerPayload(
 	fee string,
 	sequence uint64,
 	networkPassphrase string,
+	rpcUrl string,
 ) SignerPayload {
 	return SignerPayload{
 		SourceAccount:     sourceAccount,
@@ -21,5 +23,6 @@ func NewSignerPayload(
 		Fee:               fee,
 		Sequence:          sequence,
 		NetworkPassphrase: networkPassphrase,
+		RpcUrl:            rpcUrl,
 	}
 }
