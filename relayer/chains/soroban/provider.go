@@ -106,6 +106,7 @@ func (cp *SorobanChainProvider) RelayPacket(ctx context.Context, packet *bandtyp
 			time.Sleep(2 * time.Second)
 			continue
 		}
+		sequence++
 
 		signing, err := chains.SelectSigning(packet)
 		if err != nil {
@@ -116,7 +117,7 @@ func (cp *SorobanChainProvider) RelayPacket(ctx context.Context, packet *bandtyp
 
 		signerPayload := soroban.NewSignerPayload(
 			freeSigner.GetAddress(),
-			cp.Config.ContractAddress,
+			packet.TargetAddress,
 			cp.Config.Fee,
 			sequence,
 			cp.Config.NetworkPassphrase,

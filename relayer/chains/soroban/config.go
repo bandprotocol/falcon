@@ -17,7 +17,6 @@ type SorobanChainProviderConfig struct {
 	HorizonEndpoint   string `mapstructure:"horizon_endpoint"   toml:"horizon_endpoint"`
 	Fee               string `mapstructure:"fee"                toml:"fee"`
 	NetworkPassphrase string `mapstructure:"network_passphrase" toml:"network_passphrase"`
-	ContractAddress   string `mapstructure:"contract_address"   toml:"contract_address"`
 }
 
 // NewChainProvider creates a new Soroban chain provider.
