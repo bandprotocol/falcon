@@ -175,7 +175,7 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 			alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName),
 			fmt.Sprintf("failed to connect to icon chain on all endpoints: %s", c.Endpoints),
 		)
-		return ClientConnectionResult{}, fmt.Errorf("[ICONClient] failed to connect to icon chain")
+		return ClientConnectionResult{}, fmt.Errorf("failed to connect to icon chain")
 	}
 
 	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName))
@@ -202,7 +202,7 @@ func (c *client) BroadcastTx(txParams v3.TransactionParam) (string, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return "", fmt.Errorf("[IconClient] failed to get client: %w", err)
+		return "", fmt.Errorf("failed to get client: %w", err)
 	}
 
 	var result jsonrpc.HexBytes
@@ -214,7 +214,7 @@ func (c *client) BroadcastTx(txParams v3.TransactionParam) (string, error) {
 			err,
 		)
 
-		return "", fmt.Errorf("[IconClient] failed to broadcast tx with error %s", err.Error())
+		return "", fmt.Errorf("failed to broadcast tx: %w", err)
 	}
 
 	return string(result), nil
@@ -224,7 +224,7 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[ICONClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	res, err := client.GetBalance(&v3.AddressParam{Address: jsonrpc.Address(account)})
@@ -235,7 +235,7 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 			"account", account,
 			err,
 		)
-		return nil, fmt.Errorf("[ICONClient] failed to query balance: %w", err)
+		return nil, fmt.Errorf("failed to query balance: %w", err)
 	}
 
 	return res.BigInt()
@@ -245,7 +245,7 @@ func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[ICONClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	txResult, err := client.GetTransactionResult(&v3.TransactionHashParam{Hash: jsonrpc.HexBytes(txHash)})
@@ -258,7 +258,7 @@ func (c *client) GetTx(txHash string) (*iconclient.TransactionResult, error) {
 			txHash,
 			err,
 		)
-		return nil, fmt.Errorf("[ICONClient] failed to get transaction result: %w", err)
+		return nil, fmt.Errorf("failed to get transaction result: %w", err)
 	}
 	return txResult, nil
 }
@@ -267,7 +267,7 @@ func (c *client) GetBlockByHeight(height *big.Int) (*iconclient.Block, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[ICONClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	block, err := client.GetBlockByHeight(&v3.BlockHeightParam{Height: jsonrpc.HexIntFromBigInt(height)})
@@ -280,7 +280,7 @@ func (c *client) GetBlockByHeight(height *big.Int) (*iconclient.Block, error) {
 			height,
 			err,
 		)
-		return nil, fmt.Errorf("[ICONClient] failed to get block by height: %w", err)
+		return nil, fmt.Errorf("failed to get block by height: %w", err)
 	}
 
 	return block, nil

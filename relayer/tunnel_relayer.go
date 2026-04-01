@@ -209,11 +209,10 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	// Determine the latest sequence on the target chain to relay the next packet. The logic is as follows:
 	// 1. If the target contract provides LatestSequence, use that value directly.
 	// 2. If the target contract does not provide LatestSequence (i.e. it is nil), fall back to BandChain tunnel info:
-	//    choose the maximum of:
-	//       - seqFloor,
-	//       - BandChain's LatestSequence - 1, and
-	//       - lastRelayedSequence
-	//       This avoids re-relaying already processed packets and prevents skipping sequences when BandChain or the target chain lags.
+	//  a. Use the lastRelayedSequence tracked by the relayer
+	//  b. If chain type is XRPL, also consider the possibility
+	//     that there are already packets relayed on BandChain but not yet reflected on the target chain
+	//     by taking the max between lastRelayedSequence and (BandChain's LatestSequence - 1).
 	var chainLatestSeq uint64
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence

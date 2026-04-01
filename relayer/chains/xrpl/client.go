@@ -120,7 +120,7 @@ func (c *client) Connect(_ context.Context) error {
 	res, err := c.getClientWithMaxHeight()
 	if err != nil {
 		c.Log.Error("Failed to connect to XRPL chain", err)
-		return err
+		return fmt.Errorf("failed to connect to XRPL chain: %w", err)
 	}
 
 	// only log when new endpoint is used
@@ -187,7 +187,7 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 			alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName),
 			fmt.Sprintf("failed to connect to XRPL chain on all endpoints: %s", c.Endpoints),
 		)
-		return ClientConnectionResult{}, fmt.Errorf("[XRPLClient] failed to connect to XRPL chain on all endpoints")
+		return ClientConnectionResult{}, fmt.Errorf("failed to connect to XRPL chain on all endpoints")
 	}
 
 	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName))
@@ -227,14 +227,14 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 func (c *client) GetAccountSequenceNumber(account string) (uint32, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	result, err := client.GetAccountInfo(&xrplaccount.InfoRequest{
 		Account: types.Address(account),
 	})
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to get account info: %w", err)
 	}
 
 	return result.AccountData.Sequence, nil
@@ -244,14 +244,14 @@ func (c *client) GetAccountSequenceNumber(account string) (uint32, error) {
 func (c *client) GetBalance(account string) (*big.Int, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	result, err := client.GetAccountInfo(&xrplaccount.InfoRequest{
 		Account: types.Address(account),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get account info: %w", err)
 	}
 
 	b := new(big.Int)
@@ -267,16 +267,19 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 func (c *client) Autofill(tx *transaction.FlatTransaction) error {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get client: %w", err)
 	}
-	return client.Autofill(tx)
+	if err := client.Autofill(tx); err != nil {
+		return fmt.Errorf("failed to autofill tx: %w", err)
+	}
+	return nil
 }
 
 // BroadcastTx submits a signed tx blob and returns its hash.
 func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return TxResult{}, err
+		return TxResult{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	res, err := client.Request(&requests.SubmitRequest{
@@ -284,12 +287,12 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 		FailHard: false,
 	})
 	if err != nil {
-		return TxResult{}, err
+		return TxResult{}, fmt.Errorf("failed to submit tx: %w", err)
 	}
 
 	var result requests.SubmitResponse
 	if err := res.GetResult(&result); err != nil {
-		return TxResult{}, err
+		return TxResult{}, fmt.Errorf("failed to get submit result: %w", err)
 	}
 
 	txHash, ok := result.Tx["hash"].(string)
@@ -327,12 +330,12 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 func (c *client) GetLedgerCloseTime(ledgerIndex common.LedgerIndex) (*time.Time, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	ledger, err := client.GetLedger(&ledger.Request{LedgerIndex: ledgerIndex})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get ledger: %w", err)
 	}
 
 	closeTime := time.Unix(int64(ledger.Ledger.CloseTime)+RippleEpochOffset, 0)
