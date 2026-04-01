@@ -41,7 +41,7 @@ type TunnelRelayer struct {
 	// lastRelayedSequence tracks the highest sequence already handled.
 	// On the first call it is seeded from BandChain's LatestSequence so
 	// we never re-relay packets that were processed before this process started.
-	lastRelayedSequence uint64
+	lastRelayedSequence *uint64
 	lastRelayedAt       time.Time
 	mu                  *sync.Mutex
 }
@@ -64,7 +64,7 @@ func NewTunnelRelayer(
 		Alert:                  alert,
 		isTargetChainActive:    false,
 		penaltySkipRemaining:   0,
-		lastRelayedSequence:    0,
+		lastRelayedSequence:    nil,
 		lastRelayedAt:          time.Time{},
 		mu:                     &sync.Mutex{},
 	}
@@ -172,8 +172,8 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 
 	// seed lastRelayedSequence on first call so we never re-relay packets
 	// that were already processed before this process started
-	if t.lastRelayedSequence == 0 {
-		t.lastRelayedSequence = tunnelInfo.LatestSequence
+	if t.lastRelayedSequence == nil {
+		t.lastRelayedSequence = &tunnelInfo.LatestSequence
 	}
 
 	// exit if the tunnel is not active and isForce is false
@@ -218,9 +218,15 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 	if targetContractInfo.LatestSequence != nil {
 		chainLatestSeq = *targetContractInfo.LatestSequence
 	} else {
-		chainLatestSeq = t.lastRelayedSequence
+		chainLatestSeq = *t.lastRelayedSequence
 		if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeXRPL {
-			chainLatestSeq = max(chainLatestSeq, tunnelInfo.LatestSequence-1)
+			// Guard against underflow when LatestSequence is 0 by only subtracting 1
+			// when there is at least one packet on BandChain.
+			bandLatestSeqMinusOne := uint64(0)
+			if tunnelInfo.LatestSequence > 0 {
+				bandLatestSeqMinusOne = tunnelInfo.LatestSequence - 1
+			}
+			chainLatestSeq = max(chainLatestSeq, bandLatestSeqMinusOne)
 		}
 	}
 
@@ -249,7 +255,7 @@ func (t *TunnelRelayer) getNextPacketSequence(ctx context.Context, isForce bool)
 
 func (t *TunnelRelayer) shouldSkipSequence(seq uint64) bool {
 	return !t.lastRelayedAt.IsZero() &&
-		seq <= t.lastRelayedSequence &&
+		seq <= *t.lastRelayedSequence &&
 		time.Since(t.lastRelayedAt) < defaultLastSequenceValidityPeriod
 }
 
@@ -285,7 +291,7 @@ func (t *TunnelRelayer) relayPacket(ctx context.Context, packet *types.Packet) e
 	}
 
 	// Increment the metric for successfully relayed packets
-	t.lastRelayedSequence = packet.Sequence
+	t.lastRelayedSequence = &packet.Sequence
 	t.lastRelayedAt = time.Now()
 	relayermetrics.IncPacketsRelayedSuccess(t.TunnelID)
 	t.Log.Info("Successfully relayed packet", "sequence", packet.Sequence)
