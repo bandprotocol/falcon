@@ -1,19 +1,38 @@
 package soroban
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/stellar/go-stellar-sdk/clients/horizonclient"
+	hProtocol "github.com/stellar/go-stellar-sdk/protocols/horizon"
+
 	"github.com/bandprotocol/falcon/relayer/alert"
+	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/logger"
 )
+
+// HorizonClients holds Horizon RPC clients and the selected endpoint.
+type HorizonClients = chains.ClientPool[horizonclient.Client]
+
+// NewHorizonClients creates and returns a new SorobanClients instance with no endpoints.
+func NewHorizonClients() HorizonClients {
+	return chains.NewClientPool[horizonclient.Client]()
+}
+
+// ClientConnectionResult contains the result of connecting to a specific Horizon endpoint.
+type ClientConnectionResult struct {
+	Endpoint       string
+	Client         *horizonclient.Client
+	LedgerSequence uint64
+}
 
 type Client interface {
 	Connect(ctx context.Context) error
@@ -21,262 +40,288 @@ type Client interface {
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 	GetAccountSequenceNumber(account string) (uint64, error)
 	GetBalance(account string) (*big.Int, error)
-	GetLatestLedger() (uint64, *time.Time, error)
 	BroadcastTx(txBlob string) (TxResult, error)
 	GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error)
-	GetEndpoint() string
+	GetTransactionStatus(txHash string) (hProtocol.Transaction, error)
 }
 
 type client struct {
 	ChainName        string
-	Endpoints        []string
-	HorizonEndpoint  string
-	SelectedEndpoint string
+	SorabanEndpoints []string
+	HorizonEndpoints []string
+	QueryTimeout     time.Duration
 
 	Log   logger.Logger
 	alert alert.Alert
-}
 
-type TxResult struct {
-	TxHash      string
-	LedgerIndex uint64
+	clients HorizonClients
 }
 
 func NewClient(chainName string, cfg *SorobanChainProviderConfig, log logger.Logger, alert alert.Alert) Client {
 	return &client{
-		ChainName:       chainName,
-		Endpoints:       cfg.Endpoints,
-		HorizonEndpoint: cfg.HorizonEndpoint,
-		Log:             log.With("chain_name", chainName),
-		alert:           alert,
+		ChainName:        chainName,
+		SorabanEndpoints: cfg.Endpoints,
+		HorizonEndpoints: cfg.HorizonEndpoints,
+		QueryTimeout:     cfg.QueryTimeout,
+		Log:              log.With("chain_name", chainName),
+		alert:            alert,
+		clients:          NewHorizonClients(),
 	}
 }
 
+// Connect connects to all Horizon endpoints in parallel and selects the one with the highest ledger.
 func (c *client) Connect(ctx context.Context) error {
-	// Simple endpoint selection based on reaching getLatestLedger
-	var bestEndpoint string
-	var highestSequence uint64
-
-	for _, endpoint := range c.Endpoints {
-		reqBody := `{"jsonrpc": "2.0", "id": 1, "method": "getLatestLedger"}`
-		resp, err := http.Post(endpoint, "application/json", strings.NewReader(reqBody)) // #nosec G107
-		if err != nil {
+	var wg sync.WaitGroup
+	for _, endpoint := range c.HorizonEndpoints {
+		_, ok := c.clients.GetClient(endpoint)
+		if ok {
 			continue
 		}
-		defer resp.Body.Close()
 
-		if resp.StatusCode == 200 {
-			var result struct {
-				Result struct {
-					Sequence uint64 `json:"sequence"`
-				} `json:"result"`
+		wg.Add(1)
+		go func(endpoint string) {
+			defer wg.Done()
+			hc := &horizonclient.Client{
+				HorizonURL: strings.TrimRight(endpoint, "/"),
+				HTTP:       &http.Client{Timeout: 30 * time.Second},
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-				continue
+			if _, err := hc.Root(); err != nil {
+				c.Log.Warn(
+					"Failed to connect to Soroban chain",
+					"endpoint", endpoint,
+					err,
+				)
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+						WithChainName(c.ChainName).
+						WithEndpoint(endpoint),
+					err.Error(),
+				)
+				return
 			}
-			if result.Result.Sequence > highestSequence {
-				highestSequence = result.Result.Sequence
-				bestEndpoint = endpoint
-			}
-		}
+			alert.HandleReset(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+					WithChainName(c.ChainName).
+					WithEndpoint(endpoint),
+			)
+			c.clients.SetClient(endpoint, hc)
+		}(endpoint)
 	}
 
-	if bestEndpoint == "" {
-		return fmt.Errorf("could not connect to any soroban endpoint")
+	wg.Wait()
+	res, err := c.getClientWithMaxLedger(ctx)
+	if err != nil {
+		c.Log.Error("Failed to connect to Soroban chain", err)
+		return err
 	}
 
-	c.SelectedEndpoint = bestEndpoint
+	// only log when new endpoint is used
+	if c.clients.GetSelectedEndpoint() != res.Endpoint {
+		c.Log.Info("Connected to Soroban chain", "endpoint", res.Endpoint)
+	}
+
+	c.clients.SetSelectedEndpoint(res.Endpoint)
 	return nil
 }
 
+// CheckAndConnect checks if the client is connected; if not, it connects.
 func (c *client) CheckAndConnect(ctx context.Context) error {
-	if c.SelectedEndpoint == "" {
+	if _, err := c.clients.GetSelectedClient(); err != nil {
 		return c.Connect(ctx)
 	}
 	return nil
 }
 
+// StartLivelinessCheck starts the liveliness check for the Soroban chain.
 func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
+			c.Log.Info("Stopping liveliness check")
 			return
 		case <-ticker.C:
-			_ = c.Connect(ctx)
+			err := c.Connect(ctx)
+			if err != nil {
+				c.Log.Error("Liveliness check: unable to reconnect to any endpoints", err)
+			}
 		}
 	}
+}
+
+// getClientWithMaxLedger returns the connected client with the highest ingested ledger sequence.
+func (c *client) getClientWithMaxLedger(ctx context.Context) (ClientConnectionResult, error) {
+	ch := make(chan ClientConnectionResult, len(c.HorizonEndpoints))
+
+	for _, endpoint := range c.HorizonEndpoints {
+		go func(endpoint string) {
+			hc, ok := c.clients.GetClient(endpoint)
+			if !ok {
+				ch <- ClientConnectionResult{endpoint, nil, 0}
+				return
+			}
+
+			root, err := hc.Root()
+			if err != nil {
+				c.Log.Warn(
+					"Failed to get latest ledger",
+					"endpoint", endpoint,
+					err,
+				)
+				ch <- ClientConnectionResult{endpoint, nil, 0}
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+						WithChainName(c.ChainName).
+						WithEndpoint(endpoint),
+					err.Error(),
+				)
+				return
+			}
+
+			ledgerSeq := uint64(root.IngestSequence)
+			c.Log.Debug(
+				"Get latest ledger of the given client",
+				"endpoint", endpoint,
+				"ledger_sequence", ledgerSeq,
+			)
+			alert.HandleReset(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+					WithChainName(c.ChainName).
+					WithEndpoint(endpoint),
+			)
+
+			ch <- ClientConnectionResult{endpoint, hc, ledgerSeq}
+		}(endpoint)
+	}
+
+	var result ClientConnectionResult
+	for i := 0; i < len(c.HorizonEndpoints); i++ {
+		r := <-ch
+		if r.Client != nil {
+			if r.LedgerSequence > result.LedgerSequence ||
+				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.LedgerSequence == result.LedgerSequence) {
+				result = r
+			}
+		}
+	}
+
+	if result.Client == nil {
+		alert.HandleAlert(
+			c.alert,
+			alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName),
+			fmt.Sprintf("failed to connect to Soroban chain on all endpoints: %s", c.HorizonEndpoints),
+		)
+		return ClientConnectionResult{}, fmt.Errorf("[SorobanClient] failed to connect to Soroban chain")
+	}
+
+	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName))
+	return result, nil
 }
 
 func (c *client) GetAccountSequenceNumber(account string) (uint64, error) {
-	url := fmt.Sprintf("%s/accounts/%s", strings.TrimRight(c.HorizonEndpoint, "/"), account)
-	resp, err := http.Get(url) // #nosec G107
+	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return 0, fmt.Errorf("failed to fetch sequence, status: %d", resp.StatusCode)
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return 0, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
 	}
 
-	var result struct {
-		Sequence string `json:"sequence"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return 0, err
+	acc, err := hc.AccountDetail(horizonclient.AccountRequest{AccountID: account})
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch account: %w", err)
 	}
 
-	var seq uint64
-	if _, err := fmt.Sscanf(result.Sequence, "%d", &seq); err != nil {
-		return 0, err
+	seq, err := acc.GetSequenceNumber()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get sequence number: %w", err)
 	}
-	return seq, nil
+
+	if seq < 0 {
+		return 0, fmt.Errorf("negative sequence number: %d", seq)
+	}
+
+	return uint64(seq), nil
 }
 
 func (c *client) GetBalance(account string) (*big.Int, error) {
-	url := fmt.Sprintf("%s/accounts/%s", strings.TrimRight(c.HorizonEndpoint, "/"), account)
-	resp, err := http.Get(url) // #nosec G107
+	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to fetch balance, status: %d", resp.StatusCode)
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
 	}
 
-	var result struct {
-		Balances []struct {
-			Balance   string `json:"balance"`
-			AssetType string `json:"asset_type"`
-		} `json:"balances"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	for _, bal := range result.Balances {
-		if bal.AssetType == "native" {
-			// Convert "10.1234567" to drops/stroops (x 10^7)
-			parts := strings.Split(bal.Balance, ".")
-			base := parts[0]
-			frac := ""
-			if len(parts) > 1 {
-				frac = parts[1]
-			}
-			if len(frac) > 7 {
-				frac = frac[:7]
-			}
-			for len(frac) < 7 {
-				frac += "0"
-			}
-			bigBal := new(big.Int)
-			bigBal.SetString(base+frac, 10)
-			return bigBal, nil
-		}
-	}
-
-	return big.NewInt(0), nil
-}
-
-func (c *client) GetLatestLedger() (uint64, *time.Time, error) {
-	reqBody := `{"jsonrpc": "2.0", "id": 1, "method": "getLatestLedger"}`
-	resp, err := http.Post(c.SelectedEndpoint, "application/json", strings.NewReader(reqBody)) // #nosec G107
+	acc, err := hc.AccountDetail(horizonclient.AccountRequest{AccountID: account})
 	if err != nil {
-		return 0, nil, err
+		return nil, fmt.Errorf("failed to fetch account: %w", err)
 	}
-	defer resp.Body.Close()
 
-	var result struct {
-		Result struct {
-			Sequence uint64 `json:"sequence"`
-			// Note: may not include close time directly from RPC
-		} `json:"result"`
+	native, err := acc.GetNativeBalance()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get native balance: %w", err)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return 0, nil, err
+
+	// Convert "10.1234567" to stroops (x 10^7)
+	f, err := strconv.ParseFloat(native, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse balance %q: %w", native, err)
 	}
-	return result.Result.Sequence, nil, nil
+	stroops := int64(f * 1e7)
+	return big.NewInt(stroops), nil
 }
 
 func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
-	reqBody := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "sendTransaction",
-		"params":  map[string]interface{}{"transaction": txBlob},
-	}
-	b, _ := json.Marshal(reqBody)
-	resp, err := http.Post(c.SelectedEndpoint, "application/json", bytes.NewReader(b)) // #nosec G107
+	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return TxResult{}, err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Result struct {
-			Status         string `json:"status"`
-			Hash           string `json:"hash"`
-			LatestLedger   uint64 `json:"latestLedger"`
-			ErrorResultXdr string `json:"errorResultXdr"`
-		} `json:"result"`
-		Error *struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return TxResult{}, err
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return TxResult{}, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
 	}
 
-	if result.Error != nil {
-		return TxResult{}, fmt.Errorf("rpc error: %s", result.Error.Message)
+	resp, err := hc.SubmitTransactionXDR(txBlob)
+	if err != nil {
+		var herr *horizonclient.Error
+		if errors.As(err, &herr) {
+			rc, _ := herr.ResultCodes()
+			c.Log.Error("horizon submission failed",
+				"status", herr.Problem.Status,
+				"result_codes", rc,
+				"result_xdr", herr.Problem.Extras["result_xdr"],
+			)
+			return TxResult{}, fmt.Errorf("failed to submit transaction: status=%d codes=%+v xdr=%s",
+				herr.Problem.Status, rc, herr.Problem.Extras["result_xdr"])
+		}
+		return TxResult{}, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
-	if result.Result.Status == "ERROR" {
-		return TxResult{TxHash: result.Result.Hash}, fmt.Errorf("transaction error: %s", result.Result.ErrorResultXdr)
-	}
-
-	return TxResult{
-		TxHash:      result.Result.Hash,
-		LedgerIndex: result.Result.LatestLedger,
-	}, nil
-}
-
-func (c *client) GetEndpoint() string {
-	return c.SelectedEndpoint
+	return TxResult{TxHash: resp.Hash}, nil
 }
 
 func (c *client) GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error) {
-	// From Horizon: /ledgers/{id}
-	url := fmt.Sprintf("%s/ledgers/%d", strings.TrimRight(c.HorizonEndpoint, "/"), ledgerIndex)
-	resp, err := http.Get(url) // #nosec G107
+	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to fetch ledger, status: %d", resp.StatusCode)
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return nil, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
 	}
 
-	var result struct {
-		ClosedAt string `json:"closed_at"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	t, err := time.Parse(time.RFC3339, result.ClosedAt)
+	ledger, err := hc.LedgerDetail(uint32(ledgerIndex))
 	if err != nil {
-		// Fallback to RFC3339
-		t, err = time.Parse(time.RFC3339, result.ClosedAt)
-	}
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch ledger %d: %w", ledgerIndex, err)
 	}
 
+	t := ledger.ClosedAt
 	return &t, nil
+}
+
+func (c *client) GetTransactionStatus(txHash string) (hProtocol.Transaction, error) {
+	hc, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return hProtocol.Transaction{}, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
+	}
+
+	return hc.TransactionDetail(txHash)
 }

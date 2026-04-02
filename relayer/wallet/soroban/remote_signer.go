@@ -39,7 +39,7 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 				Fee:               signerPayload.Fee,
 				Sequence:          signerPayload.Sequence,
 				NetworkPassphrase: signerPayload.NetworkPassphrase,
-				RpcUrl:            signerPayload.RpcUrl,
+				RpcUrls:           signerPayload.RpcUrls,
 			},
 			Tss: &fkmsv1.Tss{
 				Message:    tssPayload.TssMessage,

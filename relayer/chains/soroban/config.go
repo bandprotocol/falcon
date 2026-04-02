@@ -1,6 +1,8 @@
 package soroban
 
 import (
+	"time"
+
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
@@ -14,9 +16,11 @@ var _ chains.ChainProviderConfig = &SorobanChainProviderConfig{}
 type SorobanChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	HorizonEndpoint   string `mapstructure:"horizon_endpoint"   toml:"horizon_endpoint"`
-	Fee               string `mapstructure:"fee"                toml:"fee"`
-	NetworkPassphrase string `mapstructure:"network_passphrase" toml:"network_passphrase"`
+	HorizonEndpoints   []string      `mapstructure:"horizon_endpoints"    toml:"soroban_rpc_endpoints"`
+	Fee                string        `mapstructure:"fee"                  toml:"fee"`
+	NetworkPassphrase  string        `mapstructure:"network_passphrase"   toml:"network_passphrase"`
+	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration"  toml:"waiting_tx_duration"`
+	CheckingTxInterval time.Duration `mapstructure:"checking_tx_interval" toml:"checking_tx_interval"`
 }
 
 // NewChainProvider creates a new Soroban chain provider.
