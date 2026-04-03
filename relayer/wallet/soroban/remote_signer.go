@@ -52,5 +52,5 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 		return nil, err
 	}
 
-	return res.TxBlobB64, nil
+	return []byte(res.TxBlob), nil
 }

@@ -55,7 +55,7 @@ message SignSorobanRequest {
 }
 
 message SignSorobanResponse {
-  bytes tx_blob_b64 = 1;
+  string tx_blob = 1;
 }
 
 message GetSignerAddressesRequest {}
