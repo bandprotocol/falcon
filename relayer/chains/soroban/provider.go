@@ -336,9 +336,13 @@ func (cp *SorobanChainProvider) handleSaveTransaction(
 
 	balanceDelta := decimal.NullDecimal{}
 	gasUsed := decimal.NullDecimal{}
+	fee := decimal.NullDecimal{}
 	if oldBalance != nil && (txResult.Status == types.TX_STATUS_SUCCESS || txResult.Status == types.TX_STATUS_FAILED) {
 		gasUsed = decimal.NewNullDecimal(decimal.NewFromInt(1))
 		newBalance, err := cp.Client.GetBalance(signerAddress)
+		if txResult.Fee.Valid {
+			fee = decimal.NewNullDecimal(txResult.Fee.Decimal.Shift(sorobanToWeiExp))
+		}
 		if err != nil {
 			log.Error("Failed to get balance", "retry_count", retryCount, err)
 			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
@@ -382,7 +386,7 @@ func (cp *SorobanChainProvider) handleSaveTransaction(
 		signerAddress,
 		txResult.Status,
 		gasUsed,
-		decimal.NewNullDecimal(txResult.Fee.Decimal.Shift(sorobanToWeiExp)),
+		fee,
 		balanceDelta,
 		signalPrices,
 		closeTime,
