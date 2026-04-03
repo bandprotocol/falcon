@@ -16,7 +16,7 @@ var _ chains.ChainProviderConfig = &SorobanChainProviderConfig{}
 type SorobanChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
-	HorizonEndpoints   []string      `mapstructure:"horizon_endpoints"    toml:"soroban_rpc_endpoints"`
+	HorizonEndpoints   []string      `mapstructure:"horizon_endpoints"    toml:"horizon_endpoints"`
 	Fee                string        `mapstructure:"fee"                  toml:"fee"`
 	NetworkPassphrase  string        `mapstructure:"network_passphrase"   toml:"network_passphrase"`
 	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration"  toml:"waiting_tx_duration"`

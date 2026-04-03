@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stellar/go-stellar-sdk/clients/horizonclient"
 	hProtocol "github.com/stellar/go-stellar-sdk/protocols/horizon"
 
@@ -47,7 +47,6 @@ type Client interface {
 
 type client struct {
 	ChainName        string
-	SorabanEndpoints []string
 	HorizonEndpoints []string
 	QueryTimeout     time.Duration
 
@@ -60,7 +59,6 @@ type client struct {
 func NewClient(chainName string, cfg *SorobanChainProviderConfig, log logger.Logger, alert alert.Alert) Client {
 	return &client{
 		ChainName:        chainName,
-		SorabanEndpoints: cfg.Endpoints,
 		HorizonEndpoints: cfg.HorizonEndpoints,
 		QueryTimeout:     cfg.QueryTimeout,
 		Log:              log.With("chain_name", chainName),
@@ -83,7 +81,7 @@ func (c *client) Connect(ctx context.Context) error {
 			defer wg.Done()
 			hc := &horizonclient.Client{
 				HorizonURL: strings.TrimRight(endpoint, "/"),
-				HTTP:       &http.Client{Timeout: 30 * time.Second},
+				HTTP:       &http.Client{Timeout: c.QueryTimeout},
 			}
 			if _, err := hc.Root(); err != nil {
 				c.Log.Warn(
@@ -265,13 +263,13 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 		return nil, fmt.Errorf("failed to get native balance: %w", err)
 	}
 
-	// Convert "10.1234567" to stroops (x 10^7)
-	f, err := strconv.ParseFloat(native, 64)
+	// Convert "10.1234567" to stroops (x 10^7) using exact decimal arithmetic.
+	d, err := decimal.NewFromString(native)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse balance %q: %w", native, err)
 	}
-	stroops := int64(f * 1e7)
-	return big.NewInt(stroops), nil
+	stroops := d.Mul(decimal.NewFromInt(1e7)).BigInt()
+	return stroops, nil
 }
 
 func (c *client) BroadcastTx(txBlob string) (TxResult, error) {

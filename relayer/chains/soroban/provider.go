@@ -101,7 +101,7 @@ func (cp *SorobanChainProvider) QueryTunnelInfo(
 	tunnelID uint64,
 	tunnelDestinationAddr string,
 ) (*types.Tunnel, error) {
-	// Soroban uses Skipable tunnels without sequence tracking similar to XRPL
+	// Soroban uses Skippable tunnels without sequence tracking similar to XRPL
 	tunnel := types.NewTunnel(tunnelID, tunnelDestinationAddr, true, nil, nil)
 	return tunnel, nil
 }
@@ -335,7 +335,9 @@ func (cp *SorobanChainProvider) handleSaveTransaction(
 	}
 
 	balanceDelta := decimal.NullDecimal{}
+	gasUsed := decimal.NullDecimal{}
 	if oldBalance != nil && (txResult.Status == types.TX_STATUS_SUCCESS || txResult.Status == types.TX_STATUS_FAILED) {
+		gasUsed = decimal.NewNullDecimal(decimal.NewFromInt(1))
 		newBalance, err := cp.Client.GetBalance(signerAddress)
 		if err == nil {
 			diff := new(big.Int).Sub(newBalance, oldBalance)
@@ -361,7 +363,7 @@ func (cp *SorobanChainProvider) handleSaveTransaction(
 		types.ChainTypeSoroban,
 		signerAddress,
 		txResult.Status,
-		decimal.NewNullDecimal(decimal.NewFromInt(1)),
+		gasUsed,
 		decimal.NewNullDecimal(txResult.Fee.Decimal.Shift(sorobanToWeiExp)),
 		balanceDelta,
 		signalPrices,
