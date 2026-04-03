@@ -339,20 +339,38 @@ func (cp *SorobanChainProvider) handleSaveTransaction(
 	if oldBalance != nil && (txResult.Status == types.TX_STATUS_SUCCESS || txResult.Status == types.TX_STATUS_FAILED) {
 		gasUsed = decimal.NewNullDecimal(decimal.NewFromInt(1))
 		newBalance, err := cp.Client.GetBalance(signerAddress)
-		if err == nil {
-			diff := new(big.Int).Sub(newBalance, oldBalance)
-			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, sorobanToWeiExp))
-		} else {
+		if err != nil {
 			log.Error("Failed to get balance", "retry_count", retryCount, err)
 			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
 				WithTunnelID(packet.TunnelID).
 				WithChainName(cp.ChainName), err.Error())
+		} else {
+			diff := new(big.Int).Sub(newBalance, oldBalance)
+			balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, sorobanToWeiExp))
 		}
 	}
 
 	var closeTime *time.Time
 	if txResult.LedgerIndex != 0 {
-		closeTime, _ = cp.Client.GetLedgerCloseTime(txResult.LedgerIndex)
+		ledgerCloseTime, err := cp.Client.GetLedgerCloseTime(txResult.LedgerIndex)
+		if err != nil {
+			log.Error(
+				"Failed to get ledger close time",
+				"retry_count",
+				retryCount,
+				"ledger_index",
+				txResult.LedgerIndex,
+				err,
+			)
+			alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName), err.Error())
+		} else {
+			closeTime = ledgerCloseTime
+			alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetLedgerCloseTimeErrorMsg).
+				WithTunnelID(packet.TunnelID).
+				WithChainName(cp.ChainName))
+		}
 	}
 
 	tx := db.NewTransaction(
