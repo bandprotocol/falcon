@@ -55,7 +55,7 @@ message SignSorobanRequest {
 }
 
 message SignSorobanResponse {
-  bytes tx_blob = 1;
+  bytes tx_blob_b64 = 1;
 }
 
 message GetSignerAddressesRequest {}
@@ -91,7 +91,7 @@ message SorobanSignerPayload {
   string source_account = 1;
   string contract_address = 2;
   string fee = 3;
-  uint64 sequence = 4;
+  int64 sequence = 4;
   string network_passphrase = 5;
   repeated string rpc_urls = 6;
 }

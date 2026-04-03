@@ -4,7 +4,7 @@ type SignerPayload struct {
 	SourceAccount     string
 	ContractAddress   string
 	Fee               string
-	Sequence          uint64
+	Sequence          int64
 	NetworkPassphrase string
 	RpcUrls           []string
 }
@@ -13,7 +13,7 @@ func NewSignerPayload(
 	sourceAccount string,
 	contractAddress string,
 	fee string,
-	sequence uint64,
+	sequence int64,
 	networkPassphrase string,
 	rpcUrls []string,
 ) SignerPayload {

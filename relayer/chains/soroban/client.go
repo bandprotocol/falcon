@@ -38,7 +38,7 @@ type Client interface {
 	Connect(ctx context.Context) error
 	CheckAndConnect(ctx context.Context) error
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
-	GetAccountSequenceNumber(account string) (uint64, error)
+	GetAccountSequenceNumber(account string) (int64, error)
 	GetBalance(account string) (*big.Int, error)
 	BroadcastTx(txBlob string) (TxResult, error)
 	GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error)
@@ -224,7 +224,7 @@ func (c *client) getClientWithMaxLedger(ctx context.Context) (ClientConnectionRe
 	return result, nil
 }
 
-func (c *client) GetAccountSequenceNumber(account string) (uint64, error) {
+func (c *client) GetAccountSequenceNumber(account string) (int64, error) {
 	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
@@ -245,7 +245,7 @@ func (c *client) GetAccountSequenceNumber(account string) (uint64, error) {
 		return 0, fmt.Errorf("negative sequence number: %d", seq)
 	}
 
-	return uint64(seq), nil
+	return seq, nil
 }
 
 func (c *client) GetBalance(account string) (*big.Int, error) {
