@@ -74,7 +74,7 @@ message FlowSignerPayload {
   string block_id = 3;
   uint32 key_index = 4;
   uint64 sequence = 5;
-  bytes script = 6;
+  string contract_address = 6;
 }
 
 message Tss {

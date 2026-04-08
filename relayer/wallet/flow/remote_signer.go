@@ -37,12 +37,12 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 		r.ContextWithKey(),
 		&fkmsv1.SignFlowRequest{
 			SignerPayload: &fkmsv1.FlowSignerPayload{
-				Address:      signerPayload.Address,
-				ComputeLimit: signerPayload.ComputeLimit,
-				BlockId:      signerPayload.BlockID,
-				KeyIndex:     signerPayload.KeyIndex,
-				Sequence:     signerPayload.Sequence,
-				Script:       signerPayload.Script,
+				Address:         signerPayload.Address,
+				ComputeLimit:    signerPayload.ComputeLimit,
+				BlockId:         signerPayload.BlockID,
+				KeyIndex:        signerPayload.KeyIndex,
+				Sequence:        signerPayload.Sequence,
+				ContractAddress: signerPayload.ContractAddress,
 			},
 			Tss: &fkmsv1.Tss{
 				Message:    tssPayload.TssMessage,

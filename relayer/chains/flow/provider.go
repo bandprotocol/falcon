@@ -1,12 +1,10 @@
 package flow
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"text/template"
 	"time"
 
 	"github.com/onflow/flow-go-sdk"
@@ -43,9 +41,8 @@ type FlowChainProvider struct {
 
 	Alert alert.Alert
 
-	FreeSigners    chan wallet.Signer
-	Wallet         wallet.Wallet
-	scriptTemplate *template.Template
+	FreeSigners chan wallet.Signer
+	Wallet      wallet.Wallet
 }
 
 // NewFlowChainProvider creates a new Flow chain provider.
@@ -57,20 +54,14 @@ func NewFlowChainProvider(
 	w wallet.Wallet,
 	a alert.Alert,
 ) (*FlowChainProvider, error) {
-	tmpl, err := template.New("relayer_rates").Parse(RelayScript)
-	if err != nil {
-		return nil, err
-	}
-
 	return &FlowChainProvider{
-		Config:         cfg,
-		ChainName:      chainName,
-		Client:         client,
-		Log:            log.With("chain_name", chainName),
-		Alert:          a,
-		FreeSigners:    chains.LoadSigners(w),
-		Wallet:         w,
-		scriptTemplate: tmpl,
+		Config:      cfg,
+		ChainName:   chainName,
+		Client:      client,
+		Log:         log.With("chain_name", chainName),
+		Alert:       a,
+		FreeSigners: chains.LoadSigners(w),
+		Wallet:      w,
 	}, nil
 }
 
@@ -118,19 +109,6 @@ func (cp *FlowChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 		"signer_address", freeSigner.GetAddress(),
 	)
 
-	var script bytes.Buffer
-	err := cp.scriptTemplate.Execute(&script, struct{ Contract string }{Contract: packet.TargetAddress})
-	if err != nil {
-		cp.Log.Error("Execute script template error", err)
-		alert.HandleAlert(
-			cp.Alert,
-			alert.NewTopic(alert.ExecuteScriptErrorMsg).WithTunnelID(packet.TunnelID).WithChainName(cp.ChainName),
-			err.Error(),
-		)
-		return fmt.Errorf("[FlowProvider] failed to execute script template: %w", err)
-	}
-	scriptBytes := script.Bytes()
-
 	var lastErr error
 	for retryCount := 1; retryCount <= cp.Config.MaxRetry; retryCount++ {
 		log.Info("Relaying a message", "retry_count", retryCount)
@@ -164,7 +142,7 @@ func (cp *FlowChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 			blockID,
 			keyIndex,
 			sequence,
-			scriptBytes,
+			packet.TargetAddress,
 		)
 
 		payloadBytes, err := json.Marshal(signerPayload)
