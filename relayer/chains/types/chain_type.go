@@ -21,9 +21,9 @@ const (
 )
 
 var chainTypeNameMap = map[ChainType]string{
-	ChainTypeEVM:  "evm",
-	ChainTypeXRPL: "xrpl",
-	ChainTypeIcon: "icon",
+	ChainTypeEVM:    "evm",
+	ChainTypeXRPL:   "xrpl",
+	ChainTypeIcon:   "icon",
 	ChainTypeSecret: "secret",
 }
 

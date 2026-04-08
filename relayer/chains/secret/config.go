@@ -3,13 +3,13 @@ package secret
 import (
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 var _ chains.ChainProviderConfig = &SecretChainProviderConfig{}

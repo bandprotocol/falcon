@@ -8,9 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bandprotocol/falcon/relayer/alert"
-	"github.com/bandprotocol/falcon/relayer/chains"
-	"github.com/bandprotocol/falcon/relayer/logger"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
+	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 	sdkclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -21,8 +20,9 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
-	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
+	"github.com/bandprotocol/falcon/relayer/alert"
+	"github.com/bandprotocol/falcon/relayer/chains"
+	"github.com/bandprotocol/falcon/relayer/logger"
 )
 
 type SecretClients = chains.ClientPool[sdkclient.Context]
@@ -306,5 +306,5 @@ func (c *client) GetBlockByHeight(height *big.Int) (*typesBlockResult, error) {
 	}
 
 	// Block timestamp is in UTC.
-	return &typesBlockResult{Time: resBlock.Block.Header.Time.UTC()}, nil
+	return &typesBlockResult{Time: resBlock.Block.Time.UTC()}, nil
 }
