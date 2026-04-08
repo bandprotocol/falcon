@@ -24,9 +24,10 @@ const (
 type ChainType int32
 
 const (
-	ChainType_EVM  ChainType = 0
-	ChainType_XRPL ChainType = 1
-	ChainType_ICON ChainType = 2
+	ChainType_EVM    ChainType = 0
+	ChainType_XRPL   ChainType = 1
+	ChainType_ICON   ChainType = 2
+	ChainType_SECRET ChainType = 3
 )
 
 // Enum value maps for ChainType.
@@ -35,11 +36,13 @@ var (
 		0: "EVM",
 		1: "XRPL",
 		2: "ICON",
+		3: "SECRET",
 	}
 	ChainType_value = map[string]int32{
-		"EVM":  0,
-		"XRPL": 1,
-		"ICON": 2,
+		"EVM":    0,
+		"XRPL":   1,
+		"ICON":   2,
+		"SECRET": 3,
 	}
 )
 
@@ -358,6 +361,102 @@ func (x *SignIconResponse) GetTxParams() []byte {
 	return nil
 }
 
+type SignSecretRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SignerPayload *SecretSignerPayload   `protobuf:"bytes,1,opt,name=signer_payload,json=signerPayload,proto3" json:"signer_payload,omitempty"`
+	Tss           *Tss                   `protobuf:"bytes,2,opt,name=tss,proto3" json:"tss,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignSecretRequest) Reset() {
+	*x = SignSecretRequest{}
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignSecretRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignSecretRequest) ProtoMessage() {}
+
+func (x *SignSecretRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignSecretRequest.ProtoReflect.Descriptor instead.
+func (*SignSecretRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SignSecretRequest) GetSignerPayload() *SecretSignerPayload {
+	if x != nil {
+		return x.SignerPayload
+	}
+	return nil
+}
+
+func (x *SignSecretRequest) GetTss() *Tss {
+	if x != nil {
+		return x.Tss
+	}
+	return nil
+}
+
+type SignSecretResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TxBlob        []byte                 `protobuf:"bytes,1,opt,name=tx_blob,json=txBlob,proto3" json:"tx_blob,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SignSecretResponse) Reset() {
+	*x = SignSecretResponse{}
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SignSecretResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SignSecretResponse) ProtoMessage() {}
+
+func (x *SignSecretResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SignSecretResponse.ProtoReflect.Descriptor instead.
+func (*SignSecretResponse) Descriptor() ([]byte, []int) {
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SignSecretResponse) GetTxBlob() []byte {
+	if x != nil {
+		return x.TxBlob
+	}
+	return nil
+}
+
 type GetSignerAddressesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -366,7 +465,7 @@ type GetSignerAddressesRequest struct {
 
 func (x *GetSignerAddressesRequest) Reset() {
 	*x = GetSignerAddressesRequest{}
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[6]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -378,7 +477,7 @@ func (x *GetSignerAddressesRequest) String() string {
 func (*GetSignerAddressesRequest) ProtoMessage() {}
 
 func (x *GetSignerAddressesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[6]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +490,7 @@ func (x *GetSignerAddressesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSignerAddressesRequest.ProtoReflect.Descriptor instead.
 func (*GetSignerAddressesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{6}
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{8}
 }
 
 type GetSignerAddressesResponse struct {
@@ -403,7 +502,7 @@ type GetSignerAddressesResponse struct {
 
 func (x *GetSignerAddressesResponse) Reset() {
 	*x = GetSignerAddressesResponse{}
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[7]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -415,7 +514,7 @@ func (x *GetSignerAddressesResponse) String() string {
 func (*GetSignerAddressesResponse) ProtoMessage() {}
 
 func (x *GetSignerAddressesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[7]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -428,7 +527,7 @@ func (x *GetSignerAddressesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSignerAddressesResponse.ProtoReflect.Descriptor instead.
 func (*GetSignerAddressesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{7}
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetSignerAddressesResponse) GetSigners() []*Signers {
@@ -450,7 +549,7 @@ type XrplSignerPayload struct {
 
 func (x *XrplSignerPayload) Reset() {
 	*x = XrplSignerPayload{}
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[8]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -462,7 +561,7 @@ func (x *XrplSignerPayload) String() string {
 func (*XrplSignerPayload) ProtoMessage() {}
 
 func (x *XrplSignerPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[8]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -475,7 +574,7 @@ func (x *XrplSignerPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use XrplSignerPayload.ProtoReflect.Descriptor instead.
 func (*XrplSignerPayload) Descriptor() ([]byte, []int) {
-	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{8}
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *XrplSignerPayload) GetAccount() string {
@@ -518,7 +617,7 @@ type IconSignerPayload struct {
 
 func (x *IconSignerPayload) Reset() {
 	*x = IconSignerPayload{}
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[9]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -530,7 +629,7 @@ func (x *IconSignerPayload) String() string {
 func (*IconSignerPayload) ProtoMessage() {}
 
 func (x *IconSignerPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[9]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -543,7 +642,7 @@ func (x *IconSignerPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IconSignerPayload.ProtoReflect.Descriptor instead.
 func (*IconSignerPayload) Descriptor() ([]byte, []int) {
-	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{9}
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IconSignerPayload) GetRelayer() string {
@@ -574,6 +673,122 @@ func (x *IconSignerPayload) GetNetworkId() string {
 	return ""
 }
 
+type SecretSignerPayload struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Sender          string                 `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	ContractAddress string                 `protobuf:"bytes,2,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
+	ChainId         string                 `protobuf:"bytes,3,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	AccountNumber   uint64                 `protobuf:"varint,4,opt,name=account_number,json=accountNumber,proto3" json:"account_number,omitempty"`
+	Sequence        uint64                 `protobuf:"varint,5,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	GasLimit        uint64                 `protobuf:"varint,6,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`
+	GasPrices       string                 `protobuf:"bytes,7,opt,name=gas_prices,json=gasPrices,proto3" json:"gas_prices,omitempty"`
+	Memo            string                 `protobuf:"bytes,8,opt,name=memo,proto3" json:"memo,omitempty"`
+	CodeHash        string                 `protobuf:"bytes,9,opt,name=code_hash,json=codeHash,proto3" json:"code_hash,omitempty"`
+	Pubkey          string                 `protobuf:"bytes,10,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SecretSignerPayload) Reset() {
+	*x = SecretSignerPayload{}
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SecretSignerPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SecretSignerPayload) ProtoMessage() {}
+
+func (x *SecretSignerPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SecretSignerPayload.ProtoReflect.Descriptor instead.
+func (*SecretSignerPayload) Descriptor() ([]byte, []int) {
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *SecretSignerPayload) GetSender() string {
+	if x != nil {
+		return x.Sender
+	}
+	return ""
+}
+
+func (x *SecretSignerPayload) GetContractAddress() string {
+	if x != nil {
+		return x.ContractAddress
+	}
+	return ""
+}
+
+func (x *SecretSignerPayload) GetChainId() string {
+	if x != nil {
+		return x.ChainId
+	}
+	return ""
+}
+
+func (x *SecretSignerPayload) GetAccountNumber() uint64 {
+	if x != nil {
+		return x.AccountNumber
+	}
+	return 0
+}
+
+func (x *SecretSignerPayload) GetSequence() uint64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+func (x *SecretSignerPayload) GetGasLimit() uint64 {
+	if x != nil {
+		return x.GasLimit
+	}
+	return 0
+}
+
+func (x *SecretSignerPayload) GetGasPrices() string {
+	if x != nil {
+		return x.GasPrices
+	}
+	return ""
+}
+
+func (x *SecretSignerPayload) GetMemo() string {
+	if x != nil {
+		return x.Memo
+	}
+	return ""
+}
+
+func (x *SecretSignerPayload) GetCodeHash() string {
+	if x != nil {
+		return x.CodeHash
+	}
+	return ""
+}
+
+func (x *SecretSignerPayload) GetPubkey() string {
+	if x != nil {
+		return x.Pubkey
+	}
+	return ""
+}
+
 type Tss struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       []byte                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -585,7 +800,7 @@ type Tss struct {
 
 func (x *Tss) Reset() {
 	*x = Tss{}
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[10]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -597,7 +812,7 @@ func (x *Tss) String() string {
 func (*Tss) ProtoMessage() {}
 
 func (x *Tss) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[10]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -610,7 +825,7 @@ func (x *Tss) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tss.ProtoReflect.Descriptor instead.
 func (*Tss) Descriptor() ([]byte, []int) {
-	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{10}
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Tss) GetMessage() []byte {
@@ -644,7 +859,7 @@ type Signers struct {
 
 func (x *Signers) Reset() {
 	*x = Signers{}
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[11]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -656,7 +871,7 @@ func (x *Signers) String() string {
 func (*Signers) ProtoMessage() {}
 
 func (x *Signers) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_fkms_v1_signer_proto_msgTypes[11]
+	mi := &file_proto_fkms_v1_signer_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -669,7 +884,7 @@ func (x *Signers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Signers.ProtoReflect.Descriptor instead.
 func (*Signers) Descriptor() ([]byte, []int) {
-	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{11}
+	return file_proto_fkms_v1_signer_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Signers) GetChainType() ChainType {
@@ -705,7 +920,12 @@ const file_proto_fkms_v1_signer_proto_rawDesc = "" +
 	"\x0esigner_payload\x18\x01 \x01(\v2\x1a.fkms.v1.IconSignerPayloadR\rsignerPayload\x12\x1e\n" +
 	"\x03tss\x18\x02 \x01(\v2\f.fkms.v1.TssR\x03tss\"/\n" +
 	"\x10SignIconResponse\x12\x1b\n" +
-	"\ttx_params\x18\x01 \x01(\fR\btxParams\"\x1b\n" +
+	"\ttx_params\x18\x01 \x01(\fR\btxParams\"x\n" +
+	"\x11SignSecretRequest\x12C\n" +
+	"\x0esigner_payload\x18\x01 \x01(\v2\x1c.fkms.v1.SecretSignerPayloadR\rsignerPayload\x12\x1e\n" +
+	"\x03tss\x18\x02 \x01(\v2\f.fkms.v1.TssR\x03tss\"-\n" +
+	"\x12SignSecretResponse\x12\x17\n" +
+	"\atx_blob\x18\x01 \x01(\fR\x06txBlob\"\x1b\n" +
 	"\x19GetSignerAddressesRequest\"H\n" +
 	"\x1aGetSignerAddressesResponse\x12*\n" +
 	"\asigners\x18\x01 \x03(\v2\x10.fkms.v1.SignersR\asigners\"x\n" +
@@ -720,7 +940,20 @@ const file_proto_fkms_v1_signer_proto_rawDesc = "" +
 	"\n" +
 	"step_limit\x18\x03 \x01(\x04R\tstepLimit\x12\x1d\n" +
 	"\n" +
-	"network_id\x18\x04 \x01(\tR\tnetworkId\"a\n" +
+	"network_id\x18\x04 \x01(\tR\tnetworkId\"\xbb\x02\n" +
+	"\x13SecretSignerPayload\x12\x16\n" +
+	"\x06sender\x18\x01 \x01(\tR\x06sender\x12)\n" +
+	"\x10contract_address\x18\x02 \x01(\tR\x0fcontractAddress\x12\x19\n" +
+	"\bchain_id\x18\x03 \x01(\tR\achainId\x12%\n" +
+	"\x0eaccount_number\x18\x04 \x01(\x04R\raccountNumber\x12\x1a\n" +
+	"\bsequence\x18\x05 \x01(\x04R\bsequence\x12\x1b\n" +
+	"\tgas_limit\x18\x06 \x01(\x04R\bgasLimit\x12\x1d\n" +
+	"\n" +
+	"gas_prices\x18\a \x01(\tR\tgasPrices\x12\x12\n" +
+	"\x04memo\x18\b \x01(\tR\x04memo\x12\x1b\n" +
+	"\tcode_hash\x18\t \x01(\tR\bcodeHash\x12\x16\n" +
+	"\x06pubkey\x18\n" +
+	" \x01(\tR\x06pubkey\"a\n" +
 	"\x03Tss\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\fR\amessage\x12\x1f\n" +
 	"\vrandom_addr\x18\x02 \x01(\fR\n" +
@@ -730,15 +963,19 @@ const file_proto_fkms_v1_signer_proto_rawDesc = "" +
 	"\aSigners\x121\n" +
 	"\n" +
 	"chain_type\x18\x01 \x01(\x0e2\x12.fkms.v1.ChainTypeR\tchainType\x12\x1c\n" +
-	"\taddresses\x18\x02 \x03(\tR\taddresses*(\n" +
+	"\taddresses\x18\x02 \x03(\tR\taddresses*4\n" +
 	"\tChainType\x12\a\n" +
 	"\x03EVM\x10\x00\x12\b\n" +
 	"\x04XRPL\x10\x01\x12\b\n" +
-	"\x04ICON\x10\x022\xac\x02\n" +
+	"\x04ICON\x10\x02\x12\n" +
+	"\n" +
+	"\x06SECRET\x10\x032\xf3\x02\n" +
 	"\vFkmsService\x12<\n" +
 	"\aSignEvm\x12\x17.fkms.v1.SignEvmRequest\x1a\x18.fkms.v1.SignEvmResponse\x12?\n" +
 	"\bSignXrpl\x12\x18.fkms.v1.SignXrplRequest\x1a\x19.fkms.v1.SignXrplResponse\x12?\n" +
-	"\bSignIcon\x12\x18.fkms.v1.SignIconRequest\x1a\x19.fkms.v1.SignIconResponse\x12]\n" +
+	"\bSignIcon\x12\x18.fkms.v1.SignIconRequest\x1a\x19.fkms.v1.SignIconResponse\x12E\n" +
+	"\n" +
+	"SignSecret\x12\x1a.fkms.v1.SignSecretRequest\x1a\x1b.fkms.v1.SignSecretResponse\x12]\n" +
 	"\x12GetSignerAddresses\x12\".fkms.v1.GetSignerAddressesRequest\x1a#.fkms.v1.GetSignerAddressesResponseB5Z3github.com/bandprotocol/falcon/proto/fkms/v1;fkmsv1b\x06proto3"
 
 var (
@@ -754,7 +991,7 @@ func file_proto_fkms_v1_signer_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_fkms_v1_signer_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_fkms_v1_signer_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_proto_fkms_v1_signer_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_proto_fkms_v1_signer_proto_goTypes = []any{
 	(ChainType)(0),                     // 0: fkms.v1.ChainType
 	(*SignEvmRequest)(nil),             // 1: fkms.v1.SignEvmRequest
@@ -763,33 +1000,40 @@ var file_proto_fkms_v1_signer_proto_goTypes = []any{
 	(*SignXrplResponse)(nil),           // 4: fkms.v1.SignXrplResponse
 	(*SignIconRequest)(nil),            // 5: fkms.v1.SignIconRequest
 	(*SignIconResponse)(nil),           // 6: fkms.v1.SignIconResponse
-	(*GetSignerAddressesRequest)(nil),  // 7: fkms.v1.GetSignerAddressesRequest
-	(*GetSignerAddressesResponse)(nil), // 8: fkms.v1.GetSignerAddressesResponse
-	(*XrplSignerPayload)(nil),          // 9: fkms.v1.XrplSignerPayload
-	(*IconSignerPayload)(nil),          // 10: fkms.v1.IconSignerPayload
-	(*Tss)(nil),                        // 11: fkms.v1.Tss
-	(*Signers)(nil),                    // 12: fkms.v1.Signers
+	(*SignSecretRequest)(nil),          // 7: fkms.v1.SignSecretRequest
+	(*SignSecretResponse)(nil),         // 8: fkms.v1.SignSecretResponse
+	(*GetSignerAddressesRequest)(nil),  // 9: fkms.v1.GetSignerAddressesRequest
+	(*GetSignerAddressesResponse)(nil), // 10: fkms.v1.GetSignerAddressesResponse
+	(*XrplSignerPayload)(nil),          // 11: fkms.v1.XrplSignerPayload
+	(*IconSignerPayload)(nil),          // 12: fkms.v1.IconSignerPayload
+	(*SecretSignerPayload)(nil),        // 13: fkms.v1.SecretSignerPayload
+	(*Tss)(nil),                        // 14: fkms.v1.Tss
+	(*Signers)(nil),                    // 15: fkms.v1.Signers
 }
 var file_proto_fkms_v1_signer_proto_depIdxs = []int32{
-	9,  // 0: fkms.v1.SignXrplRequest.signer_payload:type_name -> fkms.v1.XrplSignerPayload
-	11, // 1: fkms.v1.SignXrplRequest.tss:type_name -> fkms.v1.Tss
-	10, // 2: fkms.v1.SignIconRequest.signer_payload:type_name -> fkms.v1.IconSignerPayload
-	11, // 3: fkms.v1.SignIconRequest.tss:type_name -> fkms.v1.Tss
-	12, // 4: fkms.v1.GetSignerAddressesResponse.signers:type_name -> fkms.v1.Signers
-	0,  // 5: fkms.v1.Signers.chain_type:type_name -> fkms.v1.ChainType
-	1,  // 6: fkms.v1.FkmsService.SignEvm:input_type -> fkms.v1.SignEvmRequest
-	3,  // 7: fkms.v1.FkmsService.SignXrpl:input_type -> fkms.v1.SignXrplRequest
-	5,  // 8: fkms.v1.FkmsService.SignIcon:input_type -> fkms.v1.SignIconRequest
-	7,  // 9: fkms.v1.FkmsService.GetSignerAddresses:input_type -> fkms.v1.GetSignerAddressesRequest
-	2,  // 10: fkms.v1.FkmsService.SignEvm:output_type -> fkms.v1.SignEvmResponse
-	4,  // 11: fkms.v1.FkmsService.SignXrpl:output_type -> fkms.v1.SignXrplResponse
-	6,  // 12: fkms.v1.FkmsService.SignIcon:output_type -> fkms.v1.SignIconResponse
-	8,  // 13: fkms.v1.FkmsService.GetSignerAddresses:output_type -> fkms.v1.GetSignerAddressesResponse
-	10, // [10:14] is the sub-list for method output_type
-	6,  // [6:10] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	11, // 0: fkms.v1.SignXrplRequest.signer_payload:type_name -> fkms.v1.XrplSignerPayload
+	14, // 1: fkms.v1.SignXrplRequest.tss:type_name -> fkms.v1.Tss
+	12, // 2: fkms.v1.SignIconRequest.signer_payload:type_name -> fkms.v1.IconSignerPayload
+	14, // 3: fkms.v1.SignIconRequest.tss:type_name -> fkms.v1.Tss
+	13, // 4: fkms.v1.SignSecretRequest.signer_payload:type_name -> fkms.v1.SecretSignerPayload
+	14, // 5: fkms.v1.SignSecretRequest.tss:type_name -> fkms.v1.Tss
+	15, // 6: fkms.v1.GetSignerAddressesResponse.signers:type_name -> fkms.v1.Signers
+	0,  // 7: fkms.v1.Signers.chain_type:type_name -> fkms.v1.ChainType
+	1,  // 8: fkms.v1.FkmsService.SignEvm:input_type -> fkms.v1.SignEvmRequest
+	3,  // 9: fkms.v1.FkmsService.SignXrpl:input_type -> fkms.v1.SignXrplRequest
+	5,  // 10: fkms.v1.FkmsService.SignIcon:input_type -> fkms.v1.SignIconRequest
+	7,  // 11: fkms.v1.FkmsService.SignSecret:input_type -> fkms.v1.SignSecretRequest
+	9,  // 12: fkms.v1.FkmsService.GetSignerAddresses:input_type -> fkms.v1.GetSignerAddressesRequest
+	2,  // 13: fkms.v1.FkmsService.SignEvm:output_type -> fkms.v1.SignEvmResponse
+	4,  // 14: fkms.v1.FkmsService.SignXrpl:output_type -> fkms.v1.SignXrplResponse
+	6,  // 15: fkms.v1.FkmsService.SignIcon:output_type -> fkms.v1.SignIconResponse
+	8,  // 16: fkms.v1.FkmsService.SignSecret:output_type -> fkms.v1.SignSecretResponse
+	10, // 17: fkms.v1.FkmsService.GetSignerAddresses:output_type -> fkms.v1.GetSignerAddressesResponse
+	13, // [13:18] is the sub-list for method output_type
+	8,  // [8:13] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_proto_fkms_v1_signer_proto_init() }
@@ -803,7 +1047,7 @@ func file_proto_fkms_v1_signer_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_fkms_v1_signer_proto_rawDesc), len(file_proto_fkms_v1_signer_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   12,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

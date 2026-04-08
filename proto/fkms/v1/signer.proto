@@ -8,6 +8,7 @@ service FkmsService {
   rpc SignEvm(SignEvmRequest) returns (SignEvmResponse);
   rpc SignXrpl(SignXrplRequest) returns (SignXrplResponse);
   rpc SignIcon(SignIconRequest) returns (SignIconResponse);
+  rpc SignSecret(SignSecretRequest) returns (SignSecretResponse);
   rpc GetSignerAddresses(GetSignerAddressesRequest) returns (GetSignerAddressesResponse);
 }
 
@@ -38,6 +39,15 @@ message SignIconResponse {
   bytes tx_params = 1;
 }
 
+message SignSecretRequest {
+  SecretSignerPayload signer_payload = 1;
+  Tss tss = 2;
+}
+
+message SignSecretResponse {
+  bytes tx_blob = 1;
+}
+
 message GetSignerAddressesRequest {}
 
 message GetSignerAddressesResponse {
@@ -58,6 +68,19 @@ message IconSignerPayload {
   string network_id = 4;
 }
 
+message SecretSignerPayload {
+  string sender = 1;
+  string contract_address = 2;
+  string chain_id = 3;
+  uint64 account_number = 4;
+  uint64 sequence = 5;
+  uint64 gas_limit = 6;
+  string gas_prices = 7;
+  string memo = 8;
+  string code_hash = 9;
+  string pubkey = 10;
+}
+
 message Tss {
   bytes message = 1;
   bytes random_addr = 2;
@@ -73,4 +96,5 @@ enum ChainType {
   EVM = 0;
   XRPL = 1;
   ICON = 2;
+  SECRET = 3;
 }
