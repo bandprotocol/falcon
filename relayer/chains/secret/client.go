@@ -211,12 +211,15 @@ func (c *client) GetAccount(sender string) (accountNumber uint64, sequence uint6
 		return 0, 0, err
 	}
 
-	acc, err := sdk.AccAddressFromBech32(sender)
+	queryClient := authtypes.NewQueryClient(*cli)
+	req := &authtypes.QueryAccountRequest{Address: sender}
+	resp, err := queryClient.Account(context.Background(), req)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	account, err := cli.AccountRetriever.GetAccount(*cli, acc)
+	var account sdk.AccountI
+	err = cli.InterfaceRegistry.UnpackAny(resp.Account, &account)
 	if err != nil {
 		return 0, 0, err
 	}

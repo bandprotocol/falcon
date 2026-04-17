@@ -3,7 +3,6 @@ package secret
 import (
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -49,17 +48,6 @@ func (cpc *SecretChainProviderConfig) NewChainProvider(
 	alert alert.Alert,
 ) (chains.ChainProvider, error) {
 	client := NewClient(chainName, cpc, log, alert)
-
-	accountPubKeyPrefix := bech32PrefixAccAddr + "pub"
-	validatorAddressPrefix := bech32PrefixAccAddr + "valoper"
-	validatorPubKeyPrefix := bech32PrefixAccAddr + "valoperpub"
-	consNodeAddressPrefix := bech32PrefixAccAddr + "valcons"
-	consNodePubKeyPrefix := bech32PrefixAccAddr + "valconspub"
-
-	config := sdk.GetConfig()
-	config.SetBech32PrefixForAccount(bech32PrefixAccAddr, accountPubKeyPrefix)
-	config.SetBech32PrefixForValidator(validatorAddressPrefix, validatorPubKeyPrefix)
-	config.SetBech32PrefixForConsensusNode(consNodeAddressPrefix, consNodePubKeyPrefix)
 
 	return NewSecretChainProvider(chainName, client, cpc, log, wallet, alert), nil
 }
