@@ -152,7 +152,7 @@ func (cp *SecretChainProvider) RelayPacket(ctx context.Context, packet *bandtype
 			cp.Config.GasPrice,
 			cp.Config.Memo,
 			cp.Config.CodeHash,
-			cp.Config.PubKey,
+			cp.Config.ChainPubkey,
 		)
 
 		payloadBytes, err := json.Marshal(signerPayload)

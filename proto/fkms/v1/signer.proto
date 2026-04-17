@@ -78,7 +78,7 @@ message SecretSignerPayload {
   string gas_prices = 7;
   string memo = 8;
   string code_hash = 9;
-  string pubkey = 10;
+  string chain_pubkey = 10;
 }
 
 message Tss {

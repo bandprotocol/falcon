@@ -43,7 +43,7 @@ func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byt
 				GasPrices:       signerPayload.GasPrices,
 				Memo:            signerPayload.Memo,
 				CodeHash:        signerPayload.CodeHash,
-				Pubkey:          signerPayload.PubKey,
+				ChainPubkey:     signerPayload.ChainPubkey,
 			},
 			Tss: &fkmsv1.Tss{
 				Message:    tssPayload.TssMessage,

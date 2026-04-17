@@ -12,7 +12,7 @@ type SignerPayload struct {
 	GasPrices       string `json:"gas_prices"`
 	Memo            string `json:"memo"`
 	CodeHash        string `json:"code_hash"`
-	PubKey          string `json:"pubkey"`
+	ChainPubkey     string `json:"chain_pubkey"`
 }
 
 func NewSignerPayload(
@@ -25,7 +25,7 @@ func NewSignerPayload(
 	gasPrices string,
 	memo string,
 	codeHash string,
-	pubKey string,
+	chainPubkey string,
 ) SignerPayload {
 	return SignerPayload{
 		Sender:          sender,
@@ -37,6 +37,6 @@ func NewSignerPayload(
 		GasPrices:       gasPrices,
 		Memo:            memo,
 		CodeHash:        codeHash,
-		PubKey:          pubKey,
+		ChainPubkey:     chainPubkey,
 	}
 }

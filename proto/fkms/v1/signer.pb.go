@@ -684,7 +684,7 @@ type SecretSignerPayload struct {
 	GasPrices       string                 `protobuf:"bytes,7,opt,name=gas_prices,json=gasPrices,proto3" json:"gas_prices,omitempty"`
 	Memo            string                 `protobuf:"bytes,8,opt,name=memo,proto3" json:"memo,omitempty"`
 	CodeHash        string                 `protobuf:"bytes,9,opt,name=code_hash,json=codeHash,proto3" json:"code_hash,omitempty"`
-	Pubkey          string                 `protobuf:"bytes,10,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
+	ChainPubkey     string                 `protobuf:"bytes,10,opt,name=chain_pubkey,json=chainPubkey,proto3" json:"chain_pubkey,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -782,9 +782,9 @@ func (x *SecretSignerPayload) GetCodeHash() string {
 	return ""
 }
 
-func (x *SecretSignerPayload) GetPubkey() string {
+func (x *SecretSignerPayload) GetChainPubkey() string {
 	if x != nil {
-		return x.Pubkey
+		return x.ChainPubkey
 	}
 	return ""
 }
@@ -940,7 +940,7 @@ const file_proto_fkms_v1_signer_proto_rawDesc = "" +
 	"\n" +
 	"step_limit\x18\x03 \x01(\x04R\tstepLimit\x12\x1d\n" +
 	"\n" +
-	"network_id\x18\x04 \x01(\tR\tnetworkId\"\xbb\x02\n" +
+	"network_id\x18\x04 \x01(\tR\tnetworkId\"\xc6\x02\n" +
 	"\x13SecretSignerPayload\x12\x16\n" +
 	"\x06sender\x18\x01 \x01(\tR\x06sender\x12)\n" +
 	"\x10contract_address\x18\x02 \x01(\tR\x0fcontractAddress\x12\x19\n" +
@@ -951,9 +951,9 @@ const file_proto_fkms_v1_signer_proto_rawDesc = "" +
 	"\n" +
 	"gas_prices\x18\a \x01(\tR\tgasPrices\x12\x12\n" +
 	"\x04memo\x18\b \x01(\tR\x04memo\x12\x1b\n" +
-	"\tcode_hash\x18\t \x01(\tR\bcodeHash\x12\x16\n" +
-	"\x06pubkey\x18\n" +
-	" \x01(\tR\x06pubkey\"a\n" +
+	"\tcode_hash\x18\t \x01(\tR\bcodeHash\x12!\n" +
+	"\fchain_pubkey\x18\n" +
+	" \x01(\tR\vchainPubkey\"a\n" +
 	"\x03Tss\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\fR\amessage\x12\x1f\n" +
 	"\vrandom_addr\x18\x02 \x01(\fR\n" +

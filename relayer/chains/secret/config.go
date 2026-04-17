@@ -36,7 +36,7 @@ type SecretChainProviderConfig struct {
 	// Secret contract encryption parameters (passed to fkms).
 	CodeHash string `mapstructure:"code_hash" toml:"code_hash"`
 	// Secret chain's public key (used for signing, passed to fkms).
-	PubKey string `mapstructure:"pub_key" toml:"pub_key"`
+	ChainPubkey string `mapstructure:"chain_pubkey" toml:"chain_pubkey"`
 
 	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration" toml:"waiting_tx_duration"`
 	CheckingTxInterval time.Duration `mapstructure:"checking_tx_interval" toml:"checking_tx_interval"`
