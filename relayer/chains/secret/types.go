@@ -3,10 +3,18 @@ package secret
 import (
 	"math/big"
 
+	sdkclient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/shopspring/decimal"
 
 	"github.com/bandprotocol/falcon/relayer/chains/types"
 )
+
+// ClientConnectionResult is the struct that contains the result of connecting to the specific endpoint.
+type ClientConnectionResult struct {
+	Endpoint    string
+	Client      *sdkclient.Context
+	BlockHeight int64
+}
 
 // TxResult is the result of transaction confirmation.
 type TxResult struct {

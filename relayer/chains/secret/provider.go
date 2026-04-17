@@ -111,6 +111,8 @@ func (cp *SecretChainProvider) RelayPacket(ctx context.Context, packet *bandtype
 		return err
 	}
 
+	// get a free signer
+	cp.Log.Debug("Waiting for a free signer...")
 	freeSigner := <-cp.FreeSigners
 	defer func() { cp.FreeSigners <- freeSigner }()
 
@@ -131,7 +133,7 @@ func (cp *SecretChainProvider) RelayPacket(ctx context.Context, packet *bandtype
 			continue
 		}
 
-		accountNumber, sequence, err := cp.Client.GetAccount(freeSigner.GetAddress())
+		accountNumber, sequence, err := cp.Client.GetAccount(ctx, freeSigner.GetAddress())
 		if err != nil {
 			log.Error("Get account error", "retry_count", retryCount, err)
 			lastErr = err
@@ -172,11 +174,9 @@ func (cp *SecretChainProvider) RelayPacket(ctx context.Context, packet *bandtype
 			continue
 		}
 
-		cp.Log.Info("Successfully signed, tx blob ready to be broadcasted", "tx_blob", fmt.Sprintf("%X", txBlob))
-
 		var balance *big.Int
 		if cp.DB != nil {
-			balance, err = cp.Client.GetBalance(freeSigner.GetAddress())
+			balance, err = cp.Client.GetBalance(ctx, freeSigner.GetAddress())
 			if err != nil {
 				log.Error("Failed to get balance", "retry_count", retryCount, err)
 				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
@@ -237,7 +237,7 @@ func (cp *SecretChainProvider) QueryBalance(ctx context.Context, keyName string)
 		cp.Log.Error("Key name does not exist", "key_name", keyName)
 		return nil, fmt.Errorf("key name does not exist: %s", keyName)
 	}
-	return cp.Client.GetBalance(signer.GetAddress())
+	return cp.Client.GetBalance(ctx, signer.GetAddress())
 }
 
 func (cp *SecretChainProvider) GetChainName() string       { return cp.ChainName }
@@ -245,7 +245,7 @@ func (cp *SecretChainProvider) ChainType() types.ChainType { return types.ChainT
 func (cp *SecretChainProvider) GetWallet() wallet.Wallet   { return cp.Wallet }
 
 func (cp *SecretChainProvider) prepareTransaction(
-	_ context.Context,
+	ctx context.Context,
 	txHash string,
 	signerAddress string,
 	packet *bandtypes.Packet,
@@ -275,7 +275,7 @@ func (cp *SecretChainProvider) prepareTransaction(
 		effectiveGasPrice = txResult.EffectiveGasPrice
 
 		if (txResult.Status == types.TX_STATUS_SUCCESS || txResult.Status == types.TX_STATUS_FAILED) && txResult.BlockHeight != nil {
-			block, err := cp.Client.GetBlockByHeight(txResult.BlockHeight)
+			block, err := cp.Client.GetBlockByHeight(ctx, txResult.BlockHeight)
 			if err != nil {
 				log.Error("Failed to get block by height", "retry_count", retryCount, "block_height", txResult.BlockHeight, err)
 				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetHeaderBlockErrorMsg).
@@ -291,7 +291,7 @@ func (cp *SecretChainProvider) prepareTransaction(
 		}
 
 		if oldBalance != nil {
-			newBalance, err := cp.Client.GetBalance(signerAddress)
+			newBalance, err := cp.Client.GetBalance(ctx, signerAddress)
 			if err != nil {
 				log.Error("Failed to get balance", "retry_count", retryCount, err)
 				alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
@@ -329,7 +329,7 @@ func (cp *SecretChainProvider) CheckConfirmedTx(
 	ctx context.Context,
 	txHash string,
 ) (TxResult, error) {
-	tx, err := cp.Client.GetTx(txHash)
+	tx, err := cp.Client.GetTx(ctx, txHash)
 	if err != nil {
 		err = fmt.Errorf("failed to get transaction: %w", err)
 		return NewTxResult(

@@ -34,10 +34,10 @@ type Client interface {
 	StartLivelinessCheck(ctx context.Context, interval time.Duration)
 
 	BroadcastTx(txBlob []byte) (string, error)
-	GetBalance(address string) (*big.Int, error)
-	GetTx(txHash string) (*typesTxResult, error)
-	GetBlockByHeight(height *big.Int) (*typesBlockResult, error)
-	GetAccount(sender string) (accountNumber uint64, sequence uint64, err error)
+	GetBalance(ctx context.Context, address string) (*big.Int, error)
+	GetTx(ctx context.Context, txHash string) (*typesTxResult, error)
+	GetBlockByHeight(ctx context.Context, height *big.Int) (*typesBlockResult, error)
+	GetAccount(ctx context.Context, sender string) (accountNumber uint64, sequence uint64, err error)
 }
 
 // typesTxResult mirrors the subset of TxResult fields we need in provider.
@@ -115,7 +115,7 @@ func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 	return rpcClient, nil
 }
 
-func (c *client) Connect(_ context.Context) error {
+func (c *client) Connect(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	for _, endpoint := range c.endpoints {
@@ -137,7 +137,7 @@ func (c *client) Connect(_ context.Context) error {
 				return
 			}
 
-			ctx := sdkclient.Context{}.
+			ctxCli := sdkclient.Context{}.
 				WithAccountRetriever(authtypes.AccountRetriever{}).
 				WithBroadcastMode(flags.BroadcastSync).
 				WithCodec(enc.Marshaler).
@@ -146,16 +146,24 @@ func (c *client) Connect(_ context.Context) error {
 				WithClient(rpcClient).
 				WithNodeURI(endpoint)
 
-			c.clients.SetClient(endpoint, &ctx)
+			c.clients.SetClient(endpoint, &ctxCli)
 		}(endpoint)
 	}
 
 	wg.Wait()
 
-	// Select the first connected endpoint (or just first endpoint if none exist yet).
-	if c.clients.GetSelectedEndpoint() == "" && len(c.endpoints) > 0 {
-		c.clients.SetSelectedEndpoint(c.endpoints[0])
+	res, err := c.getClientWithMaxHeight(ctx)
+	if err != nil {
+		c.log.Error("Failed to connect to secret chain", err)
+		return err
 	}
+
+	// only log when new endpoint is used
+	if c.clients.GetSelectedEndpoint() != res.Endpoint {
+		c.log.Info("Connected to secret chain", "endpoint", res.Endpoint)
+	}
+
+	c.clients.SetSelectedEndpoint(res.Endpoint)
 
 	return nil
 }
@@ -205,7 +213,7 @@ func (c *client) BroadcastTx(txBlob []byte) (string, error) {
 	return res.TxHash, nil
 }
 
-func (c *client) GetAccount(sender string) (accountNumber uint64, sequence uint64, err error) {
+func (c *client) GetAccount(ctx context.Context, sender string) (accountNumber uint64, sequence uint64, err error) {
 	cli, err := c.getSelectedClient()
 	if err != nil {
 		return 0, 0, err
@@ -213,7 +221,7 @@ func (c *client) GetAccount(sender string) (accountNumber uint64, sequence uint6
 
 	queryClient := authtypes.NewQueryClient(*cli)
 	req := &authtypes.QueryAccountRequest{Address: sender}
-	resp, err := queryClient.Account(context.Background(), req)
+	resp, err := queryClient.Account(ctx, req)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -227,7 +235,7 @@ func (c *client) GetAccount(sender string) (accountNumber uint64, sequence uint6
 	return account.GetAccountNumber(), account.GetSequence(), nil
 }
 
-func (c *client) GetBalance(address string) (*big.Int, error) {
+func (c *client) GetBalance(ctx context.Context, address string) (*big.Int, error) {
 	cli, err := c.getSelectedClient()
 	if err != nil {
 		return nil, err
@@ -239,7 +247,7 @@ func (c *client) GetBalance(address string) (*big.Int, error) {
 		Denom:   c.denom,
 	}
 
-	resp, err := queryClient.Balance(context.Background(), &req)
+	resp, err := queryClient.Balance(ctx, &req)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +256,7 @@ func (c *client) GetBalance(address string) (*big.Int, error) {
 	return amount.BigInt(), nil
 }
 
-func (c *client) GetTx(txHash string) (*typesTxResult, error) {
+func (c *client) GetTx(ctx context.Context, txHash string) (*typesTxResult, error) {
 	cli, err := c.getSelectedClient()
 	if err != nil {
 		return nil, err
@@ -264,7 +272,7 @@ func (c *client) GetTx(txHash string) (*typesTxResult, error) {
 		return nil, err
 	}
 
-	resultTx, err := node.Tx(context.Background(), txHashBytes, true)
+	resultTx, err := node.Tx(ctx, txHashBytes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +295,7 @@ func (c *client) GetTx(txHash string) (*typesTxResult, error) {
 	}, nil
 }
 
-func (c *client) GetBlockByHeight(height *big.Int) (*typesBlockResult, error) {
+func (c *client) GetBlockByHeight(ctx context.Context, height *big.Int) (*typesBlockResult, error) {
 	cli, err := c.getSelectedClient()
 	if err != nil {
 		return nil, err
@@ -299,7 +307,7 @@ func (c *client) GetBlockByHeight(height *big.Int) (*typesBlockResult, error) {
 	}
 
 	h := height.Int64()
-	resBlock, err := node.Block(context.Background(), &h)
+	resBlock, err := node.Block(ctx, &h)
 	if err != nil {
 		return nil, err
 	}
@@ -310,4 +318,93 @@ func (c *client) GetBlockByHeight(height *big.Int) (*typesBlockResult, error) {
 
 	// Block timestamp is in UTC.
 	return &typesBlockResult{Time: resBlock.Block.Time.UTC()}, nil
+}
+
+// getClientWithMaxHeight connects to the endpoint that has the highest block height.
+func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionResult, error) {
+	ch := make(chan ClientConnectionResult, len(c.endpoints))
+
+	for _, endpoint := range c.endpoints {
+		go func(endpoint string) {
+			cli, ok := c.clients.GetClient(endpoint)
+
+			if !ok {
+				ch <- ClientConnectionResult{Endpoint: endpoint, Client: nil, BlockHeight: 0}
+				return
+			}
+
+			node, err := cli.GetNode()
+			if err != nil {
+				c.log.Warn(
+					"Failed to get node from client",
+					"endpoint", endpoint,
+					"err", err,
+				)
+				ch <- ClientConnectionResult{Endpoint: endpoint, Client: nil, BlockHeight: 0}
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+						WithChainName(c.chainName).
+						WithEndpoint(endpoint),
+					err.Error(),
+				)
+				return
+			}
+
+			status, err := node.Status(ctx)
+			if err != nil {
+				c.log.Warn(
+					"Failed to get status from node",
+					"endpoint", endpoint,
+					"err", err,
+				)
+				ch <- ClientConnectionResult{Endpoint: endpoint, Client: nil, BlockHeight: 0}
+				alert.HandleAlert(
+					c.alert,
+					alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+						WithChainName(c.chainName).
+						WithEndpoint(endpoint),
+					err.Error(),
+				)
+				return
+			}
+
+			c.log.Debug(
+				"Get height of the given client",
+				"endpoint", endpoint,
+				"block_number", status.SyncInfo.LatestBlockHeight,
+			)
+			alert.HandleReset(
+				c.alert,
+				alert.NewTopic(alert.ConnectSingleChainClientErrorMsg).
+					WithChainName(c.chainName).
+					WithEndpoint(endpoint),
+			)
+
+			ch <- ClientConnectionResult{Endpoint: endpoint, Client: cli, BlockHeight: status.SyncInfo.LatestBlockHeight}
+		}(endpoint)
+	}
+
+	var result ClientConnectionResult
+	for i := 0; i < len(c.endpoints); i++ {
+		r := <-ch
+		if r.Client != nil {
+			if r.BlockHeight > result.BlockHeight || (r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
+				result = r
+			}
+		}
+	}
+
+	if result.Client == nil {
+		alert.HandleAlert(
+			c.alert,
+			alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.chainName),
+			fmt.Sprintf("failed to connect to secret chain on all endpoints: %s", c.endpoints),
+		)
+		return ClientConnectionResult{}, fmt.Errorf("failed to connect to secret chain")
+	}
+
+	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.chainName))
+
+	return result, nil
 }
