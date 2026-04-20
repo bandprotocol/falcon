@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/shopspring/decimal"
 
 	"github.com/bandprotocol/falcon/internal/relayermetrics"
@@ -22,6 +22,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/db"
 	"github.com/bandprotocol/falcon/relayer/logger"
 	"github.com/bandprotocol/falcon/relayer/wallet"
+	walletevm "github.com/bandprotocol/falcon/relayer/wallet/evm"
 )
 
 var _ chains.ChainProvider = (*EVMChainProvider)(nil)
@@ -292,7 +293,9 @@ func (cp *EVMChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.P
 	return fmt.Errorf("[EVMProvider] failed to relay packet after %d retries", cp.Config.MaxRetry)
 }
 
-// createAndSignRelayTx creates and signs the relay transaction.
+// createAndSignRelayTx fetches nonce and estimates gas, then delegates transaction
+// building, signing, and RLP encoding to the signer via Sign. Both LocalSigner and
+// RemoteSigner accept a SignerPayload JSON and return EIP-2718 encoded signed tx bytes.
 func (cp *EVMChainProvider) createAndSignRelayTx(
 	ctx context.Context,
 	packet *bandtypes.Packet,
@@ -304,17 +307,77 @@ func (cp *EVMChainProvider) createAndSignRelayTx(
 		return nil, fmt.Errorf("failed to create calldata: %w", err)
 	}
 
-	tx, err := cp.NewRelayTx(ctx, calldata, signer, gasInfo)
+	signing, err := chains.SelectSigning(packet)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create an evm transaction: %w", err)
+		return nil, fmt.Errorf("failed to select signing: %w", err)
+	}
+	rAddress, signature := chains.ExtractEVMSignature(signing.EVMSignature)
+	tssPayload := wallet.TssPayload{
+		TssMessage: signing.Message,
+		RandomAddr: rAddress,
+		Signature:  signature,
 	}
 
-	signedTx, err := cp.signTx(tx, signer)
+	addr := gethcommon.HexToAddress(signer.GetAddress())
+
+	nonce, err := cp.Client.NonceAt(ctx, addr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign an evm transaction: %w", err)
+		return nil, fmt.Errorf("failed to fetch nonce: %w", err)
 	}
 
-	return signedTx, nil
+	gasLimit, err := cp.Client.EstimateGas(ctx, ethereum.CallMsg{
+		From:      addr,
+		To:        &cp.TunnelRouterAddress,
+		Data:      calldata,
+		GasPrice:  gasInfo.GasPrice,
+		GasFeeCap: gasInfo.GasFeeCap,
+		GasTipCap: gasInfo.GasPriorityFee,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+
+	// Apply gas limit cap.
+	if cp.Config.GasLimit != 0 && gasLimit > cp.Config.GasLimit {
+		gasLimit = cp.Config.GasLimit
+	}
+
+	signerPayload := walletevm.NewSignerPayload(
+		signer.GetAddress(),
+		cp.Config.ChainID,
+		nonce,
+		cp.TunnelRouterAddress.Hex(),
+		gasLimit,
+		nil, nil, nil,
+	)
+	signerPayload.Data = calldata
+
+	switch cp.GasType {
+	case GasTypeLegacy:
+		signerPayload.GasPrice = gasInfo.GasPrice.Bytes()
+	case GasTypeEIP1559:
+		signerPayload.GasFeeCap = gasInfo.GasFeeCap.Bytes()
+		signerPayload.GasTipCap = gasInfo.GasPriorityFee.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
+	}
+
+	payloadJSON, err := json.Marshal(signerPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal signer payload: %w", err)
+	}
+
+	signedTxBytes, err := signer.Sign(payloadJSON, tssPayload)
+	if err != nil {
+		return nil, fmt.Errorf("signing failed: %w", err)
+	}
+
+	var tx gethtypes.Transaction
+	if err := tx.UnmarshalBinary(signedTxBytes); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal signed tx: %w", err)
+	}
+
+	return &tx, nil
 }
 
 // WaitForConfirmedTx polls the transaction until it reaches a terminal state.
@@ -732,70 +795,6 @@ func (cp *EVMChainProvider) CreateCalldata(packet *bandtypes.Packet) ([]byte, er
 		rAddr,
 		new(big.Int).SetBytes(signature),
 	)
-}
-
-// signTx signs the transaction with the signer.
-func (cp *EVMChainProvider) signTx(
-	tx *gethtypes.Transaction,
-	signer wallet.Signer,
-) (*gethtypes.Transaction, error) {
-	var (
-		rlpEncoded []byte
-		err        error
-		gethSigner gethtypes.Signer
-	)
-
-	chainID := big.NewInt(int64(cp.Config.ChainID))
-
-	switch cp.GasType {
-	case GasTypeLegacy:
-		rlpEncoded, err = rlp.EncodeToBytes(
-			[]interface{}{
-				tx.Nonce(),
-				tx.GasPrice(),
-				tx.Gas(),
-				tx.To(),
-				tx.Value(),
-				tx.Data(),
-				chainID, uint(0), uint(0),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		gethSigner = gethtypes.NewEIP155Signer(chainID)
-	case GasTypeEIP1559:
-		rlpEncoded, err = rlp.EncodeToBytes(
-			[]interface{}{
-				chainID,
-				tx.Nonce(),
-				tx.GasTipCap(),
-				tx.GasFeeCap(),
-				tx.Gas(),
-				tx.To(),
-				tx.Value(),
-				tx.Data(),
-				tx.AccessList(),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		rlpEncoded = append([]byte{tx.Type()}, rlpEncoded...)
-		gethSigner = gethtypes.NewLondonSigner(chainID)
-
-	default:
-		return nil, fmt.Errorf("unsupported gas type: %v", cp.GasType)
-	}
-
-	signature, err := signer.Sign(rlpEncoded, wallet.TssPayload{})
-	if err != nil {
-		return nil, err
-	}
-
-	return tx.WithSignature(gethSigner, signature)
 }
 
 // QueryBalance queries balance of specific account address.

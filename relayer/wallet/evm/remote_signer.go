@@ -1,8 +1,8 @@
 package evm
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -31,15 +31,38 @@ func NewRemoteSigner(name, address, url string, key string) (*RemoteSigner, erro
 	return &RemoteSigner{BaseRemoteSigner: *base}, nil
 }
 
-// Sign requests the remote KMS to sign the data and returns the signature.
-func (r *RemoteSigner) Sign(payload []byte, _ wallet.TssPayload) ([]byte, error) {
+// Sign JSON-unmarshals payload into SignerPayload and delegates transaction
+// building, signing, and RLP encoding to the remote KMS. Returns the
+// EIP-2718 encoded signed transaction bytes.
+func (r *RemoteSigner) Sign(payload []byte, tssPayload wallet.TssPayload) ([]byte, error) {
+	var signerPayload SignerPayload
+	if err := json.Unmarshal(payload, &signerPayload); err != nil {
+		return nil, err
+	}
+
 	res, err := r.FkmsClient.SignEvm(
 		r.ContextWithKey(),
-		&fkmsv1.SignEvmRequest{Address: strings.ToLower(r.Address), Message: payload},
+		&fkmsv1.SignEvmRequest{
+			SignerPayload: &fkmsv1.EvmSignerPayload{
+				Address:   signerPayload.Address,
+				ChainId:   signerPayload.ChainID,
+				Nonce:     signerPayload.Nonce,
+				To:        signerPayload.To,
+				GasLimit:  signerPayload.GasLimit,
+				GasPrice:  signerPayload.GasPrice,
+				GasFeeCap: signerPayload.GasFeeCap,
+				GasTipCap: signerPayload.GasTipCap,
+			},
+			Tss: &fkmsv1.Tss{
+				Message:    tssPayload.TssMessage,
+				RandomAddr: tssPayload.RandomAddr,
+				SignatureS: tssPayload.Signature,
+			},
+		},
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return res.Signature, nil
+	return res.TxBlob, nil
 }

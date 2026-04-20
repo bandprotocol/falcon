@@ -11,13 +11,26 @@ service FkmsService {
   rpc GetSignerAddresses(GetSignerAddressesRequest) returns (GetSignerAddressesResponse);
 }
 
+message EvmSignerPayload {
+  string address    = 1;  // signer address (hex, lowercase)
+  uint64 chain_id   = 2;
+  uint64 nonce      = 3;
+  string to         = 4;  // tunnel router address (hex)
+  uint64 gas_limit  = 5;
+  // Legacy tx fields
+  bytes  gas_price  = 6;  // big-endian big.Int bytes
+  // EIP-1559 fields
+  bytes  gas_fee_cap = 7; // big-endian big.Int bytes (maxFeePerGas)
+  bytes  gas_tip_cap = 8; // big-endian big.Int bytes (maxPriorityFeePerGas)
+}
+
 message SignEvmRequest {
-  string address = 1;
-  bytes message = 2;
+  EvmSignerPayload signer_payload = 1;
+  Tss tss = 2;
 }
 
 message SignEvmResponse {
-  bytes signature = 1;
+  bytes tx_blob = 1;  // complete EIP-2718 encoded signed transaction
 }
 
 message SignXrplRequest {
