@@ -1,7 +1,6 @@
 package db
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -10,15 +9,13 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
-
-	chaintypes "github.com/bandprotocol/falcon/relayer/chains/types"
 )
 
 var _ Database = &SQL{}
 
 // SQL is instance that wraps Gorm DB instance.
 type SQL struct {
-	db *gorm.DB
+	Db *gorm.DB
 }
 
 // NewSQL opens a new Gorm connection using the given driverName and dbPath.
@@ -53,7 +50,7 @@ func NewSQL(dbPath string) (SQL, error) {
 		return SQL{}, gorm.ErrUnsupportedDriver
 	}
 
-	return SQL{db: db}, nil
+	return SQL{Db: db}, nil
 }
 
 // splitDbPath splits "<driver>:<dsn>" into driver and DSN.
@@ -78,29 +75,13 @@ func splitDbPath(dbPath string) (string, string, error) {
 // AddOrUpdateTransaction inserts a new Transaction record if none exists with the same TxHash.
 // If a record with the same TxHash exists, it updates the existing record with the new values.
 func (sql SQL) AddOrUpdateTransaction(transaction *Transaction) error {
-	return sql.db.
+	return sql.Db.
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "tx_hash"}},
 			DoUpdates: clause.AssignmentColumns([]string{
-				"status", "gas_used", "effective_gas_price", "balance_delta", "block_timestamp", "updated_at",
+				"status", "gas_used", "effective_gas_price", "balance_delta", "block_timestamp", "packet_timestamp", "updated_at",
 			}),
 		}).
 		Create(transaction).
 		Error
-}
-
-func (sql SQL) GetLatestTransaction(tunnelID uint64) (*Transaction, error) {
-	var tx Transaction
-	result := sql.db.
-		Where("tunnel_id = ? AND status = ?", tunnelID, chaintypes.TX_STATUS_SUCCESS).
-		Order("block_timestamp DESC").
-		First(&tx)
-	if result.Error != nil {
-		// Check if the error is specifically "Record Not Found"
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, result.Error
-	}
-	return &tx, nil
 }

@@ -466,6 +466,7 @@ func (cp *EVMChainProvider) prepareTransaction(
 		}
 	}
 
+	packetTimestamp := time.Unix(packet.CreatedAt, 0).UTC()
 	tx := db.NewTransaction(
 		txHash,
 		packet.TunnelID,
@@ -479,6 +480,7 @@ func (cp *EVMChainProvider) prepareTransaction(
 		balanceDelta,
 		signalPrices,
 		blockTimestamp,
+		&packetTimestamp,
 	)
 
 	return tx

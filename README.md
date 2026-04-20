@@ -305,11 +305,11 @@ make proto
 ### Setup SQL database 
   - As an environment variable via a `.env` file.
     ``` shell
-    DB_PATH=postgresql://user:password@localhost:5432/mydatabase
+    DB_PATH=postgres://user:password@localhost:5432/mydatabase
     ```
   - Passed inline with commands that require it.
     ``` shell
-    export DB_PATH=postgresql://user:password@localhost:5432/mydatabase
+    export DB_PATH=postgres://user:password@localhost:5432/mydatabase
     ```
 
 ### Migrating SQL database 

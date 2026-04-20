@@ -59,6 +59,9 @@ var EvmChainCfgText string
 //go:embed testdata/xrpl_chain_config.toml
 var XrplChainCfgText string
 
+//go:embed testdata/flow_chain_config.toml
+var FlowChainCfgText string
+
 //go:embed testdata/default_with_chain_config.toml
 var DefaultCfgTextWithChainCfg string
 
