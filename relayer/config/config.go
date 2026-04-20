@@ -12,7 +12,9 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/chains/flow"
 	"github.com/bandprotocol/falcon/relayer/chains/icon"
+	"github.com/bandprotocol/falcon/relayer/chains/soroban"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 )

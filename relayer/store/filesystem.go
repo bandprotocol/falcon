@@ -12,7 +12,9 @@ import (
 	"github.com/bandprotocol/falcon/relayer/config"
 	"github.com/bandprotocol/falcon/relayer/wallet"
 	"github.com/bandprotocol/falcon/relayer/wallet/evm"
+	"github.com/bandprotocol/falcon/relayer/wallet/flow"
 	"github.com/bandprotocol/falcon/relayer/wallet/icon"
+	"github.com/bandprotocol/falcon/relayer/wallet/soroban"
 	"github.com/bandprotocol/falcon/relayer/wallet/xrpl"
 )
 

@@ -377,6 +377,8 @@ func (cp *SorobanChainProvider) handleSaveTransaction(
 		}
 	}
 
+	packetTimestamp := time.Unix(packet.CreatedAt, 0).UTC()
+
 	tx := db.NewTransaction(
 		txResult.TxHash,
 		packet.TunnelID,
@@ -390,6 +392,7 @@ func (cp *SorobanChainProvider) handleSaveTransaction(
 		balanceDelta,
 		signalPrices,
 		closeTime,
+		&packetTimestamp,
 	)
 
 	chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
