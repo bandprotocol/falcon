@@ -7,7 +7,7 @@ CREATE TABLE transactions (
   tunnel_id             INTEGER NOT NULL,
   sequence              INTEGER NOT NULL,
   chain_name            TEXT NOT NULL,
-  chain_type            TEXT NOT NULL CHECK (chain_type IN ('evm', 'xrpl', 'flow')),
+  chain_type            TEXT NOT NULL CHECK (chain_type IN ('evm', 'xrpl', 'icon', 'flow')),
   status                TEXT NOT NULL CHECK (status IN ('Pending','Success','Failed','Timeout')),
   sender                TEXT,
   gas_used              DECIMAL NULL,
