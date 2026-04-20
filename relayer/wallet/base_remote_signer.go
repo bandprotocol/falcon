@@ -48,14 +48,14 @@ func newGRPCConn(url string) (*grpc.ClientConn, error) {
 		host = strings.TrimPrefix(url, "https://")
 
 		if !strings.Contains(host, ":") {
-			host = host + ":443"
+			host += ":443"
 		}
 	} else {
 		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
 		host = strings.TrimPrefix(url, "http://")
 
 		if !strings.Contains(host, ":") {
-			host = host + ":80"
+			host += ":80"
 		}
 	}
 
