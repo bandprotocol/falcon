@@ -41,16 +41,25 @@ func NewBaseRemoteSigner(name, address, url string, key string) (*BaseRemoteSign
 
 func newGRPCConn(url string) (*grpc.ClientConn, error) {
 	var opts grpc.DialOption
+	var host string
 
 	if strings.HasPrefix(url, "https://") {
 		opts = grpc.WithTransportCredentials(credentials.NewTLS(nil))
-		url = strings.TrimPrefix(url, "https://")
+		host = strings.TrimPrefix(url, "https://")
+
+		if !strings.Contains(host, ":") {
+			host = host + ":443"
+		}
 	} else {
 		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
-		url = strings.TrimPrefix(url, "http://")
+		host = strings.TrimPrefix(url, "http://")
+
+		if !strings.Contains(host, ":") {
+			host = host + ":80"
+		}
 	}
 
-	return grpc.Dial(url, opts)
+	return grpc.NewClient(host, opts)
 }
 
 // ExportPrivateKey always returns an error for remote signers.
