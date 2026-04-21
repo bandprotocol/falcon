@@ -191,11 +191,25 @@ func (cp *IconChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 		cp.handleMetrics(packet.TunnelID, createdAt, txResult)
 
 		if cp.DB != nil {
-			tx := cp.prepareTransaction(ctx, txHash, freeSigner.GetAddress(), packet, &txResult, balance, log, retryCount)
+			tx := cp.prepareTransaction(
+				ctx,
+				txHash,
+				freeSigner.GetAddress(),
+				packet,
+				&txResult,
+				balance,
+				log,
+				retryCount,
+			)
 			chains.HandleSaveTransaction(cp.DB, cp.Alert, tx, log)
 		}
 
-		relayermetrics.IncTxsCount(packet.TunnelID, cp.ChainName, types.ChainTypeIcon.String(), txResult.Status.String())
+		relayermetrics.IncTxsCount(
+			packet.TunnelID,
+			cp.ChainName,
+			types.ChainTypeIcon.String(),
+			txResult.Status.String(),
+		)
 
 		if txResult.Status == types.TX_STATUS_SUCCESS {
 			log.Info(
@@ -285,7 +299,14 @@ func (cp *IconChainProvider) prepareTransaction(
 			if txResult.BlockHeight != nil {
 				block, err := cp.Client.GetBlockByHeight(txResult.BlockHeight)
 				if err != nil {
-					log.Error("Failed to get block by height", "retry_count", retryCount, "block_height", txResult.BlockHeight, err)
+					log.Error(
+						"Failed to get block by height",
+						"retry_count",
+						retryCount,
+						"block_height",
+						txResult.BlockHeight,
+						err,
+					)
 					alert.HandleAlert(cp.Alert, alert.NewTopic(alert.GetHeaderBlockErrorMsg).
 						WithTunnelID(packet.TunnelID).
 						WithChainName(cp.ChainName), err.Error())
@@ -318,6 +339,8 @@ func (cp *IconChainProvider) prepareTransaction(
 		}
 	}
 
+	packetTimestamp := time.Unix(packet.CreatedAt, 0).UTC()
+
 	tx := db.NewTransaction(
 		txHash,
 		packet.TunnelID,
@@ -331,6 +354,7 @@ func (cp *IconChainProvider) prepareTransaction(
 		balanceDelta,
 		signalPrices,
 		blockTimestamp,
+		&packetTimestamp,
 	)
 
 	return tx

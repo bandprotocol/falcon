@@ -12,6 +12,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/band"
 	"github.com/bandprotocol/falcon/relayer/chains"
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
+	"github.com/bandprotocol/falcon/relayer/chains/flow"
 	"github.com/bandprotocol/falcon/relayer/chains/icon"
 	"github.com/bandprotocol/falcon/relayer/chains/secret"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
@@ -95,6 +96,20 @@ func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProvide
 		cfg = &newCfg
 	case chainstypes.ChainTypeIcon:
 		var newCfg icon.IconChainProviderConfig
+
+		decoderConfig.Result = &newCfg
+		decoder, err := mapstructure.NewDecoder(&decoderConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := decoder.Decode(w); err != nil {
+			return nil, err
+		}
+
+		cfg = &newCfg
+	case chainstypes.ChainTypeFlow:
+		var newCfg flow.FlowChainProviderConfig
 
 		decoderConfig.Result = &newCfg
 		decoder, err := mapstructure.NewDecoder(&decoderConfig)

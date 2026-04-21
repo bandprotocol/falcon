@@ -306,6 +306,8 @@ func (cp *SecretChainProvider) prepareTransaction(
 		}
 	}
 
+	packetTimestamp := time.Unix(packet.CreatedAt, 0).UTC()
+
 	tx := db.NewTransaction(
 		txHash,
 		packet.TunnelID,
@@ -319,6 +321,7 @@ func (cp *SecretChainProvider) prepareTransaction(
 		balanceDelta,
 		signalPrices,
 		blockTimestamp,
+		&packetTimestamp,
 	)
 
 	return tx

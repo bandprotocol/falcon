@@ -7,20 +7,21 @@ CREATE TABLE transactions (
   tunnel_id             INTEGER NOT NULL,
   sequence              INTEGER NOT NULL,
   chain_name            TEXT NOT NULL,
-  chain_type            TEXT NOT NULL CHECK (chain_type IN ('evm', 'xrpl', 'icon', 'secret')),
+  chain_type            TEXT NOT NULL CHECK (chain_type IN ('evm', 'xrpl', 'icon', 'flow', 'secret')),
   status                TEXT NOT NULL CHECK (status IN ('Pending','Success','Failed','Timeout')),
   sender                TEXT,
   gas_used              DECIMAL NULL,
   effective_gas_price   DECIMAL NULL,
   balance_delta         DECIMAL NULL,
   block_timestamp       DATETIME NULL,
-  created_at            DATETIME NOT NULL DEFAULT (datetime('now')),
-  updated_at            DATETIME NOT NULL DEFAULT (datetime('now'))
+  packet_timestamp      DATETIME NULL,
+  created_at            DATETIME NOT NULL DEFAULT (datetime('now', 'utc')),
+  updated_at            DATETIME NOT NULL DEFAULT (datetime('now', 'utc'))
 );
 
 CREATE TABLE signal_prices (
   transaction_id  INTEGER NOT NULL,
-  signal_id    TEXT    NOT NULL,
+  signal_id       TEXT    NOT NULL,
   price           INTEGER NOT NULL,
   PRIMARY KEY (transaction_id, signal_id),
   FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
