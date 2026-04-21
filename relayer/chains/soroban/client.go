@@ -2,7 +2,6 @@ package soroban
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -215,7 +214,7 @@ func (c *client) getClientWithMaxLedger(ctx context.Context) (ClientConnectionRe
 			alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName),
 			fmt.Sprintf("failed to connect to Soroban chain on all endpoints: %s", c.HorizonEndpoints),
 		)
-		return ClientConnectionResult{}, fmt.Errorf("[SorobanClient] failed to connect to Soroban chain")
+		return ClientConnectionResult{}, fmt.Errorf("failed to connect to Soroban chain")
 	}
 
 	alert.HandleReset(c.alert, alert.NewTopic(alert.ConnectAllChainClientErrorMsg).WithChainName(c.ChainName))
@@ -226,7 +225,7 @@ func (c *client) GetAccountSequenceNumber(account string) (int64, error) {
 	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return 0, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
+		return 0, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	acc, err := hc.AccountDetail(horizonclient.AccountRequest{AccountID: account})
@@ -250,7 +249,7 @@ func (c *client) GetBalance(account string) (*big.Int, error) {
 	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	acc, err := hc.AccountDetail(horizonclient.AccountRequest{AccountID: account})
@@ -276,22 +275,11 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return TxResult{}, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
+		return TxResult{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	resp, err := hc.SubmitTransactionXDR(txBlob)
 	if err != nil {
-		var herr *horizonclient.Error
-		if errors.As(err, &herr) {
-			rc, _ := herr.ResultCodes()
-			c.Log.Error("horizon submission failed",
-				"status", herr.Problem.Status,
-				"result_codes", rc,
-				"result_xdr", herr.Problem.Extras["result_xdr"],
-			)
-			return TxResult{}, fmt.Errorf("failed to submit transaction: status=%d codes=%+v xdr=%s",
-				herr.Problem.Status, rc, herr.Problem.Extras["result_xdr"])
-		}
 		return TxResult{}, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
@@ -302,7 +290,7 @@ func (c *client) GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error) {
 	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return nil, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	ledger, err := hc.LedgerDetail(uint32(ledgerIndex))
@@ -318,7 +306,7 @@ func (c *client) GetTransactionStatus(txHash string) (hProtocol.Transaction, err
 	hc, err := c.clients.GetSelectedClient()
 	if err != nil {
 		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
-		return hProtocol.Transaction{}, fmt.Errorf("[SorobanClient] failed to get client: %w", err)
+		return hProtocol.Transaction{}, fmt.Errorf("failed to get client: %w", err)
 	}
 
 	return hc.TransactionDetail(txHash)
