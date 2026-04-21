@@ -106,7 +106,6 @@ func countValidSecretSymbolRates(signalPrices []bandtypes.SignalPrice) uint64 {
 // - delegating tx signing & encryption to fkms via remote signer
 // - broadcasting the returned signed tx blob
 func (cp *SecretChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.Packet) error {
-	cp.Log.Info("Start relaying a packet", "tunnel_id", packet.TunnelID, "sequence", packet.Sequence)
 	if err := cp.Client.CheckAndConnect(ctx); err != nil {
 		return err
 	}
@@ -152,7 +151,7 @@ func (cp *SecretChainProvider) RelayPacket(ctx context.Context, packet *bandtype
 			sequence,
 			gasLimit,
 			cp.Config.GasPrice,
-			cp.Config.Memo,
+			"Relayer",
 			cp.Config.CodeHash,
 			cp.Config.ChainPubkey,
 		)
@@ -342,15 +341,22 @@ func (cp *SecretChainProvider) CheckConfirmedTx(
 	}
 
 	gasUsed := decimal.NewNullDecimal(decimal.New(tx.GasUsed, 0))
+	fee := decimal.NewNullDecimal(decimal.NewFromInt(tx.Fee))
+	var effectiveGasPrice decimal.NullDecimal
+	if gasUsed.Decimal.IsZero() {
+		effectiveGasPrice = decimal.NullDecimal{}
+	} else {
+		effectiveGasPrice = decimal.NewNullDecimal(fee.Decimal.Div(gasUsed.Decimal))
+	}
 	blockHeight := big.NewInt(tx.Height)
 
 	if tx.StatusCode == 0 {
-		return NewTxResult(types.TX_STATUS_SUCCESS, gasUsed, decimal.NullDecimal{}, blockHeight, ""), nil
+		return NewTxResult(types.TX_STATUS_SUCCESS, gasUsed, effectiveGasPrice, blockHeight, ""), nil
 	}
 	return NewTxResult(
 		types.TX_STATUS_FAILED,
 		gasUsed,
-		decimal.NullDecimal{},
+		effectiveGasPrice,
 		blockHeight,
 		fmt.Sprintf("transaction failed with failure message %s", tx.Log),
 	), nil

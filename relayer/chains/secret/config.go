@@ -28,9 +28,6 @@ type SecretChainProviderConfig struct {
 	GasLimitBase uint64 `mapstructure:"gas_limit_base" toml:"gas_limit_base"`
 	GasLimitEach uint64 `mapstructure:"gas_limit_each" toml:"gas_limit_each"`
 
-	// Memo is included in the Cosmos SDK TxBody (passed to fkms).
-	Memo string `mapstructure:"memo" toml:"memo"`
-
 	// Secret contract encryption parameters (passed to fkms).
 	CodeHash string `mapstructure:"code_hash" toml:"code_hash"`
 	// Secret chain's public key (used for signing, passed to fkms).

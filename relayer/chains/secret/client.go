@@ -44,6 +44,7 @@ type Client interface {
 type typesTxResult struct {
 	StatusCode uint32
 	GasUsed    int64
+	Fee        int64
 	Height     int64
 	Log        string
 }
@@ -130,7 +131,6 @@ func (c *client) Connect(ctx context.Context) error {
 
 			enc := makeEncodingConfig()
 
-			// NOTE: band-feeder uses a larger timeout; we keep it conservative here.
 			rpcClient, err := newRPCClient(endpoint, 3*time.Second)
 			if err != nil {
 				c.log.Error("Failed to create cometbft rpc client", "endpoint", endpoint, "err", err)
@@ -175,9 +175,13 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	for {
 		select {
 		case <-ctx.Done():
+			c.log.Info("Stopping liveliness check")
 			return
 		case <-ticker.C:
-			_ = c.Connect(ctx)
+			err := c.Connect(ctx)
+			if err != nil {
+				c.log.Error("Liveliness check: unable to reconnect to any endpoints", err)
+			}
 		}
 	}
 }
@@ -277,6 +281,17 @@ func (c *client) GetTx(ctx context.Context, txHash string) (*typesTxResult, erro
 		return nil, err
 	}
 
+	decoder := cli.TxConfig.TxDecoder()
+	sdkTx, err := decoder(resultTx.Tx)
+	if err != nil {
+		return nil, err
+	}
+	feeTx, ok := sdkTx.(sdk.FeeTx)
+	if !ok {
+		return nil, fmt.Errorf("tx does not implement FeeTx")
+	}
+
+	fee := feeTx.GetFee().AmountOf(c.denom).Int64()
 	code := resultTx.TxResult.Code
 	gasUsed := resultTx.TxResult.GasUsed
 	height := resultTx.Height
@@ -290,6 +305,7 @@ func (c *client) GetTx(ctx context.Context, txHash string) (*typesTxResult, erro
 	return &typesTxResult{
 		StatusCode: code,
 		GasUsed:    gasUsed,
+		Fee:        fee,
 		Height:     height,
 		Log:        log,
 	}, nil
