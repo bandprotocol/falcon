@@ -16,6 +16,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	std "github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -281,17 +282,17 @@ func (c *client) GetTx(ctx context.Context, txHash string) (*typesTxResult, erro
 		return nil, err
 	}
 
-	decoder := cli.TxConfig.TxDecoder()
-	sdkTx, err := decoder(resultTx.Tx)
-	if err != nil {
-		return nil, err
-	}
-	feeTx, ok := sdkTx.(sdk.FeeTx)
-	if !ok {
-		return nil, fmt.Errorf("tx does not implement FeeTx")
+	var txRaw txtypes.TxRaw
+	if err := txRaw.Unmarshal(resultTx.Tx); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal TxRaw: %w", err)
 	}
 
-	fee := feeTx.GetFee().AmountOf(c.denom).Int64()
+	var authInfo txtypes.AuthInfo
+	if err := authInfo.Unmarshal(txRaw.AuthInfoBytes); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal AuthInfo: %w", err)
+	}
+
+	fee := authInfo.Fee.Amount.AmountOf(c.denom).Int64()
 	code := resultTx.TxResult.Code
 	gasUsed := resultTx.TxResult.GasUsed
 	height := resultTx.Height
