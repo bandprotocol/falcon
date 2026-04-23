@@ -10,3 +10,4 @@ $mockgen_cmd -source=relayer/wallet/wallet.go -package mocks -destination intern
 $mockgen_cmd -source=relayer/store/store.go -package mocks -destination internal/relayertest/mocks/store.go
 $mockgen_cmd -source=proto/fkms/v1/signer_grpc.pb.go -package mocks -destination internal/relayertest/mocks/signer_grpc.go
 $mockgen_cmd -source=relayer/chains/xrpl/client.go -mock_names Client=MockXRPLClient -package mocks -destination internal/relayertest/mocks/chain_xrpl_client.go
+$mockgen_cmd -source=relayer/chains/soroban/client.go -mock_names Client=MockSorobanClient -package mocks -destination internal/relayertest/mocks/chain_soroban_client.go

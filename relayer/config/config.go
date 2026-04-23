@@ -14,6 +14,7 @@ import (
 	"github.com/bandprotocol/falcon/relayer/chains/evm"
 	"github.com/bandprotocol/falcon/relayer/chains/flow"
 	"github.com/bandprotocol/falcon/relayer/chains/icon"
+	"github.com/bandprotocol/falcon/relayer/chains/soroban"
 	chainstypes "github.com/bandprotocol/falcon/relayer/chains/types"
 	"github.com/bandprotocol/falcon/relayer/chains/xrpl"
 )
@@ -109,6 +110,20 @@ func ParseChainProviderConfig(w ChainProviderConfigWrapper) (chains.ChainProvide
 		cfg = &newCfg
 	case chainstypes.ChainTypeFlow:
 		var newCfg flow.FlowChainProviderConfig
+
+		decoderConfig.Result = &newCfg
+		decoder, err := mapstructure.NewDecoder(&decoderConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := decoder.Decode(w); err != nil {
+			return nil, err
+		}
+
+		cfg = &newCfg
+	case chainstypes.ChainTypeSoroban:
+		var newCfg soroban.SorobanChainProviderConfig
 
 		decoderConfig.Result = &newCfg
 		decoder, err := mapstructure.NewDecoder(&decoderConfig)

@@ -23,6 +23,7 @@ const (
 	FkmsService_SignXrpl_FullMethodName           = "/fkms.v1.FkmsService/SignXrpl"
 	FkmsService_SignIcon_FullMethodName           = "/fkms.v1.FkmsService/SignIcon"
 	FkmsService_SignFlow_FullMethodName           = "/fkms.v1.FkmsService/SignFlow"
+	FkmsService_SignSoroban_FullMethodName        = "/fkms.v1.FkmsService/SignSoroban"
 	FkmsService_GetSignerAddresses_FullMethodName = "/fkms.v1.FkmsService/GetSignerAddresses"
 )
 
@@ -34,6 +35,7 @@ type FkmsServiceClient interface {
 	SignXrpl(ctx context.Context, in *SignXrplRequest, opts ...grpc.CallOption) (*SignXrplResponse, error)
 	SignIcon(ctx context.Context, in *SignIconRequest, opts ...grpc.CallOption) (*SignIconResponse, error)
 	SignFlow(ctx context.Context, in *SignFlowRequest, opts ...grpc.CallOption) (*SignFlowResponse, error)
+	SignSoroban(ctx context.Context, in *SignSorobanRequest, opts ...grpc.CallOption) (*SignSorobanResponse, error)
 	GetSignerAddresses(ctx context.Context, in *GetSignerAddressesRequest, opts ...grpc.CallOption) (*GetSignerAddressesResponse, error)
 }
 
@@ -85,6 +87,16 @@ func (c *fkmsServiceClient) SignFlow(ctx context.Context, in *SignFlowRequest, o
 	return out, nil
 }
 
+func (c *fkmsServiceClient) SignSoroban(ctx context.Context, in *SignSorobanRequest, opts ...grpc.CallOption) (*SignSorobanResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SignSorobanResponse)
+	err := c.cc.Invoke(ctx, FkmsService_SignSoroban_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *fkmsServiceClient) GetSignerAddresses(ctx context.Context, in *GetSignerAddressesRequest, opts ...grpc.CallOption) (*GetSignerAddressesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetSignerAddressesResponse)
@@ -103,6 +115,7 @@ type FkmsServiceServer interface {
 	SignXrpl(context.Context, *SignXrplRequest) (*SignXrplResponse, error)
 	SignIcon(context.Context, *SignIconRequest) (*SignIconResponse, error)
 	SignFlow(context.Context, *SignFlowRequest) (*SignFlowResponse, error)
+	SignSoroban(context.Context, *SignSorobanRequest) (*SignSorobanResponse, error)
 	GetSignerAddresses(context.Context, *GetSignerAddressesRequest) (*GetSignerAddressesResponse, error)
 	mustEmbedUnimplementedFkmsServiceServer()
 }
@@ -125,6 +138,9 @@ func (UnimplementedFkmsServiceServer) SignIcon(context.Context, *SignIconRequest
 }
 func (UnimplementedFkmsServiceServer) SignFlow(context.Context, *SignFlowRequest) (*SignFlowResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SignFlow not implemented")
+}
+func (UnimplementedFkmsServiceServer) SignSoroban(context.Context, *SignSorobanRequest) (*SignSorobanResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SignSoroban not implemented")
 }
 func (UnimplementedFkmsServiceServer) GetSignerAddresses(context.Context, *GetSignerAddressesRequest) (*GetSignerAddressesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSignerAddresses not implemented")
@@ -222,6 +238,24 @@ func _FkmsService_SignFlow_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FkmsService_SignSoroban_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SignSorobanRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FkmsServiceServer).SignSoroban(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FkmsService_SignSoroban_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FkmsServiceServer).SignSoroban(ctx, req.(*SignSorobanRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FkmsService_GetSignerAddresses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetSignerAddressesRequest)
 	if err := dec(in); err != nil {
@@ -262,6 +296,10 @@ var FkmsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SignFlow",
 			Handler:    _FkmsService_SignFlow_Handler,
+		},
+		{
+			MethodName: "SignSoroban",
+			Handler:    _FkmsService_SignSoroban_Handler,
 		},
 		{
 			MethodName: "GetSignerAddresses",
