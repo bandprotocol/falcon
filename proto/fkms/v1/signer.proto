@@ -56,7 +56,6 @@ message SignSorobanRequest {
 }
 
 message SignSorobanResponse {
-  // Soroban transaction envelope in base64 format
   string tx_blob = 1;
 }
 

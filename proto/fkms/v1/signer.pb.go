@@ -7,12 +7,11 @@
 package fkmsv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -517,9 +516,8 @@ func (x *SignSorobanRequest) GetTss() *Tss {
 }
 
 type SignSorobanResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Soroban transaction envelope in base64 format
-	TxBlob        string `protobuf:"bytes,1,opt,name=tx_blob,json=txBlob,proto3" json:"tx_blob,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TxBlob        string                 `protobuf:"bytes,1,opt,name=tx_blob,json=txBlob,proto3" json:"tx_blob,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -18,15 +18,17 @@ const (
 	ChainTypeXRPL
 	ChainTypeIcon
 	ChainTypeFlow
+	ChainTypeSoroban
 	ChainTypeSecret
 )
 
 var chainTypeNameMap = map[ChainType]string{
-	ChainTypeEVM:    "evm",
-	ChainTypeXRPL:   "xrpl",
-	ChainTypeIcon:   "icon",
-	ChainTypeFlow:   "flow",
-	ChainTypeSecret: "secret",
+	ChainTypeEVM:     "evm",
+	ChainTypeXRPL:    "xrpl",
+	ChainTypeIcon:    "icon",
+	ChainTypeFlow:    "flow",
+	ChainTypeSoroban: "soroban",
+	ChainTypeSecret:  "secret",
 }
 
 var nameToChainTypeMap map[string]ChainType
