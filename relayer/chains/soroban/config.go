@@ -17,7 +17,6 @@ type SorobanChainProviderConfig struct {
 	chains.BaseChainProviderConfig `mapstructure:",squash"`
 
 	HorizonEndpoints   []string      `mapstructure:"horizon_endpoints"    toml:"horizon_endpoints"`
-	Fee                string        `mapstructure:"fee"                  toml:"fee"`
 	NetworkPassphrase  string        `mapstructure:"network_passphrase"   toml:"network_passphrase"`
 	WaitingTxDuration  time.Duration `mapstructure:"waiting_tx_duration"  toml:"waiting_tx_duration"`
 	CheckingTxInterval time.Duration `mapstructure:"checking_tx_interval" toml:"checking_tx_interval"`

@@ -20,7 +20,10 @@ import (
 	"github.com/bandprotocol/falcon/relayer/wallet/soroban"
 )
 
-const sorobanToWeiExp = 11
+const (
+	sorobanToWeiExp       = 11 // 100 stroops (1 stroop = 0.0000001 xlm)
+	DefaultFee      int64 = 100
+)
 
 var _ chains.ChainProvider = (*SorobanChainProvider)(nil)
 
@@ -142,10 +145,27 @@ func (cp *SorobanChainProvider) RelayPacket(ctx context.Context, packet *bandtyp
 			continue
 		}
 
+		// Currently we use default fee of 100 stroops (1 stroop = 0.0000001 xlm) for all transactions.
+		// The precise network fee rates will be defined in the upcoming mainnet release. The Futurenet
+		// preview release uses placeholder values.
+		// https://soroban.stellar.org/docs/fundamentals-and-concepts/fees-and-metering
+		//
+		// TODO: Update fee model upon mainnet release
+		fee := DefaultFee
+
+		feeStats, err := cp.Client.GetFeeStats()
+		if err == nil {
+			fee = max(fee, feeStats.LastLedgerBaseFee)
+		}
+
+		// Add a 10% buffer to the fee to help ensure the transaction is processed.
+		// The user will pay the lesser of this value or the network's required fee.
+		fee = fee * 110 / 100
+
 		signerPayload := soroban.NewSignerPayload(
 			freeSigner.GetAddress(),
 			packet.TargetAddress,
-			cp.Config.Fee,
+			fmt.Sprintf("%d", fee),
 			sequence,
 			cp.Config.NetworkPassphrase,
 			cp.Config.Endpoints,
