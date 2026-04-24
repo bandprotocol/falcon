@@ -32,7 +32,6 @@ var baseSorobanCfg = &soroban.SorobanChainProviderConfig{
 		LivelinessCheckingInterval: 15 * time.Minute,
 	},
 	HorizonEndpoints:   []string{"https://horizon-testnet.stellar.org"},
-	Fee:                "100",
 	NetworkPassphrase:  "Test SDF Network ; September 2015",
 	WaitingTxDuration:  time.Second * 3,
 	CheckingTxInterval: time.Second,
@@ -161,7 +160,9 @@ func (s *ProviderTestSuite) TestCheckConfirmedTx() {
 		{
 			name: "client error",
 			preProcess: func() {
-				s.client.EXPECT().GetTransactionStatus(txHash).Return(hProtocol.Transaction{}, context.DeadlineExceeded)
+				s.client.EXPECT().
+					GetTransactionStatus(txHash).
+					Return(hProtocol.Transaction{}, context.DeadlineExceeded)
 			},
 			err: context.DeadlineExceeded,
 			out: soroban.NewTxResult(
