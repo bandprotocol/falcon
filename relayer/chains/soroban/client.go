@@ -42,6 +42,7 @@ type Client interface {
 	BroadcastTx(txBlob string) (TxResult, error)
 	GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error)
 	GetTransactionStatus(txHash string) (hProtocol.Transaction, error)
+	GetFeeStats() (hProtocol.FeeStats, error)
 }
 
 type client struct {
@@ -310,4 +311,14 @@ func (c *client) GetTransactionStatus(txHash string) (hProtocol.Transaction, err
 	}
 
 	return hc.TransactionDetail(txHash)
+}
+
+func (c *client) GetFeeStats() (hProtocol.FeeStats, error) {
+	hc, err := c.clients.GetSelectedClient()
+	if err != nil {
+		c.Log.Error("Failed to get client", "endpoint", c.clients.GetSelectedEndpoint(), err)
+		return hProtocol.FeeStats{}, fmt.Errorf("failed to get client: %w", err)
+	}
+
+	return hc.FeeStats()
 }

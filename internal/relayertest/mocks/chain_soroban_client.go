@@ -117,6 +117,21 @@ func (mr *MockSorobanClientMockRecorder) GetBalance(account any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBalance", reflect.TypeOf((*MockSorobanClient)(nil).GetBalance), account)
 }
 
+// GetFeeStats mocks base method.
+func (m *MockSorobanClient) GetFeeStats() (horizon.FeeStats, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFeeStats")
+	ret0, _ := ret[0].(horizon.FeeStats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFeeStats indicates an expected call of GetFeeStats.
+func (mr *MockSorobanClientMockRecorder) GetFeeStats() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFeeStats", reflect.TypeOf((*MockSorobanClient)(nil).GetFeeStats))
+}
+
 // GetLedgerCloseTime mocks base method.
 func (m *MockSorobanClient) GetLedgerCloseTime(ledgerIndex uint64) (*time.Time, error) {
 	m.ctrl.T.Helper()
