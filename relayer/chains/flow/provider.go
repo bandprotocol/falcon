@@ -238,6 +238,12 @@ func (cp *FlowChainProvider) RelayPacket(ctx context.Context, packet *bandtypes.
 		}
 
 		lastErr = fmt.Errorf("transaction %s ended with status %s", txHash, txStatus)
+		log.Error(
+			"Failed to relaying a packet with status and error",
+			"tx_status", txStatus,
+			"tx_hash", txHash,
+			"retry_count", retryCount,
+		)
 	}
 
 	alert.HandleAlert(
