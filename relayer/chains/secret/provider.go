@@ -21,6 +21,8 @@ import (
 	secretwallet "github.com/bandprotocol/falcon/relayer/wallet/secret"
 )
 
+const uscrtToWeiExp = 12
+
 var _ chains.ChainProvider = (*SecretChainProvider)(nil)
 
 // SecretChainProvider handles interactions with the Secret Network chain.
@@ -220,6 +222,13 @@ func (cp *SecretChainProvider) RelayPacket(ctx context.Context, packet *bandtype
 		}
 
 		lastErr = fmt.Errorf("transaction failed: %s", txResult.FailureReason)
+		log.Error(
+			"Failed to relaying a packet with status and error",
+			"status", txResult.Status.String(),
+			"tx_hash", txHash,
+			"retry_count", retryCount,
+			lastErr,
+		)
 	}
 
 	alert.HandleAlert(
@@ -298,7 +307,7 @@ func (cp *SecretChainProvider) prepareTransaction(
 					WithChainName(cp.ChainName), err.Error())
 			} else {
 				diff := new(big.Int).Sub(newBalance, oldBalance)
-				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, 0))
+				balanceDelta = decimal.NewNullDecimal(decimal.NewFromBigInt(diff, uscrtToWeiExp))
 				alert.HandleReset(cp.Alert, alert.NewTopic(alert.GetBalanceErrorMsg).
 					WithTunnelID(packet.TunnelID).
 					WithChainName(cp.ChainName))
@@ -344,7 +353,7 @@ func (cp *SecretChainProvider) CheckConfirmedTx(
 	}
 
 	gasUsed := decimal.NewNullDecimal(decimal.New(tx.GasUsed, 0))
-	fee := decimal.NewNullDecimal(decimal.NewFromInt(tx.Fee))
+	fee := decimal.NewNullDecimal(decimal.NewFromBigInt(big.NewInt(tx.Fee), uscrtToWeiExp))
 	var effectiveGasPrice decimal.NullDecimal
 	if gasUsed.Decimal.IsZero() {
 		effectiveGasPrice = decimal.NullDecimal{}
