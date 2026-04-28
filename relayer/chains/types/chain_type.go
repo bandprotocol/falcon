@@ -19,6 +19,7 @@ const (
 	ChainTypeIcon
 	ChainTypeFlow
 	ChainTypeSoroban
+	ChainTypeSecret
 )
 
 var chainTypeNameMap = map[ChainType]string{
@@ -27,6 +28,7 @@ var chainTypeNameMap = map[ChainType]string{
 	ChainTypeIcon:    "icon",
 	ChainTypeFlow:    "flow",
 	ChainTypeSoroban: "soroban",
+	ChainTypeSecret:  "secret",
 }
 
 var nameToChainTypeMap map[string]ChainType
