@@ -351,7 +351,7 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 
 			// if the signing fails, we set lastRelayedSequence to the failed sequence so that the relayer can skip this sequence in the next rounds.
-			if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeEVM {
+			if t.TargetChainProvider.ChainType() != chaintypes.ChainTypeEVM {
 				t.lastRelayedSequence = &seq
 				t.lastRelayedAt = time.Now()
 			}
