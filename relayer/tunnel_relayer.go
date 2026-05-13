@@ -325,9 +325,16 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		// Check signing status; if it is waiting, wait for the completion of the EVM signature.
 		// If it is not success (Failed or Undefined), return error.
 		signing := packet.CurrentGroupSigning
-		if signing == nil ||
-			signing.SigningStatus == tsstypes.SIGNING_STATUS_FALLEN {
+		if (signing == nil ||
+			signing.SigningStatus == tsstypes.SIGNING_STATUS_FALLEN) && packet.IncomingGroupSigning != nil {
 			signing = packet.IncomingGroupSigning
+		}
+
+		if signing == nil {
+			err := fmt.Errorf("signing status is not available")
+			alert.HandleAlert(t.Alert, alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()), err.Error())
+			t.Log.Error("Failed to relay packet", "sequence", seq, err)
+			return nil, err
 		}
 
 		if signing.SigningStatus == tsstypes.SIGNING_STATUS_WAITING {
@@ -342,6 +349,12 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			err := fmt.Errorf("signing status is not success")
 			alert.HandleAlert(t.Alert, alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()), err.Error())
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
+
+			// if the signing fails, we set lastRelayedSequence to the failed sequence so that the relayer can skip this sequence in the next rounds.
+			if t.TargetChainProvider.ChainType() == chaintypes.ChainTypeEVM {
+				t.lastRelayedSequence = &seq
+				t.lastRelayedAt = time.Now()
+			}
 			return nil, err
 		}
 		alert.HandleReset(
