@@ -331,8 +331,14 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 		}
 
 		if signing == nil {
-			err := fmt.Errorf("signing status is not available")
-			alert.HandleAlert(t.Alert, alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()), err.Error())
+			err := fmt.Errorf("no signing info available for packet")
+			alert.HandleAlert(
+				t.Alert,
+				alert.NewTopic(alert.PacketSigningStatusErrorMsg).
+					WithTunnelID(t.TunnelID).
+					WithChainName(t.TargetChainProvider.GetChainName()),
+				err.Error(),
+			)
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 			return nil, err
 		}
@@ -347,7 +353,13 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 			continue
 		} else if signing.SigningStatus != tsstypes.SIGNING_STATUS_SUCCESS {
 			err := fmt.Errorf("signing status is not success")
-			alert.HandleAlert(t.Alert, alert.NewTopic(alert.PacketSigningStatusErrorMsg).WithTunnelID(t.TunnelID).WithChainName(t.TargetChainProvider.GetChainName()), err.Error())
+			alert.HandleAlert(
+				t.Alert,
+				alert.NewTopic(alert.PacketSigningStatusErrorMsg).
+					WithTunnelID(t.TunnelID).
+					WithChainName(t.TargetChainProvider.GetChainName()),
+				err.Error(),
+			)
 			t.Log.Error("Failed to relay packet", "sequence", seq, err)
 
 			// if the signing fails, we set lastRelayedSequence to the failed sequence so that the relayer can skip this sequence in the next rounds.
@@ -366,4 +378,8 @@ func (t *TunnelRelayer) getTunnelPacket(ctx context.Context, seq uint64) (*types
 
 		return packet, nil
 	}
+}
+
+func (t *TunnelRelayer) GetLastRelayedSequence() *uint64 {
+	return t.lastRelayedSequence
 }
