@@ -153,6 +153,7 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 	testcases := []struct {
 		name        string
 		preprocess  func()
+		postcheck   func(t *relayer.TunnelRelayer)
 		err         error
 		relayStatus relayer.RelayStatus
 		chainType   chaintypes.ChainType
@@ -366,6 +367,50 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 			relayStatus: relayer.RelayStatusSkipped,
 			chainType:   chaintypes.ChainTypeXRPL,
 		},
+		{
+			name: "no signing info available",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence, defaultEVMContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultEVMContractAddress)
+
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					-1, // currentStatus = -1 means nil
+					-1, // incomingStatus = -1 means nil
+				)
+				s.client.EXPECT().
+					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
+			},
+			err:         fmt.Errorf("no signing info available for packet"),
+			relayStatus: relayer.RelayStatusFailed,
+			chainType:   chaintypes.ChainTypeEVM,
+		},
+		{
+			name: "non-evm chain advances sequence on signing failure",
+			preprocess: func() {
+				s.mockGetTunnel(defaultBandLatestSequence, defaultContractAddress)
+				s.mockQueryTunnelInfo(defaultTargetChainSequence, true, defaultContractAddress)
+
+				packet := createMockPacket(
+					s.tunnelRelayer.TunnelID,
+					defaultTargetChainSequence+1,
+					int32(tss.SIGNING_STATUS_FALLEN),
+					-1,
+				)
+				s.client.EXPECT().
+					GetTunnelPacket(gomock.Any(), s.tunnelRelayer.TunnelID, defaultTargetChainSequence+1).
+					Return(packet, nil)
+			},
+			postcheck: func(t *relayer.TunnelRelayer) {
+				s.Require().NotNil(t.GetLastRelayedSequence())
+				s.Require().Equal(defaultTargetChainSequence+1, *t.GetLastRelayedSequence())
+			},
+			err:         fmt.Errorf("signing status is not success"),
+			relayStatus: relayer.RelayStatusFailed,
+			chainType:   chaintypes.ChainTypeIcon,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -417,6 +462,10 @@ func (s *TunnelRelayerTestSuite) TestCheckAndRelay() {
 				s.Require().ErrorContains(err, tc.err.Error())
 			} else {
 				s.Require().NoError(err)
+			}
+
+			if tc.postcheck != nil {
+				tc.postcheck(&tunnelRelayer)
 			}
 		})
 	}
