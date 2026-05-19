@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/bandprotocol/falcon/relayer/alert"
 	"github.com/bandprotocol/falcon/relayer/chains"
@@ -59,6 +62,31 @@ type client struct {
 	alert   alert.Alert
 }
 
+// idleConnTimeout is intentionally shorter than the typical load-balancer idle
+// timeout (e.g. AWS ALB default is 60 s) so Go closes idle keep-alive
+// connections before the LB does, preventing "connection reset by peer" errors
+// caused by the LB sending a TCP RST on a stale connection that Go's transport
+// would otherwise attempt to reuse.
+const idleConnTimeout = 30 * time.Second
+
+// dialEVMEndpoint connects to an EVM-compatible RPC endpoint.
+// For HTTP/HTTPS endpoints it injects a custom transport with a short
+// IdleConnTimeout to avoid stale-connection resets from load balancers.
+// For WebSocket endpoints it falls back to the standard ethclient dialer.
+func dialEVMEndpoint(ctx context.Context, endpoint string) (*ethclient.Client, error) {
+	lower := strings.ToLower(endpoint)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.IdleConnTimeout = idleConnTimeout
+		rpcCli, err := rpc.DialOptions(ctx, endpoint, rpc.WithHTTPClient(&http.Client{Transport: transport}))
+		if err != nil {
+			return nil, err
+		}
+		return ethclient.NewClient(rpcCli), nil
+	}
+	return ethclient.DialContext(ctx, endpoint)
+}
+
 // NewClient creates a new EVM client from config file and load keys.
 func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger, alert alert.Alert) *client {
 	return &client{
@@ -84,7 +112,7 @@ func (c *client) Connect(ctx context.Context) error {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
-			client, err := ethclient.Dial(endpoint)
+			client, err := dialEVMEndpoint(ctx, endpoint)
 			if err != nil {
 				c.Log.Warn(
 					"Failed to connect to EVM chain",
