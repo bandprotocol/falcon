@@ -112,8 +112,6 @@ func (c *client) Connect(ctx context.Context) error {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
-			ethclient.Dial()
-			http.DefaultTransport
 			client, err := dialEVMEndpoint(ctx, endpoint)
 			if err != nil {
 				c.Log.Warn(
