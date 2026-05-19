@@ -76,9 +76,8 @@ const idleConnTimeout = 30 * time.Second
 func dialEVMEndpoint(ctx context.Context, endpoint string) (*ethclient.Client, error) {
 	lower := strings.ToLower(endpoint)
 	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
-		transport := &http.Transport{
-			IdleConnTimeout: idleConnTimeout,
-		}
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.IdleConnTimeout = idleConnTimeout
 		rpcCli, err := rpc.DialOptions(ctx, endpoint, rpc.WithHTTPClient(&http.Client{Transport: transport}))
 		if err != nil {
 			return nil, err
@@ -113,6 +112,8 @@ func (c *client) Connect(ctx context.Context) error {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
+			ethclient.Dial()
+			http.DefaultTransport
 			client, err := dialEVMEndpoint(ctx, endpoint)
 			if err != nil {
 				c.Log.Warn(
