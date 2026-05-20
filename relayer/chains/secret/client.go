@@ -58,9 +58,10 @@ type typesBlockResult struct {
 var _ Client = (*client)(nil)
 
 type client struct {
-	chainName string
-	endpoints []string
-	denom     string
+	chainName         string
+	endpoints         []string
+	denom             string
+	blockConfirmation int64
 
 	log     logger.Logger
 	alert   alert.Alert
@@ -69,12 +70,13 @@ type client struct {
 
 func NewClient(chainName string, cpc *SecretChainProviderConfig, log logger.Logger, alert alert.Alert) *client {
 	return &client{
-		chainName: chainName,
-		endpoints: cpc.Endpoints,
-		denom:     cpc.Denom,
-		log:       log.With("chain_name", chainName),
-		alert:     alert,
-		clients:   chains.NewClientPool[sdkclient.Context](),
+		chainName:         chainName,
+		endpoints:         cpc.Endpoints,
+		denom:             cpc.Denom,
+		blockConfirmation: 5,
+		log:               log.With("chain_name", chainName),
+		alert:             alert,
+		clients:           chains.NewClientPool[sdkclient.Context](),
 	}
 }
 
@@ -337,7 +339,10 @@ func (c *client) GetBlockByHeight(ctx context.Context, height *big.Int) (*typesB
 	return &typesBlockResult{Time: resBlock.Block.Time.UTC()}, nil
 }
 
-// getClientWithMaxHeight connects to the endpoint that has the highest block height.
+// getClientWithMaxHeight selects an endpoint by config order within the confirmed
+// block range. It collects block heights from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose block height is within
+// [maxHeight - blockConfirmation, maxHeight].
 func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.endpoints))
 
@@ -402,13 +407,31 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 		}(endpoint)
 	}
 
-	var result ClientConnectionResult
+	// Collect all results into a map and track the maximum block height.
+	resultMap := make(map[string]ClientConnectionResult, len(c.endpoints))
+	var maxHeight int64
 	for i := 0; i < len(c.endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight > result.BlockHeight || (r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
-				result = r
+			resultMap[r.Endpoint] = r
+			if r.BlockHeight > maxHeight {
+				maxHeight = r.BlockHeight
 			}
+		}
+	}
+
+	// Determine the minimum acceptable block height based on blockConfirmation.
+	var minHeight int64
+	if maxHeight >= c.blockConfirmation {
+		minHeight = maxHeight - c.blockConfirmation
+	}
+
+	// Pick the first endpoint in config order that is within the confirmed range.
+	var result ClientConnectionResult
+	for _, endpoint := range c.endpoints {
+		if r, ok := resultMap[endpoint]; ok && r.BlockHeight >= minHeight {
+			result = r
+			break
 		}
 	}
 

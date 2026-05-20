@@ -46,9 +46,10 @@ type Client interface {
 }
 
 type client struct {
-	ChainName        string
-	HorizonEndpoints []string
-	QueryTimeout     time.Duration
+	ChainName         string
+	HorizonEndpoints  []string
+	QueryTimeout      time.Duration
+	BlockConfirmation uint64
 
 	Log   logger.Logger
 	alert alert.Alert
@@ -58,16 +59,18 @@ type client struct {
 
 func NewClient(chainName string, cfg *SorobanChainProviderConfig, log logger.Logger, alert alert.Alert) Client {
 	return &client{
-		ChainName:        chainName,
-		HorizonEndpoints: cfg.HorizonEndpoints,
-		QueryTimeout:     cfg.QueryTimeout,
-		Log:              log.With("chain_name", chainName),
-		alert:            alert,
-		clients:          NewHorizonClients(),
+		ChainName:         chainName,
+		HorizonEndpoints:  cfg.HorizonEndpoints,
+		QueryTimeout:      cfg.QueryTimeout,
+		BlockConfirmation: 5,
+		Log:               log.With("chain_name", chainName),
+		alert:             alert,
+		clients:           NewHorizonClients(),
 	}
 }
 
-// Connect connects to all Horizon endpoints in parallel and selects the one with the highest ledger.
+// Connect connects to all Horizon endpoints in parallel and selects the first eligible
+// one by config order within the confirmed ledger range.
 func (c *client) Connect(ctx context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.HorizonEndpoints {
@@ -151,7 +154,10 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	}
 }
 
-// getClientWithMaxLedger returns the connected client with the highest ingested ledger sequence.
+// getClientWithMaxLedger selects an endpoint by config order within the confirmed
+// ledger range. It collects ledger sequences from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose sequence is within
+// [maxLedger - BlockConfirmation, maxLedger].
 func (c *client) getClientWithMaxLedger(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.HorizonEndpoints))
 
@@ -198,14 +204,31 @@ func (c *client) getClientWithMaxLedger(ctx context.Context) (ClientConnectionRe
 		}(endpoint)
 	}
 
-	var result ClientConnectionResult
+	// Collect all results into a map and track the maximum ledger sequence.
+	resultMap := make(map[string]ClientConnectionResult, len(c.HorizonEndpoints))
+	var maxLedger uint64
 	for i := 0; i < len(c.HorizonEndpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.LedgerSequence > result.LedgerSequence ||
-				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.LedgerSequence == result.LedgerSequence) {
-				result = r
+			resultMap[r.Endpoint] = r
+			if r.LedgerSequence > maxLedger {
+				maxLedger = r.LedgerSequence
 			}
+		}
+	}
+
+	// Determine the minimum acceptable ledger sequence based on BlockConfirmation.
+	var minLedger uint64
+	if maxLedger >= c.BlockConfirmation {
+		minLedger = maxLedger - c.BlockConfirmation
+	}
+
+	// Pick the first endpoint in config order that is within the confirmed range.
+	var result ClientConnectionResult
+	for _, endpoint := range c.HorizonEndpoints {
+		if r, ok := resultMap[endpoint]; ok && r.LedgerSequence >= minLedger {
+			result = r
+			break
 		}
 	}
 

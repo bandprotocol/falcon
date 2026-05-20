@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"sync"
 	"time"
 
@@ -21,6 +22,11 @@ import (
 )
 
 const RippleEpochOffset = 946684800
+
+// idleConnTimeout is shorter than the typical load-balancer idle timeout
+// (e.g. AWS ALB default 60s) to prevent "connection reset by peer" errors
+// from stale keep-alive connections being reused after the LB closes them.
+const idleConnTimeout = 30 * time.Second
 
 // XRPLClients holds XRPL RPC clients and the selected endpoint.
 type XRPLClients = chains.ClientPool[rpc.Client]
@@ -46,8 +52,9 @@ var _ Client = (*client)(nil)
 
 // client is the concrete implementation that handles XRPL JSON-RPC interactions.
 type client struct {
-	ChainName string
-	Endpoints []string
+	ChainName         string
+	Endpoints         []string
+	BlockConfirmation uint32
 
 	Log   logger.Logger
 	alert alert.Alert
@@ -64,11 +71,12 @@ type TxResult struct {
 // NewClient creates a new XRPL client from config.
 func NewClient(chainName string, cfg *XRPLChainProviderConfig, log logger.Logger, alert alert.Alert) Client {
 	return &client{
-		ChainName: chainName,
-		Endpoints: cfg.Endpoints,
-		Log:       log.With("chain_name", chainName),
-		alert:     alert,
-		clients:   NewXRPLClients(),
+		ChainName:         chainName,
+		Endpoints:         cfg.Endpoints,
+		BlockConfirmation: 5,
+		Log:               log.With("chain_name", chainName),
+		alert:             alert,
+		clients:           NewXRPLClients(),
 	}
 }
 
@@ -79,7 +87,8 @@ type ClientConnectionResult struct {
 	LedgerIndex uint32
 }
 
-// Connect selects a responsive endpoint with the highest ledger index.
+// Connect connects to all endpoints and selects the first eligible one by config order
+// within the confirmed ledger range.
 func (c *client) Connect(_ context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.Endpoints {
@@ -91,7 +100,11 @@ func (c *client) Connect(_ context.Context) error {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
-			opts := []rpc.ConfigOpt{}
+			transport := http.DefaultTransport.(*http.Transport).Clone()
+			transport.IdleConnTimeout = idleConnTimeout
+			opts := []rpc.ConfigOpt{
+				rpc.WithHTTPClient(&http.Client{Transport: transport}),
+			}
 			cfg, err := rpc.NewClientConfig(endpoint, opts...)
 			if err != nil {
 				c.Log.Warn("XRPL endpoint config error", "endpoint", endpoint, err)
@@ -133,7 +146,10 @@ func (c *client) Connect(_ context.Context) error {
 	return nil
 }
 
-// getClientWithMaxHeight connects to the endpoint that has the highest ledger index.
+// getClientWithMaxHeight selects an endpoint by config order within the confirmed
+// ledger range. It collects ledger indices from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose ledger index is within
+// [maxLedger - BlockConfirmation, maxLedger].
 func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
@@ -170,14 +186,31 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 		}(endpoint)
 	}
 
-	var result ClientConnectionResult
+	// Collect all results into a map and track the maximum ledger index.
+	resultMap := make(map[string]ClientConnectionResult, len(c.Endpoints))
+	var maxLedger uint32
 	for range c.Endpoints {
 		r := <-ch
 		if r.Client != nil {
-			if r.LedgerIndex > result.LedgerIndex ||
-				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.LedgerIndex == result.LedgerIndex) {
-				result = r
+			resultMap[r.Endpoint] = r
+			if r.LedgerIndex > maxLedger {
+				maxLedger = r.LedgerIndex
 			}
+		}
+	}
+
+	// Determine the minimum acceptable ledger index based on BlockConfirmation.
+	var minLedger uint32
+	if maxLedger >= c.BlockConfirmation {
+		minLedger = maxLedger - c.BlockConfirmation
+	}
+
+	// Pick the first endpoint in config order that is within the confirmed range.
+	var result ClientConnectionResult
+	for _, endpoint := range c.Endpoints {
+		if r, ok := resultMap[endpoint]; ok && r.LedgerIndex >= minLedger {
+			result = r
+			break
 		}
 	}
 

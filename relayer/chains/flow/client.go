@@ -47,10 +47,11 @@ var _ Client = (*client)(nil)
 
 // client is the concrete implementation that handles Flow HTTP interactions.
 type client struct {
-	ChainName      string
-	Endpoints      []string
-	QueryTimeout   time.Duration
-	ExecuteTimeout time.Duration
+	ChainName         string
+	Endpoints         []string
+	QueryTimeout      time.Duration
+	ExecuteTimeout    time.Duration
+	BlockConfirmation uint64
 
 	Log   logger.Logger
 	alert alert.Alert
@@ -61,17 +62,19 @@ type client struct {
 // NewClient creates a new Flow client from config.
 func NewClient(chainName string, cfg *FlowChainProviderConfig, log logger.Logger, a alert.Alert) Client {
 	return &client{
-		ChainName:      chainName,
-		Endpoints:      cfg.Endpoints,
-		QueryTimeout:   cfg.QueryTimeout,
-		ExecuteTimeout: cfg.ExecuteTimeout,
-		Log:            log.With("chain_name", chainName),
-		alert:          a,
-		clients:        NewFlowClients(),
+		ChainName:         chainName,
+		Endpoints:         cfg.Endpoints,
+		QueryTimeout:      cfg.QueryTimeout,
+		ExecuteTimeout:    cfg.ExecuteTimeout,
+		BlockConfirmation: 5,
+		Log:               log.With("chain_name", chainName),
+		alert:             a,
+		clients:           NewFlowClients(),
 	}
 }
 
-// Connect connects to all endpoints and selects the one with the highest block height.
+// Connect connects to all endpoints and selects the first eligible one by config order
+// within the confirmed block range.
 func (c *client) Connect(_ context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.Endpoints {
@@ -123,7 +126,10 @@ func (c *client) Connect(_ context.Context) error {
 	return nil
 }
 
-// getClientWithMaxHeight selects the endpoint with the highest sealed block height.
+// getClientWithMaxHeight selects an endpoint by config order within the confirmed
+// block range. It collects block heights from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose block height is within
+// [maxHeight - BlockConfirmation, maxHeight].
 func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
@@ -163,14 +169,31 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 		}(endpoint)
 	}
 
-	var result ClientConnectionResult
+	// Collect all results into a map and track the maximum block height.
+	resultMap := make(map[string]ClientConnectionResult, len(c.Endpoints))
+	var maxHeight uint64
 	for range c.Endpoints {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight > result.BlockHeight ||
-				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
-				result = r
+			resultMap[r.Endpoint] = r
+			if r.BlockHeight > maxHeight {
+				maxHeight = r.BlockHeight
 			}
+		}
+	}
+
+	// Determine the minimum acceptable block height based on BlockConfirmation.
+	var minHeight uint64
+	if maxHeight >= c.BlockConfirmation {
+		minHeight = maxHeight - c.BlockConfirmation
+	}
+
+	// Pick the first endpoint in config order that is within the confirmed range.
+	var result ClientConnectionResult
+	for _, endpoint := range c.Endpoints {
+		if r, ok := resultMap[endpoint]; ok && r.BlockHeight >= minHeight {
+			result = r
+			break
 		}
 	}
 

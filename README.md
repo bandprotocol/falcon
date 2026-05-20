@@ -111,11 +111,11 @@ sudo apt-get update && \
 sudo apt-get upgrade -y && \
 sudo apt-get install -y build-essential curl wget jq
 ```
-- Install Go 1.24.2
+- Install Go 1.25.3
 ```shell
-# Install Go 1.24.2
-wget https://go.dev/dl/go1.24.2.linux-amd64.tar.gz
-tar xf go1.24.2.linux-amd64.tar.gz
+# Install Go 1.25.3
+wget https://go.dev/dl/go1.25.3.linux-amd64.tar.gz
+tar xf go1.25.3.linux-amd64.tar.gz
 sudo mv go /usr/local/go
 
 # Set Go path to $PATH variable
@@ -247,38 +247,30 @@ Enter your private key
 If you already have a mnemonic and want to retrieve key from it, you can choose `Mnemonic` option. 
 ```
 Enter your mnemonic
->
 
 Enter a coin type 
 Coin type number for HD derivation (default: 60; leave empty to use default)
->
 
 Enter an account 
 Account number in the HD derivation path (default: 0; leave empty to use default)
->
 
 Enter an index
 Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)
-> 
 ```
 
 If you want to generate a new address, choose the `Generate new address` option.
 ```
 Enter a coin type 
 Coin type number for HD derivation (default: 60; leave empty to use default)
->
 
 Enter an account 
 Account number in the HD derivation path (default: 0; leave empty to use default)
->
 
 Enter an index
 Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)
-> 
 ```
 
 ### 7. Check that the keys for the configured chains are funded
-
 You can query the balance of each configured key by running:
 ``` shell
 falcon q balance testkey
@@ -288,7 +280,7 @@ Starts all tunnels that `falcon query tunnels` can query
 ``` shell
 falcon start
 ```
-> NOTE: You can choose which tunnels do you want to relay.
+NOTE: You can choose which tunnels do you want to relay.
 ``` shell
 falcon start 1 2 3
 ```
@@ -296,7 +288,6 @@ falcon start 1 2 3
 ## Generate Go Protobuf Code
 Falcon uses gRPC and Protocol Buffers for its internal APIs.
 If you modify any `.proto` files under the `proto/` directory, regenerate the Go code by running:
-
 ```sh
 make proto
 ```
@@ -320,8 +311,8 @@ go install github.com/pressly/goose/v3/cmd/goose@latest
 ```
 
 #### Run 
-> Use `-dir` before the driver/DSN.
-> Supported drivers: `postgres`, `sqlite`.
+Use `-dir` before the driver/DSN.
+Supported drivers: `postgres`, `sqlite`.
 
 ##### Up (apply all pending)
 ```sh 
