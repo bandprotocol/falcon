@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"sync"
 	"time"
 
@@ -21,6 +22,11 @@ import (
 )
 
 const RippleEpochOffset = 946684800
+
+// idleConnTimeout is shorter than the typical load-balancer idle timeout
+// (e.g. AWS ALB default 60s) to prevent "connection reset by peer" errors
+// from stale keep-alive connections being reused after the LB closes them.
+const idleConnTimeout = 30 * time.Second
 
 // XRPLClients holds XRPL RPC clients and the selected endpoint.
 type XRPLClients = chains.ClientPool[rpc.Client]
@@ -93,7 +99,11 @@ func (c *client) Connect(_ context.Context) error {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
-			opts := []rpc.ConfigOpt{}
+			transport := http.DefaultTransport.(*http.Transport).Clone()
+			transport.IdleConnTimeout = idleConnTimeout
+			opts := []rpc.ConfigOpt{
+				rpc.WithHTTPClient(&http.Client{Transport: transport}),
+			}
 			cfg, err := rpc.NewClientConfig(endpoint, opts...)
 			if err != nil {
 				c.Log.Warn("XRPL endpoint config error", "endpoint", endpoint, err)
