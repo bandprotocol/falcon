@@ -248,22 +248,18 @@ If you already have a mnemonic and want to retrieve key from it, you can choose 
 ```
 Enter your mnemonic
 
->
 Enter a coin type 
 Coin type number for HD derivation (default: 60; leave empty to use default)
 
 Enter an account 
->
 Account number in the HD derivation path (default: 0; leave empty to use default)
 
 Enter an index
 Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)
->
 ```
 
 If you want to generate a new address, choose the `Generate new address` option.
 ```
-> 
 Enter a coin type 
 Coin type number for HD derivation (default: 60; leave empty to use default)
 
@@ -271,17 +267,13 @@ Enter an account
 Account number in the HD derivation path (default: 0; leave empty to use default)
 
 Enter an index
->
 Index number for the specific address within an account in the HD derivation path (default: 0; leave empty to use default)
 ```
 
 ### 7. Check that the keys for the configured chains are funded
->
-
 You can query the balance of each configured key by running:
 ``` shell
 falcon q balance testkey
-> 
 ```
 ### 8. Start to relay packet
 Starts all tunnels that `falcon query tunnels` can query
@@ -296,7 +288,6 @@ falcon start 1 2 3
 ## Generate Go Protobuf Code
 Falcon uses gRPC and Protocol Buffers for its internal APIs.
 If you modify any `.proto` files under the `proto/` directory, regenerate the Go code by running:
-> 
 ```sh
 make proto
 ```
@@ -328,8 +319,8 @@ Supported drivers: `postgres`, `sqlite`.
 # Postgres
 goose -dir relayer/db/migrations/postgres postgres "postgres://user:password@localhost:5432/falcon?sslmode=disable" up
 
-> # SQLite
-> goose -dir relayer/db/migrations/sqlite sqlite "gorm.db" up
+# SQLite
+goose -dir relayer/db/migrations/sqlite sqlite "gorm.db" up
 ```
 
 ##### Down (revert one step)
