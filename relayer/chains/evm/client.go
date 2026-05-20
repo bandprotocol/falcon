@@ -506,9 +506,9 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 	return tx.Hash().Hex(), nil
 }
 
-// getClientWithMaxHeight selects an endpoint using first-come-first-serve within
-// the confirmed block range. It collects block heights from all endpoints, then
-// picks the first one (by arrival order) whose block height is within
+// getClientWithMaxHeight selects an endpoint by config order within the confirmed
+// block range. It collects block heights from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose block height is within
 // [maxHeight - BlockConfirmation, maxHeight].
 func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))

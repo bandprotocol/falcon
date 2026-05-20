@@ -339,8 +339,10 @@ func (c *client) GetBlockByHeight(ctx context.Context, height *big.Int) (*typesB
 	return &typesBlockResult{Time: resBlock.Block.Time.UTC()}, nil
 }
 
-// getClientWithMaxHeight connects to the endpoint that has the highest block height.
-// It uses first-come-first-serve selection within [maxHeight - blockConfirmation, maxHeight].
+// getClientWithMaxHeight selects an endpoint by config order within the confirmed
+// block range. It collects block heights from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose block height is within
+// [maxHeight - blockConfirmation, maxHeight].
 func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.endpoints))
 

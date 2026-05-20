@@ -87,7 +87,8 @@ type ClientConnectionResult struct {
 	LedgerIndex uint32
 }
 
-// Connect selects a responsive endpoint with the highest ledger index.
+// Connect connects to all endpoints and selects the first eligible one by config order
+// within the confirmed ledger range.
 func (c *client) Connect(_ context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.Endpoints {
@@ -145,8 +146,10 @@ func (c *client) Connect(_ context.Context) error {
 	return nil
 }
 
-// getClientWithMaxHeight connects to the endpoint that has the highest ledger index.
-// It uses first-come-first-serve selection within [maxLedger - BlockConfirmation, maxLedger].
+// getClientWithMaxHeight selects an endpoint by config order within the confirmed
+// ledger range. It collects ledger indices from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose ledger index is within
+// [maxLedger - BlockConfirmation, maxLedger].
 func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 

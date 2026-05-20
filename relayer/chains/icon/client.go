@@ -113,8 +113,10 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	}
 }
 
-// getClientWithMaxHeight connects to the endpoint that has the highest block height.
-// It uses first-come-first-serve selection within [maxHeight - BlockConfirmation, maxHeight].
+// getClientWithMaxHeight selects an endpoint by config order within the confirmed
+// block range. It collects block heights from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose block height is within
+// [maxHeight - BlockConfirmation, maxHeight].
 func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 

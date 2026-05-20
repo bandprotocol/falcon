@@ -69,7 +69,8 @@ func NewClient(chainName string, cfg *SorobanChainProviderConfig, log logger.Log
 	}
 }
 
-// Connect connects to all Horizon endpoints in parallel and selects the one with the highest ledger.
+// Connect connects to all Horizon endpoints in parallel and selects the first eligible
+// one by config order within the confirmed ledger range.
 func (c *client) Connect(ctx context.Context) error {
 	var wg sync.WaitGroup
 	for _, endpoint := range c.HorizonEndpoints {
@@ -153,9 +154,9 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 	}
 }
 
-// getClientWithMaxLedger selects an endpoint using first-come-first-serve within
-// the confirmed ledger range. It collects ledger sequences from all endpoints, then
-// picks the first one (by arrival order) whose sequence is within
+// getClientWithMaxLedger selects an endpoint by config order within the confirmed
+// ledger range. It collects ledger sequences from all endpoints in parallel, then
+// picks the first endpoint (in config order) whose sequence is within
 // [maxLedger - BlockConfirmation, maxLedger].
 func (c *client) getClientWithMaxLedger(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.HorizonEndpoints))
