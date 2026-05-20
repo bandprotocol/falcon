@@ -46,8 +46,9 @@ var _ Client = (*client)(nil)
 
 // client is the concrete implementation that handles XRPL JSON-RPC interactions.
 type client struct {
-	ChainName string
-	Endpoints []string
+	ChainName         string
+	Endpoints         []string
+	BlockConfirmation uint32
 
 	Log   logger.Logger
 	alert alert.Alert
@@ -64,11 +65,12 @@ type TxResult struct {
 // NewClient creates a new XRPL client from config.
 func NewClient(chainName string, cfg *XRPLChainProviderConfig, log logger.Logger, alert alert.Alert) Client {
 	return &client{
-		ChainName: chainName,
-		Endpoints: cfg.Endpoints,
-		Log:       log.With("chain_name", chainName),
-		alert:     alert,
-		clients:   NewXRPLClients(),
+		ChainName:         chainName,
+		Endpoints:         cfg.Endpoints,
+		BlockConfirmation: 5,
+		Log:               log.With("chain_name", chainName),
+		alert:             alert,
+		clients:           NewXRPLClients(),
 	}
 }
 
@@ -134,6 +136,7 @@ func (c *client) Connect(_ context.Context) error {
 }
 
 // getClientWithMaxHeight connects to the endpoint that has the highest ledger index.
+// It uses first-come-first-serve selection within [maxLedger - BlockConfirmation, maxLedger].
 func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
@@ -170,14 +173,31 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 		}(endpoint)
 	}
 
-	var result ClientConnectionResult
+	// Collect all results in arrival order and track the maximum ledger index.
+	results := make([]ClientConnectionResult, 0, len(c.Endpoints))
+	var maxLedger uint32
 	for range c.Endpoints {
 		r := <-ch
 		if r.Client != nil {
-			if r.LedgerIndex > result.LedgerIndex ||
-				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.LedgerIndex == result.LedgerIndex) {
-				result = r
+			results = append(results, r)
+			if r.LedgerIndex > maxLedger {
+				maxLedger = r.LedgerIndex
 			}
+		}
+	}
+
+	// Determine the minimum acceptable ledger index based on BlockConfirmation.
+	var minLedger uint32
+	if maxLedger >= c.BlockConfirmation {
+		minLedger = maxLedger - c.BlockConfirmation
+	}
+
+	// First-come-first-serve: pick the first arrived endpoint within the confirmed range.
+	var result ClientConnectionResult
+	for _, r := range results {
+		if r.LedgerIndex >= minLedger {
+			result = r
+			break
 		}
 	}
 

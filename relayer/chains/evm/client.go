@@ -51,10 +51,11 @@ type Client interface {
 
 // Client is the struct that handles interactions with the EVM chain.
 type client struct {
-	ChainName      string
-	Endpoints      []string
-	QueryTimeout   time.Duration
-	ExecuteTimeout time.Duration
+	ChainName         string
+	Endpoints         []string
+	QueryTimeout      time.Duration
+	ExecuteTimeout    time.Duration
+	BlockConfirmation uint64
 
 	Log logger.Logger
 
@@ -90,13 +91,14 @@ func dialEVMEndpoint(ctx context.Context, endpoint string) (*ethclient.Client, e
 // NewClient creates a new EVM client from config file and load keys.
 func NewClient(chainName string, cfg *EVMChainProviderConfig, log logger.Logger, alert alert.Alert) *client {
 	return &client{
-		ChainName:      chainName,
-		Endpoints:      cfg.Endpoints,
-		QueryTimeout:   cfg.QueryTimeout,
-		ExecuteTimeout: cfg.ExecuteTimeout,
-		Log:            log.With("chain_name", chainName),
-		alert:          alert,
-		clients:        NewEVMClients(),
+		ChainName:         chainName,
+		Endpoints:         cfg.Endpoints,
+		QueryTimeout:      cfg.QueryTimeout,
+		ExecuteTimeout:    cfg.ExecuteTimeout,
+		BlockConfirmation: cfg.BlockConfirmation,
+		Log:               log.With("chain_name", chainName),
+		alert:             alert,
+		clients:           NewEVMClients(),
 	}
 }
 
@@ -504,7 +506,10 @@ func (c *client) BroadcastTx(ctx context.Context, tx *gethtypes.Transaction) (st
 	return tx.Hash().Hex(), nil
 }
 
-// getClientWithMaxHeight connects to the endpoint that has the highest block height.
+// getClientWithMaxHeight selects an endpoint using first-come-first-serve within
+// the confirmed block range. It collects block heights from all endpoints, then
+// picks the first one (by arrival order) whose block height is within
+// [maxHeight - BlockConfirmation, maxHeight].
 func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
@@ -554,13 +559,31 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 		}(endpoint)
 	}
 
-	var result ClientConnectionResult
+	// Collect all results in arrival order and track the maximum block height.
+	results := make([]ClientConnectionResult, 0, len(c.Endpoints))
+	var maxHeight uint64
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight > result.BlockHeight || (r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
-				result = r
+			results = append(results, r)
+			if r.BlockHeight > maxHeight {
+				maxHeight = r.BlockHeight
 			}
+		}
+	}
+
+	// Determine the minimum acceptable block height based on BlockConfirmation.
+	var minHeight uint64
+	if maxHeight >= c.BlockConfirmation {
+		minHeight = maxHeight - c.BlockConfirmation
+	}
+
+	// First-come-first-serve: pick the first arrived endpoint within the confirmed range.
+	var result ClientConnectionResult
+	for _, r := range results {
+		if r.BlockHeight >= minHeight {
+			result = r
+			break
 		}
 	}
 

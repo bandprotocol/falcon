@@ -38,8 +38,9 @@ type Client interface {
 
 // Client is the struct that handles interactions with the Icon chain.
 type client struct {
-	ChainName string
-	Endpoints []string
+	ChainName         string
+	Endpoints         []string
+	BlockConfirmation uint64
 
 	Log logger.Logger
 
@@ -50,11 +51,12 @@ type client struct {
 // NewClient creates a new Icon client from config file and load keys.
 func NewClient(chainName string, cfg *IconChainProviderConfig, log logger.Logger, alert alert.Alert) *client {
 	return &client{
-		ChainName: chainName,
-		Endpoints: cfg.Endpoints,
-		Log:       log.With("chain_name", chainName),
-		alert:     alert,
-		clients:   NewIconClients(),
+		ChainName:         chainName,
+		Endpoints:         cfg.Endpoints,
+		BlockConfirmation: 5,
+		Log:               log.With("chain_name", chainName),
+		alert:             alert,
+		clients:           NewIconClients(),
 	}
 }
 
@@ -112,6 +114,7 @@ func (c *client) StartLivelinessCheck(ctx context.Context, interval time.Duratio
 }
 
 // getClientWithMaxHeight connects to the endpoint that has the highest block height.
+// It uses first-come-first-serve selection within [maxHeight - BlockConfirmation, maxHeight].
 func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 	ch := make(chan ClientConnectionResult, len(c.Endpoints))
 
@@ -158,14 +161,31 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 		}(endpoint)
 	}
 
-	var result ClientConnectionResult
+	// Collect all results in arrival order and track the maximum block height.
+	results := make([]ClientConnectionResult, 0, len(c.Endpoints))
+	var maxHeight uint64
 	for i := 0; i < len(c.Endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			if r.BlockHeight > result.BlockHeight ||
-				(r.Endpoint == c.clients.GetSelectedEndpoint() && r.BlockHeight == result.BlockHeight) {
-				result = r
+			results = append(results, r)
+			if r.BlockHeight > maxHeight {
+				maxHeight = r.BlockHeight
 			}
+		}
+	}
+
+	// Determine the minimum acceptable block height based on BlockConfirmation.
+	var minHeight uint64
+	if maxHeight >= c.BlockConfirmation {
+		minHeight = maxHeight - c.BlockConfirmation
+	}
+
+	// First-come-first-serve: pick the first arrived endpoint within the confirmed range.
+	var result ClientConnectionResult
+	for _, r := range results {
+		if r.BlockHeight >= minHeight {
+			result = r
+			break
 		}
 	}
 
