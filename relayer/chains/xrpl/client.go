@@ -183,13 +183,13 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 		}(endpoint)
 	}
 
-	// Collect all results in arrival order and track the maximum ledger index.
-	results := make([]ClientConnectionResult, 0, len(c.Endpoints))
+	// Collect all results into a map and track the maximum ledger index.
+	resultMap := make(map[string]ClientConnectionResult, len(c.Endpoints))
 	var maxLedger uint32
 	for range c.Endpoints {
 		r := <-ch
 		if r.Client != nil {
-			results = append(results, r)
+			resultMap[r.Endpoint] = r
 			if r.LedgerIndex > maxLedger {
 				maxLedger = r.LedgerIndex
 			}
@@ -202,10 +202,10 @@ func (c *client) getClientWithMaxHeight() (ClientConnectionResult, error) {
 		minLedger = maxLedger - c.BlockConfirmation
 	}
 
-	// First-come-first-serve: pick the first arrived endpoint within the confirmed range.
+	// Pick the first endpoint in config order that is within the confirmed range.
 	var result ClientConnectionResult
-	for _, r := range results {
-		if r.LedgerIndex >= minLedger {
+	for _, endpoint := range c.Endpoints {
+		if r, ok := resultMap[endpoint]; ok && r.LedgerIndex >= minLedger {
 			result = r
 			break
 		}

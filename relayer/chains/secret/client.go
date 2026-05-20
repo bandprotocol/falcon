@@ -405,13 +405,13 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 		}(endpoint)
 	}
 
-	// Collect all results in arrival order and track the maximum block height.
-	results := make([]ClientConnectionResult, 0, len(c.endpoints))
+	// Collect all results into a map and track the maximum block height.
+	resultMap := make(map[string]ClientConnectionResult, len(c.endpoints))
 	var maxHeight int64
 	for i := 0; i < len(c.endpoints); i++ {
 		r := <-ch
 		if r.Client != nil {
-			results = append(results, r)
+			resultMap[r.Endpoint] = r
 			if r.BlockHeight > maxHeight {
 				maxHeight = r.BlockHeight
 			}
@@ -424,10 +424,10 @@ func (c *client) getClientWithMaxHeight(ctx context.Context) (ClientConnectionRe
 		minHeight = maxHeight - c.blockConfirmation
 	}
 
-	// First-come-first-serve: pick the first arrived endpoint within the confirmed range.
+	// Pick the first endpoint in config order that is within the confirmed range.
 	var result ClientConnectionResult
-	for _, r := range results {
-		if r.BlockHeight >= minHeight {
+	for _, endpoint := range c.endpoints {
+		if r, ok := resultMap[endpoint]; ok && r.BlockHeight >= minHeight {
 			result = r
 			break
 		}
