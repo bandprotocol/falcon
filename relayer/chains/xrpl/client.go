@@ -2,6 +2,7 @@ package xrpl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -22,6 +23,13 @@ import (
 )
 
 const RippleEpochOffset = 946684800
+
+const (
+	queuedTransactionResult     = "terQUEUED"
+	successfulTransactionResult = "tesSUCCESS"
+	transactionNotFoundError    = "txnNotFound"
+	defaultTxPollingInterval    = time.Second
+)
 
 // idleConnTimeout is shorter than the typical load-balancer idle timeout
 // (e.g. AWS ALB default 60s) to prevent "connection reset by peer" errors
@@ -44,7 +52,7 @@ type Client interface {
 	GetAccountSequenceNumber(account string) (uint32, error)
 	GetBalance(account string) (*big.Int, error)
 	Autofill(tx *transaction.FlatTransaction) error
-	BroadcastTx(txBlob string) (TxResult, error)
+	BroadcastTx(ctx context.Context, txBlob string) (TxResult, error)
 	GetLedgerCloseTime(ledgerIndex common.LedgerIndex) (*time.Time, error)
 }
 
@@ -55,6 +63,7 @@ type client struct {
 	ChainName         string
 	Endpoints         []string
 	BlockConfirmation uint32
+	TxPollingInterval time.Duration
 
 	Log   logger.Logger
 	alert alert.Alert
@@ -74,6 +83,7 @@ func NewClient(chainName string, cfg *XRPLChainProviderConfig, log logger.Logger
 		ChainName:         chainName,
 		Endpoints:         cfg.Endpoints,
 		BlockConfirmation: 5,
+		TxPollingInterval: cfg.NonceInterval,
 		Log:               log.With("chain_name", chainName),
 		alert:             alert,
 		clients:           NewXRPLClients(),
@@ -308,8 +318,10 @@ func (c *client) Autofill(tx *transaction.FlatTransaction) error {
 	return nil
 }
 
-// BroadcastTx submits a signed tx blob and returns its hash.
-func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
+// BroadcastTx submits a signed tx blob and returns its validated result when it
+// is queued. A queued transaction must not be rebuilt with a new sequence while
+// its final result is still unknown.
+func (c *client) BroadcastTx(ctx context.Context, txBlob string) (TxResult, error) {
 	client, err := c.clients.GetSelectedClient()
 	if err != nil {
 		return TxResult{}, fmt.Errorf("failed to get client: %w", err)
@@ -340,7 +352,17 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 		}, fmt.Errorf("missing fee in submit response")
 	}
 
-	if result.EngineResult != "tesSUCCESS" {
+	txResult := TxResult{
+		TxHash:      txHash,
+		Fee:         fee,
+		LedgerIndex: result.ValidatedLedgerIndex,
+	}
+
+	if result.EngineResult == queuedTransactionResult {
+		return c.waitForQueuedTransaction(ctx, txResult)
+	}
+
+	if result.EngineResult != successfulTransactionResult {
 		return TxResult{
 				TxHash:      txHash,
 				Fee:         fee,
@@ -352,11 +374,65 @@ func (c *client) BroadcastTx(txBlob string) (TxResult, error) {
 			)
 	}
 
-	return TxResult{
-		TxHash:      txHash,
-		Fee:         fee,
-		LedgerIndex: result.ValidatedLedgerIndex,
-	}, nil
+	return txResult, nil
+}
+
+// waitForQueuedTransaction polls the original transaction hash until its
+// validated result is known. Without LastLedgerSequence, txnNotFound and RPC
+// errors cannot prove that a queued transaction will never validate, so they
+// remain pending until the relayer context is canceled.
+func (c *client) waitForQueuedTransaction(
+	ctx context.Context,
+	txResult TxResult,
+) (TxResult, error) {
+	pollingInterval := c.TxPollingInterval
+	if pollingInterval <= 0 {
+		pollingInterval = defaultTxPollingInterval
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return txResult, fmt.Errorf("waiting for queued transaction %s: %w", txResult.TxHash, ctx.Err())
+		default:
+		}
+
+		client, err := c.clients.GetSelectedClient()
+		if err == nil {
+			var res rpc.XRPLResponse
+			res, err = client.Request(&requests.TxRequest{Transaction: txResult.TxHash})
+			if err == nil {
+				var txResponse requests.TxResponse
+				if err = res.GetResult(&txResponse); err == nil && txResponse.Validated {
+					txResult.LedgerIndex = txResponse.LedgerIndex
+					if txResponse.Meta.TransactionResult != successfulTransactionResult {
+						return txResult, fmt.Errorf(
+							"queued transaction %s validated with engine result %s",
+							txResult.TxHash,
+							txResponse.Meta.TransactionResult,
+						)
+					}
+
+					return txResult, nil
+				}
+			}
+		}
+
+		if err != nil && !isTransactionNotFound(err) {
+			c.Log.Warn("Failed to query queued XRPL transaction", "tx_hash", txResult.TxHash, "err", err)
+		}
+		timer := time.NewTimer(pollingInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return txResult, fmt.Errorf("waiting for queued transaction %s: %w", txResult.TxHash, ctx.Err())
+		case <-timer.C:
+		}
+	}
+}
+
+func isTransactionNotFound(err error) bool {
+	var clientErr *rpc.ClientError
+	return errors.As(err, &clientErr) && clientErr.ErrorString == transactionNotFoundError
 }
 
 // GetLedgerCloseTime fetches the close time of the ledger with the given index.

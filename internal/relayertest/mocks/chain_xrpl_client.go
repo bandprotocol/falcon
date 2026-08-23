@@ -60,18 +60,18 @@ func (mr *MockXRPLClientMockRecorder) Autofill(tx any) *gomock.Call {
 }
 
 // BroadcastTx mocks base method.
-func (m *MockXRPLClient) BroadcastTx(txBlob string) (xrpl.TxResult, error) {
+func (m *MockXRPLClient) BroadcastTx(ctx context.Context, txBlob string) (xrpl.TxResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BroadcastTx", txBlob)
+	ret := m.ctrl.Call(m, "BroadcastTx", ctx, txBlob)
 	ret0, _ := ret[0].(xrpl.TxResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BroadcastTx indicates an expected call of BroadcastTx.
-func (mr *MockXRPLClientMockRecorder) BroadcastTx(txBlob any) *gomock.Call {
+func (mr *MockXRPLClientMockRecorder) BroadcastTx(ctx, txBlob any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastTx", reflect.TypeOf((*MockXRPLClient)(nil).BroadcastTx), txBlob)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BroadcastTx", reflect.TypeOf((*MockXRPLClient)(nil).BroadcastTx), ctx, txBlob)
 }
 
 // CheckAndConnect mocks base method.
