@@ -70,16 +70,15 @@ func TestBroadcastTxWaitsForQueuedTransaction(t *testing.T) {
 	rpcConfig, err := rpc.NewClientConfig(server.URL)
 	require.NoError(t, err)
 	rpcClient := rpc.NewClient(rpcConfig)
-	clients := NewXRPLClients()
-	clients.SetClient(server.URL, rpcClient)
-	clients.SetSelectedEndpoint(server.URL)
 
 	client := &client{
 		ChainName:         "xrpl-test",
 		TxPollingInterval: time.Millisecond,
 		Log:               logger.NewZapLogWrapper(zap.NewNop().Sugar()),
-		clients:           clients,
+		clients:           NewXRPLClients(),
 	}
+	client.clients.SetClient(server.URL, rpcClient)
+	client.clients.SetSelectedEndpoint(server.URL)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
