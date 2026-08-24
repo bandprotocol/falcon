@@ -200,10 +200,13 @@ SignerLoop:
 			}
 		}
 
-		txResult, err := cp.Client.BroadcastTx(txBlob)
+		txResult, err := cp.Client.BroadcastTx(ctx, txBlob)
 		if err != nil {
 			log.Error("Broadcast transaction error", "retry_count", retryCount, err)
 			lastErr = err
+			if ctx.Err() != nil {
+				return fmt.Errorf("[XRPLProvider] broadcast interrupted: %w", err)
+			}
 
 			// save failed tx in db
 			cp.handleSaveTransaction(

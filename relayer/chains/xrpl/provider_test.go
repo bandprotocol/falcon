@@ -129,7 +129,7 @@ func (s *XRPLProviderTestSuite) TestRelayPacket() {
 	s.wallet.EXPECT().GetSigners().Return([]wallet.Signer{mockSigner})
 	s.client.EXPECT().CheckAndConnect(gomock.Any()).Return(nil)
 	s.client.EXPECT().GetAccountSequenceNumber(mockSigner.GetAddress()).Return(uint32(10), nil)
-	s.client.EXPECT().BroadcastTx(gomock.Any()).Return(
+	s.client.EXPECT().BroadcastTx(gomock.Any(), gomock.Any()).Return(
 		xrpl.TxResult{TxHash: "HASH", Fee: "100"}, nil,
 	)
 
